@@ -36,3 +36,11 @@ clone https://github.com/bighadj22/codflow.git codflow "منصة COD: تسوية
 echo
 echo "تم. المشاريع في: $(pwd)"
 echo "ابدأ من: fleetops/server/src/Models/Order.php و OrderConfig.php"
+
+# ── المراجع العربية (بدون رخصة — للدراسة فقط، لا تنسخ الكود) ──
+# التفاصيل: docs/research/arabic-delivery-systems.md
+clone https://github.com/el-joe/marketplace_platform.git marketplace_platform "الأضخم: 131k سطر، 419 جدول، 5 لوحات (منصة/تاجر/شركة شحن/مندوب/مسوق)"
+clone https://github.com/dllni-app/dllni_backend.git      dllni      "معياري: DeliveryCompany + Staff + تذاكر دعم + نزاعات"
+clone https://github.com/Edzeery/edzeery.git              edzeery    "طبقة الاشتراكات: Plan/PlanFeature/FeatureConsumption + توثيق عربي"
+clone https://github.com/K-YEY/Shipyaex.git               shipyaex   "مفردات COD: محصّل/مرتجع/أسباب رفض/محافظات"
+clone https://github.com/ALRAZEL/my-project.git           alrazel    "5 تطبيقات Flutter عربية: إدارة/زبون/مندوب/مطعم/تاجر"
