@@ -44,3 +44,9 @@ clone https://github.com/dllni-app/dllni_backend.git      dllni      "معيار
 clone https://github.com/Edzeery/edzeery.git              edzeery    "طبقة الاشتراكات: Plan/PlanFeature/FeatureConsumption + توثيق عربي"
 clone https://github.com/K-YEY/Shipyaex.git               shipyaex   "مفردات COD: محصّل/مرتجع/أسباب رفض/محافظات"
 clone https://github.com/ALRAZEL/my-project.git           alrazel    "5 تطبيقات Flutter عربية: إدارة/زبون/مندوب/مطعم/تاجر"
+
+# ── مراجع توصيل الطرود والشحنات (غير المطاعم) ──
+# التفاصيل: docs/research/parcel-delivery-systems.md
+clone https://github.com/el-joe/marketplace_platforms.git marketplace_platforms "Monorepo: باكند 163k سطر + تطبيق شركة شحن + تطبيق مندوب + تطبيق تاجر + SQL + Postman"
+clone https://github.com/mshari-11/firstlinelog.com.git   firstlinelog "منصة شركة لوجستيات سعودية: سائقون وأسطول ومالية عبر 16 مدينة"
+clone https://github.com/lc3lx/Mrasil.git                 mrasil     "شحن طرود خالص: بوالص، مرتجعات، استبدالات، تتبع بعلامة التاجر، عقود"
