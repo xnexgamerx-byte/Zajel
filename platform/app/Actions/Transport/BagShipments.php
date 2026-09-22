@@ -152,6 +152,22 @@ class BagShipments
             foreach ($bag->shipments()->wherePivotNull('removed_at')->get() as $shipment) {
                 $shipment->forceFill(['current_bag_id' => null])->save();
 
+                /*
+                | الراجع يصل راجعاً.
+                |
+                | «قيد الإرجاع ← في المخزن» انتقالٌ مشروع — لإعادة المحاولة
+                | حين يطلبها التاجر — فكان هذا الفرع يُعيد كل راجعٍ يعبر بين
+                | الفروع شحنةً عاديّة: يختفي من تسليم الراجع، ولا تُقيَّد
+                | أجرته، ويُمكن أن يخرج ثانيةً إلى الزبون الذي رفضه. فالراجع
+                | يتغيّر مكانه لا حالته، ويُسجَّل وصوله حدثاً.
+                */
+                if ($shipment->status === ShipmentStatus::Returning) {
+                    $shipment->forceFill(['hub_id' => $bag->to_hub_id])->save();
+                    $this->log($shipment, 'return_arrived', "وصل الراجع مع الكيس {$bag->code} إلى مركز الوصول", $actor);
+
+                    continue;
+                }
+
                 if ($shipment->status->canMoveTo(ShipmentStatus::AtHub)) {
                     $change->handle($shipment->refresh(), ShipmentStatus::AtHub, $actor, [
                         'hub_id' => $bag->to_hub_id,

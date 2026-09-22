@@ -357,6 +357,55 @@ class TransportTest extends TestCase
         });
     }
 
+    /**
+     * الراجع يعبر بين الفروع راجعاً ويصل راجعاً.
+     *
+     * «قيد الإرجاع ← في المخزن» انتقالٌ مشروع — لإعادة المحاولة حين
+     * يطلبها التاجر. فكان فتح الكيس يحوّل كل ما فيه إلى «في المخزن»
+     * بلا تمييز، فيعود الراجع شحنةً عاديّة: يختفي من شاشة تسليم الراجع،
+     * ولا تُقيَّد أجرته أبداً، ويُمكن أن يخرج مع مندوبٍ مرّةً أخرى إلى
+     * الزبون الذي رفضه.
+     */
+    public function test_a_return_crossing_branches_arrives_still_a_return(): void
+    {
+        $shipment = $this->atHub('زبون رفض الطلب');
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $change = app(ChangeShipmentStatus::class);
+            $courier = \App\Models\Courier::create([
+                'code' => 'C1', 'name' => 'مندوب', 'phone' => '07720000009',
+                'type' => 'delivery', 'status' => 'active',
+            ]);
+            $reason = \App\Models\FailureReason::where('code', 'no_answer')->firstOrFail();
+
+            $change->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, $this->staff, ['courier_id' => $courier->id]);
+            $change->handle($shipment->refresh(), ShipmentStatus::FailedAttempt, $this->staff, ['failure_reason_id' => $reason->id]);
+            $change->handle($shipment->refresh(), ShipmentStatus::Returning, $this->staff);
+            app(\App\Actions\Returns\ReceiveReturns::class)->handle([$shipment->id], $this->staff);
+        });
+
+        $bag = $this->bag();
+
+        Tenancy::runFor($this->company, function () use ($bag, $shipment) {
+            $this->bagger()->add($bag, [$shipment->number], $this->staff);
+            $this->bagger()->seal($bag->refresh(), $this->staff);
+
+            $manifest = $this->runner()->create($this->baghdad, $this->basra, [], $this->staff);
+            $this->runner()->load($manifest, $bag->refresh(), $this->staff);
+            $this->runner()->dispatch($manifest->refresh(), $this->staff);
+            $this->runner()->receive($manifest->refresh(), [$bag->id], $this->staff);
+            $this->bagger()->open($bag->refresh(), $this->staff);
+
+            $fresh = $shipment->refresh();
+
+            $this->assertSame(ShipmentStatus::Returning, $fresh->status, 'الراجع عاد شحنةً عاديّة بفتح الكيس.');
+            // وصار مكانه مركز الوصول، فيراه فرع التاجر جاهزاً للتسليم
+            $this->assertSame($this->basra->id, (int) $fresh->hub_id);
+            $this->assertNull($fresh->current_bag_id);
+            $this->assertNotNull($fresh->return_received_at);
+        });
+    }
+
     public function test_an_unopened_bag_cannot_be_opened_before_it_arrives(): void
     {
         [, $bag] = $this->dispatched();

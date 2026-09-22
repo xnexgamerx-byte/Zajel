@@ -96,19 +96,30 @@ class ColumnNameTest extends TestCase
                 continue;
             }
 
-            preg_match_all(
-                "/'event_type'\s*=>\s*'([a-z_]+)'|->log\(\s*\\$[A-Za-z_]+\s*,\s*'([a-z_]+)'/",
-                $file->getContents(),
-                $matches,
-                PREG_SET_ORDER,
-            );
+            $body = $file->getContents();
 
-            foreach ($matches as $match) {
-                $type = $match[1] !== '' ? $match[1] : ($match[2] ?? '');
+            /*
+            | كل سلسلة حرفية على سطر 'event_type' => … لا الأولى وحدها:
+            | فالنوع يُكتب أحياناً بشرطٍ ثلاثيّ
+            | (empty($force) ? 'status_change' : 'forced_status') — ومُطابِقٌ
+            | يقرأ الأولى وحدها أبلغ أن forced_status لا يكتبه أحد.
+            */
+            preg_match_all("/'event_type'\s*=>([^\n]*)/", $body, $lines);
 
-                if ($type !== '') {
+            foreach ($lines[1] as $line) {
+                // والمفتاح داخل [...] ليس نوعاً: $options['force'] مثلاً
+                preg_match_all("/(?<!\[)'([a-z_]+)'/", $line, $literals);
+
+                foreach ($literals[1] as $type) {
                     $written[$type] = true;
                 }
+            }
+
+            // والأفعال التي تكتب عبر ->log($shipment, 'type', …)
+            preg_match_all("/->log\(\s*\\$[A-Za-z_]+\s*,\s*'([a-z_]+)'/", $body, $logged);
+
+            foreach ($logged[1] as $type) {
+                $written[$type] = true;
             }
         }
 
@@ -118,6 +129,13 @@ class ColumnNameTest extends TestCase
             [],
             array_values(array_diff(array_keys($written), array_keys(ShipmentEvent::TYPES))),
             'أنواع أحداث تُكتب ولا اسم عربيّ لها في ShipmentEvent::TYPES.',
+        );
+
+        // والعكس: اسمٌ بلا كاتب يَعِد في المُرشِّح بفرزٍ لا يقع أبداً
+        $this->assertSame(
+            [],
+            array_values(array_diff(array_keys(ShipmentEvent::TYPES), array_keys($written))),
+            'أنواع في ShipmentEvent::TYPES لا يكتبها أي فعل — تظهر في المُرشِّح ولا تُطابق شيئاً.',
         );
     }
 
