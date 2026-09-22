@@ -194,18 +194,26 @@ class Shipment extends Model
             return $q;
         }
 
+        /*
+        | الأعمدة مؤهَّلة باسم الجدول دائماً.
+        |
+        | كانت where('branch_id', …) مجرّدة، فكل تقرير يضمّ جدولاً آخر
+        | فيه branch_id — التجّار، المناديب — يسقط بـ «ambiguous column»
+        | لمدير الفرع وحده: ثلاثة تقارير كانت تُرجع 500 لكل مدير فرع،
+        | والاختبارات كلّها تعمل بصاحب الشركة فلم يرَها أحد.
+        */
         if ($user->role === UserRole::Merchant) {
-            return $q->where('merchant_id', $user->merchant_id ?? 0);
+            return $q->where($q->qualifyColumn('merchant_id'), $user->merchant_id ?? 0);
         }
 
         if ($user->role === UserRole::Courier) {
             return $q->where(fn (Builder $w) => $w
-                ->where('delivery_courier_id', $user->courier_id ?? 0)
-                ->orWhere('pickup_courier_id', $user->courier_id ?? 0));
+                ->where($q->qualifyColumn('delivery_courier_id'), $user->courier_id ?? 0)
+                ->orWhere($q->qualifyColumn('pickup_courier_id'), $user->courier_id ?? 0));
         }
 
         if ($user->isBranchLimited()) {
-            return $q->where('branch_id', $user->branch_id);
+            return $q->where($q->qualifyColumn('branch_id'), $user->branch_id);
         }
 
         return $q;
