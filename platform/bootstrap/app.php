@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\IdentifyTenant;
 use Illuminate\Foundation\Application;
@@ -35,6 +36,8 @@ return Application::configure(basePath: dirname(__DIR__))
             after: IdentifyTenant::class,
             append: EnsureUserBelongsToTenant::class,
         );
+
+        $middleware->alias(['staff' => EnsureStaff::class]);
 
         $middleware->redirectGuestsTo(fn () => route('login'));
     })

@@ -6,8 +6,12 @@
 
 const form = document.getElementById('shipment-form');
 
-if (form) {
+// ربط المناطق بالمحافظة يخدم كل نموذج فيه عنوان: الشحنة والتاجر وغيرهما.
+if (document.getElementById('cities-data')) {
     initCityLinking();
+}
+
+if (form) {
     initLiveQuote();
 }
 
@@ -174,5 +178,17 @@ if (bulkBar) {
         refresh();
     });
 
+    refresh();
+}
+
+/** خانة اختيار تُظهر كتلة حقول (مثل حساب الدخول في نماذج التاجر والمندوب). */
+for (const toggle of document.querySelectorAll('[data-toggle]')) {
+    const target = document.getElementById(toggle.dataset.toggle);
+
+    if (!target) continue;
+
+    const refresh = () => { target.hidden = !toggle.checked; };
+
+    toggle.addEventListener('change', refresh);
     refresh();
 }

@@ -119,6 +119,7 @@
 
     <div class="space-y-5">
         {{-- لوحة الإجراء: الحالات المعروضة هي المسموحة فعلاً، لا كل الحالات --}}
+        @if (auth()->user()->isStaff())
         <section class="card p-5" id="action-panel">
             <h2 class="mb-4 text-sm font-bold">الإجراء التالي</h2>
 
@@ -216,6 +217,7 @@
                 </form>
             @endif
         </section>
+        @endif
 
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">الحساب</h2>

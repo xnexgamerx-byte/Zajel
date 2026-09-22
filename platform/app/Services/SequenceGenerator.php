@@ -54,6 +54,8 @@ class SequenceGenerator
     protected function defaultPrefix(string $key): string
     {
         return match ($key) {
+            'merchant'            => 'M',
+            'courier'             => 'C',
             'bag'                 => 'BG',
             'manifest'            => 'MF',
             'pickup_request'      => 'PU',

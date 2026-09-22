@@ -89,6 +89,13 @@ class ShipmentController extends Controller
 
     public function show(Request $request, Shipment $shipment): View
     {
+        // ربط المسار بالنموذج يطبّق فلترة الشركة وحدها. بلا هذا السطر
+        // يفتح تاجرٌ شحنة تاجر آخر بكتابة رقمها في العنوان.
+        abort_unless(
+            Shipment::whereKey($shipment->id)->visibleTo($request->user())->exists(),
+            404,
+        );
+
         $shipment->load([
             'merchant', 'governorate', 'city', 'deliveryCourier', 'pickupCourier',
             'hub', 'branch', 'lastFailureReason',

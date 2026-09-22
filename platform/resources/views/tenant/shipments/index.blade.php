@@ -96,7 +96,9 @@
 
         <button class="btn-primary">تطبيق</button>
         <a href="{{ route('shipments.index') }}" class="btn-ghost">مسح</a>
-        <a href="{{ route('shipments.create') }}" class="btn-primary ms-auto">+ شحنة جديدة</a>
+        @if (auth()->user()->isStaff())
+            <a href="{{ route('shipments.create') }}" class="btn-primary ms-auto">+ شحنة جديدة</a>
+        @endif
     </div>
 </form>
 
@@ -125,9 +127,11 @@
                 @forelse ($shipments as $shipment)
                     <tr class="hover:bg-slate-50">
                         <td class="px-4 py-3">
-                            <input type="checkbox" form="assign-form" name="shipment_ids[]"
-                                   value="{{ $shipment->id }}" data-row-select
-                                   class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                            @if (auth()->user()->isStaff())
+                                <input type="checkbox" form="assign-form" name="shipment_ids[]"
+                                       value="{{ $shipment->id }}" data-row-select
+                                       class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                            @endif
                         </td>
                         <td class="px-4 py-3">
                             <a href="{{ route('shipments.show', $shipment) }}"
@@ -168,7 +172,9 @@
                     <tr>
                         <td colspan="10" class="px-4 py-16 text-center">
                             <div class="text-slate-500">لا توجد شحنات مطابقة.</div>
-                            <a href="{{ route('shipments.create') }}" class="btn-primary mt-4">أنشئ أول شحنة</a>
+                            @if (auth()->user()->isStaff())
+                                <a href="{{ route('shipments.create') }}" class="btn-primary mt-4">أنشئ أول شحنة</a>
+                            @endif
                         </td>
                     </tr>
                 @endforelse
@@ -188,6 +194,7 @@
 </p>
 
 {{-- شريط الإسناد الجماعي: يظهر عند اختيار صفوف --}}
+@if (auth()->user()->isStaff())
 <form method="POST" action="{{ route('shipments.assign') }}" id="assign-form"
       class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur"
       hidden data-bulk-bar>
@@ -212,4 +219,5 @@
         </span>
     </div>
 </form>
+@endif
 @endsection

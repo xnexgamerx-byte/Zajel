@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ShipmentStatus;
+use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -131,10 +132,31 @@ class Shipment extends Model
         });
     }
 
-    /** المستخدم المقيّد بفرع يرى فرعه فقط. */
+    /**
+     * ما يحقّ لهذا المستخدم رؤيته داخل شركته.
+     *
+     * CompanyScope يمنع رؤية شركة أخرى؛ وهذا يمنع رؤية ما لا يخصّك
+     * داخل شركتك: التاجر يرى شحناته وحدها، والمندوب ما أُسنِد إليه،
+     * والموظّف المقيّد بفرع فرعَه. بلا هذا، حساب تاجر واحد يكشف
+     * أسعار كل التجّار الآخرين وأرقام زبائنهم.
+     */
     public function scopeVisibleTo(Builder $q, ?User $user): Builder
     {
-        if ($user && $user->isBranchLimited()) {
+        if (! $user) {
+            return $q;
+        }
+
+        if ($user->role === UserRole::Merchant) {
+            return $q->where('merchant_id', $user->merchant_id ?? 0);
+        }
+
+        if ($user->role === UserRole::Courier) {
+            return $q->where(fn (Builder $w) => $w
+                ->where('delivery_courier_id', $user->courier_id ?? 0)
+                ->orWhere('pickup_courier_id', $user->courier_id ?? 0));
+        }
+
+        if ($user->isBranchLimited()) {
             return $q->where('branch_id', $user->branch_id);
         }
 

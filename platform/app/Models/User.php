@@ -48,6 +48,12 @@ class User extends Authenticatable
         return $this->belongsTo(Merchant::class);
     }
 
+    /** موظّف شركة — لا تاجر ولا مندوب. */
+    public function isStaff(): bool
+    {
+        return ! in_array($this->role, [UserRole::Merchant, UserRole::Courier], true);
+    }
+
     public function isPlatformUser(): bool
     {
         return $this->company_id === null && $this->role->isPlatform();

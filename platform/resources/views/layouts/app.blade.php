@@ -28,18 +28,29 @@
         </a>
 
         <nav class="hidden items-center gap-1 text-sm md:flex">
+            @php $staff = auth()->user()->isStaff(); @endphp
             <a href="{{ route('shipments.index') }}"
                class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.index') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
                 الشحنات
             </a>
+            @if ($staff)
             <a href="{{ route('shipments.create') }}"
                class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.create') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
                 شحنة جديدة
             </a>
+            <a href="{{ route('merchants.index') }}"
+               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('merchants.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                التجّار
+            </a>
+            <a href="{{ route('couriers.index') }}"
+               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('couriers.index') || request()->routeIs('couriers.show') || request()->routeIs('couriers.create') || request()->routeIs('couriers.edit') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                المندوبون
+            </a>
             <a href="{{ route('couriers.cash') }}"
                class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('couriers.cash') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                نقد المندوبين
+                النقد
             </a>
+            @endif
         </nav>
 
         <div class="ms-auto flex items-center gap-3">
