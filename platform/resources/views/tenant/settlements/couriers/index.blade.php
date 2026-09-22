@@ -49,7 +49,7 @@
                         </div>
                     </dl>
 
-                    <button class="btn-primary mt-3 w-full">افتح كشفاً</button>
+                    <button type="submit" class="btn-primary mt-3 w-full">افتح كشفاً</button>
                 </form>
             @endforeach
         </div>

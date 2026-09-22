@@ -1,6 +1,11 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
+use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
+use App\Http\Controllers\Platform\ImpersonationController;
+use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
+use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Tenant\CourierController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
@@ -60,3 +65,37 @@ Route::middleware('tenant')->group(function () {
         Route::post('/quote', PricingQuoteController::class)->name('pricing.quote');
     });
 });
+
+/*
+| لوحة النواة. تعمل في وضع المنصّة: لا شركة حالية ولا فلترة company_id،
+| وهذا هو التجاوز الصريح الوحيد للعزل — محروس بـ platform-user.
+*/
+
+Route::prefix('admin')->name('admin.')->middleware('platform')->group(function () {
+    Route::get('/login', [PlatformLoginController::class, 'show'])->middleware('guest')->name('login');
+    Route::post('/login', [PlatformLoginController::class, 'store'])->middleware('guest');
+    Route::post('/logout', [PlatformLoginController::class, 'destroy'])->middleware('auth')->name('logout');
+
+    Route::middleware(['auth', 'platform-user'])->group(function () {
+        Route::get('/', PlatformDashboardController::class)->name('dashboard');
+
+        Route::get('/companies', [PlatformCompanyController::class, 'index'])->name('companies.index');
+        Route::get('/companies/create', [PlatformCompanyController::class, 'create'])->name('companies.create');
+        Route::post('/companies', [PlatformCompanyController::class, 'store'])->name('companies.store');
+        Route::get('/companies/{company}', [PlatformCompanyController::class, 'show'])->name('companies.show');
+        Route::post('/companies/{company}/suspend', [PlatformCompanyController::class, 'suspend'])->name('companies.suspend');
+        Route::post('/companies/{company}/activate', [PlatformCompanyController::class, 'activate'])->name('companies.activate');
+        Route::post('/companies/{company}/impersonate', [ImpersonationController::class, 'start'])->name('companies.impersonate');
+
+        Route::get('/plans', [PlanController::class, 'index'])->name('plans.index');
+        Route::get('/plans/create', [PlanController::class, 'create'])->name('plans.create');
+        Route::post('/plans', [PlanController::class, 'store'])->name('plans.store');
+        Route::get('/plans/{plan}/edit', [PlanController::class, 'edit'])->name('plans.edit');
+        Route::put('/plans/{plan}', [PlanController::class, 'update'])->name('plans.update');
+    });
+});
+
+// إنهاء الانتحال يتم من داخل نظام الشركة، فهو في مجموعة المستأجر
+Route::middleware(['tenant', 'auth'])
+    ->post('/stop-impersonating', [ImpersonationController::class, 'stop'])
+    ->name('impersonation.stop');

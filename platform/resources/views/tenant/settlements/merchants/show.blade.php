@@ -129,7 +129,7 @@
                     <label class="field-label" for="notes">ملاحظات</label>
                     <textarea id="notes" name="notes" rows="2" class="field-input">{{ old('notes') }}</textarea>
                 </div>
-                <button class="btn-primary w-full">إقفال الكشف</button>
+                <button type="submit" class="btn-primary w-full">إقفال الكشف</button>
             </form>
         @elseif ($settlement->status === 'confirmed')
             <form method="POST" action="{{ route('settlements.merchants.pay', $settlement) }}"
@@ -159,7 +159,7 @@
                     @error('payout_reference') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
-                <button class="btn-primary w-full">سجّل الدفع</button>
+                <button type="submit" class="btn-primary w-full">سجّل الدفع</button>
             </form>
         @else
             <section class="card p-5">

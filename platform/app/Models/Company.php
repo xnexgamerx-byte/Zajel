@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\CurrentCompanyScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,6 +27,8 @@ class Company extends Model
 
     protected static function booted(): void
     {
+        static::addGlobalScope(new CurrentCompanyScope);
+
         static::creating(function (self $company) {
             $company->uuid ??= (string) Str::uuid();
         });

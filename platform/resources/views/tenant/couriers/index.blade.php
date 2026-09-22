@@ -38,7 +38,7 @@
             @endforeach
         </select>
     </div>
-    <button class="btn-primary">تطبيق</button>
+    <button type="submit" class="btn-primary">تطبيق</button>
     <a href="{{ route('couriers.index') }}" class="btn-ghost">مسح</a>
 </form>
 

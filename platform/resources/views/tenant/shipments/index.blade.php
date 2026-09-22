@@ -94,7 +94,7 @@
             <input id="to" type="date" name="to" value="{{ request('to') }}" class="field-input">
         </div>
 
-        <button class="btn-primary">تطبيق</button>
+        <button type="submit" class="btn-primary">تطبيق</button>
         <a href="{{ route('shipments.index') }}" class="btn-ghost">مسح</a>
         @if (auth()->user()->isStaff())
             <a href="{{ route('shipments.create') }}" class="btn-primary ms-auto">+ شحنة جديدة</a>
@@ -211,7 +211,7 @@
             @endforeach
         </select>
 
-        <button class="btn-primary">إسناد وإخراج للتوصيل</button>
+        <button type="submit" class="btn-primary">إسناد وإخراج للتوصيل</button>
         <button type="button" class="btn-ghost" data-bulk-clear>إلغاء الاختيار</button>
 
         <span class="ms-auto text-xs text-slate-500">

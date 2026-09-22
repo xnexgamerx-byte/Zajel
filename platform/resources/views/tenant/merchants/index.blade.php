@@ -31,7 +31,7 @@
             @endforeach
         </select>
     </div>
-    <button class="btn-primary">تطبيق</button>
+    <button type="submit" class="btn-primary">تطبيق</button>
     <a href="{{ route('merchants.index') }}" class="btn-ghost">مسح</a>
 </form>
 

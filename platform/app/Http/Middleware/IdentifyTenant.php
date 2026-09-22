@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Models\Scopes\CurrentCompanyScope;
 use App\Support\Tenancy\Tenancy;
 use Closure;
 use Illuminate\Http\Request;
@@ -18,6 +19,10 @@ class IdentifyTenant
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // يبدأ كل طلب من سياق نظيف. في عامل يعيش طويلاً (Octane، طابور)
+        // يبقى سياق الطلب السابق في الحاوية، فيُحدَّد المستأجر الخطأ.
+        Tenancy::forget();
+
         $company = $this->fromSubdomain($request) ?? $this->fromSession($request);
 
         if (! $company) {
@@ -51,7 +56,7 @@ class IdentifyTenant
             return null;
         }
 
-        return Company::where('slug', $slug)->first();
+        return $this->lookup($slug);
     }
 
     protected function fromSession(Request $request): ?Company
@@ -66,6 +71,17 @@ class IdentifyTenant
 
         $slug = $request->session()->get('dev_company');
 
-        return $slug ? Company::where('slug', $slug)->first() : null;
+        return $slug ? $this->lookup($slug) : null;
+    }
+
+    /**
+     * تحديد المستأجر يسبق وجود سياق، فهو الاستثناء الوحيد المسموح
+     * لـ CurrentCompanyScope — ولذلك هو صريح ومحصور في هذه الدالة.
+     */
+    protected function lookup(string $slug): ?Company
+    {
+        return Company::withoutGlobalScope(CurrentCompanyScope::class)
+            ->where('slug', $slug)
+            ->first();
     }
 }

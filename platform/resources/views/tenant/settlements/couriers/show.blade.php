@@ -132,7 +132,7 @@
                     بعد التأكيد يُقفَل الكشف ولا يُعدَّل. أي تصحيح يكون بحركة معاكسة في الدفتر.
                 </div>
 
-                <button class="btn-primary w-full">تأكيد استلام النقد وإقفال الكشف</button>
+                <button type="submit" class="btn-primary w-full">تأكيد استلام النقد وإقفال الكشف</button>
             </form>
         @else
             <section class="card p-5">

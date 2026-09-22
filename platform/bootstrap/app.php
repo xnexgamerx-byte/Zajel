@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsurePlatformUser;
 use App\Http\Middleware\EnsureStaff;
+use App\Http\Middleware\IdentifyPlatform;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\IdentifyTenant;
 use Illuminate\Foundation\Application;
@@ -21,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureUserBelongsToTenant::class,
         ]);
 
+        // لوحة النواة: بلا شركة، وبلا فلترة company_id
+        $middleware->appendToGroup('platform', [IdentifyPlatform::class]);
+
         /*
          | الترتيب هنا ليس تفصيلاً: لارافيل يرفع وسطاء المصادقة في قائمة
          | الأولوية، فلولا هذا لاستُعلِم عن المستخدم قبل تحديد الشركة —
@@ -33,13 +38,24 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $middleware->appendToPriorityList(
+            after: StartSession::class,
+            append: IdentifyPlatform::class,
+        );
+
+        $middleware->appendToPriorityList(
             after: IdentifyTenant::class,
             append: EnsureUserBelongsToTenant::class,
         );
 
-        $middleware->alias(['staff' => EnsureStaff::class]);
+        $middleware->alias([
+            'staff'         => EnsureStaff::class,
+            'platform-user' => EnsurePlatformUser::class,
+        ]);
 
-        $middleware->redirectGuestsTo(fn () => route('login'));
+        // زائر لوحة النواة يُعاد إلى دخولها لا إلى دخول شركة لا وجود لها
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin', 'admin/*')
+            ? route('admin.login')
+            : route('login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -19,6 +19,23 @@
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
 
 @auth
+@if (session()->has(\App\Actions\Platform\ImpersonateCompany::SESSION_KEY))
+    {{-- شريط لا يُخطأ: من يعمل داخل نظام شركة يجب أن يعرف أنه ليس نفسه --}}
+    <div class="sticky top-0 z-40 bg-amber-500 text-amber-950">
+        <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-3 px-4 py-2 text-sm">
+            <span class="font-semibold">
+                أنت داخل نظام {{ $company->name }} من لوحة المنصّة — هذا الدخول مسجَّل في سجلّ الشركة.
+            </span>
+            <form method="POST" action="{{ route('impersonation.stop') }}" class="ms-auto">
+                @csrf
+                <button class="rounded-lg bg-amber-950/10 px-3 py-1 font-semibold hover:bg-amber-950/20">
+                    عُد إلى لوحة المنصّة
+                </button>
+            </form>
+        </div>
+    </div>
+@endif
+
 <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
     <div class="mx-auto flex h-14 max-w-screen-2xl items-center gap-4 px-4">
         <a href="{{ route('shipments.index') }}" class="flex items-center gap-2 font-bold">
