@@ -16,11 +16,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
- * تسعة تقارير لا واحد وثلاثون.
+ * عشرة تقارير لا واحد وثلاثون.
  *
  * النظام المرجعي فيه ٣١ تقريراً، والباقي تنويعات على السؤال نفسه.
  * فالمقياس هنا: كل تقرير يُجيب سؤالاً يُتّخذ بعده قرار — ومن لا قرار
- * بعده لا يُبنى. ستّةٌ تقيس الأداء والمال، وثلاثةٌ تسأل عمّا يَفوت
+ * بعده لا يُبنى. سبعةٌ تقيس الأداء والمال، وثلاثةٌ تسأل عمّا يَفوت
  * بصمت: تاجرٌ توقّف، رصيدٌ سالبٌ يكبر، وتغييرٌ لا يُعرَف مَن أجراه.
  */
 class ReportController extends Controller
@@ -383,6 +383,110 @@ class ReportController extends Controller
             'number' => $number,
             'types'  => ShipmentEvent::TYPES,
             'actors' => ShipmentEvent::ACTORS,
+        ]);
+    }
+
+    /**
+     * ١٠ — مال الرواجع.
+     *
+     * الراجع يُكلّف مرّتين ويُحصَّل مرّة: عمولةٌ للمندوب ذهاباً وإياباً،
+     * وأجرةٌ على التاجر لا تُقيَّد إلّا عند تسليمه. فالسؤال ثلاثة:
+     * ماذا أكسبنا الراجع بعد عمولته؟ ومَن مِن التجّار يُكلّفنا أكثر؟
+     * وكم أجرةً معلّقة على رواجع لم تُسلَّم بعد — مالٌ لا يُقيَّد وكلّ
+     * يوم يمرّ عليه يجعل المطالبة به أصعب؟
+     */
+    public function returnsMoney(Request $request): View
+    {
+        $period = ReportPeriod::fromRequest($request);
+        [$from, $to] = $period->bounds();
+
+        // مؤهَّلة: الاستعلام يُضمّ إليه التجّار، وفيهم status أيضاً
+        $returned = fn () => Shipment::query()
+            ->visibleTo($request->user())
+            ->where('shipments.status', ShipmentStatus::Returned->value)
+            ->whereBetween('shipments.returned_at', [$from, $to]);
+
+        $totals = $returned()
+            ->selectRaw('count(*) as total,
+                         coalesce(sum(shipments.return_fee), 0) as fees,
+                         coalesce(sum(shipments.courier_commission), 0) as commission,
+                         sum(case when shipments.return_fee = 0 then 1 else 0 end) as free')
+            ->toBase()
+            ->first();
+
+        /*
+        | نسبة الرجوع من المُقفَل في المدّة لا من الإجمالي: الشحنة المفتوحة
+        | لم يُعرف مصيرها بعد. والمُقفَل يُقرأ بتاريخ إقفاله — تسليماً أو
+        | رجوعاً — لا بتاريخ إنشائه.
+        */
+        $closed = Shipment::query()
+            ->visibleTo($request->user())
+            ->where(fn ($q) => $q
+                ->where(fn ($d) => $d->whereIn('status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
+                    ->whereBetween('delivered_at', [$from, $to]))
+                ->orWhere(fn ($r) => $r->where('status', ShipmentStatus::Returned->value)
+                    ->whereBetween('returned_at', [$from, $to])))
+            ->selectRaw('merchant_id, count(*) as closed')
+            ->groupBy('merchant_id')
+            ->toBase()
+            ->pluck('closed', 'merchant_id');
+
+        $merchants = $returned()
+            ->join('merchants', 'merchants.id', '=', 'shipments.merchant_id')
+            ->selectRaw('shipments.merchant_id, merchants.business_name as name,
+                         count(*) as returned,
+                         coalesce(sum(shipments.return_fee), 0) as fees,
+                         coalesce(sum(shipments.courier_commission), 0) as commission')
+            ->groupBy('shipments.merchant_id', 'merchants.business_name')
+            ->orderByDesc('returned')
+            ->limit(50)
+            ->toBase()
+            ->get()
+            ->map(function ($row) use ($closed) {
+                $all = (int) ($closed[$row->merchant_id] ?? $row->returned);
+
+                return (object) [
+                    'id'         => (int) $row->merchant_id,
+                    'name'       => $row->name,
+                    'returned'   => (int) $row->returned,
+                    'rate'       => $all > 0 ? (int) round($row->returned / $all * 100) : 0,
+                    'fees'       => (int) $row->fees,
+                    'commission' => (int) $row->commission,
+                    'net'        => (int) $row->fees - (int) $row->commission,
+                ];
+            });
+
+        // المعلّق الآن، أيّاً كانت المدّة: رواجع لم تُسلَّم فأجرتها لم تُقيَّد
+        $pending = Shipment::query()
+            ->visibleTo($request->user())
+            ->where('status', ShipmentStatus::Returning->value)
+            ->selectRaw('count(*) as total,
+                         coalesce(sum(return_fee), 0) as fees,
+                         sum(case when return_received_at is null then 1 else 0 end) as with_courier,
+                         sum(case when return_received_at is not null and current_bag_id is null then 1 else 0 end) as on_shelf,
+                         sum(case when current_bag_id is not null then 1 else 0 end) as in_bag,
+                         min(status_changed_at) as oldest')
+            ->toBase()
+            ->first();
+
+        return view('tenant.reports.returns_money', [
+            'period'    => $period,
+            'totals'    => (object) [
+                'total'      => (int) $totals->total,
+                'fees'       => (int) $totals->fees,
+                'commission' => (int) $totals->commission,
+                'net'        => (int) $totals->fees - (int) $totals->commission,
+                'free'       => (int) $totals->free,
+            ],
+            'merchants' => $merchants,
+            'pending'   => (object) [
+                'total'        => (int) $pending->total,
+                'fees'         => (int) $pending->fees,
+                'with_courier' => (int) $pending->with_courier,
+                'on_shelf'     => (int) $pending->on_shelf,
+                'in_bag'       => (int) $pending->in_bag,
+                'oldest'       => $pending->oldest ? Carbon::parse($pending->oldest) : null,
+            ],
         ]);
     }
 }

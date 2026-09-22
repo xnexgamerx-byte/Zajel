@@ -495,6 +495,93 @@ class ReportsTest extends TestCase
         }
     }
 
+    // ── مال الرواجع ─────────────────────────────────────────────────
+
+    /** راجعٌ حتى «قيد الإرجاع»، ويُسلَّم للتاجر إن طُلب. */
+    private function returned(?Merchant $merchant = null, bool $handOver = true): Shipment
+    {
+        $reason = Tenancy::runFor($this->company, fn () => FailureReason::where('code', 'no_answer')->value('id'));
+
+        $shipment = $this->walk($this->make($merchant), [
+            ShipmentStatus::PickedUp, ShipmentStatus::OutForDelivery,
+            ShipmentStatus::FailedAttempt, ShipmentStatus::Returning,
+        ], [ShipmentStatus::FailedAttempt->value => ['failure_reason_id' => $reason]]);
+
+        return Tenancy::runFor($this->company, function () use ($shipment, $handOver) {
+            if ($handOver) {
+                app(\App\Actions\Returns\ReceiveReturns::class)->handle([$shipment->id], $this->staff);
+                app(ChangeShipmentStatus::class)->handle($shipment->refresh(), ShipmentStatus::Returned, $this->staff);
+            }
+
+            return $shipment->refresh();
+        });
+    }
+
+    public function test_returns_money_nets_the_fee_against_the_commission(): void
+    {
+        $this->returned();
+        $this->returned();
+
+        $totals = $this->actingAs($this->staff)
+            ->get($this->host().'/reports/returns-money')
+            ->assertOk()
+            ->viewData('totals');
+
+        // أجرة الرجوع ٢٥٠٠ من التسعيرة، وعمولة الإرجاع ٧٥٠
+        $this->assertSame(2, $totals->total);
+        $this->assertSame(5_000, $totals->fees);
+        $this->assertSame(1_500, $totals->commission);
+        $this->assertSame(3_500, $totals->net);
+    }
+
+    /** المعلّق لم تُقيَّد أجرته: يُعَدّ معلّقاً لا مكسوباً. */
+    public function test_a_return_not_yet_handed_over_is_pending_not_earned(): void
+    {
+        $this->returned();
+        $this->returned(handOver: false);
+
+        $response = $this->actingAs($this->staff)->get($this->host().'/reports/returns-money');
+
+        $this->assertSame(1, $response->viewData('totals')->total);
+        $this->assertSame(1, $response->viewData('pending')->total);
+        $this->assertSame(2_500, $response->viewData('pending')->fees);
+        $this->assertSame(1, $response->viewData('pending')->with_courier);
+    }
+
+    public function test_a_free_return_is_counted_as_a_leak(): void
+    {
+        $shipment = $this->returned(handOver: false);
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            Shipment::whereKey($shipment->id)->update(['return_fee' => 0]);
+            app(\App\Actions\Returns\ReceiveReturns::class)->handle([$shipment->id], $this->staff);
+            app(ChangeShipmentStatus::class)->handle($shipment->refresh(), ShipmentStatus::Returned, $this->staff);
+        });
+
+        $totals = $this->actingAs($this->staff)->get($this->host().'/reports/returns-money')->viewData('totals');
+
+        $this->assertSame(1, $totals->free);
+        // عمولته خرجت ولم يقابلها شيء
+        $this->assertSame(-750, $totals->net);
+    }
+
+    /** النسبة من المُقفَل: مسلَّمتان وراجع = ٣٣٪، لا راجع من ثلاثة أُنشئت. */
+    public function test_a_merchants_return_rate_is_of_closed_shipments(): void
+    {
+        $this->delivered($this->beta);
+        $this->delivered($this->beta);
+        $this->returned($this->beta);
+        $this->make($this->beta);   // مفتوحة: لا تدخل النسبة
+
+        $row = $this->actingAs($this->staff)
+            ->get($this->host().'/reports/returns-money')
+            ->viewData('merchants')
+            ->firstWhere('id', $this->beta->id);
+
+        $this->assertSame(1, $row->returned);
+        $this->assertSame(33, $row->rate);
+    }
+
     // ── العزل ───────────────────────────────────────────────────────
 
     public function test_a_merchant_login_cannot_reach_the_reports(): void
@@ -506,7 +593,7 @@ class ReportsTest extends TestCase
 
         foreach ([
             '', '/returns', '/couriers', '/merchants', '/governorates', '/daily', '/profit',
-            '/dormant', '/debtors', '/changes',
+            '/dormant', '/debtors', '/changes', '/returns-money',
         ] as $path) {
             $this->actingAs($user)->get($this->host().'/reports'.$path)->assertForbidden();
         }

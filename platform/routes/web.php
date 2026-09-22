@@ -121,7 +121,7 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/pickup-agents/{courier}/pay', [PickupAgentController::class, 'pay'])->name('pickup-agents.pay');
             });
 
-            // تسعة تقارير لا واحد وثلاثون
+            // عشرة تقارير لا واحد وثلاثون
             Route::middleware('can:reports.view')->group(function () {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
             Route::get('/reports/returns', [ReportController::class, 'returns'])->name('reports.returns');
@@ -133,6 +133,7 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/dormant', [ReportController::class, 'dormant'])->name('reports.dormant');
             Route::get('/reports/debtors', [ReportController::class, 'debtors'])->name('reports.debtors');
             Route::get('/reports/changes', [ReportController::class, 'changes'])->name('reports.changes');
+            Route::get('/reports/returns-money', [ReportController::class, 'returnsMoney'])->name('reports.returns-money');
             });
 
             // النقل بين المراكز: كيس مختوم على كشف، والوارد يُستلَم كيساً كيساً
