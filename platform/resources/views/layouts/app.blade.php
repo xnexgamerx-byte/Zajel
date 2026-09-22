@@ -66,6 +66,7 @@
                             ['shipments.import', 'رفع من ملف', ['shipments.import*'], 'shipments.create'],
                             ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
                             ['returns.incoming', 'استلام الراجع', ['returns.incoming'], 'returns.manage'],
+                            ['returns.sorting', 'فرز الراجع للفروع', ['returns.sorting'], 'returns.manage'],
                             ['returns.outgoing', 'تسليم الراجع', ['returns.outgoing'], 'returns.manage'],
                         ]],
                         ['النقل', [

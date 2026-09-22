@@ -35,6 +35,7 @@ class ShipmentEvent extends Model
         'amount_confirmed' => 'تأكيد مبلغ',
         'return_received'  => 'استلام راجع',
         'return_arrived'   => 'وصول راجع لفرع',
+        'return_sorted'    => 'فرز راجع لفرع',
         'bagged'           => 'إضافة لكيس',
         'unbagged'         => 'إخراج من كيس',
         'bag_missing'      => 'ناقص من كيس',

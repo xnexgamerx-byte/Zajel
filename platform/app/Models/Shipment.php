@@ -69,6 +69,12 @@ class Shipment extends Model
         return $this->belongsTo(Hub::class);
     }
 
+    /** الكيس الذي فيه الآن — فارغ على الرفّ أو بيد المندوب. */
+    public function currentBag(): BelongsTo
+    {
+        return $this->belongsTo(Bag::class, 'current_bag_id');
+    }
+
     public function deliveryCourier(): BelongsTo
     {
         return $this->belongsTo(Courier::class, 'delivery_courier_id');
@@ -118,6 +124,33 @@ class Shipment extends Model
             ->all();
 
         return $q->whereIn('status', $values);
+    }
+
+    /**
+     * راجعٌ وصل المخزن ولم يُكيَّس بعد — المادّة التي يُقسَم عليها بين
+     * «يُسلَّم هنا» و«يُفرَز لفرع تاجره».
+     */
+    public function scopeReturnOnShelf(Builder $q): Builder
+    {
+        return $q->where('shipments.status', ShipmentStatus::Returning->value)
+            ->whereNotNull('shipments.return_received_at')
+            ->whereNull('shipments.current_bag_id');
+    }
+
+    /**
+     * في غير فرع تاجره: مكانه معروف، وفرع تاجره معروف، ويختلفان.
+     *
+     * والمجهول ليس بعيداً: شركةٌ بفرعٍ واحد لا تعرف مراكزَ أصلاً،
+     * وراجعُها في فرعها بالضرورة. ولذلك (أ <> ب) تُلفّ بـ coalesce:
+     * أيّ طرفٍ فارغ يجعل المقارنة NULL، والـ NULL هنا «هنا» لا «هناك».
+     */
+    public function scopeAwayFromHomeBranch(Builder $q, bool $away = true): Builder
+    {
+        return $q->whereRaw(
+            'coalesce((select h.branch_id from hubs h where h.id = shipments.hub_id)'
+            .' <> (select m.branch_id from merchants m where m.id = shipments.merchant_id), 0) = ?',
+            [$away ? 1 : 0],
+        );
     }
 
     /**

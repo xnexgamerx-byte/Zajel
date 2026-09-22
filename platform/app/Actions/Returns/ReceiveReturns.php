@@ -3,6 +3,7 @@
 namespace App\Actions\Returns;
 
 use App\Enums\ShipmentStatus;
+use App\Models\Hub;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
@@ -25,7 +26,17 @@ class ReceiveReturns
             return collect();
         }
 
-        return DB::transaction(function () use ($shipmentIds, $actor, $note) {
+        /*
+        | مكان الاستلام هو مكان الطرد.
+        |
+        | مَن يمسح الراجع عند العدّاد واقفٌ في فرعه، وهذه أصدق إشارة
+        | لمكان الطرد: hub_id القديم هو المركز الذي خرج منه للتوصيل لا
+        | الذي عاد إليه. وبلا مكانٍ معروف لا يُعرف إن كان الراجع في فرع
+        | تاجره فيُسلَّم، أم في فرعٍ آخر فيُفرَز إليه.
+        */
+        $receivedAt = Hub::forBranch($actor?->branch_id);
+
+        return DB::transaction(function () use ($shipmentIds, $actor, $note, $receivedAt) {
             $shipments = Shipment::query()
                 ->whereIn('id', $shipmentIds)
                 ->where('status', ShipmentStatus::Returning->value)
@@ -34,10 +45,12 @@ class ReceiveReturns
                 ->get();
 
             foreach ($shipments as $shipment) {
-                $shipment->forceFill([
-                    'return_received_at'        => now(),
+                $shipment->forceFill(array_filter([
+                    'return_received_at'         => now(),
                     'return_received_by_user_id' => $actor?->id,
-                ])->save();
+                    // مجهول المكان يبقى على ما كان، لا يُمحى
+                    'hub_id'                     => $receivedAt?->id,
+                ], fn ($value) => $value !== null))->save();
 
                 ShipmentEvent::create([
                     'shipment_id' => $shipment->id,

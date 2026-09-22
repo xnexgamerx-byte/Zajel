@@ -45,6 +45,30 @@ class HandOverReturns
                 ]);
             }
 
+            /*
+            | ولا يُسلَّم ما ليس على رفّ هذا الفرع: راجعٌ في كيسٍ على
+            | الطريق، أو على رفّ فرعٍ آخر. توقيع التاجر على طردٍ في شاحنة
+            | هو الخلاف نفسه الذي وُجدت له هذه الخطوة.
+            */
+            $bagged = $shipments->whereNotNull('current_bag_id');
+
+            if ($bagged->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'shipments' => 'هذه الرواجع في أكياس لم تُفتح بعد: '.$bagged->pluck('number')->implode('، '),
+                ]);
+            }
+
+            $away = Shipment::query()
+                ->whereIn('id', $shipments->pluck('id'))
+                ->awayFromHomeBranch()
+                ->pluck('number');
+
+            if ($away->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'shipments' => 'هذه الرواجع على رفّ غير فرع التاجر — تُفرَز إليه أولاً: '.$away->implode('، '),
+                ]);
+            }
+
             return $shipments->map(fn (Shipment $shipment) => $this->changeStatus->handle(
                 $shipment,
                 ShipmentStatus::Returned,
@@ -54,13 +78,18 @@ class HandOverReturns
         });
     }
 
-    /** ما وصل المخزن وينتظر التاجر. */
+    /**
+     * ما على رفّ فرع تاجره وينتظره.
+     *
+     * وما على رفّ فرعٍ آخر لا يظهر هنا بل في فرز الراجع — فالشاشتان
+     * تقتسمان الرواجع المستلَمة، وكلُّ راجعٍ في واحدة منهما لا في كلتيهما.
+     */
     public function ready(?int $merchantId = null): Collection
     {
         return Shipment::query()
             ->with(['merchant:id,business_name,code', 'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
-            ->where('status', ShipmentStatus::Returning->value)
-            ->whereNotNull('return_received_at')
+            ->returnOnShelf()
+            ->awayFromHomeBranch(false)
             ->when($merchantId, fn ($q) => $q->where('merchant_id', $merchantId))
             ->orderBy('return_received_at')
             ->get();

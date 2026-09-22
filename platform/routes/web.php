@@ -84,6 +84,8 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:returns.manage')->group(function () {
                 Route::get('/returns', [ReturnController::class, 'incoming'])->name('returns.incoming');
                 Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
+                Route::get('/returns/sorting', [ReturnController::class, 'sorting'])->name('returns.sorting');
+                Route::post('/returns/sorting', [ReturnController::class, 'sort'])->name('returns.sort');
                 Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
                 Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
             });

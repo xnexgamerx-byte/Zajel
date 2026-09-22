@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Returns\HandOverReturns;
 use App\Actions\Returns\ReceiveReturns;
+use App\Actions\Returns\SortReturns;
+use App\Models\Branch;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Merchant;
@@ -23,6 +25,7 @@ class ReturnController extends Controller
     public function __construct(
         protected ReceiveReturns $receiver,
         protected HandOverReturns $handover,
+        protected SortReturns $sorter,
     ) {}
 
     /** ١٤ — استلام الراجع من المندوب. */
@@ -55,6 +58,40 @@ class ReturnController extends Controller
         }
 
         return back()->with('success', "استُلم الراجع من المندوب، عدد الشحنات {$received->count()}.");
+    }
+
+    /** فرز الراجع للفروع: ما على رفٍّ غير رفّ تاجره، وما في الطريق إليه. */
+    public function sorting(Request $request): View
+    {
+        return view('tenant.returns.sorting', [
+            'misplaced' => $this->sorter->misplaced(),
+            'onTheWay'  => $this->sorter->onTheWay(),
+            'branches'  => Branch::withTrashed()->get(['id', 'name', 'deleted_at'])->keyBy('id'),
+            'readyHere' => $this->handover->ready()->count(),
+        ]);
+    }
+
+    public function sort(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'branch_id'      => ['required', 'integer'],
+            'shipment_ids'   => ['required', 'array', 'min:1', 'max:500'],
+            'shipment_ids.*' => ['integer'],
+        ], [], ['branch_id' => 'الفرع', 'shipment_ids' => 'الرواجع']);
+
+        $branch = Branch::find($data['branch_id']);
+
+        if (! $branch) {
+            return back()->withErrors(['branch_id' => 'الفرع غير موجود.']);
+        }
+
+        $bag = $this->sorter->bagFor($branch, $data['shipment_ids'], $request->user());
+
+        return redirect()->route('bags.show', $bag)->with(
+            'success',
+            "كُيِّس راجع {$branch->name} في الكيس {$bag->code} (".\App\Support\Arabic::shipments((int) $bag->shipments_count).'). '
+            .'اختمه ثم حمّله على كشفٍ إلى الفرع.',
+        );
     }
 
     /** ١٥ — تسليم الراجع للتاجر. */
