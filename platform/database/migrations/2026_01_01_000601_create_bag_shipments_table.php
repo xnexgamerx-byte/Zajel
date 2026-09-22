@@ -1,0 +1,29 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('bag_shipments', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('bag_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('shipment_id')->constrained()->cascadeOnDelete();
+            $table->timestamp('added_at')->useCurrent();
+            $table->foreignId('added_by_user_id')->nullable();
+            $table->timestamp('removed_at')->nullable();
+
+            $table->unique(['bag_id', 'shipment_id']);
+            $table->index(['company_id', 'shipment_id'], 'bs_shipment_idx');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('bag_shipments');
+    }
+};
