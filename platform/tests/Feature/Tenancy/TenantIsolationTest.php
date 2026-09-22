@@ -164,6 +164,35 @@ class TenantIsolationTest extends TestCase
         );
     }
 
+    /**
+     * نطاق فرعي مجهول بينما في المتصفّح جلسة مفتوحة كان يُنتج 500 لا 404:
+     * حارس المصادقة يستعلم عن المستخدم أثناء حفظ الجلسة، أي بعد أن
+     * يكون الوسيط قد أنهى عمله، فيرمي النطاق هناك.
+     */
+    public function test_an_unknown_subdomain_is_a_not_found_even_with_a_live_session(): void
+    {
+        $this->seedReference();
+        $company = $this->makeCompany('zajel', 'الزاجل');
+
+        $this->actingAs($this->makeUser($company))
+            ->get('http://nope.'.config('zajel.tenant_domain').'/shipments')
+            ->assertNotFound();
+    }
+
+    public function test_querying_users_without_context_returns_nothing_rather_than_everything(): void
+    {
+        $this->seedReference();
+        $a = $this->makeCompany('a', 'أ');
+        $b = $this->makeCompany('b', 'ب');
+
+        $this->makeUser($a);
+        $this->makeUser($b);
+
+        // مغلق افتراضياً: صفر صفوف، لا كل الصفوف
+        $this->assertSame(0, User::count());
+        Tenancy::runAsPlatform(fn () => $this->assertSame(2, User::count()));
+    }
+
     public function test_users_of_one_company_are_invisible_to_another(): void
     {
         $this->seedReference();

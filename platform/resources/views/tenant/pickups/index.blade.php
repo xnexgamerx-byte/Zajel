@@ -5,12 +5,12 @@
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="text-xl font-bold">طلبات الاستلام</h1>
-        <p class="mt-1 text-sm text-slate-500">تجّار جهّزوا طرودهم وينتظرون مندوب استلام.</p>
+        <p class="mt-1 text-sm text-ink-500">تجّار جهّزوا طرودهم وينتظرون مندوب استلام.</p>
     </div>
     @if ($pending)
         <div class="card px-5 py-3 text-center">
-            <div class="text-xs text-slate-500">بانتظار إسناد</div>
-            <div class="text-2xl font-bold text-amber-700">{{ number_format($pending) }}</div>
+            <div class="text-xs text-ink-500">بانتظار إسناد</div>
+            <div class="text-2xl font-bold text-warn-700">{{ number_format($pending) }}</div>
         </div>
     @endif
 </div>
@@ -39,12 +39,12 @@
                         <span class="font-mono text-sm font-semibold" dir="ltr">{{ $pickup->number }}</span>
                         @php
                             [$label, $tone] = match ($pickup->status) {
-                                'pending'     => ['بانتظار إسناد', 'bg-amber-50 text-amber-800 ring-amber-200'],
-                                'assigned'    => ['مُسنَد', 'bg-sky-50 text-sky-700 ring-sky-200'],
-                                'in_progress' => ['قيد التنفيذ', 'bg-sky-50 text-sky-700 ring-sky-200'],
-                                'completed'   => ['مكتمل', 'bg-emerald-50 text-emerald-700 ring-emerald-200'],
-                                'cancelled'   => ['ملغى', 'bg-slate-100 text-slate-600 ring-slate-200'],
-                                default       => [$pickup->status, 'bg-slate-100 text-slate-600 ring-slate-200'],
+                                'pending'     => ['بانتظار إسناد', 'bg-warn-50 text-warn-700 ring-warn-200'],
+                                'assigned'    => ['مُسنَد', 'bg-info-50 text-info-700 ring-info-200'],
+                                'in_progress' => ['قيد التنفيذ', 'bg-info-50 text-info-700 ring-info-200'],
+                                'completed'   => ['مكتمل', 'bg-ok-50 text-ok-700 ring-ok-200'],
+                                'cancelled'   => ['ملغى', 'bg-ink-100 text-ink-600 ring-ink-200'],
+                                default       => [$pickup->status, 'bg-ink-100 text-ink-600 ring-ink-200'],
                             };
                         @endphp
                         <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $tone }}">
@@ -52,22 +52,22 @@
                         </span>
                     </div>
                     <div class="mt-1 text-base font-bold">{{ $pickup->merchant->business_name }}</div>
-                    <div class="text-sm text-slate-600">
+                    <div class="text-sm text-ink-600">
                         {{ $pickup->address ?: $pickup->merchant->address ?: '—' }}
                         @if ($pickup->landmark || $pickup->merchant->landmark)
-                            <span class="text-brand-700">· {{ $pickup->landmark ?: $pickup->merchant->landmark }}</span>
+                            <span class="text-[var(--brand)]">· {{ $pickup->landmark ?: $pickup->merchant->landmark }}</span>
                         @endif
                     </div>
-                    <div class="mt-1 text-xs text-slate-500" dir="ltr">
+                    <div class="mt-1 text-xs text-ink-500" dir="ltr">
                         {{ $pickup->contact_phone ?: $pickup->merchant->phone }}
                     </div>
                 </div>
 
                 <div class="text-end">
                     <div class="text-2xl font-bold">{{ $pickup->expected_count }}</div>
-                    <div class="text-xs text-slate-500">طرد متوقَّع</div>
+                    <div class="text-xs text-ink-500">طرد متوقَّع</div>
                     @if ($pickup->actual_count)
-                        <div class="mt-1 text-sm font-semibold text-emerald-700">
+                        <div class="mt-1 text-sm font-semibold text-ok-700">
                             استُلم {{ $pickup->actual_count }}
                         </div>
                     @endif
@@ -75,7 +75,7 @@
             </div>
 
             @if (in_array($pickup->status, ['pending', 'assigned', 'in_progress'], true))
-                <div class="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+                <div class="mt-4 flex flex-wrap items-end gap-3 border-t border-ink-100 pt-4">
                     <form method="POST" action="{{ route('pickups.assign', $pickup) }}"
                           class="flex flex-wrap items-end gap-3">
                         @csrf
@@ -109,11 +109,11 @@
                                    placeholder="مثال: التاجر أجّل">
                         </div>
                         <button type="submit"
-                                class="btn-ghost text-red-700 ring-red-200 hover:bg-red-50">ألغِ</button>
+                                class="btn-ghost text-bad-700 ring-bad-200 hover:bg-bad-50">ألغِ</button>
                     </form>
                 </div>
             @elseif ($pickup->courier)
-                <div class="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                <div class="mt-3 border-t border-ink-100 pt-3 text-sm text-ink-600">
                     المندوب: <span class="font-medium">{{ $pickup->courier->name }}</span>
                     @if ($pickup->completed_at)
                         · اكتمل <span dir="ltr">{{ $pickup->completed_at->format('Y-m-d H:i') }}</span>
@@ -122,7 +122,7 @@
             @endif
         </section>
     @empty
-        <div class="card p-16 text-center text-slate-500">لا طلبات استلام.</div>
+        <div class="card p-16 text-center text-ink-500">لا طلبات استلام.</div>
     @endforelse
 </div>
 

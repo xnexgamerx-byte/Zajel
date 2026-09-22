@@ -242,3 +242,16 @@ if (menus.length) {
         for (const menu of menus) menu.querySelector('[data-menu-panel]').hidden = true;
     });
 }
+
+/** فتح الشريط الجانبي على الشاشات الصغيرة. */
+const sidebar = document.querySelector('[data-sidebar]');
+const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
+
+if (sidebar && sidebarToggle) {
+    const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+    const sync = () => { sidebar.hidden = !isDesktop(); };
+
+    sidebarToggle.addEventListener('click', () => { sidebar.hidden = !sidebar.hidden; });
+    window.addEventListener('resize', sync);
+    sync();
+}

@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="text-xl font-bold">الشركات المشتركة</h1>
-        <p class="mt-1 text-sm text-slate-500">لكل شركة نظامها المعزول على نطاقها الفرعي.</p>
+        <p class="mt-1 text-sm text-ink-500">لكل شركة نظامها المعزول على نطاقها الفرعي.</p>
     </div>
     <a href="{{ route('admin.companies.create') }}" class="btn-primary">+ تسجيل شركة</a>
 </div>
@@ -30,50 +30,50 @@
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <table class="tbl">
+            <thead>
                 <tr>
-                    <th class="px-4 py-3 text-start font-semibold">الشركة</th>
-                    <th class="px-4 py-3 text-start font-semibold">النطاق</th>
-                    <th class="px-4 py-3 text-start font-semibold">الباقة</th>
-                    <th class="px-4 py-3 text-start font-semibold">شحنات الشهر</th>
-                    <th class="px-4 py-3 text-start font-semibold">الإجمالي</th>
-                    <th class="px-4 py-3 text-start font-semibold">مستخدمون</th>
-                    <th class="px-4 py-3 text-start font-semibold">الحالة</th>
+                    <th >الشركة</th>
+                    <th >النطاق</th>
+                    <th >الباقة</th>
+                    <th >شحنات الشهر</th>
+                    <th >الإجمالي</th>
+                    <th >مستخدمون</th>
+                    <th >الحالة</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody class="divide-y divide-ink-100">
                 @forelse ($companies as $company)
                     @php
                         $counts = $shipmentCounts[$company->id] ?? null;
                         $subscription = $subscriptions[$company->id] ?? null;
                     @endphp
-                    <tr class="hover:bg-slate-50">
+                    <tr class="hover:bg-ink-50">
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-2">
                                 <span class="h-3 w-3 shrink-0 rounded-full"
                                       style="background: {{ $company->primary_color }}"></span>
                                 <a href="{{ route('admin.companies.show', $company) }}"
-                                   class="font-semibold text-brand-700 hover:underline">{{ $company->name }}</a>
+                                   class="font-semibold text-[var(--brand)] hover:underline">{{ $company->name }}</a>
                             </div>
                         </td>
-                        <td class="px-4 py-3 font-mono text-xs text-slate-500" dir="ltr">
+                        <td class="px-4 py-3 font-mono text-xs text-ink-500" dir="ltr">
                             {{ $company->slug }}.{{ config('zajel.tenant_domain') }}
                         </td>
-                        <td class="px-4 py-3 text-slate-600">{{ $subscription?->plan->name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-ink-600">{{ $subscription?->plan->name ?? '—' }}</td>
                         <td class="px-4 py-3 font-semibold" dir="ltr">
                             {{ number_format((int) ($counts->this_month ?? 0)) }}
                         </td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">
                             {{ number_format((int) ($counts->total ?? 0)) }}
                         </td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">{{ $company->users_count }}</td>
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $company->users_count }}</td>
                         <td class="px-4 py-3"><x-company-status :status="$company->status" /></td>
                     </tr>
                 @empty
                     <tr>
                         <td colspan="7" class="px-4 py-16 text-center">
-                            <div class="text-slate-500">لا شركات بعد.</div>
+                            <div class="text-ink-500">لا شركات بعد.</div>
                             <a href="{{ route('admin.companies.create') }}" class="btn-primary mt-4">سجّل أول شركة</a>
                         </td>
                     </tr>
@@ -83,7 +83,7 @@
     </div>
 
     @if ($companies->hasPages())
-        <div class="border-t border-slate-100 px-4 py-3">{{ $companies->links() }}</div>
+        <div class="border-t border-ink-100 px-4 py-3">{{ $companies->links() }}</div>
     @endif
 </div>
 @endsection

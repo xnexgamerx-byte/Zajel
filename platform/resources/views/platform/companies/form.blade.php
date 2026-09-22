@@ -5,7 +5,7 @@
 <div class="mb-5 flex items-center justify-between">
     <div>
         <h1 class="text-xl font-bold">تسجيل شركة جديدة</h1>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-ink-500">
             يُنشأ نظام كامل: فرع، مركز فرز، تسعيرة افتراضية، وحساب صاحب الشركة.
         </p>
     </div>
@@ -36,9 +36,9 @@
                     <div class="flex items-center gap-2" dir="ltr">
                         <input id="slug" name="slug" class="field-input text-left" required
                                value="{{ old('slug') }}" placeholder="barq" pattern="[a-z0-9]+(-[a-z0-9]+)*">
-                        <span class="shrink-0 text-sm text-slate-500">.{{ config('zajel.tenant_domain') }}</span>
+                        <span class="shrink-0 text-sm text-ink-500">.{{ config('zajel.tenant_domain') }}</span>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500">
+                    <p class="mt-1 text-xs text-ink-500">
                         عنوان نظام الشركة. لا يتغيّر بعد التسجيل لأن التطبيقات تتصل به.
                     </p>
                     @error('slug') <p class="field-error">{{ $message }}</p> @enderror
@@ -71,14 +71,14 @@
                     <label class="field-label" for="primary_color">لون العلامة</label>
                     <input id="primary_color" name="primary_color" type="color"
                            class="field-input h-10 p-1" value="{{ old('primary_color', '#0d9488') }}">
-                    <p class="mt-1 text-xs text-slate-500">يظهر في لوحة الشركة وتطبيقاتها.</p>
+                    <p class="mt-1 text-xs text-ink-500">يظهر في لوحة الشركة وتطبيقاتها.</p>
                 </div>
             </div>
         </section>
 
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">حساب صاحب الشركة</h2>
-            <p class="mb-4 text-xs text-slate-500">
+            <p class="mb-4 text-xs text-ink-500">
                 هذا هو الحساب الذي تسلّمه للعميل. يدخل به ويُنشئ بقية مستخدميه بنفسه.
             </p>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -110,7 +110,7 @@
 
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">التسعيرة الابتدائية</h2>
-            <p class="mb-4 text-xs text-slate-500">
+            <p class="mb-4 text-xs text-ink-500">
                 قاعدة واحدة تشمل كل العراق حتى تضبط الشركة تسعيرتها — فالنظام يسعّر من أول شحنة.
             </p>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -166,7 +166,7 @@
                     </select>
                 </div>
 
-                <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200">
+                <div class="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-600 ring-1 ring-ink-200">
                     سعر الباقة يُجمَّد في الاشتراك، فتعديل الباقة لاحقاً لا يمسّ هذه الشركة.
                 </div>
             </div>

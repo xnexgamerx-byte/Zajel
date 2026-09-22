@@ -9,7 +9,7 @@
     <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold">{{ $list->name }}</h1>
-            <p class="mt-1 text-sm text-slate-500">
+            <p class="mt-1 text-sm text-ink-500">
                 اترك أجرة التوصيل فارغة لتُحذف قاعدة تلك المحافظة وتُستعمل القاعدة العامة.
             </p>
         </div>
@@ -28,18 +28,18 @@
                 <input id="weight_to_grams" name="weight_to_grams" type="number" min="100" step="100"
                        class="field-input text-left" dir="ltr" required
                        value="{{ old('weight_to_grams', $rules->first()?->weight_to_grams ?? 5000) }}">
-                <p class="mt-1 text-xs text-slate-500">ما زاد يُحتسب بأجرة الكيلو الزائد.</p>
+                <p class="mt-1 text-xs text-ink-500">ما زاد يُحتسب بأجرة الكيلو الزائد.</p>
                 @error('weight_to_grams') <p class="field-error">{{ $message }}</p> @enderror
             </div>
             <div class="flex items-end gap-5 pb-2">
                 <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" name="is_default" value="1" @checked(old('is_default', $list->is_default))
-                           class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                           class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                     الافتراضية
                 </label>
                 <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" name="is_active" value="1" @checked(old('is_active', $list->is_active))
-                           class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                           class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                     مفعّلة
                 </label>
             </div>
@@ -48,8 +48,8 @@
 
     <div class="card overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+            <table class="tbl">
+                <thead>
                     <tr>
                         <th class="px-3 py-3 text-start font-semibold">الوجهة</th>
                         <th class="px-3 py-3 text-start font-semibold">التوصيل</th>
@@ -60,7 +60,7 @@
                         <th class="px-3 py-3 text-start font-semibold">نسبة %</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-ink-100">
                     @php
                         $rows = collect([['key' => 0, 'label' => 'كل العراق (قاعدة عامة)', 'general' => true]])
                             ->concat($governorates->map(fn ($g) => [
@@ -70,7 +70,7 @@
 
                     @foreach ($rows as $row)
                         @php $rule = $rules[$row['key']] ?? null; @endphp
-                        <tr class="{{ $row['general'] ? 'bg-slate-50/60' : 'hover:bg-slate-50' }}">
+                        <tr class="{{ $row['general'] ? 'bg-ink-50/60' : 'hover:bg-ink-50' }}">
                             <td class="px-3 py-2 font-medium {{ $row['general'] ? 'font-bold' : '' }}">
                                 {{ $row['label'] }}
                             </td>
@@ -101,8 +101,8 @@
             </table>
         </div>
 
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
-            <p class="text-xs text-slate-500">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 px-5 py-4">
+            <p class="text-xs text-ink-500">
                 المبالغ بالدينار العراقي. قاعدة المحافظة تغلب القاعدة العامة عند تطابقهما.
             </p>
             <button type="submit" class="btn-primary">احفظ التسعيرة</button>

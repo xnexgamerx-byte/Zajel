@@ -5,13 +5,13 @@
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="text-xl font-bold">حسابي مع {{ $company->name }}</h1>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-ink-500">
             كل سطر هنا نتيجة حدث على شحنة — لا إدخال يدوي.
         </p>
     </div>
     <div class="card px-5 py-3 text-center">
-        <div class="text-xs text-slate-500">{{ $merchant->balance >= 0 ? 'لك' : 'عليك' }}</div>
-        <div class="text-2xl font-bold {{ $merchant->balance >= 0 ? 'text-brand-700' : 'text-red-600' }}" dir="ltr">
+        <div class="text-xs text-ink-500">{{ $merchant->balance >= 0 ? 'لك' : 'عليك' }}</div>
+        <div class="text-2xl font-bold {{ $merchant->balance >= 0 ? 'text-[var(--brand)]' : 'text-bad-700' }}" dir="ltr">
             {{ number_format(abs($merchant->balance)) }} د.ع
         </div>
     </div>
@@ -35,34 +35,34 @@
         <div class="card overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 text-start font-semibold">التاريخ</th>
-                            <th class="px-4 py-3 text-start font-semibold">البيان</th>
-                            <th class="px-4 py-3 text-start font-semibold">لك</th>
-                            <th class="px-4 py-3 text-start font-semibold">عليك</th>
-                            <th class="px-4 py-3 text-start font-semibold">الرصيد</th>
+                            <th >التاريخ</th>
+                            <th >البيان</th>
+                            <th >لك</th>
+                            <th >عليك</th>
+                            <th >الرصيد</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-ink-100">
                         @forelse ($transactions as $tx)
-                            <tr class="hover:bg-slate-50">
-                                <td class="px-4 py-2.5 text-xs text-slate-500" dir="ltr">
+                            <tr class="hover:bg-ink-50">
+                                <td class="px-4 py-2.5 text-xs text-ink-500" dir="ltr">
                                     {{ $tx->created_at->format('Y-m-d H:i') }}
                                 </td>
                                 <td class="px-4 py-2.5">
                                     {{ $tx->description }}
                                     @if ($tx->shipment)
                                         <a href="{{ route('portal.shipments.show', $tx->shipment) }}"
-                                           class="ms-1 font-mono text-xs text-brand-700 hover:underline" dir="ltr">
+                                           class="ms-1 font-mono text-xs text-[var(--brand)] hover:underline" dir="ltr">
                                             {{ $tx->shipment->number }}
                                         </a>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2.5 font-semibold text-emerald-700" dir="ltr">
+                                <td class="px-4 py-2.5 font-semibold text-ok-700" dir="ltr">
                                     {{ $tx->direction === 'credit' ? number_format($tx->amount) : '' }}
                                 </td>
-                                <td class="px-4 py-2.5 font-semibold text-red-600" dir="ltr">
+                                <td class="px-4 py-2.5 font-semibold text-bad-700" dir="ltr">
                                     {{ $tx->direction === 'debit' ? number_format($tx->amount) : '' }}
                                 </td>
                                 <td class="px-4 py-2.5 font-semibold" dir="ltr">
@@ -71,7 +71,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-4 py-16 text-center text-slate-500">
+                                <td colspan="5" class="px-4 py-16 text-center text-ink-500">
                                     لا حركات في هذه الفترة.
                                 </td>
                             </tr>
@@ -81,7 +81,7 @@
             </div>
 
             @if ($transactions->hasPages())
-                <div class="border-t border-slate-100 px-4 py-3">{{ $transactions->links() }}</div>
+                <div class="border-t border-ink-100 px-4 py-3">{{ $transactions->links() }}</div>
             @endif
         </div>
     </div>
@@ -91,9 +91,9 @@
             <h2 class="mb-4 text-sm font-bold">كشوفات الدفع</h2>
 
             @if ($settlements->isEmpty())
-                <p class="py-6 text-center text-sm text-slate-500">لا كشوفات بعد.</p>
+                <p class="py-6 text-center text-sm text-ink-500">لا كشوفات بعد.</p>
             @else
-                <div class="divide-y divide-slate-100">
+                <div class="divide-y divide-ink-100">
                     @foreach ($settlements as $settlement)
                         <div class="py-2.5">
                             <div class="flex items-center justify-between gap-2">
@@ -101,15 +101,15 @@
                                 <x-settlement-status :status="$settlement->status" />
                             </div>
                             <div class="mt-1 flex items-center justify-between text-sm">
-                                <span class="text-xs text-slate-500" dir="ltr">
+                                <span class="text-xs text-ink-500" dir="ltr">
                                     {{ $settlement->from_date?->format('Y-m-d') }} — {{ $settlement->to_date?->format('Y-m-d') }}
                                 </span>
-                                <span class="font-bold text-brand-700" dir="ltr">
+                                <span class="font-bold text-[var(--brand)]" dir="ltr">
                                     {{ number_format($settlement->net_amount) }}
                                 </span>
                             </div>
                             @if ($settlement->status === 'paid')
-                                <div class="mt-0.5 text-xs text-emerald-700">
+                                <div class="mt-0.5 text-xs text-ok-700">
                                     دُفع {{ $settlement->paid_at?->format('Y-m-d') }}
                                     @if ($settlement->payout_reference)
                                         · <span dir="ltr">{{ $settlement->payout_reference }}</span>

@@ -5,7 +5,7 @@
 <div class="mb-5 flex items-center justify-between">
     <div>
         <h1 class="text-xl font-bold">{{ $courier->exists ? 'تعديل ' . $courier->name : 'مندوب جديد' }}</h1>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-ink-500">
             {{ $courier->exists ? 'الرمز ' . $courier->code : 'الرمز يُولَّد تلقائياً عند الحفظ.' }}
         </p>
     </div>
@@ -64,7 +64,7 @@
                                     @selected(old('type', $courier->type ?? 'delivery') === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
-                    <p class="mt-1 text-xs text-slate-500">مندوب الاستلام لا يُسنَد إليه توصيل والعكس.</p>
+                    <p class="mt-1 text-xs text-ink-500">مندوب الاستلام لا يُسنَد إليه توصيل والعكس.</p>
                     @error('type') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
@@ -88,13 +88,13 @@
 
             <div class="mt-5">
                 <span class="field-label">مناطق التغطية</span>
-                <p class="mb-2 text-xs text-slate-500">تُستخدم في اقتراح المندوب عند التوزيع اليومي.</p>
+                <p class="mb-2 text-xs text-ink-500">تُستخدم في اقتراح المندوب عند التوزيع اليومي.</p>
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                     @foreach ($governorates as $gov)
-                        <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                        <label class="flex items-center gap-2 rounded-lg border border-ink-200 px-3 py-2 text-sm">
                             <input type="checkbox" name="zones[]" value="{{ $gov->id }}"
                                    @checked(in_array($gov->id, old('zones', $zones) ?? []))
-                                   class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                   class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                             {{ $gov->name_ar }}
                         </label>
                     @endforeach
@@ -118,7 +118,7 @@
                             <input id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="250"
                                    class="field-input pe-12 text-left" dir="ltr"
                                    value="{{ old($field, $courier->$field) }}">
-                            <span class="absolute inset-y-0 end-3 flex items-center text-xs text-slate-400">د.ع</span>
+                            <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                         </div>
                         @error($field) <p class="field-error">{{ $message }}</p> @enderror
                     </div>
@@ -130,9 +130,9 @@
                         <input id="cash_limit" name="cash_limit" type="number" min="0" step="1000"
                                class="field-input pe-12 text-left" dir="ltr"
                                value="{{ old('cash_limit', $courier->cash_limit ?? 0) }}">
-                        <span class="absolute inset-y-0 end-3 flex items-center text-xs text-slate-400">د.ع</span>
+                        <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500">صفر = بلا سقف. تجاوزه يُنبَّه في شاشة النقد.</p>
+                    <p class="mt-1 text-xs text-ink-500">صفر = بلا سقف. تجاوزه يُنبَّه في شاشة النقد.</p>
                 </div>
 
                 <div>
@@ -152,11 +152,11 @@
                 <h2 class="mb-4 text-sm font-bold">حساب الدخول</h2>
                 <label class="flex items-start gap-2 text-sm">
                     <input type="checkbox" name="create_login" value="1" @checked(old('create_login'))
-                           class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                           class="mt-0.5 rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500"
                            data-toggle="courier-login-fields">
                     <span>
                         أنشئ حساباً له على تطبيق المندوبين
-                        <span class="mt-0.5 block text-xs text-slate-500">يدخل برقم هاتفه ويرى شحناته فقط.</span>
+                        <span class="mt-0.5 block text-xs text-ink-500">يدخل برقم هاتفه ويرى شحناته فقط.</span>
                     </span>
                 </label>
 

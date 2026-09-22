@@ -22,7 +22,7 @@
             <label class="field-label" for="phone">الهاتف <span class="text-red-500">*</span></label>
             <input id="phone" name="phone" class="field-input text-left" dir="ltr" required
                    placeholder="07xxxxxxxxx" value="{{ old('phone', $staff->phone) }}">
-            <p class="mt-1 text-xs text-slate-500">هو اسم الدخول.</p>
+            <p class="mt-1 text-xs text-ink-500">هو اسم الدخول.</p>
             @error('phone') <p class="field-error">{{ $message }}</p> @enderror
         </div>
         <div>
@@ -49,7 +49,7 @@
                             @selected((int) old('branch_id', $staff->branch_id) === $branch->id)>{{ $branch->name }}</option>
                 @endforeach
             </select>
-            <p class="mt-1 text-xs text-slate-500">
+            <p class="mt-1 text-xs text-ink-500">
                 تحديد فرع يقصر رؤيته على شحناته — عدا صاحب الشركة ومديرها.
             </p>
         </div>
@@ -67,7 +67,7 @@
     <label class="flex items-center gap-2 text-sm">
         <input type="checkbox" name="is_active" value="1"
                @checked(old('is_active', $staff->exists ? $staff->is_active : true))
-               class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
         الحساب مفعّل
     </label>
 

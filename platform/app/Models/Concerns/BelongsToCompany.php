@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\Scopes\CompanyScope;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -16,7 +17,7 @@ trait BelongsToCompany
 {
     public static function bootBelongsToCompany(): void
     {
-        static::addGlobalScope(new CompanyScope);
+        static::addGlobalScope(static::companyScope());
 
         static::creating(function ($model) {
             if (! $model->getAttribute('company_id')) {
@@ -30,6 +31,17 @@ trait BelongsToCompany
                 $model->setAttribute('company_id', $model->getOriginal('company_id'));
             }
         });
+    }
+
+    /**
+     * النطاق المطبَّق على هذا النموذج.
+     *
+     * الافتراضي يرمي عند غياب السياق. يُستبدَل في نموذج واحد فقط —
+     * User — لسبب موثّق في UserScope.
+     */
+    protected static function companyScope(): Scope
+    {
+        return new CompanyScope;
     }
 
     public function company(): BelongsTo

@@ -14,7 +14,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>:root { --brand: {{ $company->primary_color }}; }</style>
 </head>
-<body class="min-h-screen bg-slate-100 pb-20 text-slate-900 antialiased">
+<body class="min-h-screen pb-20 antialiased">
 
 <header class="sticky top-0 z-30 text-white" style="background: var(--brand)">
     <div class="flex h-14 items-center gap-3 px-4">
@@ -31,13 +31,13 @@
 
 <main class="px-3 py-4">
     @if (session('success'))
-        <div class="mb-3 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white">
+        <div class="mb-3 rounded-xl bg-ok-700 px-4 py-3 text-sm font-semibold text-white">
             {{ session('success') }}
         </div>
     @endif
 
     @if ($errors->any())
-        <div class="mb-3 rounded-xl bg-red-600 px-4 py-3 text-sm font-medium text-white">
+        <div class="mb-3 rounded-xl bg-bad-700 px-4 py-3 text-sm font-medium text-white">
             <ul class="space-y-0.5">
                 @foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach
             </ul>
@@ -48,7 +48,7 @@
 </main>
 
 {{-- شريط سفلي: الإبهام يصله بلا مدّ اليد --}}
-<nav class="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white"
+<nav class="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white"
      style="padding-bottom: env(safe-area-inset-bottom, 0px)">
     <div class="grid grid-cols-4">
         @foreach ([
@@ -59,8 +59,8 @@
         ] as [$route, $label, $pattern])
             <a href="{{ route($route) }}"
                class="flex flex-col items-center gap-0.5 py-2.5 text-xs font-semibold
-                      {{ request()->routeIs($pattern) ? 'text-brand-700' : 'text-slate-500' }}">
-                <span class="h-1.5 w-1.5 rounded-full {{ request()->routeIs($pattern) ? 'bg-brand-600' : 'bg-transparent' }}"></span>
+                      {{ request()->routeIs($pattern) ? 'text-[var(--brand)]' : 'text-ink-500' }}">
+                <span class="h-1.5 w-1.5 rounded-full {{ request()->routeIs($pattern) ? 'bg-[var(--brand)]' : 'bg-transparent' }}"></span>
                 {{ $label }}
             </a>
         @endforeach

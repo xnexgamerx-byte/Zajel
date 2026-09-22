@@ -6,9 +6,9 @@
     <div>
         <h1 class="text-xl font-bold">{{ $merchant->exists ? 'تعديل ' . $merchant->business_name : 'تاجر جديد' }}</h1>
         @if ($merchant->exists)
-            <p class="mt-1 text-sm text-slate-500">الرمز {{ $merchant->code }}</p>
+            <p class="mt-1 text-sm text-ink-500">الرمز {{ $merchant->code }}</p>
         @else
-            <p class="mt-1 text-sm text-slate-500">الرمز يُولَّد تلقائياً عند الحفظ.</p>
+            <p class="mt-1 text-sm text-ink-500">الرمز يُولَّد تلقائياً عند الحفظ.</p>
         @endif
     </div>
     <a href="{{ route('merchants.index') }}" class="btn-ghost">رجوع</a>
@@ -181,11 +181,11 @@
                 <h2 class="mb-4 text-sm font-bold">حساب الدخول</h2>
                 <label class="flex items-start gap-2 text-sm">
                     <input type="checkbox" name="create_login" value="1" @checked(old('create_login'))
-                           class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                           class="mt-0.5 rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500"
                            data-toggle="login-fields">
                     <span>
                         أنشئ حساباً للتاجر على تطبيق التجّار
-                        <span class="mt-0.5 block text-xs text-slate-500">
+                        <span class="mt-0.5 block text-xs text-ink-500">
                             يدخل برقم هاتفه نفسه، ويرى شحناته وحسابه فقط.
                         </span>
                     </span>

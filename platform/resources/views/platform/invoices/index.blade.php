@@ -4,21 +4,22 @@
 @section('content')
 <div class="mb-5">
     <h1 class="text-xl font-bold">الفواتير</h1>
-    <p class="mt-1 text-sm text-slate-500">
+    <p class="mt-1 text-sm text-ink-500">
         اشتراك الشركة وعمولة شحناتها المسلَّمة. كل شحنة تدخل فاتورة واحدة فقط.
     </p>
 </div>
 
 <div class="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
     @foreach ([
-        ['إجمالي ما فُوتِر', (int) ($totals->billed ?? 0), 'text-slate-900'],
-        ['المحصَّل', (int) ($totals->collected ?? 0), 'text-emerald-700'],
-        ['المستحقّ غير المدفوع', (int) ($totals->outstanding ?? 0), 'text-amber-700'],
+        ['إجمالي ما فُوتِر', (int) ($totals->billed ?? 0), 'text-ink-900'],
+        ['المحصَّل', (int) ($totals->collected ?? 0), 'text-ok-700'],
+        ['المستحقّ غير المدفوع', (int) ($totals->outstanding ?? 0), 'text-warn-700'],
     ] as [$label, $value, $tone])
         <div class="card p-4">
-            <div class="text-xs font-medium text-slate-500">{{ $label }}</div>
-            <div class="mt-1 text-2xl font-bold {{ $tone }}" dir="ltr">
-                {{ number_format($value) }} <span class="text-sm font-medium text-slate-500">د.ع</span>
+            <div class="text-xs font-medium text-ink-500">{{ $label }}</div>
+            <div class="mt-1 text-2xl font-bold {{ $tone }}">
+                <span class="num">{{ number_format($value) }}</span>
+                <span class="text-sm font-medium text-ink-500">د.ع</span>
             </div>
         </div>
     @endforeach
@@ -37,7 +38,7 @@
             </div>
             <button type="submit" class="btn-primary">أصدر</button>
         </div>
-        <p class="mt-2 text-xs text-slate-500">
+        <p class="mt-2 text-xs text-ink-500">
             الشركات المفوترة سلفاً عن الشهر نفسه تُتخطّى — لا ازدواج.
         </p>
     </form>
@@ -71,50 +72,50 @@
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <table class="tbl">
+            <thead>
                 <tr>
-                    <th class="px-4 py-3 text-start font-semibold">الرقم</th>
-                    <th class="px-4 py-3 text-start font-semibold">الشركة</th>
-                    <th class="px-4 py-3 text-start font-semibold">الفترة</th>
-                    <th class="px-4 py-3 text-start font-semibold">اشتراك</th>
-                    <th class="px-4 py-3 text-start font-semibold">شحنات</th>
-                    <th class="px-4 py-3 text-start font-semibold">عمولة</th>
-                    <th class="px-4 py-3 text-start font-semibold">الإجمالي</th>
-                    <th class="px-4 py-3 text-start font-semibold">المتبقّي</th>
-                    <th class="px-4 py-3 text-start font-semibold">الحالة</th>
+                    <th >الرقم</th>
+                    <th >الشركة</th>
+                    <th >الفترة</th>
+                    <th >اشتراك</th>
+                    <th >شحنات</th>
+                    <th >عمولة</th>
+                    <th >الإجمالي</th>
+                    <th >المتبقّي</th>
+                    <th >الحالة</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody class="divide-y divide-ink-100">
                 @forelse ($invoices as $invoice)
-                    <tr class="hover:bg-slate-50">
+                    <tr class="hover:bg-ink-50">
                         <td class="px-4 py-3">
                             <a href="{{ route('admin.invoices.show', $invoice) }}"
-                               class="font-mono text-xs font-semibold text-brand-700 hover:underline" dir="ltr">
+                               class="font-mono text-xs font-semibold text-[var(--brand)] hover:underline" dir="ltr">
                                 {{ $invoice->number }}
                             </a>
                         </td>
                         <td class="px-4 py-3">{{ $invoice->company->name }}</td>
-                        <td class="px-4 py-3 text-xs text-slate-500" dir="ltr">
+                        <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
                             {{ $invoice->period_start->format('Y-m') }}
                         </td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">
                             {{ number_format($invoice->subscription_amount) }}
                         </td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">
                             {{ number_format($invoice->billable_shipments) }}
                         </td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">
                             {{ number_format($invoice->commission_amount) }}
                         </td>
                         <td class="px-4 py-3 font-bold" dir="ltr">{{ number_format($invoice->total) }}</td>
-                        <td class="px-4 py-3 font-semibold {{ $invoice->balanceDue() > 0 ? 'text-amber-700' : 'text-emerald-700' }}"
+                        <td class="px-4 py-3 font-semibold {{ $invoice->balanceDue() > 0 ? 'text-warn-700' : 'text-ok-700' }}"
                             dir="ltr">{{ number_format($invoice->balanceDue()) }}</td>
                         <td class="px-4 py-3"><x-invoice-status :status="$invoice->status" /></td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="px-4 py-16 text-center text-slate-500">
+                        <td colspan="9" class="px-4 py-16 text-center text-ink-500">
                             لا فواتير بعد. أصدر فواتير شهر من الأعلى.
                         </td>
                     </tr>
@@ -124,7 +125,7 @@
     </div>
 
     @if ($invoices->hasPages())
-        <div class="border-t border-slate-100 px-4 py-3">{{ $invoices->links() }}</div>
+        <div class="border-t border-ink-100 px-4 py-3">{{ $invoices->links() }}</div>
     @endif
 </div>
 @endsection

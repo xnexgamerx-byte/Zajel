@@ -37,7 +37,7 @@
 
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">الحدود</h2>
-            <p class="mb-4 text-xs text-slate-500">اتركه فارغاً ليكون بلا حد.</p>
+            <p class="mb-4 text-xs text-ink-500">اتركه فارغاً ليكون بلا حد.</p>
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 @foreach ([
                     ['max_branches', 'فروع'],
@@ -61,10 +61,10 @@
             <h2 class="mb-4 text-sm font-bold">الوحدات المتاحة</h2>
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 @foreach ($features as $key => $label)
-                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <label class="flex items-center gap-2 rounded-lg border border-ink-200 px-3 py-2 text-sm">
                         <input type="checkbox" name="features[]" value="{{ $key }}"
                                @checked(in_array($key, old('features', []) ?: ($plan->exists ? collect($plan->features ?? [])->filter()->keys()->all() : []), true))
-                               class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                         {{ $label }}
                     </label>
                 @endforeach
@@ -87,7 +87,7 @@
                             <input id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="{{ $step }}"
                                    class="field-input pe-12 text-left" dir="ltr" required
                                    value="{{ old($field, $plan->$field ?? 0) }}">
-                            <span class="absolute inset-y-0 end-3 flex items-center text-xs text-slate-400">د.ع</span>
+                            <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                         </div>
                         @error($field) <p class="field-error">{{ $message }}</p> @enderror
                     </div>
@@ -111,7 +111,7 @@
                 <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" name="is_active" value="1"
                            @checked(old('is_active', $plan->exists ? $plan->is_active : true))
-                           class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                           class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                     متاحة للاشتراك
                 </label>
             </div>

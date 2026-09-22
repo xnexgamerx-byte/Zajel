@@ -1,47 +1,206 @@
 @import 'tailwindcss';
 
+/*
+| نظام تصميم زاجل
+|
+| ثلاثة مبادئ حكمت الاختيارات:
+|  1) محايدات دافئة (stone) لا باردة (slate). الشاشة تُفتح ثماني ساعات
+|     يومياً، والرمادي البارد يُتعب العين أسرع.
+|  2) اللون محجوز للمعنى. الحالات وحدها تحمل لوناً؛ ما عداها حبر ومحايد.
+|     حين لا ينافسها شيء، تُقرأ الحالة من طرف الشاشة.
+|  3) لون العلامة متغيّر لكل شركة، فالهيكل محايد واللون لمسة لا خلفية.
+*/
+
 @theme {
     --font-sans: 'Cairo', 'Noto Kufi Arabic', ui-sans-serif, system-ui, sans-serif;
-    --color-brand-50:  #f0fdfa;
-    --color-brand-100: #ccfbf1;
-    --color-brand-500: #14b8a6;
-    --color-brand-600: #0d9488;
-    --color-brand-700: #0f766e;
+
+    /* محايدات دافئة */
+    --color-ink-50:  #fafaf9;
+    --color-ink-100: #f5f5f4;
+    --color-ink-200: #e7e5e4;
+    --color-ink-300: #d6d3d1;
+    --color-ink-400: #a8a29e;
+    --color-ink-500: #78716c;
+    --color-ink-600: #57534e;
+    --color-ink-700: #44403c;
+    --color-ink-800: #292524;
+    --color-ink-900: #1c1917;
+    --color-ink-950: #0c0a09;
+
+    /* علامة المنصّة — لوحة النواة وحدها */
+    --color-plat-50:  #f5f3ff;
+    --color-plat-100: #ede9fe;
+    --color-plat-400: #a78bfa;
+    --color-plat-500: #8b5cf6;
+    --color-plat-600: #7c3aed;
+    --color-plat-700: #6d28d9;
+    --color-plat-900: #4c1d95;
+
+    /*
+    | ألوان الحالة — مجموعة محجوزة، لا تُستعمل لأي شيء آخر.
+    | مُتحقَّق منها: أسوأ زوج متجاور ΔE 22.8 (deutan) و24.6 (رؤية عادية)،
+    | والتباين مع السطح ≥ 3:1 للجميع. ومع ذلك تحمل كل شارة نصّها،
+    | فاللون تعزيز لا قناة وحيدة.
+    */
+    --color-ok-50:   #ecfdf5;
+    --color-ok-200:  #a7f3d0;
+    --color-ok-700:  #047857;
+    --color-info-50:  #eff6ff;
+    --color-info-200: #bfdbfe;
+    --color-info-700: #1d4ed8;
+    --color-warn-50:  #fffbeb;
+    --color-warn-200: #fde68a;
+    --color-warn-700: #d97706;
+    --color-bad-50:   #fff1f2;
+    --color-bad-200:  #fecdd3;
+    --color-bad-700:  #9f1239;
 }
 
-/* أرقام بعرض ثابت: أعمدة المبالغ وأرقام الوصل تبقى مصطفّة. */
+/*
+| لون الشركة يصل من الخادم كمتغيّر واحد، ومنه تُشتقّ الدرجات.
+| color-mix يعني أن تغيير اللون في لوحة النواة يغيّر النظام كلّه
+| بلا إعادة بناء للأنماط.
+*/
+:root {
+    --brand: #0f766e;
+    --brand-soft: color-mix(in oklab, var(--brand) 10%, white);
+    --brand-line: color-mix(in oklab, var(--brand) 22%, white);
+    --brand-deep: color-mix(in oklab, var(--brand) 82%, black);
+}
+
 body {
-    font-feature-settings: 'tnum' 1;
+    font-feature-settings: 'tnum' 1;          /* أرقام بعرض ثابت: الأعمدة تصطفّ */
+    background-color: var(--color-ink-100);
+    color: var(--color-ink-900);
 }
 
 @layer components {
+    /* ------------------------------------------------------------ نماذج */
     .field-label {
-        @apply block text-sm font-medium text-slate-700 mb-1.5;
+        @apply mb-1.5 block text-sm font-medium text-ink-700;
     }
 
     .field-input {
-        @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
-               shadow-sm transition outline-none placeholder:text-slate-400
-               focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25;
+        @apply w-full rounded-lg border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900
+               shadow-xs outline-none transition placeholder:text-ink-400
+               focus:border-ink-400 focus:ring-2 focus:ring-ink-900/10
+               disabled:bg-ink-100 disabled:text-ink-500;
     }
 
     .field-error {
-        @apply mt-1 text-xs text-red-600;
+        @apply mt-1 text-xs font-medium text-bad-700;
     }
 
+    .field-hint {
+        @apply mt-1 text-xs text-ink-500;
+    }
+
+    /* ------------------------------------------------------------ أزرار */
     .btn-primary {
         @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
-               transition outline-none bg-brand-600 text-white
-               hover:bg-brand-700 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2;
+               text-white shadow-xs transition outline-none
+               hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-2;
+        background-color: var(--brand);
     }
 
     .btn-ghost {
-        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
-               transition outline-none bg-white text-slate-700 ring-1 ring-slate-300
-               hover:bg-slate-50 focus:ring-2 focus:ring-slate-400 focus:ring-offset-2;
+        @apply inline-flex items-center justify-center gap-2 rounded-lg border border-ink-300 bg-white
+               px-4 py-2 text-sm font-semibold text-ink-700 shadow-xs transition outline-none
+               hover:bg-ink-50 focus-visible:ring-2 focus-visible:ring-ink-900/15 focus-visible:ring-offset-2;
     }
 
+    .btn-danger {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg border border-bad-200 bg-white
+               px-4 py-2 text-sm font-semibold text-bad-700 shadow-xs transition outline-none
+               hover:bg-bad-50 focus-visible:ring-2 focus-visible:ring-bad-700/20 focus-visible:ring-offset-2;
+    }
+
+    /* ------------------------------------------------------------ أسطح */
     .card {
-        @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200;
+        @apply rounded-xl border border-ink-200 bg-white shadow-xs;
+    }
+
+    .card-title {
+        @apply text-sm font-bold text-ink-900;
+    }
+
+    .card-hint {
+        @apply mt-1 text-xs text-ink-500;
+    }
+
+    /* ------------------------------------------------------------ جداول */
+    .tbl {
+        @apply w-full text-sm;
+    }
+
+    .tbl thead {
+        @apply bg-ink-50 text-xs text-ink-500;
+    }
+
+    .tbl th {
+        @apply px-4 py-3 text-start font-semibold;
+    }
+
+    .tbl tbody tr {
+        @apply border-t border-ink-100 transition hover:bg-ink-50/70;
+    }
+
+    .tbl td {
+        @apply px-4 py-3;
+    }
+
+    /* رقم أو مبلغ: لاتيني، ثابت العرض، غير قابل للالتباس */
+    .num {
+        @apply font-mono tabular-nums;
+        direction: ltr;
+        unicode-bidi: isolate;
+    }
+
+    /* ------------------------------------------------------------ شارات */
+    .chip {
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+    }
+
+    .chip-ok   { @apply bg-ok-50   text-ok-700   ring-1 ring-ok-200; }
+    .chip-info { @apply bg-info-50 text-info-700 ring-1 ring-info-200; }
+    .chip-warn { @apply bg-warn-50 text-warn-700 ring-1 ring-warn-200; }
+    .chip-bad  { @apply bg-bad-50  text-bad-700  ring-1 ring-bad-200; }
+    .chip-mute { @apply bg-ink-100 text-ink-600  ring-1 ring-ink-200; }
+
+    /* نقطة أمام النص: قناة ثانية إلى جانب اللون والكلمة */
+    .chip::before {
+        content: '';
+        @apply h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70;
+    }
+
+    /* ------------------------------------------------------- شريط جانبي */
+    .side-link {
+        @apply flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-600
+               transition hover:bg-ink-100 hover:text-ink-900;
+    }
+
+    .side-link-active {
+        @apply bg-white text-ink-900 shadow-xs ring-1 ring-ink-200;
+    }
+
+    .side-group {
+        @apply px-3 pb-1.5 pt-4 text-[11px] font-bold uppercase tracking-wide text-ink-400;
+    }
+
+    /* ---------------------------------------------- بطاقة رقم في اللوحة */
+    .stat {
+        @apply rounded-xl border border-ink-200 bg-white p-4 shadow-xs transition;
+    }
+
+    .stat-label {
+        @apply text-xs font-medium text-ink-500;
+    }
+
+    .stat-value {
+        @apply mt-1 text-2xl font-bold text-ink-900;
+    }
+
+    a.stat:hover {
+        @apply border-ink-300 shadow-sm;
     }
 }

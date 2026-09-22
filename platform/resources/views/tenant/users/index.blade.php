@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="text-xl font-bold">مستخدمو الشركة</h1>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-ink-500">
             حسابات المندوبين والتجّار تُدار من شاشاتها، لأن لكلٍّ سجلّاً تشغيلياً لا مجرّد حساب.
         </p>
     </div>
@@ -23,50 +23,50 @@
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <table class="tbl">
+            <thead>
                 <tr>
-                    <th class="px-4 py-3 text-start font-semibold">الاسم</th>
-                    <th class="px-4 py-3 text-start font-semibold">الهاتف</th>
-                    <th class="px-4 py-3 text-start font-semibold">الدور</th>
-                    <th class="px-4 py-3 text-start font-semibold">الفرع</th>
-                    <th class="px-4 py-3 text-start font-semibold">آخر دخول</th>
-                    <th class="px-4 py-3 text-start font-semibold">الحالة</th>
+                    <th >الاسم</th>
+                    <th >الهاتف</th>
+                    <th >الدور</th>
+                    <th >الفرع</th>
+                    <th >آخر دخول</th>
+                    <th >الحالة</th>
                     <th class="px-4 py-3"></th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody class="divide-y divide-ink-100">
                 @forelse ($users as $staff)
-                    <tr class="hover:bg-slate-50">
+                    <tr class="hover:bg-ink-50">
                         <td class="px-4 py-3 font-semibold">{{ $staff->name }}</td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">{{ $staff->phone }}</td>
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $staff->phone }}</td>
                         <td class="px-4 py-3">{{ $roles[$staff->role->value] ?? $staff->role->label() }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ $staff->branch?->name ?? 'كل الفروع' }}</td>
-                        <td class="px-4 py-3 text-xs text-slate-500" dir="ltr">
+                        <td class="px-4 py-3 text-ink-600">{{ $staff->branch?->name ?? 'كل الفروع' }}</td>
+                        <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
                             {{ $staff->last_login_at?->format('Y-m-d H:i') ?? '—' }}
                         </td>
                         <td class="px-4 py-3">
                             <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1
                                 {{ $staff->is_active
-                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                                    : 'bg-slate-100 text-slate-600 ring-slate-200' }}">
+                                    ? 'bg-ok-50 text-ok-700 ring-ok-200'
+                                    : 'bg-ink-100 text-ink-600 ring-ink-200' }}">
                                 {{ $staff->is_active ? 'مفعّل' : 'موقوف' }}
                             </span>
                         </td>
                         <td class="px-4 py-3 text-end">
                             <a href="{{ route('users.edit', $staff) }}"
-                               class="text-sm font-semibold text-brand-700 hover:underline">تعديل</a>
+                               class="text-sm font-semibold text-[var(--brand)] hover:underline">تعديل</a>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-4 py-16 text-center text-slate-500">لا مستخدمين.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-16 text-center text-ink-500">لا مستخدمين.</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 
     @if ($users->hasPages())
-        <div class="border-t border-slate-100 px-4 py-3">{{ $users->links() }}</div>
+        <div class="border-t border-ink-100 px-4 py-3">{{ $users->links() }}</div>
     @endif
 </div>
 @endsection

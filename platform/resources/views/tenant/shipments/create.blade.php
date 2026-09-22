@@ -5,7 +5,7 @@
 <div class="mb-5 flex items-center justify-between">
     <div>
         <h1 class="text-xl font-bold">شحنة جديدة</h1>
-        <p class="mt-1 text-sm text-slate-500">رقم الوصل يُولَّد تلقائياً عند الحفظ.</p>
+        <p class="mt-1 text-sm text-ink-500">رقم الوصل يُولَّد تلقائياً عند الحفظ.</p>
     </div>
     <a href="{{ route('shipments.index') }}" class="btn-ghost">رجوع للقائمة</a>
 </div>
@@ -19,7 +19,7 @@
 
         {{-- التاجر --}}
         <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold text-slate-900">التاجر</h2>
+            <h2 class="mb-4 text-sm font-bold text-ink-900">التاجر</h2>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
@@ -46,7 +46,7 @@
 
         {{-- المستلم --}}
         <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold text-slate-900">المستلم والعنوان</h2>
+            <h2 class="mb-4 text-sm font-bold text-ink-900">المستلم والعنوان</h2>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
@@ -107,7 +107,7 @@
                     </label>
                     <input id="landmark" name="landmark" value="{{ old('landmark') }}" class="field-input"
                            placeholder="مثال: مقابل جامع الرحمن · قرب مول بابل · خلف صيدلية النور" required>
-                    <p class="mt-1 text-xs text-slate-500">
+                    <p class="mt-1 text-xs text-ink-500">
                         إلزامية — لا رموز بريدية في العراق، وهذه هي ما يوصل المندوب فعلاً.
                     </p>
                     @error('landmark') <p class="field-error">{{ $message }}</p> @enderror
@@ -117,7 +117,7 @@
 
         {{-- الطرد --}}
         <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold text-slate-900">الطرد</h2>
+            <h2 class="mb-4 text-sm font-bold text-ink-900">الطرد</h2>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div class="sm:col-span-3">
@@ -144,12 +144,12 @@
                 <div class="flex items-end gap-4 pb-2">
                     <label class="flex items-center gap-2 text-sm">
                         <input type="checkbox" name="is_fragile" value="1" @checked(old('is_fragile'))
-                               class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                         قابل للكسر
                     </label>
                     <label class="flex items-center gap-2 text-sm">
                         <input type="checkbox" name="allow_open" value="1" @checked(old('allow_open'))
-                               class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                         يُسمح بالفتح
                     </label>
                 </div>
@@ -167,7 +167,7 @@
     {{-- المال — عمود ثابت --}}
     <div class="lg:col-span-1">
         <section class="card sticky top-20 p-5">
-            <h2 class="mb-4 text-sm font-bold text-slate-900">المبالغ</h2>
+            <h2 class="mb-4 text-sm font-bold text-ink-900">المبالغ</h2>
 
             <div class="space-y-4">
                 <div>
@@ -177,9 +177,9 @@
                     <div class="relative">
                         <input id="cod_amount" name="cod_amount" type="number" min="0" step="250"
                                value="{{ old('cod_amount', 0) }}" class="field-input pe-12 text-left" dir="ltr" required>
-                        <span class="absolute inset-y-0 end-3 flex items-center text-xs text-slate-400">د.ع</span>
+                        <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500">صفر = مدفوع مسبقاً.</p>
+                    <p class="mt-1 text-xs text-ink-500">صفر = مدفوع مسبقاً.</p>
                     @error('cod_amount') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
@@ -201,9 +201,9 @@
                         <input id="delivery_fee" name="delivery_fee" type="number" min="0" step="250"
                                value="{{ old('delivery_fee') }}" class="field-input pe-12 text-left" dir="ltr"
                                placeholder="تُحسب من التسعيرة">
-                        <span class="absolute inset-y-0 end-3 flex items-center text-xs text-slate-400">د.ع</span>
+                        <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>
-                    <p class="mt-1 text-xs text-slate-500">اتركه فارغاً ليُحسب من تسعيرة التاجر.</p>
+                    <p class="mt-1 text-xs text-ink-500">اتركه فارغاً ليُحسب من تسعيرة التاجر.</p>
                     @error('delivery_fee') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
@@ -221,24 +221,24 @@
                 </div>
 
                 {{-- الحساب الحيّ --}}
-                <div class="rounded-lg bg-slate-50 p-4 text-sm ring-1 ring-slate-200" id="quote-box">
+                <div class="rounded-lg bg-ink-50 p-4 text-sm ring-1 ring-ink-200" id="quote-box">
                     <div class="flex justify-between py-1">
-                        <span class="text-slate-600">أجرة التوصيل</span>
+                        <span class="text-ink-600">أجرة التوصيل</span>
                         <span class="font-semibold" dir="ltr" data-quote="delivery_fee">—</span>
                     </div>
                     <div class="flex justify-between py-1">
-                        <span class="text-slate-600">عمولة التحصيل</span>
+                        <span class="text-ink-600">عمولة التحصيل</span>
                         <span class="font-semibold" dir="ltr" data-quote="cod_fee">—</span>
                     </div>
-                    <div class="flex justify-between border-t border-slate-200 py-1 pt-2">
-                        <span class="text-slate-600">مجموع الأجور</span>
+                    <div class="flex justify-between border-t border-ink-200 py-1 pt-2">
+                        <span class="text-ink-600">مجموع الأجور</span>
                         <span class="font-semibold" dir="ltr" data-quote="total_fees">—</span>
                     </div>
-                    <div class="flex justify-between border-t-2 border-slate-300 py-1 pt-2">
-                        <span class="font-bold text-slate-900">مستحقّ التاجر</span>
-                        <span class="text-base font-bold text-brand-700" dir="ltr" data-quote="merchant_due">—</span>
+                    <div class="flex justify-between border-t-2 border-ink-300 py-1 pt-2">
+                        <span class="font-bold text-ink-900">مستحقّ التاجر</span>
+                        <span class="text-base font-bold text-[var(--brand)]" dir="ltr" data-quote="merchant_due">—</span>
                     </div>
-                    <p class="mt-2 hidden text-xs text-amber-700" data-quote-warning>
+                    <p class="mt-2 hidden text-xs text-warn-700" data-quote-warning>
                         لا توجد قاعدة تسعير مطابقة — أدخل الأجرة يدوياً.
                     </p>
                 </div>

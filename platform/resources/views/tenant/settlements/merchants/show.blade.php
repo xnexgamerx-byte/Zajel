@@ -8,7 +8,7 @@
             <h1 class="font-mono text-2xl font-bold" dir="ltr">{{ $settlement->code }}</h1>
             <x-settlement-status :status="$settlement->status" />
         </div>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-ink-500">
             {{ $settlement->merchant->business_name }}
             · من {{ $settlement->from_date?->format('Y-m-d') }}
             إلى {{ $settlement->to_date?->format('Y-m-d') }}
@@ -20,10 +20,10 @@
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <div class="lg:col-span-2">
         <section class="card overflow-hidden">
-            <h2 class="border-b border-slate-100 px-5 py-4 text-sm font-bold">
+            <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">
                 سطور الكشف — {{ number_format($settlement->shipments_count) }} شحنة
                 @if ($settlement->returned_count)
-                    <span class="font-normal text-amber-700">
+                    <span class="font-normal text-warn-700">
                         (منها {{ $settlement->returned_count }} راجعة)
                     </span>
                 @endif
@@ -31,23 +31,23 @@
 
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 text-start font-semibold">رقم الوصل</th>
-                            <th class="px-4 py-3 text-start font-semibold">المستلم</th>
-                            <th class="px-4 py-3 text-start font-semibold">الحالة</th>
-                            <th class="px-4 py-3 text-start font-semibold">المحصَّل</th>
-                            <th class="px-4 py-3 text-start font-semibold">التوصيل</th>
-                            <th class="px-4 py-3 text-start font-semibold">الراجع</th>
-                            <th class="px-4 py-3 text-start font-semibold">له</th>
+                            <th >رقم الوصل</th>
+                            <th >المستلم</th>
+                            <th >الحالة</th>
+                            <th >المحصَّل</th>
+                            <th >التوصيل</th>
+                            <th >الراجع</th>
+                            <th >له</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-ink-100">
                         @foreach ($settlement->lines as $line)
                             <tr>
                                 <td class="px-4 py-2.5">
                                     <a href="{{ route('shipments.show', $line->shipment) }}"
-                                       class="font-mono font-semibold text-brand-700 hover:underline" dir="ltr">
+                                       class="font-mono font-semibold text-[var(--brand)] hover:underline" dir="ltr">
                                         {{ $line->shipment->number }}
                                     </a>
                                 </td>
@@ -56,28 +56,28 @@
                                 <td class="px-4 py-2.5 font-semibold" dir="ltr">
                                     {{ number_format($line->collected_amount) }}
                                 </td>
-                                <td class="px-4 py-2.5 text-slate-600" dir="ltr">
+                                <td class="px-4 py-2.5 text-ink-600" dir="ltr">
                                     {{ $line->delivery_fee ? '−'.number_format($line->delivery_fee) : '' }}
                                 </td>
-                                <td class="px-4 py-2.5 text-amber-700" dir="ltr">
+                                <td class="px-4 py-2.5 text-warn-700" dir="ltr">
                                     {{ $line->return_fee ? '−'.number_format($line->return_fee) : '' }}
                                 </td>
-                                <td class="px-4 py-2.5 font-bold {{ $line->net_amount >= 0 ? '' : 'text-red-600' }}"
+                                <td class="px-4 py-2.5 font-bold {{ $line->net_amount >= 0 ? '' : 'text-bad-700' }}"
                                     dir="ltr">{{ number_format($line->net_amount) }}</td>
                             </tr>
                         @endforeach
                     </tbody>
-                    <tfoot class="bg-slate-50 font-bold">
+                    <tfoot class="bg-ink-50 font-bold">
                         <tr>
                             <td class="px-4 py-3" colspan="3">المجموع</td>
                             <td class="px-4 py-3" dir="ltr">{{ number_format($settlement->cod_total) }}</td>
                             <td class="px-4 py-3" dir="ltr">
                                 {{ $settlement->delivery_fees_total ? '−'.number_format($settlement->delivery_fees_total) : '' }}
                             </td>
-                            <td class="px-4 py-3 text-amber-700" dir="ltr">
+                            <td class="px-4 py-3 text-warn-700" dir="ltr">
                                 {{ $settlement->return_fees_total ? '−'.number_format($settlement->return_fees_total) : '' }}
                             </td>
-                            <td class="px-4 py-3 text-brand-700" dir="ltr">{{ number_format($settlement->net_amount) }}</td>
+                            <td class="px-4 py-3 text-[var(--brand)]" dir="ltr">{{ number_format($settlement->net_amount) }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -90,28 +90,28 @@
             <h2 class="mb-4 text-sm font-bold">الحساب</h2>
             <dl class="space-y-2 text-sm">
                 <div class="flex justify-between">
-                    <dt class="text-slate-600">المحصَّل من الزبائن</dt>
+                    <dt class="text-ink-600">المحصَّل من الزبائن</dt>
                     <dd class="font-semibold" dir="ltr">{{ number_format($settlement->cod_total) }}</dd>
                 </div>
                 <div class="flex justify-between">
-                    <dt class="text-slate-600">أجور التوصيل</dt>
+                    <dt class="text-ink-600">أجور التوصيل</dt>
                     <dd dir="ltr">−{{ number_format($settlement->delivery_fees_total) }}</dd>
                 </div>
                 @if ($settlement->cod_fees_total)
                     <div class="flex justify-between">
-                        <dt class="text-slate-600">عمولة التحصيل</dt>
+                        <dt class="text-ink-600">عمولة التحصيل</dt>
                         <dd dir="ltr">−{{ number_format($settlement->cod_fees_total) }}</dd>
                     </div>
                 @endif
                 @if ($settlement->return_fees_total)
-                    <div class="flex justify-between text-amber-700">
+                    <div class="flex justify-between text-warn-700">
                         <dt>أجور الرواجع</dt>
                         <dd dir="ltr">−{{ number_format($settlement->return_fees_total) }}</dd>
                     </div>
                 @endif
-                <div class="flex justify-between border-t-2 border-slate-300 pt-2">
+                <div class="flex justify-between border-t-2 border-ink-300 pt-2">
                     <dt class="font-bold">{{ $settlement->net_amount >= 0 ? 'الواجب دفعه له' : 'الواجب تحصيله منه' }}</dt>
-                    <dd class="text-lg font-bold {{ $settlement->net_amount >= 0 ? 'text-brand-700' : 'text-red-600' }}"
+                    <dd class="text-lg font-bold {{ $settlement->net_amount >= 0 ? 'text-[var(--brand)]' : 'text-bad-700' }}"
                         dir="ltr">{{ number_format(abs($settlement->net_amount)) }} د.ع</dd>
                 </div>
             </dl>
@@ -122,7 +122,7 @@
                   class="card space-y-4 p-5">
                 @csrf
                 <h2 class="text-sm font-bold">إقفال الكشف</h2>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-ink-500">
                     يُثبَّت الرقم وتُوسَم الشحنات فلا تدخل كشفاً آخر. الدفع خطوة تالية.
                 </p>
                 <div>
@@ -166,7 +166,7 @@
                 <h2 class="mb-3 text-sm font-bold">الدفع</h2>
                 <dl class="space-y-2 text-sm">
                     <div class="flex justify-between">
-                        <dt class="text-slate-500">الطريقة</dt>
+                        <dt class="text-ink-500">الطريقة</dt>
                         <dd class="font-medium">
                             {{ ['cash' => 'نقد', 'zaincash' => 'زين كاش', 'asiahawala' => 'آسيا حوالة',
                                 'fastpay' => 'فاست باي', 'qi' => 'Qi كارد', 'fib' => 'FIB',
@@ -175,12 +175,12 @@
                     </div>
                     @if ($settlement->payout_reference)
                         <div class="flex justify-between">
-                            <dt class="text-slate-500">المرجع</dt>
+                            <dt class="text-ink-500">المرجع</dt>
                             <dd class="font-medium" dir="ltr">{{ $settlement->payout_reference }}</dd>
                         </div>
                     @endif
                     <div class="flex justify-between">
-                        <dt class="text-slate-500">دُفع في</dt>
+                        <dt class="text-ink-500">دُفع في</dt>
                         <dd class="font-medium" dir="ltr">{{ $settlement->paid_at?->format('Y-m-d H:i') }}</dd>
                     </div>
                 </dl>

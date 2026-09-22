@@ -58,13 +58,13 @@
     <div class="flex flex-wrap gap-5">
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_main" value="1" @checked(old('is_main', $branch->is_main))
-                   class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                   class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
             الفرع الرئيسي
         </label>
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_active" value="1"
                    @checked(old('is_active', $branch->exists ? $branch->is_active : true))
-                   class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                   class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
             مفعّل
         </label>
     </div>

@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="text-xl font-bold">المندوبون</h1>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-ink-500">
             مندوب الاستلام ومندوب التوصيل وظيفتان مختلفتان — والنوع هنا يحدّد ما يُسنَد إليه.
         </p>
     </div>
@@ -44,50 +44,50 @@
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <table class="tbl">
+            <thead>
                 <tr>
-                    <th class="px-4 py-3 text-start font-semibold">الرمز</th>
-                    <th class="px-4 py-3 text-start font-semibold">الاسم</th>
-                    <th class="px-4 py-3 text-start font-semibold">الهاتف</th>
-                    <th class="px-4 py-3 text-start font-semibold">النوع</th>
-                    <th class="px-4 py-3 text-start font-semibold">بيده الآن</th>
-                    <th class="px-4 py-3 text-start font-semibold">نقد</th>
-                    <th class="px-4 py-3 text-start font-semibold">عمولته</th>
-                    <th class="px-4 py-3 text-start font-semibold">الحالة</th>
+                    <th >الرمز</th>
+                    <th >الاسم</th>
+                    <th >الهاتف</th>
+                    <th >النوع</th>
+                    <th >بيده الآن</th>
+                    <th >نقد</th>
+                    <th >عمولته</th>
+                    <th >الحالة</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody class="divide-y divide-ink-100">
                 @forelse ($couriers as $courier)
-                    <tr class="hover:bg-slate-50">
-                        <td class="px-4 py-3 font-mono text-slate-500" dir="ltr">{{ $courier->code }}</td>
+                    <tr class="hover:bg-ink-50">
+                        <td class="px-4 py-3 font-mono text-ink-500" dir="ltr">{{ $courier->code }}</td>
                         <td class="px-4 py-3">
                             <a href="{{ route('couriers.show', $courier) }}"
-                               class="font-semibold text-brand-700 hover:underline">{{ $courier->name }}</a>
+                               class="font-semibold text-[var(--brand)] hover:underline">{{ $courier->name }}</a>
                             @if ($courier->branch)
-                                <div class="text-xs text-slate-500">{{ $courier->branch->name }}</div>
+                                <div class="text-xs text-ink-500">{{ $courier->branch->name }}</div>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">{{ $courier->phone }}</td>
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $courier->phone }}</td>
                         <td class="px-4 py-3">
-                            <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                            <span class="inline-flex rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-semibold text-ink-700">
                                 {{ ['delivery' => 'توصيل', 'pickup' => 'استلام', 'both' => 'الاثنان'][$courier->type] }}
                             </span>
                         </td>
                         <td class="px-4 py-3" dir="ltr">{{ number_format($courier->open_count) }}</td>
-                        <td class="px-4 py-3 font-semibold {{ $courier->hasReachedCashLimit() ? 'text-red-600' : '' }}"
+                        <td class="px-4 py-3 font-semibold {{ $courier->hasReachedCashLimit() ? 'text-bad-700' : '' }}"
                             dir="ltr">
                             {{ number_format($courier->cash_in_hand) }}
                         </td>
-                        <td class="px-4 py-3 text-emerald-700" dir="ltr">
+                        <td class="px-4 py-3 text-ok-700" dir="ltr">
                             {{ number_format($courier->commission_balance) }}
                         </td>
                         <td class="px-4 py-3">
                             @php
                                 $tone = match ($courier->status) {
-                                    'active'    => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-                                    'suspended' => 'bg-red-50 text-red-700 ring-red-200',
-                                    default     => 'bg-slate-100 text-slate-600 ring-slate-200',
+                                    'active'    => 'bg-ok-50 text-ok-700 ring-ok-200',
+                                    'suspended' => 'bg-bad-50 text-bad-700 ring-bad-200',
+                                    default     => 'bg-ink-100 text-ink-600 ring-ink-200',
                                 };
                             @endphp
                             <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $tone }}">
@@ -98,7 +98,7 @@
                 @empty
                     <tr>
                         <td colspan="8" class="px-4 py-16 text-center">
-                            <div class="text-slate-500">لا يوجد مندوبون بعد.</div>
+                            <div class="text-ink-500">لا يوجد مندوبون بعد.</div>
                             <a href="{{ route('couriers.create') }}" class="btn-primary mt-4">أضف أول مندوب</a>
                         </td>
                     </tr>
@@ -108,7 +108,7 @@
     </div>
 
     @if ($couriers->hasPages())
-        <div class="border-t border-slate-100 px-4 py-3">{{ $couriers->links() }}</div>
+        <div class="border-t border-ink-100 px-4 py-3">{{ $couriers->links() }}</div>
     @endif
 </div>
 @endsection

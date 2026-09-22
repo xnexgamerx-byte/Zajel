@@ -16,19 +16,25 @@
         <style>:root { --brand: {{ $company->primary_color }}; }</style>
     @endisset
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+<body class="min-h-screen antialiased">
 
 @auth
-@if (session()->has(\App\Actions\Platform\ImpersonateCompany::SESSION_KEY))
+@php
+    $user = auth()->user();
+    $staff = $user->isStaff();
+    $impersonating = session()->has(\App\Actions\Platform\ImpersonateCompany::SESSION_KEY);
+@endphp
+
+@if ($impersonating)
     {{-- شريط لا يُخطأ: من يعمل داخل نظام شركة يجب أن يعرف أنه ليس نفسه --}}
-    <div class="sticky top-0 z-40 bg-amber-500 text-amber-950">
+    <div class="bg-warn-700 text-white">
         <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-3 px-4 py-2 text-sm">
             <span class="font-semibold">
                 أنت داخل نظام {{ $company->name }} من لوحة المنصّة — هذا الدخول مسجَّل في سجلّ الشركة.
             </span>
             <form method="POST" action="{{ route('impersonation.stop') }}" class="ms-auto">
                 @csrf
-                <button class="rounded-lg bg-amber-950/10 px-3 py-1 font-semibold hover:bg-amber-950/20">
+                <button type="submit" class="rounded-lg bg-white/20 px-3 py-1 font-semibold hover:bg-white/30">
                     عُد إلى لوحة المنصّة
                 </button>
             </form>
@@ -36,111 +42,132 @@
     </div>
 @endif
 
-<header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-    <div class="mx-auto flex h-14 max-w-screen-2xl items-center gap-4 px-4">
-        <a href="{{ route('shipments.index') }}" class="flex items-center gap-2 font-bold">
-            <span class="grid h-8 w-8 place-items-center rounded-lg text-sm font-black text-white"
-                  style="background: var(--brand, #0d9488)">ز</span>
-            <span>{{ $company->name }}</span>
-        </a>
-
-        @php $staff = auth()->user()->isStaff(); @endphp
-
-        {{-- روابط يومية ظاهرة، وبقيّة الأقسام خلف قائمة: تسعة روابط في
-             شريط واحد تجعل إيجاد أيّ منها أبطأ من إيجادها في مجموعتها. --}}
-        <nav class="hidden items-center gap-1 text-sm md:flex">
-            @if ($staff)
-                <a href="{{ route('dashboard') }}"
-                   class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('dashboard') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                    اليوم
-                </a>
-            @endif
-
-            <a href="{{ route('shipments.index') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.index') || request()->routeIs('shipments.show') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                الشحنات
-            </a>
-
-            @if ($staff)
-                <a href="{{ route('shipments.create') }}"
-                   class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.create') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                    شحنة جديدة
-                </a>
-                <a href="{{ route('pickups.index') }}"
-                   class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('pickups.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                    الاستلام
-                </a>
-
-                @foreach ([
-                    ['الأطراف', ['merchants.*', 'couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit'], [
-                        ['merchants.index', 'التجّار'],
-                        ['couriers.index', 'المندوبون'],
-                    ]],
-                    ['المال', ['settlements.*', 'couriers.cash', 'pricing.*'], [
-                        ['settlements.couriers.index', 'تسوية المندوبين'],
-                        ['settlements.merchants.index', 'تسوية التجّار'],
-                        ['couriers.cash', 'نقد المندوبين'],
-                        ['pricing.index', 'التسعيرات'],
-                    ]],
-                    ['الإعدادات', ['users.*', 'branches.*'], [
-                        ['users.index', 'المستخدمون'],
-                        ['branches.index', 'الفروع'],
-                    ]],
-                ] as [$label, $patterns, $items])
-                    @php $open = collect($patterns)->contains(fn ($p) => request()->routeIs($p)); @endphp
-                    <div class="relative" data-menu>
-                        <button type="button" data-menu-toggle
-                                class="rounded-lg px-3 py-1.5 font-medium {{ $open ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                            {{ $label }} <span class="text-xs">▾</span>
-                        </button>
-                        <div hidden data-menu-panel
-                             class="absolute end-0 z-40 mt-1 w-52 overflow-hidden rounded-xl bg-white py-1 shadow-lg ring-1 ring-slate-200">
-                            @foreach ($items as [$route, $text])
-                                <a href="{{ route($route) }}"
-                                   class="block px-4 py-2 text-sm {{ request()->routeIs($route) ? 'bg-slate-50 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                                    {{ $text }}
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                @endforeach
-            @endif
-        </nav>
-
-        <div class="ms-auto flex items-center gap-3">
-            <div class="hidden text-left sm:block">
-                <div class="text-sm font-semibold leading-tight">{{ auth()->user()->name }}</div>
-                <div class="text-xs text-slate-500">{{ auth()->user()->role->label() }}</div>
+<div class="flex min-h-screen">
+    {{-- الشريط الجانبي: الأقسام مجمَّعة ومرئية كلّها بلا قوائم منسدلة --}}
+    <aside class="fixed inset-y-0 z-40 hidden w-60 shrink-0 border-s border-ink-200 bg-ink-50 lg:static lg:block"
+           data-sidebar hidden>
+        <div class="flex h-full flex-col">
+            <div class="flex h-16 items-center gap-2.5 px-4">
+                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-black text-white"
+                      style="background: var(--brand)">ز</span>
+                <div class="min-w-0">
+                    <div class="truncate text-sm font-bold">{{ $company->name }}</div>
+                    <div class="text-[11px] text-ink-500">نظام إدارة الشحنات</div>
+                </div>
             </div>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">خروج</button>
-            </form>
+
+            <nav class="flex-1 overflow-y-auto px-2 pb-4">
+                @php
+                    $groups = $staff ? [
+                        ['العمليات', [
+                            ['dashboard', 'لوحة اليوم', ['dashboard']],
+                            ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show']],
+                            ['shipments.create', 'شحنة جديدة', ['shipments.create']],
+                            ['pickups.index', 'طلبات الاستلام', ['pickups.*']],
+                        ]],
+                        ['الأطراف', [
+                            ['merchants.index', 'التجّار', ['merchants.*']],
+                            ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit']],
+                        ]],
+                        ['المال', [
+                            ['couriers.cash', 'نقد المندوبين', ['couriers.cash']],
+                            ['settlements.couriers.index', 'تسوية المندوبين', ['settlements.couriers.*']],
+                            ['settlements.merchants.index', 'تسوية التجّار', ['settlements.merchants.*']],
+                            ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit']],
+                        ]],
+                        ['الإعدادات', [
+                            ['users.index', 'المستخدمون', ['users.*']],
+                            ['branches.index', 'الفروع', ['branches.*']],
+                        ]],
+                    ] : [
+                        ['', [['shipments.index', 'الشحنات', ['shipments.*']]]],
+                    ];
+                @endphp
+
+                @foreach ($groups as [$label, $links])
+                    @if ($label)
+                        <div class="side-group">{{ $label }}</div>
+                    @endif
+                    @foreach ($links as [$route, $text, $patterns])
+                        @php $active = collect($patterns)->contains(fn ($p) => request()->routeIs($p)); @endphp
+                        <a href="{{ route($route) }}"
+                           class="side-link {{ $active ? 'side-link-active' : '' }}">
+                            {{ $text }}
+                        </a>
+                    @endforeach
+                @endforeach
+            </nav>
+
+            <div class="border-t border-ink-200 p-3">
+                <div class="mb-2 px-1">
+                    <div class="truncate text-sm font-semibold">{{ $user->name }}</div>
+                    <div class="text-xs text-ink-500">{{ $user->role->label() }}</div>
+                </div>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="side-link w-full">تسجيل الخروج</button>
+                </form>
+            </div>
         </div>
+    </aside>
+
+    <div class="min-w-0 flex-1">
+        {{-- شريط علوي: البحث العام + فتح القائمة على الشاشات الصغيرة --}}
+        <header class="sticky top-0 z-30 border-b border-ink-200 bg-white/85 backdrop-blur">
+            <div class="flex h-16 items-center gap-3 px-4">
+                <button type="button" data-sidebar-toggle
+                        class="btn-ghost px-3 py-2 lg:hidden" aria-label="القائمة">☰</button>
+
+                @if ($staff)
+                    <form method="GET" action="{{ route('shipments.index') }}" class="max-w-md flex-1">
+                        <input name="q" value="{{ request('q') }}" class="field-input"
+                               placeholder="ابحث برقم الوصل أو هاتف الزبون…">
+                    </form>
+
+                    <a href="{{ route('shipments.create') }}" class="btn-primary ms-auto shrink-0">
+                        + شحنة
+                    </a>
+                @else
+                    <span class="ms-auto text-sm font-semibold">{{ $company->name }}</span>
+                @endif
+            </div>
+        </header>
+
+        <main class="mx-auto max-w-screen-2xl px-4 py-6">
+            @if (session('success'))
+                <div class="mb-4 rounded-xl border border-ok-200 bg-ok-50 px-4 py-3 text-sm font-medium text-ok-700">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            @if ($errors->any() && ! request()->routeIs('login'))
+                <div class="mb-4 rounded-xl border border-bad-200 bg-bad-50 px-4 py-3 text-sm text-bad-700">
+                    <div class="font-semibold">تعذّر الحفظ:</div>
+                    <ul class="mt-1 list-disc ps-5">
+                        @foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach
+                    </ul>
+                </div>
+            @endif
+
+            @yield('content')
+        </main>
     </div>
-</header>
+</div>
 @endauth
 
-<main class="mx-auto max-w-screen-2xl px-4 py-6">
-    @if (session('success'))
-        <div class="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">
-            {{ session('success') }}
-        </div>
-    @endif
-
+@guest
+<main class="mx-auto max-w-screen-sm px-4 py-10">
     @if ($errors->any() && ! request()->routeIs('login'))
-        <div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200">
-            <div class="font-semibold">تعذّر الحفظ:</div>
-            <ul class="mt-1 list-disc ps-5">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
+        <div class="mb-4 rounded-xl border border-bad-200 bg-bad-50 px-4 py-3 text-sm text-bad-700">
+            <ul class="list-disc ps-5">
+                @foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach
             </ul>
         </div>
     @endif
 
     @yield('content')
 </main>
+@endguest
 
 </body>
 </html>

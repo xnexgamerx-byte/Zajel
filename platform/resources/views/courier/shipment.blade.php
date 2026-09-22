@@ -2,11 +2,11 @@
 @section('title', 'شحنة ' . $shipment->number)
 
 @section('content')
-<div class="mb-3 rounded-xl bg-white p-4 shadow-sm">
+<div class="mb-3 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
             <div class="text-lg font-bold">{{ $shipment->recipient_name }}</div>
-            <div class="font-mono text-xs text-slate-400" dir="ltr">{{ $shipment->number }}</div>
+            <div class="font-mono text-xs text-ink-400" dir="ltr">{{ $shipment->number }}</div>
         </div>
         <x-status-badge :status="$shipment->status" />
     </div>
@@ -18,13 +18,13 @@
             (bool) ($shipment->lat && $shipment->lng) => [
                 'الخريطة',
                 'https://www.google.com/maps/search/?api=1&query='.$shipment->lat.','.$shipment->lng,
-                'bg-slate-800 text-white active:bg-slate-900',
+                'bg-ink-800 text-white active:bg-ink-900',
                 true,
             ],
             (bool) $shipment->recipient_phone_alt => [
                 'الرقم البديل',
                 'tel:'.$shipment->recipient_phone_alt,
-                'bg-slate-200 text-slate-700 active:bg-slate-300',
+                'bg-ink-200 text-ink-700 active:bg-ink-300',
                 false,
             ],
             default => null,
@@ -33,7 +33,7 @@
 
     <div class="mt-3 {{ $secondary ? 'grid grid-cols-2 gap-2' : '' }}">
         <a href="tel:{{ $shipment->recipient_phone }}"
-           class="block rounded-xl bg-emerald-600 px-4 py-3 text-center text-base font-bold text-white active:bg-emerald-700">
+           class="block rounded-xl bg-ok-700 px-4 py-3 text-center text-base font-bold text-white active:brightness-110">
             اتصل بالزبون
         </a>
 
@@ -48,39 +48,40 @@
     </div>
 </div>
 
-<div class="mb-3 rounded-xl bg-white p-4 shadow-sm">
-    <div class="text-xs text-slate-500">المطلوب من الزبون</div>
-    <div class="text-3xl font-bold text-amber-700" dir="ltr">
-        {{ number_format($shipment->cod_amount) }} <span class="text-base text-slate-500">د.ع</span>
+<div class="mb-3 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+    <div class="text-xs text-ink-500">المطلوب من الزبون</div>
+    <div class="text-3xl font-bold text-warn-700">
+                <span class="num">{{ number_format($shipment->cod_amount) }}</span>
+                <span class="text-base text-ink-500">د.ع</span>
     </div>
 
-    <dl class="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm">
+    <dl class="mt-3 space-y-2 border-t border-ink-100 pt-3 text-sm">
         <div>
-            <dt class="text-xs text-slate-500">العنوان</dt>
+            <dt class="text-xs text-ink-500">العنوان</dt>
             <dd class="font-medium">{{ $shipment->address }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-slate-500">نقطة دالّة</dt>
-            <dd class="font-bold text-brand-700">{{ $shipment->landmark }}</dd>
+            <dt class="text-xs text-ink-500">نقطة دالّة</dt>
+            <dd class="font-bold text-[var(--brand)]">{{ $shipment->landmark }}</dd>
         </div>
         @if ($shipment->notes)
-            <div class="rounded-lg bg-amber-50 px-3 py-2">
-                <dt class="text-xs text-amber-800">ملاحظة التاجر</dt>
-                <dd class="font-medium text-amber-900">{{ $shipment->notes }}</dd>
+            <div class="rounded-lg bg-warn-50 px-3 py-2">
+                <dt class="text-xs text-warn-700">ملاحظة التاجر</dt>
+                <dd class="font-medium text-warn-700">{{ $shipment->notes }}</dd>
             </div>
         @endif
-        <div class="flex justify-between border-t border-slate-100 pt-2">
-            <dt class="text-slate-500">التاجر</dt>
+        <div class="flex justify-between border-t border-ink-100 pt-2">
+            <dt class="text-ink-500">التاجر</dt>
             <dd class="font-medium">{{ $shipment->merchant->business_name }}</dd>
         </div>
         <div class="flex justify-between">
-            <dt class="text-slate-500">القطع</dt>
+            <dt class="text-ink-500">القطع</dt>
             <dd class="font-medium" dir="ltr">{{ $shipment->pieces_count }}</dd>
         </div>
         @if ($shipment->lastFailureReason)
             <div class="flex justify-between">
-                <dt class="text-slate-500">آخر محاولة</dt>
-                <dd class="font-medium text-amber-700">{{ $shipment->lastFailureReason->name_ar }}</dd>
+                <dt class="text-ink-500">آخر محاولة</dt>
+                <dd class="font-medium text-warn-700">{{ $shipment->lastFailureReason->name_ar }}</dd>
             </div>
         @endif
     </dl>
@@ -94,31 +95,31 @@
         <input type="hidden" name="lng" data-geo-lng>
 
         {{-- تسليم: الفعل الأكثر تكراراً، فهو الأكبر والأول --}}
-        <div class="rounded-xl bg-white p-4 shadow-sm">
+        <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
             <label class="field-label" for="collected_amount">المبلغ المستلم</label>
             <div class="relative">
                 <input id="collected_amount" name="collected_amount" type="number" min="0" step="250"
                        class="field-input pe-12 text-left text-lg" dir="ltr"
                        value="{{ old('collected_amount', $shipment->cod_amount) }}">
-                <span class="absolute inset-y-0 end-3 flex items-center text-xs text-slate-400">د.ع</span>
+                <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
             </div>
-            <p class="mt-1 text-xs text-slate-500">
+            <p class="mt-1 text-xs text-ink-500">
                 إن استلمت أقل، عدّل الرقم واختر "تسليم جزئي". الرقم لا يُعدَّل بعد الحفظ.
             </p>
 
             <button type="submit" name="action" value="delivered"
-                    class="mt-3 w-full rounded-xl bg-emerald-600 px-4 py-4 text-lg font-bold text-white active:bg-emerald-700">
+                    class="mt-3 w-full rounded-xl bg-ok-700 px-4 py-4 text-lg font-bold text-white active:brightness-110">
                 تم التسليم
             </button>
 
             <button type="submit" name="action" value="partially_delivered"
-                    class="mt-2 w-full rounded-xl bg-white px-4 py-3 text-base font-semibold text-slate-700 ring-1 ring-slate-300 active:bg-slate-50">
+                    class="mt-2 w-full rounded-xl bg-white px-4 py-3 text-base font-semibold text-ink-700 ring-1 ring-ink-300 active:bg-ink-50">
                 تسليم جزئي
             </button>
         </div>
 
         {{-- لم يُسلَّم --}}
-        <div class="rounded-xl bg-white p-4 shadow-sm">
+        <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
             <label class="field-label" for="failure_reason_id">إن لم يُسلَّم — السبب</label>
             <select id="failure_reason_id" name="failure_reason_id" class="field-input text-base">
                 <option value="">اختر السبب</option>
@@ -135,25 +136,25 @@
 
             <div class="mt-3 grid grid-cols-2 gap-2">
                 <button type="submit" name="action" value="failed_attempt"
-                        class="rounded-xl bg-red-600 px-4 py-3.5 text-base font-bold text-white active:bg-red-700">
+                        class="rounded-xl bg-bad-700 px-4 py-3.5 text-base font-bold text-white active:brightness-110">
                     محاولة فاشلة
                 </button>
                 <button type="submit" name="action" value="postponed"
-                        class="rounded-xl bg-amber-500 px-4 py-3.5 text-base font-bold text-white active:bg-amber-600">
+                        class="rounded-xl bg-warn-500 px-4 py-3.5 text-base font-bold text-white active:brightness-110">
                     تأجيل
                 </button>
             </div>
         </div>
     </form>
 @else
-    <div class="rounded-xl bg-white p-6 text-center shadow-sm">
-        <p class="font-semibold text-slate-700">هذه الشحنة لم تعد بيدك.</p>
-        <p class="mt-1 text-sm text-slate-500">حالتها الآن: {{ $shipment->status->label() }}</p>
+    <div class="rounded-xl border border-ink-200 bg-white p-6 text-center shadow-xs">
+        <p class="font-semibold text-ink-700">هذه الشحنة لم تعد بيدك.</p>
+        <p class="mt-1 text-sm text-ink-500">حالتها الآن: {{ $shipment->status->label() }}</p>
     </div>
 @endif
 
 <a href="{{ route('courier.tasks') }}"
-   class="mt-4 block rounded-xl bg-white px-4 py-3 text-center text-sm font-semibold text-slate-600 shadow-sm">
+   class="mt-4 block rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-600 shadow-xs">
     رجوع لمهامي
 </a>
 @endsection

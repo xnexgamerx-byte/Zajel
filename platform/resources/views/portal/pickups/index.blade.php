@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5">
     <h1 class="text-xl font-bold">طلبات الاستلام</h1>
-    <p class="mt-1 text-sm text-slate-500">اطلب مندوباً يأتي إلى متجرك ليأخذ الطرود الجاهزة.</p>
+    <p class="mt-1 text-sm text-ink-500">اطلب مندوباً يأتي إلى متجرك ليأخذ الطرود الجاهزة.</p>
 </div>
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -12,52 +12,52 @@
         <div class="card overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 text-start font-semibold">الرقم</th>
-                            <th class="px-4 py-3 text-start font-semibold">متوقَّع</th>
-                            <th class="px-4 py-3 text-start font-semibold">مستلَم</th>
-                            <th class="px-4 py-3 text-start font-semibold">المندوب</th>
-                            <th class="px-4 py-3 text-start font-semibold">الحالة</th>
-                            <th class="px-4 py-3 text-start font-semibold">التاريخ</th>
+                            <th >الرقم</th>
+                            <th >متوقَّع</th>
+                            <th >مستلَم</th>
+                            <th >المندوب</th>
+                            <th >الحالة</th>
+                            <th >التاريخ</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-ink-100">
                         @forelse ($pickups as $pickup)
-                            <tr class="hover:bg-slate-50">
+                            <tr class="hover:bg-ink-50">
                                 <td class="px-4 py-3 font-mono font-semibold" dir="ltr">{{ $pickup->number }}</td>
                                 <td class="px-4 py-3" dir="ltr">{{ $pickup->expected_count }}</td>
                                 <td class="px-4 py-3 font-semibold" dir="ltr">{{ $pickup->actual_count ?: '—' }}</td>
                                 <td class="px-4 py-3">
                                     @if ($pickup->courier)
                                         {{ $pickup->courier->name }}
-                                        <div class="text-xs text-slate-500" dir="ltr">{{ $pickup->courier->phone }}</div>
+                                        <div class="text-xs text-ink-500" dir="ltr">{{ $pickup->courier->phone }}</div>
                                     @else
-                                        <span class="text-slate-400">—</span>
+                                        <span class="text-ink-400">—</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     @php
                                         [$label, $tone] = match ($pickup->status) {
-                                            'pending'     => ['بانتظار مندوب', 'bg-amber-50 text-amber-800 ring-amber-200'],
-                                            'assigned'    => ['أُسند', 'bg-sky-50 text-sky-700 ring-sky-200'],
-                                            'in_progress' => ['في الطريق', 'bg-sky-50 text-sky-700 ring-sky-200'],
-                                            'completed'   => ['تم', 'bg-emerald-50 text-emerald-700 ring-emerald-200'],
-                                            'cancelled'   => ['ملغى', 'bg-slate-100 text-slate-600 ring-slate-200'],
-                                            default       => [$pickup->status, 'bg-slate-100 text-slate-600 ring-slate-200'],
+                                            'pending'     => ['بانتظار مندوب', 'bg-warn-50 text-warn-700 ring-warn-200'],
+                                            'assigned'    => ['أُسند', 'bg-info-50 text-info-700 ring-info-200'],
+                                            'in_progress' => ['في الطريق', 'bg-info-50 text-info-700 ring-info-200'],
+                                            'completed'   => ['تم', 'bg-ok-50 text-ok-700 ring-ok-200'],
+                                            'cancelled'   => ['ملغى', 'bg-ink-100 text-ink-600 ring-ink-200'],
+                                            default       => [$pickup->status, 'bg-ink-100 text-ink-600 ring-ink-200'],
                                         };
                                     @endphp
                                     <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 {{ $tone }}">
                                         {{ $label }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 text-xs text-slate-500" dir="ltr">
+                                <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
                                     {{ $pickup->created_at->format('Y-m-d H:i') }}
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-16 text-center text-slate-500">
+                                <td colspan="6" class="px-4 py-16 text-center text-ink-500">
                                     لا طلبات بعد.
                                 </td>
                             </tr>
@@ -67,7 +67,7 @@
             </div>
 
             @if ($pickups->hasPages())
-                <div class="border-t border-slate-100 px-4 py-3">{{ $pickups->links() }}</div>
+                <div class="border-t border-ink-100 px-4 py-3">{{ $pickups->links() }}</div>
             @endif
         </div>
     </div>

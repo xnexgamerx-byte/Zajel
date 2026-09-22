@@ -5,12 +5,12 @@
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="text-xl font-bold">التجّار</h1>
-        <p class="mt-1 text-sm text-slate-500">زبائن شركتك — من يرسل الشحنات.</p>
+        <p class="mt-1 text-sm text-ink-500">زبائن شركتك — من يرسل الشحنات.</p>
     </div>
     <div class="flex items-center gap-3">
         <div class="card px-5 py-3 text-center">
-            <div class="text-xs text-slate-500">مستحقّات لم تُدفَع</div>
-            <div class="text-xl font-bold text-brand-700" dir="ltr">{{ number_format($owed) }} د.ع</div>
+            <div class="text-xs text-ink-500">مستحقّات لم تُدفَع</div>
+            <div class="text-xl font-bold text-[var(--brand)]"><span class="num">{{ number_format($owed) }}</span> د.ع</div>
         </div>
         <a href="{{ route('merchants.create') }}" class="btn-primary">+ تاجر جديد</a>
     </div>
@@ -37,49 +37,49 @@
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <table class="tbl">
+            <thead>
                 <tr>
-                    <th class="px-4 py-3 text-start font-semibold">الرمز</th>
-                    <th class="px-4 py-3 text-start font-semibold">المتجر</th>
-                    <th class="px-4 py-3 text-start font-semibold">الهاتف</th>
-                    <th class="px-4 py-3 text-start font-semibold">المحافظة</th>
-                    <th class="px-4 py-3 text-start font-semibold">شحنات</th>
-                    <th class="px-4 py-3 text-start font-semibold">الرصيد</th>
-                    <th class="px-4 py-3 text-start font-semibold">التسوية</th>
-                    <th class="px-4 py-3 text-start font-semibold">الحالة</th>
+                    <th >الرمز</th>
+                    <th >المتجر</th>
+                    <th >الهاتف</th>
+                    <th >المحافظة</th>
+                    <th >شحنات</th>
+                    <th >الرصيد</th>
+                    <th >التسوية</th>
+                    <th >الحالة</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody class="divide-y divide-ink-100">
                 @forelse ($merchants as $merchant)
-                    <tr class="hover:bg-slate-50">
-                        <td class="px-4 py-3 font-mono text-slate-500" dir="ltr">{{ $merchant->code }}</td>
+                    <tr class="hover:bg-ink-50">
+                        <td class="px-4 py-3 font-mono text-ink-500" dir="ltr">{{ $merchant->code }}</td>
                         <td class="px-4 py-3">
                             <a href="{{ route('merchants.show', $merchant) }}"
-                               class="font-semibold text-brand-700 hover:underline">
+                               class="font-semibold text-[var(--brand)] hover:underline">
                                 {{ $merchant->business_name }}
                             </a>
                             @if ($merchant->owner_name)
-                                <div class="text-xs text-slate-500">{{ $merchant->owner_name }}</div>
+                                <div class="text-xs text-ink-500">{{ $merchant->owner_name }}</div>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">{{ $merchant->phone }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ $merchant->governorate?->name_ar ?? '—' }}</td>
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $merchant->phone }}</td>
+                        <td class="px-4 py-3 text-ink-600">{{ $merchant->governorate?->name_ar ?? '—' }}</td>
                         <td class="px-4 py-3" dir="ltr">{{ number_format($merchant->shipments_count) }}</td>
-                        <td class="px-4 py-3 font-semibold {{ $merchant->balance > 0 ? 'text-brand-700' : ($merchant->balance < 0 ? 'text-red-600' : 'text-slate-400') }}"
+                        <td class="px-4 py-3 font-semibold {{ $merchant->balance > 0 ? 'text-[var(--brand)]' : ($merchant->balance < 0 ? 'text-bad-700' : 'text-ink-400') }}"
                             dir="ltr">
                             {{ number_format($merchant->balance) }}
                         </td>
-                        <td class="px-4 py-3 text-xs text-slate-500">
+                        <td class="px-4 py-3 text-xs text-ink-500">
                             {{ ['daily' => 'يومي', 'weekly' => 'أسبوعي', 'biweekly' => 'كل أسبوعين',
                                 'monthly' => 'شهري', 'on_demand' => 'عند الطلب'][$merchant->settlement_cycle] ?? '—' }}
                         </td>
                         <td class="px-4 py-3">
                             @php
                                 $tone = match ($merchant->status) {
-                                    'active'    => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-                                    'suspended' => 'bg-red-50 text-red-700 ring-red-200',
-                                    default     => 'bg-amber-50 text-amber-800 ring-amber-200',
+                                    'active'    => 'bg-ok-50 text-ok-700 ring-ok-200',
+                                    'suspended' => 'bg-bad-50 text-bad-700 ring-bad-200',
+                                    default     => 'bg-warn-50 text-warn-700 ring-warn-200',
                                 };
                                 $label = ['active' => 'مفعّل', 'suspended' => 'موقوف', 'pending' => 'بانتظار'][$merchant->status] ?? $merchant->status;
                             @endphp
@@ -91,7 +91,7 @@
                 @empty
                     <tr>
                         <td colspan="8" class="px-4 py-16 text-center">
-                            <div class="text-slate-500">لا يوجد تجّار بعد.</div>
+                            <div class="text-ink-500">لا يوجد تجّار بعد.</div>
                             <a href="{{ route('merchants.create') }}" class="btn-primary mt-4">أضف أول تاجر</a>
                         </td>
                     </tr>
@@ -101,7 +101,7 @@
     </div>
 
     @if ($merchants->hasPages())
-        <div class="border-t border-slate-100 px-4 py-3">{{ $merchants->links() }}</div>
+        <div class="border-t border-ink-100 px-4 py-3">{{ $merchants->links() }}</div>
     @endif
 </div>
 @endsection

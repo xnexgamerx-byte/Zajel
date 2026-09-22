@@ -38,55 +38,55 @@
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <table class="tbl">
+            <thead>
                 <tr>
-                    <th class="px-4 py-3 text-start font-semibold">رقم الوصل</th>
-                    <th class="px-4 py-3 text-start font-semibold">الزبون</th>
-                    <th class="px-4 py-3 text-start font-semibold">الوجهة</th>
-                    <th class="px-4 py-3 text-start font-semibold">المطلوب</th>
-                    <th class="px-4 py-3 text-start font-semibold">الأجرة</th>
-                    <th class="px-4 py-3 text-start font-semibold">لك</th>
-                    <th class="px-4 py-3 text-start font-semibold">الحالة</th>
-                    <th class="px-4 py-3 text-start font-semibold">التاريخ</th>
+                    <th >رقم الوصل</th>
+                    <th >الزبون</th>
+                    <th >الوجهة</th>
+                    <th >المطلوب</th>
+                    <th >الأجرة</th>
+                    <th >لك</th>
+                    <th >الحالة</th>
+                    <th >التاريخ</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody class="divide-y divide-ink-100">
                 @forelse ($shipments as $shipment)
-                    <tr class="hover:bg-slate-50">
+                    <tr class="hover:bg-ink-50">
                         <td class="px-4 py-3">
                             <a href="{{ route('portal.shipments.show', $shipment) }}"
-                               class="font-mono font-semibold text-brand-700 hover:underline" dir="ltr">
+                               class="font-mono font-semibold text-[var(--brand)] hover:underline" dir="ltr">
                                 {{ $shipment->number }}
                             </a>
                             @if ($shipment->merchant_reference)
-                                <div class="text-xs text-slate-400" dir="ltr">{{ $shipment->merchant_reference }}</div>
+                                <div class="text-xs text-ink-400" dir="ltr">{{ $shipment->merchant_reference }}</div>
                             @endif
                         </td>
                         <td class="px-4 py-3">
                             <div class="font-medium">{{ $shipment->recipient_name }}</div>
-                            <div class="text-xs text-slate-500" dir="ltr">{{ $shipment->recipient_phone }}</div>
+                            <div class="text-xs text-ink-500" dir="ltr">{{ $shipment->recipient_phone }}</div>
                         </td>
-                        <td class="px-4 py-3 text-slate-600">
+                        <td class="px-4 py-3 text-ink-600">
                             {{ $shipment->governorate->name_ar }}
                             @if ($shipment->city)
-                                <span class="text-xs text-slate-400">· {{ $shipment->city->name_ar }}</span>
+                                <span class="text-xs text-ink-400">· {{ $shipment->city->name_ar }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-3 font-semibold" dir="ltr">{{ number_format($shipment->cod_amount) }}</td>
-                        <td class="px-4 py-3 text-slate-600" dir="ltr">{{ number_format($shipment->total_fees) }}</td>
-                        <td class="px-4 py-3 font-bold text-brand-700" dir="ltr">
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">{{ number_format($shipment->total_fees) }}</td>
+                        <td class="px-4 py-3 font-bold text-[var(--brand)]" dir="ltr">
                             {{ number_format($shipment->merchant_due) }}
                         </td>
                         <td class="px-4 py-3"><x-status-badge :status="$shipment->status" /></td>
-                        <td class="px-4 py-3 text-xs text-slate-500" dir="ltr">
+                        <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
                             {{ $shipment->created_at->format('Y-m-d') }}
                         </td>
                     </tr>
                 @empty
                     <tr>
                         <td colspan="8" class="px-4 py-16 text-center">
-                            <div class="text-slate-500">لا شحنات مطابقة.</div>
+                            <div class="text-ink-500">لا شحنات مطابقة.</div>
                             <a href="{{ route('portal.shipments.create') }}" class="btn-primary mt-4">شحنة جديدة</a>
                         </td>
                     </tr>
@@ -96,9 +96,9 @@
     </div>
 
     @if ($shipments->hasPages())
-        <div class="border-t border-slate-100 px-4 py-3">{{ $shipments->links() }}</div>
+        <div class="border-t border-ink-100 px-4 py-3">{{ $shipments->links() }}</div>
     @endif
 </div>
 
-<p class="mt-3 text-xs text-slate-500">الإجمالي: {{ number_format($shipments->total()) }} شحنة</p>
+<p class="mt-3 text-xs text-ink-500">الإجمالي: {{ number_format($shipments->total()) }} شحنة</p>
 @endsection

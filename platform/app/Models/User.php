@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Scopes\UserScope;
+use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -31,6 +33,12 @@ class User extends Authenticatable
             'is_active'         => 'boolean',
             'role'              => UserRole::class,
         ];
+    }
+
+    /** بلا سياق شركة لا يوجد مستخدم — صفر صفوف لا استثناء. انظر UserScope. */
+    protected static function companyScope(): Scope
+    {
+        return new UserScope;
     }
 
     public function branch(): BelongsTo

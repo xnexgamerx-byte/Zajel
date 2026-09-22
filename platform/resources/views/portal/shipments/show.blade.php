@@ -8,7 +8,7 @@
             <h1 class="font-mono text-2xl font-bold" dir="ltr">{{ $shipment->number }}</h1>
             <x-status-badge :status="$shipment->status" />
         </div>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-ink-500">
             أُنشئت {{ $shipment->created_at->format('Y-m-d H:i') }}
             @if ($shipment->merchant_reference)
                 · رقمك: <span dir="ltr">{{ $shipment->merchant_reference }}</span>
@@ -19,7 +19,7 @@
 </div>
 
 @if ($shipment->lastFailureReason && $shipment->status->isOpen())
-    <div class="mb-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+    <div class="mb-5 rounded-lg bg-warn-50 px-4 py-3 text-sm text-warn-700 ring-1 ring-warn-200">
         <span class="font-semibold">آخر محاولة لم تنجح:</span>
         {{ $shipment->lastFailureReason->name_ar }}
         <span class="text-xs">(مسؤولية: {{ $shipment->lastFailureReason->categoryLabel() }})</span>
@@ -32,20 +32,20 @@
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">مسار الشحنة</h2>
 
-            <ol class="relative space-y-5 border-s-2 border-slate-100 ps-5">
+            <ol class="relative space-y-5 border-s-2 border-ink-100 ps-5">
                 @foreach ($shipment->events as $event)
                     @php $status = \App\Enums\ShipmentStatus::tryFrom($event->to_status); @endphp
                     <li class="relative">
                         <span class="absolute -start-[1.6rem] top-1 grid h-3 w-3 place-items-center rounded-full
-                                     {{ $loop->last ? 'bg-brand-600 ring-4 ring-brand-100' : 'bg-slate-300' }}"></span>
+                                     {{ $loop->last ? 'bg-[var(--brand)] ring-4 ring-[var(--brand-line)]' : 'bg-ink-300' }}"></span>
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="text-sm font-semibold">{{ $status?->label() ?? $event->to_status }}</span>
-                            <span class="text-xs text-slate-400" dir="ltr">
+                            <span class="text-xs text-ink-400" dir="ltr">
                                 {{ $event->created_at->format('Y-m-d H:i') }}
                             </span>
                         </div>
                         @if ($event->note)
-                            <p class="mt-1 text-xs text-slate-600">{{ $event->note }}</p>
+                            <p class="mt-1 text-xs text-ink-600">{{ $event->note }}</p>
                         @endif
                     </li>
                 @endforeach
@@ -55,21 +55,21 @@
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">الزبون والعنوان</h2>
             <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                <div><dt class="text-slate-500">الاسم</dt>
+                <div><dt class="text-ink-500">الاسم</dt>
                      <dd class="font-medium">{{ $shipment->recipient_name }}</dd></div>
-                <div><dt class="text-slate-500">الهاتف</dt>
+                <div><dt class="text-ink-500">الهاتف</dt>
                      <dd class="font-medium" dir="ltr">{{ $shipment->recipient_phone }}</dd></div>
-                <div><dt class="text-slate-500">المحافظة / المنطقة</dt>
+                <div><dt class="text-ink-500">المحافظة / المنطقة</dt>
                      <dd class="font-medium">{{ $shipment->governorate->name_ar }}
                          @if ($shipment->city) — {{ $shipment->city->name_ar }} @endif</dd></div>
-                <div><dt class="text-slate-500">القطع</dt>
+                <div><dt class="text-ink-500">القطع</dt>
                      <dd class="font-medium" dir="ltr">{{ $shipment->pieces_count }}</dd></div>
-                <div class="sm:col-span-2"><dt class="text-slate-500">العنوان</dt>
+                <div class="sm:col-span-2"><dt class="text-ink-500">العنوان</dt>
                      <dd class="font-medium">{{ $shipment->address }}</dd></div>
-                <div class="sm:col-span-2"><dt class="text-slate-500">نقطة دالّة</dt>
-                     <dd class="font-medium text-brand-700">{{ $shipment->landmark }}</dd></div>
+                <div class="sm:col-span-2"><dt class="text-ink-500">نقطة دالّة</dt>
+                     <dd class="font-medium text-[var(--brand)]">{{ $shipment->landmark }}</dd></div>
                 @if ($shipment->description)
-                    <div class="sm:col-span-2"><dt class="text-slate-500">المحتوى</dt>
+                    <div class="sm:col-span-2"><dt class="text-ink-500">المحتوى</dt>
                          <dd class="font-medium">{{ $shipment->description }}</dd></div>
                 @endif
             </dl>
@@ -81,42 +81,42 @@
             <h2 class="mb-4 text-sm font-bold">حساب الشحنة</h2>
             <dl class="space-y-2 text-sm">
                 <div class="flex justify-between">
-                    <dt class="text-slate-600">المطلوب من الزبون</dt>
+                    <dt class="text-ink-600">المطلوب من الزبون</dt>
                     <dd class="font-semibold" dir="ltr">{{ number_format($shipment->cod_amount) }}</dd>
                 </div>
                 @if ($shipment->collected_amount)
                     <div class="flex justify-between">
-                        <dt class="text-slate-600">المحصَّل فعلاً</dt>
-                        <dd class="font-semibold text-emerald-700" dir="ltr">
+                        <dt class="text-ink-600">المحصَّل فعلاً</dt>
+                        <dd class="font-semibold text-ok-700" dir="ltr">
                             {{ number_format($shipment->collected_amount) }}
                         </dd>
                     </div>
                 @endif
-                <div class="flex justify-between border-t border-slate-100 pt-2">
-                    <dt class="text-slate-600">أجرة التوصيل</dt>
+                <div class="flex justify-between border-t border-ink-100 pt-2">
+                    <dt class="text-ink-600">أجرة التوصيل</dt>
                     <dd dir="ltr">{{ number_format($shipment->delivery_fee) }}</dd>
                 </div>
                 @if ($shipment->cod_fee)
                     <div class="flex justify-between">
-                        <dt class="text-slate-600">عمولة التحصيل</dt>
+                        <dt class="text-ink-600">عمولة التحصيل</dt>
                         <dd dir="ltr">{{ number_format($shipment->cod_fee) }}</dd>
                     </div>
                 @endif
                 @if ($shipment->status === \App\Enums\ShipmentStatus::Returned && $shipment->return_fee)
-                    <div class="flex justify-between text-amber-700">
+                    <div class="flex justify-between text-warn-700">
                         <dt>أجرة الراجع</dt>
                         <dd dir="ltr">{{ number_format($shipment->return_fee) }}</dd>
                     </div>
                 @endif
-                <div class="flex justify-between border-t-2 border-slate-300 pt-2">
+                <div class="flex justify-between border-t-2 border-ink-300 pt-2">
                     <dt class="font-bold">{{ $shipment->merchant_due >= 0 ? 'لك' : 'عليك' }}</dt>
-                    <dd class="text-lg font-bold {{ $shipment->merchant_due >= 0 ? 'text-brand-700' : 'text-red-600' }}"
+                    <dd class="text-lg font-bold {{ $shipment->merchant_due >= 0 ? 'text-[var(--brand)]' : 'text-bad-700' }}"
                         dir="ltr">{{ number_format(abs($shipment->merchant_due)) }} د.ع</dd>
                 </div>
             </dl>
 
             @if (! $shipment->status->isOpen())
-                <p class="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                <p class="mt-3 border-t border-ink-100 pt-3 text-xs text-ink-500">
                     {{ $shipment->merchant_settled_at
                         ? 'دخلت كشف حساب بتاريخ ' . $shipment->merchant_settled_at->format('Y-m-d')
                         : 'لم تدخل كشف حساب بعد.' }}

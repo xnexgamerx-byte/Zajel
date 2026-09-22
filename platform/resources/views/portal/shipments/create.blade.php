@@ -5,7 +5,7 @@
 <div class="mb-5 flex items-center justify-between">
     <div>
         <h1 class="text-xl font-bold">شحنة جديدة</h1>
-        <p class="mt-1 text-sm text-slate-500">
+        <p class="mt-1 text-sm text-ink-500">
             رقم الوصل يُولَّد عند الحفظ، والأجرة تُحسب من تسعيرتك مع {{ $company->name }}.
         </p>
     </div>
@@ -35,7 +35,7 @@
                     <label class="field-label" for="recipient_phone_alt">هاتف بديل</label>
                     <input id="recipient_phone_alt" name="recipient_phone_alt" class="field-input text-left" dir="ltr"
                            placeholder="07xxxxxxxxx" value="{{ old('recipient_phone_alt') }}">
-                    <p class="mt-1 text-xs text-slate-500">رقم ثانٍ يقلّل الرواجع كثيراً.</p>
+                    <p class="mt-1 text-xs text-ink-500">رقم ثانٍ يقلّل الرواجع كثيراً.</p>
                     @error('recipient_phone_alt') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
@@ -76,7 +76,7 @@
                     <input id="landmark" name="landmark" class="field-input" required
                            placeholder="مقابل جامع الرحمن · قرب مول بابل · خلف صيدلية النور"
                            value="{{ old('landmark') }}">
-                    <p class="mt-1 text-xs text-slate-500">
+                    <p class="mt-1 text-xs text-ink-500">
                         هذه أهم خانة في النموذج: المندوب يصل بها لا بالعنوان.
                     </p>
                     @error('landmark') <p class="field-error">{{ $message }}</p> @enderror
@@ -106,12 +106,12 @@
                 <div class="flex items-end gap-4 pb-2">
                     <label class="flex items-center gap-2 text-sm">
                         <input type="checkbox" name="is_fragile" value="1" @checked(old('is_fragile'))
-                               class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                         قابل للكسر
                     </label>
                     <label class="flex items-center gap-2 text-sm">
                         <input type="checkbox" name="allow_open" value="1" @checked(old('allow_open'))
-                               class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                         يُفتح
                     </label>
                 </div>
@@ -135,9 +135,9 @@
                 <div class="relative">
                     <input id="cod_amount" name="cod_amount" type="number" min="0" step="250" required
                            class="field-input pe-12 text-left" dir="ltr" value="{{ old('cod_amount', 0) }}">
-                    <span class="absolute inset-y-0 end-3 flex items-center text-xs text-slate-400">د.ع</span>
+                    <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                 </div>
-                <p class="mt-1 text-xs text-slate-500">صفر = الزبون دفع لك مسبقاً.</p>
+                <p class="mt-1 text-xs text-ink-500">صفر = الزبون دفع لك مسبقاً.</p>
                 @error('cod_amount') <p class="field-error">{{ $message }}</p> @enderror
             </div>
 
@@ -153,7 +153,7 @@
                 </select>
             </div>
 
-            <div class="rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-600 ring-1 ring-slate-200">
+            <div class="rounded-lg bg-ink-50 px-3 py-2.5 text-xs text-ink-600 ring-1 ring-ink-200">
                 الأجرة تُحسب من تسعيرتك مع {{ $company->name }} حسب المحافظة والوزن،
                 وتظهر في صفحة الشحنة بعد الحفظ.
             </div>
