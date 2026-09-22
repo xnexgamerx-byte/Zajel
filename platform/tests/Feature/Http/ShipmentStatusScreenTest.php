@@ -76,13 +76,31 @@ class ShipmentStatusScreenTest extends TestCase
     {
         $shipment = $this->shipment();
 
-        $this->actingAs($this->user)
+        $html = $this->actingAs($this->user)
             ->get($this->host().'/shipments/'.$shipment->id)
             ->assertOk()
             ->assertSee('الإجراء التالي')
             ->assertSee('بانتظار الاستلام')
             ->assertSee('تم الاستلام')
-            ->assertDontSee('value="delivered"', escape: false);
+            ->getContent();
+
+        // القائمة العادية وحدها: لوحة الإجبار تعرض ما خرج عن المسار عمداً،
+        // وهي خلف تفصيلة مطويّة وسبب إلزامي
+        $normal = substr($html, 0, strpos($html, 'forced_status'));
+
+        $this->assertStringNotContainsString('value="delivered"', $normal);
+    }
+
+    public function test_the_forced_panel_offers_exactly_what_the_normal_one_refuses(): void
+    {
+        $shipment = $this->shipment();
+
+        $this->actingAs($this->user)
+            ->get($this->host().'/shipments/'.$shipment->id)
+            ->assertOk()
+            ->assertSee('تغيير إجباري خارج المسار')
+            ->assertSee('يُسجَّل باسمك وسببه')
+            ->assertSee('forced_reason', escape: false);
     }
 
     public function test_an_illegal_transition_is_refused_with_a_field_error(): void

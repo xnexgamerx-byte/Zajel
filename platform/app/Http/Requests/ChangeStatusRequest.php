@@ -26,6 +26,8 @@ class ChangeStatusRequest extends FormRequest
             'failure_reason_id' => ['nullable', 'integer'],
             'collected_amount'  => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'note'              => ['nullable', 'string', 'max:500'],
+            'force'             => ['nullable', 'boolean'],
+            'forced_reason'     => ['required_if:force,1', 'nullable', 'string', 'max:255'],
         ];
     }
 
@@ -41,8 +43,8 @@ class ChangeStatusRequest extends FormRequest
             }
 
             // الانتقال يُفحَص هنا أيضاً، لا في الخدمة وحدها: الرسالة تصل
-            // للمستخدم كخطأ حقل لا كصفحة خطأ.
-            if (! $shipment->status->canMoveTo($to)) {
+            // للمستخدم كخطأ حقل لا كصفحة خطأ. والإجبار يتخطّاه بسبب مكتوب.
+            if (! $this->boolean('force') && ! $shipment->status->canMoveTo($to)) {
                 $validator->errors()->add(
                     'status',
                     "لا يمكن الانتقال من «{$shipment->status->label()}» إلى «{$to->label()}».",
@@ -95,6 +97,7 @@ class ChangeStatusRequest extends FormRequest
             'failure_reason_id' => 'سبب الفشل',
             'collected_amount'  => 'المبلغ المحصَّل',
             'note'              => 'الملاحظة',
+            'forced_reason'     => 'سبب الإجبار',
         ];
     }
 }

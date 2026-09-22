@@ -20,6 +20,7 @@ use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
 use App\Http\Controllers\Tenant\CashBoxController;
+use App\Http\Controllers\Tenant\ControlController;
 use App\Http\Controllers\Tenant\CourierController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
@@ -80,6 +81,12 @@ Route::middleware('tenant')->group(function () {
             Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
             Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
             Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+
+            // الرقابة: قوائم تُحسَم لا تقارير تُقرأ
+            Route::get('/control/duplicates', [ControlController::class, 'duplicates'])->name('control.duplicates');
+            Route::post('/control/duplicates/{shipment}/clear', [ControlController::class, 'clearDuplicate'])->name('control.duplicates.clear');
+            Route::post('/control/duplicates/{shipment}/cancel', [ControlController::class, 'cancelDuplicate'])->name('control.duplicates.cancel');
+            Route::get('/control/forced', [ControlController::class, 'forced'])->name('control.forced');
 
             // مندوب الاستلام: دور محاسبيّ مستقلّ عن مندوب التوصيل
             Route::get('/pickup-agents', [PickupAgentController::class, 'index'])->name('pickup-agents.index');

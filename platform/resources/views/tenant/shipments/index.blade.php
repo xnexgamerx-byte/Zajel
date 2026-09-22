@@ -145,7 +145,9 @@
                         <td class="px-4 py-3 text-ink-700">{{ $shipment->merchant->business_name }}</td>
                         <td class="px-4 py-3">
                             <div class="font-medium">{{ $shipment->recipient_name }}</div>
-                            <div class="text-xs text-ink-500" dir="ltr">{{ $shipment->recipient_phone }}</div>
+                            <div class="text-xs text-ink-500">
+                                <x-phone :number="$shipment->recipient_phone" :name="$shipment->recipient_name" />
+                            </div>
                         </td>
                         <td class="px-4 py-3 text-ink-700">
                             {{ $shipment->governorate->name_ar }}

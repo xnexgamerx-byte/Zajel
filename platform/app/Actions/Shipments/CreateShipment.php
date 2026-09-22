@@ -7,6 +7,7 @@ use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Services\DuplicateDetector;
 use App\Services\PricingService;
 use App\Services\SequenceGenerator;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,7 @@ class CreateShipment
     public function __construct(
         protected SequenceGenerator $sequences,
         protected PricingService $pricing,
+        protected DuplicateDetector $duplicates,
     ) {}
 
     public function handle(array $data, ?User $actor = null): Shipment
@@ -102,6 +104,17 @@ class CreateShipment
                 'created_by_user_id'  => $actor?->id,
                 'source'              => $data['source'] ?? 'web',
             ]);
+
+            /*
+            | الاشتباه بالتكرار يُوسَم ولا يمنع: منعُ الإنشاء يوقف تاجراً
+            | له طلبان حقيقيان لزبون واحد، والصمت يُمرّر شحنة تُحاسَب
+            | مرّتين. فتُنشأ وتُعرَض على الموظّف ليحسم.
+            */
+            $shipment->forceFill(['dedupe_hash' => $this->duplicates->hashFor($shipment)])->save();
+
+            if ($original = $this->duplicates->findOriginal($shipment)) {
+                $shipment->forceFill(['duplicate_of_id' => $original->id])->save();
+            }
 
             ShipmentEvent::create([
                 'shipment_id' => $shipment->id,

@@ -37,6 +37,8 @@ class Shipment extends Model
             'is_fragile'        => 'boolean',
             'allow_open'        => 'boolean',
             'is_invoiced'       => 'boolean',
+            'is_forced'         => 'boolean',
+            'duplicate_cleared_at' => 'datetime',
         ];
     }
 
@@ -75,6 +77,16 @@ class Shipment extends Model
     public function pickupCourier(): BelongsTo
     {
         return $this->belongsTo(Courier::class, 'pickup_courier_id');
+    }
+
+    public function duplicateOf(): BelongsTo
+    {
+        return $this->belongsTo(Shipment::class, 'duplicate_of_id');
+    }
+
+    public function forcedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'forced_by_user_id');
     }
 
     public function lastFailureReason(): BelongsTo

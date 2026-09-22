@@ -27,10 +27,12 @@
                 <div><dt class="text-ink-500">الاسم</dt>
                      <dd class="font-medium">{{ $shipment->recipient_name }}</dd></div>
                 <div><dt class="text-ink-500">الهاتف</dt>
-                     <dd class="font-medium" dir="ltr">{{ $shipment->recipient_phone }}</dd></div>
+                     <dd class="font-medium"><x-phone :number="$shipment->recipient_phone"
+                                                     :name="$shipment->recipient_name" /></dd></div>
                 @if ($shipment->recipient_phone_alt)
                     <div><dt class="text-ink-500">هاتف بديل</dt>
-                         <dd class="font-medium" dir="ltr">{{ $shipment->recipient_phone_alt }}</dd></div>
+                         <dd class="font-medium"><x-phone :number="$shipment->recipient_phone_alt"
+                                                         :name="$shipment->recipient_name" /></dd></div>
                 @endif
                 <div><dt class="text-ink-500">المحافظة / المنطقة</dt>
                      <dd class="font-medium">{{ $shipment->governorate->name_ar }}
@@ -123,10 +125,22 @@
         <section class="card p-5" id="action-panel">
             <h2 class="mb-4 text-sm font-bold">الإجراء التالي</h2>
 
+            @if ($shipment->is_forced)
+                <p class="mb-4 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-700">
+                    غُيّرت هذه الشحنة إجبارياً:
+                    <span class="font-semibold">{{ $shipment->forced_reason }}</span>
+                    — {{ $shipment->forcedBy?->name ?? 'النظام' }}
+                </p>
+            @endif
+
             @if (empty($nextStatuses))
                 <p class="rounded-lg bg-ink-50 px-3 py-4 text-center text-sm text-ink-500">
                     الشحنة في حالة نهائية — «{{ $shipment->status->label() }}». لا إجراء بعدها.
                 </p>
+
+                @if (auth()->user()->isStaff() && $shipment->status->isOpen())
+                    <x-forced-status :shipment="$shipment" />
+                @endif
             @else
                 <form method="POST" action="{{ route('shipments.status', $shipment) }}" class="space-y-4"
                       data-status-form>
@@ -215,6 +229,10 @@
 
                     <button type="submit" class="btn-primary w-full">تنفيذ</button>
                 </form>
+
+                @if (auth()->user()->isStaff())
+                    <x-forced-status :shipment="$shipment" />
+                @endif
             @endif
         </section>
         @endif

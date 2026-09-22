@@ -33,7 +33,27 @@ class ChangeShipmentStatus
             return $shipment;
         }
 
-        if (! $from->canMoveTo($to)) {
+        /*
+        | «واصل إجباري»: تسليم من غير مسار الحالات الطبيعي.
+        |
+        | أشيع تلاعب في هذا المجال أن يُعلَن التسليم من غير تسليم، ثم
+        | يُسوّى النقد لاحقاً «عند الجباية». فالانتقال غير المسموح لا
+        | يُفتَح إلّا بسبب مكتوب باسم صاحبه، ويبقى موسوماً في الشحنة
+        | وفي تقرير يُقرأ.
+        */
+        if (! empty($options['force'])) {
+            if (empty($options['forced_reason'])) {
+                throw ValidationException::withMessages([
+                    'forced_reason' => 'التسليم الإجباري لا يمرّ بلا سبب مكتوب.',
+                ]);
+            }
+
+            if (in_array($from, ShipmentStatus::terminal(), true)) {
+                throw ValidationException::withMessages([
+                    'status' => "الشحنة في حالة نهائية «{$from->label()}» فلا تُفتَح بالإجبار.",
+                ]);
+            }
+        } elseif (! $from->canMoveTo($to)) {
             throw ValidationException::withMessages([
                 'status' => "انتقال غير مسموح: من «{$from->label()}» إلى «{$to->label()}».",
             ]);
@@ -67,6 +87,12 @@ class ChangeShipmentStatus
             if ($to === ShipmentStatus::Returning && $from === ShipmentStatus::AtHub) {
                 $attributes['return_received_at'] = now();
                 $attributes['return_received_by_user_id'] = $actor?->id;
+            }
+
+            if (! empty($options['force'])) {
+                $attributes['is_forced'] = true;
+                $attributes['forced_reason'] = $options['forced_reason'];
+                $attributes['forced_by_user_id'] = $actor?->id;
             }
 
             if ($to === ShipmentStatus::FailedAttempt) {
@@ -114,7 +140,7 @@ class ChangeShipmentStatus
                 'shipment_id'       => $shipment->id,
                 'from_status'       => $from->value,
                 'to_status'         => $to->value,
-                'event_type'        => 'status_change',
+                'event_type'        => empty($options['force']) ? 'status_change' : 'forced_status',
                 'actor_type'        => $options['actor_type'] ?? ($actor ? 'user' : 'system'),
                 'actor_id'          => $actor?->id,
                 'actor_name'        => $actor?->name,
@@ -122,7 +148,9 @@ class ChangeShipmentStatus
                 'hub_id'            => $options['hub_id'] ?? $shipment->hub_id,
                 'failure_reason_id' => $options['failure_reason_id'] ?? null,
                 'amount'            => $attributes['collected_amount'] ?? null,
-                'note'              => $options['note'] ?? null,
+                'note'              => empty($options['force'])
+                    ? ($options['note'] ?? null)
+                    : 'واصل إجباري — '.$options['forced_reason'],
                 'lat'               => $options['lat'] ?? null,
                 'lng'               => $options['lng'] ?? null,
                 'ip'                => request()->ip(),

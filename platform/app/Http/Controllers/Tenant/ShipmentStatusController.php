@@ -27,9 +27,13 @@ class ShipmentStatusController extends Controller
             'failure_reason_id' => $request->validated('failure_reason_id'),
             'note'              => $request->validated('note'),
             'collected_amount'  => $request->validated('collected_amount'),
+            'force'             => $request->boolean('force') ?: null,
+            'forced_reason'     => $request->boolean('force') ? $request->validated('forced_reason') : null,
         ], fn ($v) => $v !== null));
 
-        return back()->with('success', "تم تحديث الشحنة {$shipment->number} إلى «{$to->label()}».");
+        return back()->with('success', $request->boolean('force')
+            ? "تم تحديث الشحنة {$shipment->number} إلى «{$to->label()}» إجبارياً، وسُجّل السبب باسمك."
+            : "تم تحديث الشحنة {$shipment->number} إلى «{$to->label()}».");
     }
 
     /**
