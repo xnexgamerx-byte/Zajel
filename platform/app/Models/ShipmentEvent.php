@@ -18,6 +18,46 @@ class ShipmentEvent extends Model
 
     protected $guarded = ['id'];
 
+    /**
+     * أنواع الأحداث — مصدرٌ واحد لا قائمتان.
+     *
+     * كانت الأنواع سلاسل حرفية متناثرة في الأفعال، وشاشةُ التتبّع تحمل
+     * قائمتها الخاصّة. فاختلفتا: القائمة تعرض «مسح» و«إسناد» ولا وجود
+     * لهما، وتُخفي الكيس والراجع وتأكيد المبلغ وهي تُكتب فعلاً. وحارسٌ
+     * في الاختبارات يقارن هذه بما تكتبه الأفعال حتى لا تفترقا ثانيةً.
+     *
+     * @var array<string, string>
+     */
+    public const TYPES = [
+        'status_change'    => 'تغيير حالة',
+        'forced_status'    => 'حالة إجبارية',
+        'money'            => 'مالي',
+        'amount_confirmed' => 'تأكيد مبلغ',
+        'return_received'  => 'استلام راجع',
+        'bagged'           => 'إضافة لكيس',
+        'unbagged'         => 'إخراج من كيس',
+        'bag_missing'      => 'ناقص من كيس',
+    ];
+
+    /** @var array<string, string> */
+    public const ACTORS = [
+        'user'     => 'موظّف',
+        'courier'  => 'مندوب',
+        'merchant' => 'تاجر',
+        'api'      => 'واجهة برمجية',
+        'system'   => 'النظام',
+    ];
+
+    public function typeLabel(): string
+    {
+        return self::TYPES[$this->event_type] ?? $this->event_type;
+    }
+
+    public function actorLabel(): string
+    {
+        return self::ACTORS[$this->actor_type] ?? $this->actor_type;
+    }
+
     protected function casts(): array
     {
         return [

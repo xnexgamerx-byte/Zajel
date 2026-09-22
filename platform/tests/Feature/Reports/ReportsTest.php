@@ -11,6 +11,7 @@ use App\Models\Courier;
 use App\Models\FailureReason;
 use App\Models\Merchant;
 use App\Models\Shipment;
+use App\Models\ShipmentEvent;
 use App\Models\User;
 use App\Services\Reports\ReportPeriod;
 use App\Services\Reports\SqlDate;
@@ -312,6 +313,188 @@ class ReportsTest extends TestCase
         $this->assertSame(750, $totals->commission);
     }
 
+
+    // ── المنقطعون ───────────────────────────────────────────────────
+
+    public function test_a_merchant_who_shipped_within_the_window_is_not_called_dormant(): void
+    {
+        $this->delivered($this->alpha);
+
+        $rows = $this->actingAs($this->staff)
+            ->get($this->host().'/reports/dormant?days=30')
+            ->assertOk()
+            ->viewData('rows');
+
+        $this->assertNotContains($this->alpha->id, $rows->pluck('id'));
+    }
+
+    public function test_a_merchant_whose_last_shipment_predates_the_window_is_dormant(): void
+    {
+        $shipment = $this->delivered($this->alpha);
+
+        // شحنته الوحيدة عمرها ٤٥ يوماً: منقطع عند ٣٠ لا عند ٦٠
+        Tenancy::runFor($this->company, fn () => Shipment::where('id', $shipment->id)
+            ->update(['created_at' => now()->subDays(45)]));
+
+        $at30 = $this->actingAs($this->staff)->get($this->host().'/reports/dormant?days=30')->viewData('rows');
+        $at60 = $this->actingAs($this->staff)->get($this->host().'/reports/dormant?days=60')->viewData('rows');
+
+        $row = $at30->firstWhere('id', $this->alpha->id);
+
+        $this->assertNotNull($row, 'التاجر الصامت منذ ٤٥ يوماً يجب أن يظهر عند ٣٠.');
+        $this->assertSame(1, $row->total);
+        $this->assertSame(45, (int) $row->last_at->diffInDays(now()));
+        $this->assertNotContains($this->alpha->id, $at60->pluck('id'));
+    }
+
+    public function test_a_merchant_who_never_shipped_is_dormant_with_no_last_date(): void
+    {
+        $row = $this->actingAs($this->staff)
+            ->get($this->host().'/reports/dormant')
+            ->viewData('rows')
+            ->firstWhere('id', $this->beta->id);
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->last_at);
+        $this->assertSame(0, $row->total);
+    }
+
+    public function test_a_suspended_merchant_is_not_chased(): void
+    {
+        Tenancy::runFor($this->company, fn () => $this->beta->update(['status' => 'suspended']));
+
+        $rows = $this->actingAs($this->staff)->get($this->host().'/reports/dormant')->viewData('rows');
+
+        $this->assertNotContains($this->beta->id, $rows->pluck('id'));
+    }
+
+    // ── الأرصدة المدينة ─────────────────────────────────────────────
+
+    public function test_only_merchants_in_the_red_are_listed_and_the_deposit_offsets_the_exposure(): void
+    {
+        Tenancy::runFor($this->company, function () {
+            $this->alpha->forceFill(['balance' => -300_000, 'deposit_balance' => 100_000])->save();
+            $this->beta->forceFill(['balance' => 250_000])->save();
+        });
+
+        $data = $this->actingAs($this->staff)->get($this->host().'/reports/debtors')->assertOk();
+
+        $merchants = $data->viewData('merchants');
+
+        $this->assertSame([$this->alpha->id], $merchants->pluck('id')->all());
+        // المكشوف ما بقي بعد الوديعة لا الرصيد كلّه
+        $this->assertSame(200_000, $data->viewData('totals')->owed);
+        $this->assertSame(100_000, $data->viewData('totals')->deposits);
+    }
+
+    public function test_a_deposit_larger_than_the_debt_leaves_nothing_exposed(): void
+    {
+        Tenancy::runFor($this->company, fn () => $this->alpha
+            ->forceFill(['balance' => -50_000, 'deposit_balance' => 80_000])->save());
+
+        $totals = $this->actingAs($this->staff)->get($this->host().'/reports/debtors')->viewData('totals');
+
+        // ولا يصير سالباً فيُطرح من مكشوف تاجر آخر
+        $this->assertSame(0, $totals->owed);
+    }
+
+    public function test_couriers_over_their_cash_limit_are_counted(): void
+    {
+        Tenancy::runFor($this->company, fn () => $this->courier
+            ->forceFill(['cash_in_hand' => 4_000_000, 'cash_limit' => 3_000_000])->save());
+
+        $data = $this->actingAs($this->staff)->get($this->host().'/reports/debtors')->assertOk();
+
+        $this->assertSame(4_000_000, $data->viewData('totals')->cash);
+        $this->assertSame(1, $data->viewData('totals')->over);
+    }
+
+    public function test_a_courier_with_no_limit_is_never_counted_as_over(): void
+    {
+        Tenancy::runFor($this->company, fn () => $this->courier
+            ->forceFill(['cash_in_hand' => 9_000_000, 'cash_limit' => 0])->save());
+
+        $this->assertSame(0, $this->actingAs($this->staff)
+            ->get($this->host().'/reports/debtors')->viewData('totals')->over);
+    }
+
+    // ── تتبّع التغييرات ─────────────────────────────────────────────
+
+    public function test_the_trail_shows_the_status_change_with_who_made_it(): void
+    {
+        $shipment = $this->delivered();
+
+        $events = $this->actingAs($this->staff)
+            ->get($this->host().'/reports/changes')
+            ->assertOk()
+            ->viewData('events');
+
+        $delivery = $events->first(fn ($e) => $e->to_status === ShipmentStatus::Delivered->value);
+
+        $this->assertNotNull($delivery, 'حدث التسليم يجب أن يظهر في التتبّع.');
+        $this->assertSame($shipment->id, $delivery->shipment_id);
+        $this->assertSame($shipment->number, $delivery->shipment->number);
+        $this->assertSame($this->staff->name, $delivery->actor_name);
+    }
+
+    /**
+     * تسويةٌ واحدة تكتب عشرات آلاف الأحداث بالنظام فاعلاً، فتدفن
+     * ما صنعه بشر — وعنه السؤال. فالإخفاء افتراضيّ ومُعلَن لا صامت.
+     */
+    public function test_system_events_are_hidden_by_default_and_shown_on_request(): void
+    {
+        $shipment = $this->delivered();
+
+        Tenancy::runFor($this->company, fn () => ShipmentEvent::create([
+            'shipment_id' => $shipment->id,
+            'from_status' => ShipmentStatus::Delivered->value,
+            'to_status'   => 'settled_with_merchant',
+            'event_type'  => 'money',
+            'actor_type'  => 'system',
+            'note'        => 'دخلت كشف التاجر',
+        ]));
+
+        $default = $this->actingAs($this->staff)->get($this->host().'/reports/changes')->viewData('events');
+        $all = $this->actingAs($this->staff)->get($this->host().'/reports/changes?actor=all')->viewData('events');
+
+        $this->assertNotContains('system', $default->pluck('actor_type'));
+        $this->assertContains('system', $all->pluck('actor_type'));
+    }
+
+    public function test_the_trail_can_be_narrowed_to_one_waybill(): void
+    {
+        $mine = $this->delivered();
+        $this->delivered($this->beta);
+
+        $events = $this->actingAs($this->staff)
+            ->get($this->host().'/reports/changes?number='.$mine->number)
+            ->viewData('events');
+
+        $this->assertNotEmpty($events);
+        $this->assertSame([$mine->id], $events->pluck('shipment_id')->unique()->values()->all());
+    }
+
+    public function test_every_event_type_the_trail_shows_has_an_arabic_label(): void
+    {
+        $this->delivered();
+        $this->failed();
+
+        $events = $this->actingAs($this->staff)
+            ->get($this->host().'/reports/changes?actor=all')
+            ->viewData('events');
+
+        // فحصٌ على مجموعة فارغة يمرّ دائماً ولا يحرس شيئاً
+        $this->assertNotEmpty($events);
+
+        foreach ($events as $event) {
+            $this->assertArrayHasKey(
+                $event->event_type,
+                ShipmentEvent::TYPES,
+                "النوع {$event->event_type} يظهر في الشاشة بلا اسم عربيّ.",
+            );
+        }
+    }
+
     // ── العزل ───────────────────────────────────────────────────────
 
     public function test_a_merchant_login_cannot_reach_the_reports(): void
@@ -321,7 +504,10 @@ class ReportsTest extends TestCase
             'role' => UserRole::Merchant, 'merchant_id' => $this->alpha->id, 'is_active' => true,
         ]));
 
-        foreach (['', '/returns', '/couriers', '/merchants', '/governorates', '/daily', '/profit'] as $path) {
+        foreach ([
+            '', '/returns', '/couriers', '/merchants', '/governorates', '/daily', '/profit',
+            '/dormant', '/debtors', '/changes',
+        ] as $path) {
             $this->actingAs($user)->get($this->host().'/reports'.$path)->assertForbidden();
         }
     }
