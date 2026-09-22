@@ -5,6 +5,7 @@ namespace App\Actions\Platform;
 use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\Branch;
+use App\Models\CashBox;
 use App\Models\Company;
 use App\Models\Hub;
 use App\Models\Plan;
@@ -47,6 +48,17 @@ class RegisterCompany
                     'phone'          => $data['phone'] ?? null,
                     'is_main'        => true,
                     'is_active'      => true,
+                ]);
+
+                // قاصة رئيسية من أول يوم: بلا صندوق لا يُسجَّل نقد داخل
+                // ولا مصروف خارج، ويبقى «كم في الدرج» بلا جواب.
+                CashBox::create([
+                    'branch_id' => $branch->id,
+                    'code'      => 'MAIN',
+                    'name'      => 'القاصة الرئيسية',
+                    'type'      => 'main',
+                    'balance'   => 0,
+                    'is_active' => true,
                 ]);
 
                 Hub::create([

@@ -17,10 +17,12 @@ use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Tenant\BranchController;
+use App\Http\Controllers\Tenant\CashBoxController;
 use App\Http\Controllers\Tenant\CourierController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
+use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
 use App\Http\Controllers\Tenant\PriceListController;
@@ -73,6 +75,17 @@ Route::middleware('tenant')->group(function () {
             Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
             Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
             Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+
+            // القاصة والمصروفات: كم في الدرج، وأين ذهب
+            Route::get('/cash', [CashBoxController::class, 'index'])->name('cash.index');
+            Route::post('/cash', [CashBoxController::class, 'store'])->name('cash.store');
+            Route::post('/cash/transfer', [CashBoxController::class, 'transfer'])->name('cash.transfer');
+            Route::post('/cash/{box}/adjust', [CashBoxController::class, 'adjust'])->name('cash.adjust');
+
+            Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
+            Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+            Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'pay'])->name('expenses.pay');
+            Route::post('/expenses/{expense}/cancel', [ExpenseController::class, 'cancel'])->name('expenses.cancel');
 
             Route::get('/pickups', [TenantPickupRequestController::class, 'index'])->name('pickups.index');
             Route::post('/pickups/{pickup}/assign', [TenantPickupRequestController::class, 'assign'])->name('pickups.assign');

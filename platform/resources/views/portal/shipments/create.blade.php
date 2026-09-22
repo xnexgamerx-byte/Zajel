@@ -133,7 +133,7 @@
                     المطلوب من الزبون <span class="text-red-500">*</span>
                 </label>
                 <div class="relative">
-                    <input id="cod_amount" name="cod_amount" type="number" min="0" step="250" required
+                    <input id="cod_amount" name="cod_amount" type="number" min="0" step="1" required
                            class="field-input pe-12 text-left" dir="ltr" value="{{ old('cod_amount', 0) }}">
                     <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                 </div>

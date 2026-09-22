@@ -115,7 +115,7 @@
                 <div>
                     <label class="field-label" for="deductions">خصومات عليه</label>
                     <div class="relative">
-                        <input id="deductions" name="deductions" type="number" min="0" step="250"
+                        <input id="deductions" name="deductions" type="number" min="0" step="1"
                                value="{{ old('deductions', 0) }}" class="field-input pe-12 text-left" dir="ltr">
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>

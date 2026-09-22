@@ -77,14 +77,14 @@
             <h2 class="mb-4 text-sm font-bold">السعر</h2>
             <div class="space-y-4">
                 @foreach ([
-                    ['price_monthly', 'شهري', 1000],
-                    ['price_yearly', 'سنوي', 1000],
-                    ['commission_per_shipment', 'عمولة لكل شحنة', 50],
-                ] as [$field, $label, $step])
+                    ['price_monthly', 'شهري'],
+                    ['price_yearly', 'سنوي'],
+                    ['commission_per_shipment', 'عمولة لكل شحنة'],
+                ] as [$field, $label])
                     <div>
                         <label class="field-label" for="{{ $field }}">{{ $label }}</label>
                         <div class="relative">
-                            <input id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="{{ $step }}"
+                            <input id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="1"
                                    class="field-input pe-12 text-left" dir="ltr" required
                                    value="{{ old($field, $plan->$field ?? 0) }}">
                             <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>

@@ -76,6 +76,8 @@
                             ['couriers.cash', 'نقد المندوبين', ['couriers.cash']],
                             ['settlements.couriers.index', 'تسوية المندوبين', ['settlements.couriers.*']],
                             ['settlements.merchants.index', 'تسوية التجّار', ['settlements.merchants.*']],
+                            ['cash.index', 'القاصة', ['cash.index']],
+                            ['expenses.index', 'المصروفات', ['expenses.index']],
                             ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit']],
                         ]],
                         ['الإعدادات', [

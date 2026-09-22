@@ -132,7 +132,7 @@
                 <div>
                     <label class="field-label" for="amount">المبلغ</label>
                     <div class="relative">
-                        <input id="amount" name="amount" type="number" min="1" step="1000" required
+                        <input id="amount" name="amount" type="number" min="1" step="1" required
                                class="field-input pe-12 text-left" dir="ltr"
                                value="{{ old('amount', $invoice->balanceDue()) }}">
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>

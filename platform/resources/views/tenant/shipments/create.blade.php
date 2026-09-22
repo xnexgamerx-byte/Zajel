@@ -175,7 +175,7 @@
                         المبلغ المطلوب من الزبون <span class="text-red-500">*</span>
                     </label>
                     <div class="relative">
-                        <input id="cod_amount" name="cod_amount" type="number" min="0" step="250"
+                        <input id="cod_amount" name="cod_amount" type="number" min="0" step="1"
                                value="{{ old('cod_amount', 0) }}" class="field-input pe-12 text-left" dir="ltr" required>
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>
@@ -198,7 +198,7 @@
                 <div>
                     <label class="field-label" for="delivery_fee">أجرة التوصيل</label>
                     <div class="relative">
-                        <input id="delivery_fee" name="delivery_fee" type="number" min="0" step="250"
+                        <input id="delivery_fee" name="delivery_fee" type="number" min="0" step="1"
                                value="{{ old('delivery_fee') }}" class="field-input pe-12 text-left" dir="ltr"
                                placeholder="تُحسب من التسعيرة">
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
@@ -210,12 +210,12 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="field-label" for="extra_fee">رسوم إضافية</label>
-                        <input id="extra_fee" name="extra_fee" type="number" min="0" step="250"
+                        <input id="extra_fee" name="extra_fee" type="number" min="0" step="1"
                                value="{{ old('extra_fee', 0) }}" class="field-input text-left" dir="ltr">
                     </div>
                     <div>
                         <label class="field-label" for="discount">خصم</label>
-                        <input id="discount" name="discount" type="number" min="0" step="250"
+                        <input id="discount" name="discount" type="number" min="0" step="1"
                                value="{{ old('discount', 0) }}" class="field-input text-left" dir="ltr">
                     </div>
                 </div>

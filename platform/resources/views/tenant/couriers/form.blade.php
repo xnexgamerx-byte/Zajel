@@ -115,7 +115,7 @@
                     <div>
                         <label class="field-label" for="{{ $field }}">{{ $label }}</label>
                         <div class="relative">
-                            <input id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="250"
+                            <input id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="1"
                                    class="field-input pe-12 text-left" dir="ltr"
                                    value="{{ old($field, $courier->$field) }}">
                             <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
@@ -127,7 +127,7 @@
                 <div>
                     <label class="field-label" for="cash_limit">سقف النقد بيده</label>
                     <div class="relative">
-                        <input id="cash_limit" name="cash_limit" type="number" min="0" step="1000"
+                        <input id="cash_limit" name="cash_limit" type="number" min="0" step="1"
                                class="field-input pe-12 text-left" dir="ltr"
                                value="{{ old('cash_limit', $courier->cash_limit ?? 0) }}">
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>

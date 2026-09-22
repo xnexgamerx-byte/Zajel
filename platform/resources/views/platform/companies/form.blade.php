@@ -121,12 +121,12 @@
                 </div>
                 <div>
                     <label class="field-label" for="default_delivery_fee">أجرة التوصيل</label>
-                    <input id="default_delivery_fee" name="default_delivery_fee" type="number" min="0" step="250"
+                    <input id="default_delivery_fee" name="default_delivery_fee" type="number" min="0" step="1"
                            class="field-input text-left" dir="ltr" value="{{ old('default_delivery_fee', 5000) }}">
                 </div>
                 <div>
                     <label class="field-label" for="default_return_fee">أجرة الراجع</label>
-                    <input id="default_return_fee" name="default_return_fee" type="number" min="0" step="250"
+                    <input id="default_return_fee" name="default_return_fee" type="number" min="0" step="1"
                            class="field-input text-left" dir="ltr" value="{{ old('default_return_fee', 2500) }}">
                 </div>
             </div>

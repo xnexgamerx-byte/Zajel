@@ -123,6 +123,7 @@ class TenantIsolationTest extends TestCase
         $exempt = [
             \App\Models\Company::class,       // هو الجذر نفسه
             \App\Models\FailureReason::class, // company_id = null يعني سبب عام
+            \App\Models\ExpenseCategory::class, // company_id = null يعني باباً عاماً
             \App\Models\Setting::class,       // company_id = null يعني إعداد عام
             \App\Models\AuditLog::class,      // يُقرأ في وضع النواة للتدقيق
         ];

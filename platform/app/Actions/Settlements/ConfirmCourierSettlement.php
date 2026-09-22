@@ -2,10 +2,12 @@
 
 namespace App\Actions\Settlements;
 
+use App\Models\CashBox;
 use App\Models\CourierSettlement;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Services\CashBook;
 use App\Services\Ledger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -18,7 +20,7 @@ use Illuminate\Validation\ValidationException;
  */
 class ConfirmCourierSettlement
 {
-    public function __construct(protected Ledger $ledger) {}
+    public function __construct(protected Ledger $ledger, protected CashBook $cash) {}
 
     public function handle(CourierSettlement $settlement, ?User $actor = null, int $deductions = 0, ?string $notes = null): CourierSettlement
     {
@@ -61,8 +63,43 @@ class ConfirmCourierSettlement
             }
 
             $this->ledger->recordCourierHandover($settlement, $actor);
+            $this->recordInCashBox($settlement, $actor);
 
             return $settlement->refresh();
         });
+    }
+
+    /**
+     * الدرج يستقبل ما سلّمه المندوب ويدفع عمولته — حركتان لا واحدة
+     * صافية، لأن «كم جلب المندوبون اليوم» و«كم دفعنا عمولات» سؤالان.
+     * بلا صندوق مفعّل لا حركة: الدفتر المحاسبي كامل على أي حال.
+     */
+    protected function recordInCashBox(CourierSettlement $settlement, ?User $actor): void
+    {
+        $box = CashBox::forBranch($settlement->branch_id);
+
+        if (! $box) {
+            return;
+        }
+
+        $this->cash->in(
+            box: $box,
+            category: 'courier_handover',
+            amount: $settlement->cod_total + $settlement->deductions,
+            description: "تسليم نقد المندوب {$settlement->courier?->name} — كشف {$settlement->code}",
+            actor: $actor,
+            referenceType: 'courier_settlement',
+            referenceId: $settlement->id,
+        );
+
+        $this->cash->out(
+            box: $box,
+            category: 'commission_paid',
+            amount: $settlement->commission_total,
+            description: "عمولة المندوب {$settlement->courier?->name} — كشف {$settlement->code}",
+            actor: $actor,
+            referenceType: 'courier_settlement',
+            referenceId: $settlement->id,
+        );
     }
 }

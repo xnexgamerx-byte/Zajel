@@ -195,7 +195,7 @@
                     <div data-when="delivered partially_delivered">
                         <label class="field-label" for="collected_amount">المبلغ المحصَّل</label>
                         <div class="relative">
-                            <input id="collected_amount" name="collected_amount" type="number" min="0" step="250"
+                            <input id="collected_amount" name="collected_amount" type="number" min="0" step="1"
                                    value="{{ old('collected_amount', $shipment->cod_amount) }}"
                                    class="field-input pe-12 text-left" dir="ltr">
                             <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
@@ -315,7 +315,7 @@
                             <div>
                                 <label class="field-label" for="confirm_amount_input">المبلغ المحصَّل فعلاً</label>
                                 <input id="confirm_amount_input" name="collected_amount" type="number"
-                                       min="0" step="250" required class="field-input num"
+                                       min="0" step="1" required class="field-input num"
                                        value="{{ old('collected_amount', $shipment->collected_amount) }}">
                                 <p class="field-hint">
                                     أيّ فرق عن المبلغ الحالي يُقيَّد حركةً على حساب التاجر والمندوب معاً.

@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             GovernorateSeeder::class,
             FailureReasonSeeder::class,
+            ExpenseCategorySeeder::class,
             PlanSeeder::class,
         ]);
 

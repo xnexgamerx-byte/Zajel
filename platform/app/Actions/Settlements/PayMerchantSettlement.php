@@ -2,10 +2,12 @@
 
 namespace App\Actions\Settlements;
 
+use App\Models\CashBox;
 use App\Models\MerchantSettlement;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Services\CashBook;
 use App\Services\Ledger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +22,7 @@ use Illuminate\Validation\ValidationException;
  */
 class PayMerchantSettlement
 {
-    public function __construct(protected Ledger $ledger) {}
+    public function __construct(protected Ledger $ledger, protected CashBook $cash) {}
 
     public function confirm(MerchantSettlement $settlement, ?User $actor = null, ?string $notes = null): MerchantSettlement
     {
@@ -82,8 +84,36 @@ class PayMerchantSettlement
             ])->save();
 
             $this->ledger->recordMerchantPayout($settlement, $actor);
+            $this->recordInCashBox($settlement, $actor);
 
             return $settlement->refresh();
         });
+    }
+
+    /**
+     * حوالة زين كاش لا تُفرّغ الدرج. الصندوق يتحرّك بالنقد وحده، وإلّا
+     * صار رصيده رقماً لا يُقارَن بعدّ اليد آخر اليوم.
+     */
+    protected function recordInCashBox(MerchantSettlement $settlement, ?User $actor): void
+    {
+        if ($settlement->payout_method !== 'cash') {
+            return;
+        }
+
+        $box = CashBox::forBranch($settlement->branch_id);
+
+        if (! $box) {
+            return;
+        }
+
+        $this->cash->out(
+            box: $box,
+            category: 'merchant_payout',
+            amount: (int) $settlement->net_amount,
+            description: "دفع للتاجر {$settlement->merchant?->business_name} — كشف {$settlement->code}",
+            actor: $actor,
+            referenceType: 'merchant_settlement',
+            referenceId: $settlement->id,
+        );
     }
 }

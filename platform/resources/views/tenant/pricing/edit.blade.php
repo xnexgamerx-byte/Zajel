@@ -25,7 +25,7 @@
             </div>
             <div>
                 <label class="field-label" for="weight_to_grams">الوزن المشمول بالأجرة (غرام)</label>
-                <input id="weight_to_grams" name="weight_to_grams" type="number" min="100" step="100"
+                <input id="weight_to_grams" name="weight_to_grams" type="number" min="1" step="1"
                        class="field-input text-left" dir="ltr" required
                        value="{{ old('weight_to_grams', $rules->first()?->weight_to_grams ?? 5000) }}">
                 <p class="mt-1 text-xs text-ink-500">ما زاد يُحتسب بأجرة الكيلو الزائد.</p>
@@ -75,15 +75,15 @@
                                 {{ $row['label'] }}
                             </td>
                             @foreach ([
-                                ['delivery_fee', 250, $rule?->delivery_fee],
-                                ['return_fee', 250, $rule?->return_fee],
-                                ['replacement_fee', 250, $rule?->replacement_fee],
-                                ['extra_kg_fee', 250, $rule?->extra_kg_fee],
-                                ['cod_fee_flat', 250, $rule?->cod_fee_flat],
-                            ] as [$field, $step, $value])
+                                ['delivery_fee', $rule?->delivery_fee],
+                                ['return_fee', $rule?->return_fee],
+                                ['replacement_fee', $rule?->replacement_fee],
+                                ['extra_kg_fee', $rule?->extra_kg_fee],
+                                ['cod_fee_flat', $rule?->cod_fee_flat],
+                            ] as [$field, $value])
                                 <td class="px-3 py-2">
                                     <input name="rows[{{ $row['key'] }}][{{ $field }}]" type="number" min="0"
-                                           step="{{ $step }}" dir="ltr"
+                                           step="1" dir="ltr"
                                            class="field-input w-28 text-left"
                                            value="{{ old("rows.{$row['key']}.{$field}", $rule ? $value : null) }}"
                                            placeholder="{{ $field === 'delivery_fee' ? '—' : '0' }}">

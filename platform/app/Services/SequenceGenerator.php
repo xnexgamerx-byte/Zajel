@@ -61,6 +61,7 @@ class SequenceGenerator
             'pickup_request'      => 'PU',
             'courier_settlement'  => 'CS',
             'merchant_settlement' => 'MS',
+            'expense'             => 'EX',
             default               => '',
         };
     }

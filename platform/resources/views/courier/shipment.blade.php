@@ -98,7 +98,7 @@
         <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
             <label class="field-label" for="collected_amount">المبلغ المستلم</label>
             <div class="relative">
-                <input id="collected_amount" name="collected_amount" type="number" min="0" step="250"
+                <input id="collected_amount" name="collected_amount" type="number" min="0" step="1"
                        class="field-input pe-12 text-left text-lg" dir="ltr"
                        value="{{ old('collected_amount', $shipment->cod_amount) }}">
                 <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
