@@ -9,6 +9,7 @@ use App\Http\Controllers\Courier\TaskController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\Portal\PickupRequestController;
 use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
+use App\Http\Controllers\Portal\ShipmentImportController as PortalShipmentImportController;
 use App\Http\Controllers\Portal\StatementController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 use App\Http\Controllers\Platform\ImpersonationController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestCo
 use App\Http\Controllers\Tenant\PriceListController;
 use App\Http\Controllers\Tenant\PricingQuoteController;
 use App\Http\Controllers\Tenant\ShipmentController;
+use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
 use App\Http\Controllers\Tenant\UserController;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +50,13 @@ Route::middleware('tenant')->group(function () {
             ->middleware('staff')->name('shipments.create');
         Route::post('/shipments', [ShipmentController::class, 'store'])
             ->middleware('staff')->name('shipments.store');
+
+        Route::middleware('staff')->group(function () {
+            Route::get('/shipments/import', [ShipmentImportController::class, 'create'])->name('shipments.import');
+            Route::get('/shipments/import/template', [ShipmentImportController::class, 'template'])->name('shipments.import.template');
+            Route::post('/shipments/import', [ShipmentImportController::class, 'store'])->name('shipments.import.store');
+            Route::post('/shipments/import/confirm', [ShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
+        });
         Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
         Route::post('/shipments/{shipment}/status', [ShipmentStatusController::class, 'update'])
             ->middleware('staff')->name('shipments.status');
@@ -114,6 +123,10 @@ Route::middleware('tenant')->group(function () {
 
             Route::get('/shipments', [PortalShipmentController::class, 'index'])->name('shipments.index');
             Route::get('/shipments/create', [PortalShipmentController::class, 'create'])->name('shipments.create');
+            Route::get('/shipments/import', [PortalShipmentImportController::class, 'create'])->name('shipments.import');
+            Route::get('/shipments/import/template', [PortalShipmentImportController::class, 'template'])->name('shipments.import.template');
+            Route::post('/shipments/import', [PortalShipmentImportController::class, 'store'])->name('shipments.import.store');
+            Route::post('/shipments/import/confirm', [PortalShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
             Route::post('/shipments', [PortalShipmentController::class, 'store'])->name('shipments.store');
             Route::get('/shipments/{shipment}', [PortalShipmentController::class, 'show'])->name('shipments.show');
 

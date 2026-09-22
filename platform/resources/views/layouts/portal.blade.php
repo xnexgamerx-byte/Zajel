@@ -31,6 +31,7 @@
                 ['portal.dashboard', 'الرئيسية', 'portal.dashboard'],
                 ['portal.shipments.index', 'شحناتي', 'portal.shipments.index'],
                 ['portal.shipments.create', 'شحنة جديدة', 'portal.shipments.create'],
+                ['portal.shipments.import', 'رفع من ملف', 'portal.shipments.import*'],
                 ['portal.pickups.index', 'طلبات الاستلام', 'portal.pickups.*'],
                 ['portal.statement', 'حسابي', 'portal.statement'],
             ] as [$route, $label, $pattern])
@@ -59,6 +60,7 @@
             ['portal.dashboard', 'الرئيسية'],
             ['portal.shipments.index', 'شحناتي'],
             ['portal.shipments.create', 'جديدة'],
+            ['portal.shipments.import', 'رفع'],
             ['portal.pickups.index', 'استلام'],
             ['portal.statement', 'حسابي'],
         ] as [$route, $label])

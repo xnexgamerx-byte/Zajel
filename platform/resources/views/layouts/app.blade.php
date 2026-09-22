@@ -63,6 +63,7 @@
                             ['dashboard', 'لوحة اليوم', ['dashboard']],
                             ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show']],
                             ['shipments.create', 'شحنة جديدة', ['shipments.create']],
+                            ['shipments.import', 'رفع من ملف', ['shipments.import*']],
                             ['pickups.index', 'طلبات الاستلام', ['pickups.*']],
                         ]],
                         ['الأطراف', [
