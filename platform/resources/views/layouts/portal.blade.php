@@ -43,6 +43,14 @@
         </nav>
 
         <div class="ms-auto flex items-center gap-3">
+            @php $unread = \App\Models\Announcement::for(auth()->user())->unreadBy(auth()->user())->count(); @endphp
+            <a href="{{ route('portal.inbox') }}" class="relative rounded-lg p-2 text-ink-600 hover:bg-ink-100"
+               aria-label="الإشعارات{{ $unread ? '، غير المقروء '.$unread : '' }}">
+                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
+                @if ($unread)
+                    <span class="num absolute -end-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold text-white" style="background: var(--brand)">{{ $unread > 9 ? '9+' : $unread }}</span>
+                @endif
+            </a>
             <div class="hidden text-left sm:block">
                 <div class="text-sm font-semibold leading-tight">{{ $merchant->business_name }}</div>
                 <div class="font-mono text-xs text-ink-500" dir="ltr">{{ $merchant->code }}</div>

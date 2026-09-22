@@ -17,6 +17,8 @@ use App\Http\Controllers\Platform\ImpersonationController;
 use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
+use App\Http\Controllers\InboxController;
+use App\Http\Controllers\Tenant\AnnouncementController;
 use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
@@ -136,6 +138,13 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/returns-money', [ReportController::class, 'returnsMoney'])->name('reports.returns-money');
             });
 
+            // الإشعارات الجماعية: إعلانٌ واحد للمناديب أو للتجّار، ومَن قرأه
+            Route::middleware('can:notify.send')->group(function () {
+                Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
+                Route::post('/announcements', [AnnouncementController::class, 'store'])->name('announcements.store');
+                Route::get('/announcements/{announcement}', [AnnouncementController::class, 'show'])->name('announcements.show');
+            });
+
             // النقل بين المراكز: كيس مختوم على كشف، والوارد يُستلَم كيساً كيساً
             Route::middleware('can:transport.manage')->group(function () {
             Route::get('/bags', [BagController::class, 'index'])->name('bags.index');
@@ -251,6 +260,7 @@ Route::middleware('tenant')->group(function () {
             Route::get('/search', [TaskController::class, 'search'])->name('search');
             Route::get('/today', [TaskController::class, 'today'])->name('today');
             Route::get('/cash', CourierCashController::class)->name('cash');
+            Route::get('/inbox', [InboxController::class, 'courier'])->name('inbox');
             Route::get('/pickups', [CourierPickupController::class, 'index'])->name('pickups');
             Route::post('/pickups/{pickup}/complete', [CourierPickupController::class, 'complete'])->name('pickups.complete');
             Route::get('/shipments/{shipment}', [TaskController::class, 'show'])->name('shipments.show');
@@ -274,6 +284,7 @@ Route::middleware('tenant')->group(function () {
             Route::get('/shipments/{shipment}', [PortalShipmentController::class, 'show'])->name('shipments.show');
 
             Route::get('/statement', StatementController::class)->name('statement');
+            Route::get('/inbox', [InboxController::class, 'portal'])->name('inbox');
 
             Route::get('/pickups', [PickupRequestController::class, 'index'])->name('pickups.index');
             Route::post('/pickups', [PickupRequestController::class, 'store'])->name('pickups.store');

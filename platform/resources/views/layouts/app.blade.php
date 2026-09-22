@@ -61,6 +61,7 @@
                     $groups = $staff ? [
                         ['العمليات', [
                             ['dashboard', 'لوحة اليوم', ['dashboard'], null],
+                            ['announcements.index', 'إشعارات جماعية', ['announcements.*'], 'notify.send'],
                             ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show'], 'shipments.view'],
                             ['shipments.create', 'شحنة جديدة', ['shipments.create'], 'shipments.create'],
                             ['shipments.import', 'رفع من ملف', ['shipments.import*'], 'shipments.create'],

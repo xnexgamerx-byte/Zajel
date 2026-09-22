@@ -31,6 +31,9 @@ class Ability
 
     public const TRANSPORT_MANAGE = 'transport.manage';
 
+    /** إعلانٌ واحد يبلغ كل المناديب أو كل التجّار */
+    public const NOTIFY_SEND = 'notify.send';
+
     // المال
     public const MONEY_VIEW = 'money.view';
 
@@ -74,6 +77,7 @@ class Ability
                 self::PICKUPS_MANAGE   => 'طلبات الاستلام',
                 self::RETURNS_MANAGE   => 'الراجع: استلاماً وتسليماً',
                 self::TRANSPORT_MANAGE => 'الأكياس وكشوف النقل',
+                self::NOTIFY_SEND      => 'الإشعارات الجماعية',
             ]],
             'money' => ['label' => 'المال', 'abilities' => [
                 self::MONEY_VIEW           => 'عرض الحسابات والأرصدة',
@@ -142,10 +146,11 @@ class Ability
             // مدير الفرع يُدير العمليات ويرى المال ولا يُحرّكه
             UserRole::BranchManager => [
                 ...$operations, self::MONEY_VIEW, self::REPORTS_VIEW,
-                self::CONTROL_DUPLICATES, self::SETTINGS_ZONES,
+                self::CONTROL_DUPLICATES, self::SETTINGS_ZONES, self::NOTIFY_SEND,
             ],
 
-            UserRole::Operations => [...$operations, self::REPORTS_VIEW],
+            // العمليات تُبلغ المناديب كل صباح: «ابدأوا السابعة»، «الطريق مغلق»
+            UserRole::Operations => [...$operations, self::REPORTS_VIEW, self::NOTIFY_SEND],
 
             // خدمة العملاء تقرأ وتُنشئ ولا تُغيّر مصير شحنة ولا ديناراً
             UserRole::CustomerService => [
