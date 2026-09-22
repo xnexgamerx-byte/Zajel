@@ -88,6 +88,7 @@
                             ['cash.index', 'القاصة', ['cash.index'], 'money.cash'],
                             ['expenses.index', 'المصروفات', ['expenses.index'], 'money.expenses'],
                             ['branch-accounts.index', 'محاسبة الفروع', ['branch-accounts.index'], 'money.view'],
+                            ['branch-accounts.statement', 'كشف حساب الفرع', ['branch-accounts.statement*'], 'money.view'],
                             ['branch-accounts.deposits', 'التأمينات', ['branch-accounts.deposits'], 'money.view'],
                             ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit'], 'settings.pricing'],
                         ]],

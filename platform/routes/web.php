@@ -174,6 +174,8 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:money.view')->group(function () {
                 Route::get('/branch-accounts', [BranchAccountController::class, 'index'])->name('branch-accounts.index');
                 Route::get('/branch-accounts/deposits', [BranchAccountController::class, 'deposits'])->name('branch-accounts.deposits');
+                Route::get('/branch-accounts/statement', [BranchAccountController::class, 'statement'])->name('branch-accounts.statement');
+                Route::get('/branch-accounts/statement/print', [BranchAccountController::class, 'statementPrint'])->name('branch-accounts.statement.print');
             });
             Route::post('/branch-accounts/deposits', [BranchAccountController::class, 'storeDeposit'])
                 ->middleware('can:money.cash')->name('branch-accounts.deposits.store');
