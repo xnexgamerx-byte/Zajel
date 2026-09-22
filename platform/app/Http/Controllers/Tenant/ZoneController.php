@@ -34,7 +34,7 @@ class ZoneController extends Controller
 
         // ما ينتظر في كل محافظة الآن — المنطقة المكشوفة تُرى بالأرقام لا بالحدس
         $waiting = Shipment::query()
-            ->whereNotIn('status', array_map(fn (ShipmentStatus $s) => $s->value, ShipmentStatus::terminal()))
+            ->whereIn('status', ShipmentStatus::openValues())
             ->selectRaw('governorate_id, count(*) as total')
             ->groupBy('governorate_id')
             ->toBase()

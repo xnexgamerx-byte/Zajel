@@ -82,7 +82,7 @@ class TaskController extends Controller
 
         $done = Shipment::query()
             ->where('delivery_courier_id', $courier->id)
-            ->whereDate('status_changed_at', today())
+            ->whereOnDate('status_changed_at', today())
             ->whereIn('status', [
                 ShipmentStatus::Delivered->value,
                 ShipmentStatus::PartiallyDelivered->value,

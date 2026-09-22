@@ -26,7 +26,7 @@ class DashboardController extends Controller
         // اشتراكات تنتهي خلال أسبوعين — تذكير تجديد لا تقرير
         $expiring = Subscription::acrossCompanies()
             ->whereIn('status', ['trialing', 'active'])
-            ->whereDate('ends_at', '<=', now()->addDays(14))
+            ->whereUntilDate('ends_at', now()->addDays(14))
             ->with(['plan:id,name', 'company:id,name,slug,status'])
             ->orderBy('ends_at')
             ->get();

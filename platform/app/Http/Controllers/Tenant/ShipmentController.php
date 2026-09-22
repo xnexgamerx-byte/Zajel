@@ -50,11 +50,11 @@ class ShipmentController extends Controller
         }
 
         if ($from = $request->query('from')) {
-            $query->whereDate('created_at', '>=', $from);
+            $query->whereFromDate('created_at', $from);
         }
 
         if ($to = $request->query('to')) {
-            $query->whereDate('created_at', '<=', $to);
+            $query->whereUntilDate('created_at', $to);
         }
 
         $shipments = $query->latest('id')->paginate(config('zajel.per_page'))->withQueryString();
@@ -130,8 +130,7 @@ class ShipmentController extends Controller
             ->toBase()
             ->get();
 
-        $terminal = array_map(fn (ShipmentStatus $s) => $s->value, ShipmentStatus::terminal());
-        $open = $rows->whereNotIn('status', $terminal);
+        $open = $rows->whereIn('status', ShipmentStatus::openValues());
 
         $countOf = fn (ShipmentStatus $status) => (int) $rows
             ->where('status', $status->value)

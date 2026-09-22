@@ -33,13 +33,12 @@ class DashboardController extends Controller
             ->toBase()
             ->get();
 
-        $terminal = array_map(fn (ShipmentStatus $s) => $s->value, ShipmentStatus::terminal());
-        $open = $byStatus->whereNotIn('status', $terminal);
+        $open = $byStatus->whereIn('status', ShipmentStatus::openValues());
         $of = fn (ShipmentStatus $s) => (int) $byStatus->where('status', $s->value)->sum('c');
 
-        $today = Shipment::query()->visibleTo($user)->whereDate('created_at', today())->count();
+        $today = Shipment::query()->visibleTo($user)->whereOnDate('created_at', today())->count();
         $deliveredToday = Shipment::query()->visibleTo($user)
-            ->whereDate('delivered_at', today())->count();
+            ->whereOnDate('delivered_at', today())->count();
 
         $money = DB::table('couriers')
             ->where('company_id', $user->company_id)
@@ -102,7 +101,7 @@ class DashboardController extends Controller
                     : null,
                 'stale_shipments' => Shipment::query()
                     ->visibleTo($user)
-                    ->whereNotIn('status', $terminal)
+                    ->whereIn('status', ShipmentStatus::openValues())
                     ->where('status_changed_at', '<', now()->subDays($staleAfter))
                     ->count(),
                 'stale_after' => $staleAfter,
@@ -116,7 +115,7 @@ class DashboardController extends Controller
 
             'byGovernorate' => Shipment::query()
                 ->visibleTo($user)
-                ->whereNotIn('status', $terminal)
+                ->whereIn('status', ShipmentStatus::openValues())
                 ->join('governorates', 'governorates.id', '=', 'shipments.governorate_id')
                 ->selectRaw('governorates.name_ar as name, count(*) as c')
                 ->groupBy('governorates.name_ar')

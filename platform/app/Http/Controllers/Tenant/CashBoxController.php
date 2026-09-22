@@ -137,7 +137,7 @@ class CashBoxController extends Controller
     protected function todayTotals(CashBox $box): array
     {
         $rows = CashMovement::where('cash_box_id', $box->id)
-            ->whereDate('created_at', today())
+            ->whereOnDate('created_at', today())
             ->selectRaw("direction, sum(amount) as total")
             ->groupBy('direction')
             ->pluck('total', 'direction');

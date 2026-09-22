@@ -24,8 +24,8 @@ class ShipmentController extends Controller
             ->where('merchant_id', $merchant->id)
             ->search($request->query('q'))
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
-            ->when($request->query('from'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-            ->when($request->query('to'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
+            ->when($request->query('from'), fn ($q, $d) => $q->whereFromDate('created_at', $d))
+            ->when($request->query('to'), fn ($q, $d) => $q->whereUntilDate('created_at', $d))
             ->latest('id')
             ->paginate(config('zajel.per_page'))
             ->withQueryString();

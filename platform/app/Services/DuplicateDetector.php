@@ -43,7 +43,7 @@ class DuplicateDetector
             ->whereKeyNot($shipment->id)
             ->whereNull('duplicate_of_id')
             ->where('created_at', '>=', $shipment->created_at->copy()->subDays(self::WINDOW_DAYS))
-            ->whereNotIn('status', [ShipmentStatus::Cancelled->value])
+            ->where('status', '!=', ShipmentStatus::Cancelled->value)
             ->orderBy('id')
             ->first();
     }

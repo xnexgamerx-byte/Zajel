@@ -22,8 +22,7 @@ trait ReadsMerchantStats
             ->toBase()
             ->get();
 
-        $terminal = array_map(fn (ShipmentStatus $s) => $s->value, ShipmentStatus::terminal());
-        $open = $rows->whereNotIn('status', $terminal);
+        $open = $rows->whereIn('status', ShipmentStatus::openValues());
 
         $of = fn (ShipmentStatus $s) => (int) $rows->where('status', $s->value)->sum('c');
 

@@ -91,8 +91,8 @@ class BuildMerchantSettlement
                 ShipmentStatus::PartiallyDelivered->value,
                 ShipmentStatus::Returned->value,
             ])
-            ->when($options['from'] ?? null, fn ($q, $from) => $q->whereDate('status_changed_at', '>=', $from))
-            ->when($options['to'] ?? null, fn ($q, $to) => $q->whereDate('status_changed_at', '<=', $to))
+            ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
+            ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
             ->orderBy('id')
             ->get();
     }

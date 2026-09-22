@@ -23,8 +23,8 @@ class StatementController extends Controller
 
         return view('portal.statement', [
             'transactions' => Transaction::forAccount('merchant', $merchant->id)
-                ->when($request->query('from'), fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-                ->when($request->query('to'), fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
+                ->when($request->query('from'), fn ($q, $d) => $q->whereFromDate('created_at', $d))
+                ->when($request->query('to'), fn ($q, $d) => $q->whereUntilDate('created_at', $d))
                 ->with('shipment:id,number,recipient_name')
                 ->latest('id')
                 ->paginate(50)

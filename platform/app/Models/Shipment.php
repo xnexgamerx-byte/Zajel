@@ -108,7 +108,7 @@ class Shipment extends Model
 
     public function scopeOpen(Builder $q): Builder
     {
-        return $q->whereNotIn('status', array_column(ShipmentStatus::terminal(), 'value'));
+        return $q->whereIn('status', ShipmentStatus::openValues());
     }
 
     public function scopeStatus(Builder $q, ShipmentStatus|string|array $status): Builder

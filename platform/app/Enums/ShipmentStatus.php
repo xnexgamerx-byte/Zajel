@@ -72,6 +72,29 @@ enum ShipmentStatus: string
         return [self::Delivered, self::Returned, self::Cancelled, self::Lost, self::Damaged];
     }
 
+    /**
+     * الحالات المفتوحة — قيمةً لا كائناً.
+     *
+     * تُستعمل في الاستعلامات بـ whereIn لا whereNotIn على النهائية:
+     * «ليس ضمن» لا يستطيع محرّك قاعدة البيانات أن يقفز بها في الفهرس
+     * فيمسح ما بعد الشركة كلّه. على ١٨٠ ألف شحنة: ٢٤٢ مللي ثانية مقابل ٧.
+     *
+     * @return array<int, string>
+     */
+    public static function openValues(): array
+    {
+        return array_values(array_map(
+            fn (self $s) => $s->value,
+            array_filter(self::cases(), fn (self $s) => $s->isOpen()),
+        ));
+    }
+
+    /** @return array<int, string> */
+    public static function terminalValues(): array
+    {
+        return array_map(fn (self $s) => $s->value, self::terminal());
+    }
+
     /** حالات تُحتسب على التاجر مالياً. */
     public function isBillable(): bool
     {
