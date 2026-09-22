@@ -68,6 +68,11 @@
                             ['returns.incoming', 'استلام الراجع', ['returns.incoming']],
                             ['returns.outgoing', 'تسليم الراجع', ['returns.outgoing']],
                         ]],
+                        ['النقل', [
+                            ['bags.index', 'الأكياس', ['bags.*']],
+                            ['manifests.index', 'كشوف النقل', ['manifests.index', 'manifests.show']],
+                            ['manifests.inbound', 'وارد المراكز', ['manifests.inbound']],
+                        ]],
                         ['الأطراف', [
                             ['merchants.index', 'التجّار', ['merchants.*']],
                             ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit']],

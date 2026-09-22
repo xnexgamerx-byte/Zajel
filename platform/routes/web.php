@@ -17,12 +17,14 @@ use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Tenant\BranchController;
+use App\Http\Controllers\Tenant\BagController;
 use App\Http\Controllers\Tenant\CashBoxController;
 use App\Http\Controllers\Tenant\CourierController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\ExpenseController;
+use App\Http\Controllers\Tenant\ManifestController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
 use App\Http\Controllers\Tenant\PriceListController;
@@ -75,6 +77,24 @@ Route::middleware('tenant')->group(function () {
             Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
             Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
             Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+
+            // النقل بين المراكز: كيس مختوم على كشف، والوارد يُستلَم كيساً كيساً
+            Route::get('/bags', [BagController::class, 'index'])->name('bags.index');
+            Route::post('/bags', [BagController::class, 'store'])->name('bags.store');
+            Route::get('/bags/{bag}', [BagController::class, 'show'])->name('bags.show');
+            Route::post('/bags/{bag}/add', [BagController::class, 'add'])->name('bags.add');
+            Route::delete('/bags/{bag}/shipments/{shipment}', [BagController::class, 'remove'])->name('bags.remove');
+            Route::post('/bags/{bag}/seal', [BagController::class, 'seal'])->name('bags.seal');
+            Route::post('/bags/{bag}/open', [BagController::class, 'open'])->name('bags.open');
+
+            Route::get('/manifests', [ManifestController::class, 'index'])->name('manifests.index');
+            Route::post('/manifests', [ManifestController::class, 'store'])->name('manifests.store');
+            Route::get('/manifests/inbound', [ManifestController::class, 'inbound'])->name('manifests.inbound');
+            Route::get('/manifests/{manifest}', [ManifestController::class, 'show'])->name('manifests.show');
+            Route::post('/manifests/{manifest}/load', [ManifestController::class, 'load'])->name('manifests.load');
+            Route::delete('/manifests/{manifest}/bags/{bag}', [ManifestController::class, 'unload'])->name('manifests.unload');
+            Route::post('/manifests/{manifest}/dispatch', [ManifestController::class, 'dispatchManifest'])->name('manifests.dispatch');
+            Route::post('/manifests/{manifest}/receive', [ManifestController::class, 'receive'])->name('manifests.receive');
 
             // القاصة والمصروفات: كم في الدرج، وأين ذهب
             Route::get('/cash', [CashBoxController::class, 'index'])->name('cash.index');

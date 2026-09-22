@@ -33,4 +33,35 @@ class Manifest extends Model
         return $this->belongsToMany(Bag::class, 'manifest_bags')
             ->withPivot(['loaded_at', 'unloaded_at', 'is_missing']);
     }
+
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
+    }
+
+    public function missingBags(): int
+    {
+        return $this->bags()->wherePivot('is_missing', true)->count();
+    }
+
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            'draft'      => 'قيد التحميل',
+            'dispatched' => 'في الطريق',
+            'arrived'    => 'وصل',
+            'closed'     => 'مُقفَل',
+            default      => $this->status,
+        };
+    }
+
+    public function statusTone(): string
+    {
+        return match ($this->status) {
+            'draft'      => 'chip-warn',
+            'dispatched' => 'chip-info',
+            'arrived'    => 'chip-ok',
+            default      => 'chip-mute',
+        };
+    }
 }
