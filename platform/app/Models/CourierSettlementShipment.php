@@ -18,4 +18,9 @@ class CourierSettlementShipment extends Model
     {
         return $this->belongsTo(Shipment::class);
     }
+
+    public function settlement(): BelongsTo
+    {
+        return $this->belongsTo(CourierSettlement::class, 'courier_settlement_id');
+    }
 }

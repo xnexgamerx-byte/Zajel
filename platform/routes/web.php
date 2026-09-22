@@ -24,7 +24,9 @@ use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
 use App\Http\Controllers\Tenant\PriceListController;
+use App\Http\Controllers\Tenant\ReturnController;
 use App\Http\Controllers\Tenant\PricingQuoteController;
+use App\Http\Controllers\Tenant\ShipmentAmountController;
 use App\Http\Controllers\Tenant\ShipmentController;
 use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
@@ -62,8 +64,16 @@ Route::middleware('tenant')->group(function () {
             ->middleware('staff')->name('shipments.status');
         Route::post('/shipments/assign', [ShipmentStatusController::class, 'assign'])
             ->middleware('staff')->name('shipments.assign');
+        Route::post('/shipments/{shipment}/amount', [ShipmentAmountController::class, 'update'])
+            ->middleware('staff')->name('shipments.amount');
 
         Route::middleware('staff')->group(function () {
+            // الراجع خطوتان: من المندوب إلى المخزن، ومن المخزن إلى التاجر
+            Route::get('/returns', [ReturnController::class, 'incoming'])->name('returns.incoming');
+            Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
+            Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
+            Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+
             Route::get('/pickups', [TenantPickupRequestController::class, 'index'])->name('pickups.index');
             Route::post('/pickups/{pickup}/assign', [TenantPickupRequestController::class, 'assign'])->name('pickups.assign');
             Route::post('/pickups/{pickup}/cancel', [TenantPickupRequestController::class, 'cancel'])->name('pickups.cancel');

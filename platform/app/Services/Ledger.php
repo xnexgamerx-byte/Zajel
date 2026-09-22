@@ -70,6 +70,46 @@ class Ledger
         });
     }
 
+    /**
+     * تصحيح مبلغ محصَّل بعد تسجيل التسليم.
+     *
+     * لا يُمسّ الصفّ القديم: يُقيَّد الفرق بحركة معاكسة تحمل سببها، فيبقى
+     * أمام التاجر سطران يشرحان كيف صار الرقم ما صار، لا رقم تغيّر وحده.
+     * الفرق نفسه على الجهتين: نقد بيد المندوب، ومستحقّ للتاجر.
+     */
+    public function recordAmountCorrection(Shipment $shipment, int $delta, ?User $actor = null, ?string $reason = null): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($shipment, $delta, $actor, $reason) {
+            $why = $reason ? " — {$reason}" : '';
+
+            $this->post(
+                merchant: $shipment->merchant,
+                direction: $delta > 0 ? 'credit' : 'debit',
+                category: 'amount_correction',
+                amount: abs($delta),
+                shipment: $shipment,
+                description: "تصحيح مبلغ الشحنة {$shipment->number}{$why}",
+                actor: $actor,
+            );
+
+            if ($courier = $shipment->deliveryCourier) {
+                $this->post(
+                    courier: $courier,
+                    direction: $delta > 0 ? 'debit' : 'credit',
+                    category: 'amount_correction',
+                    amount: abs($delta),
+                    shipment: $shipment,
+                    description: "تصحيح تحصيل الشحنة {$shipment->number}{$why}",
+                    actor: $actor,
+                );
+            }
+        });
+    }
+
     /** الشحنة رجعت: لا تحصيل، وأجرة الراجع على التاجر. */
     public function recordReturn(Shipment $shipment, ?User $actor = null): void
     {

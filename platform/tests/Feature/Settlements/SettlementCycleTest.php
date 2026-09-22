@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Settlements;
 
+use App\Actions\Returns\ReceiveReturns;
 use App\Actions\Settlements\BuildCourierSettlement;
 use App\Actions\Settlements\BuildMerchantSettlement;
 use App\Actions\Settlements\ConfirmCourierSettlement;
@@ -94,14 +95,19 @@ class SettlementCycleTest extends TestCase
 
     private function returned(int $cod = 50_000): Shipment
     {
-        return $this->walk($this->shipment($cod), [
+        $shipment = $this->walk($this->shipment($cod), [
             ShipmentStatus::PickedUp,
             ShipmentStatus::AtHub,
             ShipmentStatus::OutForDelivery,
             ShipmentStatus::FailedAttempt,
             ShipmentStatus::Returning,
-            ShipmentStatus::Returned,
         ]);
+
+        // الطرد يعود من المندوب إلى المخزن قبل أن يُسلَّم للتاجر
+        Tenancy::runFor($this->company, fn () => app(ReceiveReturns::class)
+            ->handle([$shipment->id], $this->actor));
+
+        return $this->walk($shipment->refresh(), [ShipmentStatus::Returned]);
     }
 
     // ------------------------------------------------------ تسوية المندوب

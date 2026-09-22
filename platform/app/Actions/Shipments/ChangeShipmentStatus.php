@@ -39,6 +39,15 @@ class ChangeShipmentStatus
             ]);
         }
 
+        // «راجعة للتاجر» تعني أن التاجر استلمها، وعندها تُقيَّد أجرة الراجع
+        // عليه. تسليم طرد ما زال في حقيبة المندوب هو الخلاف نفسه الذي
+        // يُبنى هذا المسار لمنعه.
+        if ($to === ShipmentStatus::Returned && $shipment->return_received_at === null) {
+            throw ValidationException::withMessages([
+                'status' => "لم تُستلم الشحنة {$shipment->number} من المندوب بعد، فلا تُسلَّم للتاجر.",
+            ]);
+        }
+
         return DB::transaction(function () use ($shipment, $from, $to, $actor, $options) {
             $attributes = [
                 'status'            => $to,
@@ -52,6 +61,13 @@ class ChangeShipmentStatus
                 ShipmentStatus::Cancelled     => $attributes['cancelled_at'] = now(),
                 default                       => null,
             };
+
+            // طرد في المخزن قُرّر إرجاعه لم يغادر أصلاً: استلامه من المندوب
+            // خطوة لا وجود لها، فلا تُفرض على الموظّف.
+            if ($to === ShipmentStatus::Returning && $from === ShipmentStatus::AtHub) {
+                $attributes['return_received_at'] = now();
+                $attributes['return_received_by_user_id'] = $actor?->id;
+            }
 
             if ($to === ShipmentStatus::FailedAttempt) {
                 $attributes['attempts_count'] = $shipment->attempts_count + 1;

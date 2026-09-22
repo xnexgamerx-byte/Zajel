@@ -18,4 +18,9 @@ class MerchantSettlementShipment extends Model
     {
         return $this->belongsTo(Shipment::class);
     }
+
+    public function settlement(): BelongsTo
+    {
+        return $this->belongsTo(MerchantSettlement::class, 'merchant_settlement_id');
+    }
 }

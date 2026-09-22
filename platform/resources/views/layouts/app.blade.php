@@ -65,6 +65,8 @@
                             ['shipments.create', 'شحنة جديدة', ['shipments.create']],
                             ['shipments.import', 'رفع من ملف', ['shipments.import*']],
                             ['pickups.index', 'طلبات الاستلام', ['pickups.*']],
+                            ['returns.incoming', 'استلام الراجع', ['returns.incoming']],
+                            ['returns.outgoing', 'تسليم الراجع', ['returns.outgoing']],
                         ]],
                         ['الأطراف', [
                             ['merchants.index', 'التجّار', ['merchants.*']],

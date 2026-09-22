@@ -227,7 +227,12 @@
                     <dd class="font-semibold" dir="ltr">{{ number_format($shipment->cod_amount) }}</dd>
                 </div>
                 <div class="flex justify-between">
-                    <dt class="text-ink-600">المحصَّل فعلاً</dt>
+                    <dt class="text-ink-600">
+                        المحصَّل فعلاً
+                        @if ($shipment->amount_confirmed)
+                            <span class="chip chip-ok ms-1 align-middle">مؤكَّد</span>
+                        @endif
+                    </dt>
                     <dd class="font-semibold" dir="ltr">{{ number_format($shipment->collected_amount) }}</dd>
                 </div>
                 <div class="flex justify-between border-t border-ink-100 pt-2">
@@ -266,6 +271,80 @@
             <p class="mt-3 text-xs text-ink-500">
                 الأجرة على: {{ $shipment->fees_paid_by === 'customer' ? 'الزبون' : 'التاجر' }}
             </p>
+
+            @php
+                $settled = $shipment->courier_settlement_id || $shipment->merchant_settlement_id;
+                $confirmable = auth()->user()->isStaff()
+                    && in_array($shipment->status, [\App\Enums\ShipmentStatus::Delivered,
+                                                    \App\Enums\ShipmentStatus::PartiallyDelivered], true);
+            @endphp
+
+            @if ($confirmable && $shipment->amount_confirmed)
+                <p class="mt-4 rounded-lg bg-ok-50 px-3 py-2 text-xs text-ok-700">
+                    أكّد المبلغ
+                    {{ \App\Models\User::withoutGlobalScopes()->find($shipment->amount_confirmed_by_user_id)?->name ?? 'النظام' }}
+                    في {{ $shipment->amount_confirmed_at?->format('Y-m-d H:i') }}. لا يُعدَّل بعد التأكيد.
+                </p>
+            @elseif ($confirmable && $settled)
+                <p class="mt-4 rounded-lg bg-ink-100 px-3 py-2 text-xs text-ink-600">
+                    دخلت هذه الشحنة كشف تسوية، فالتصحيح يكون بحركة على الحساب لا بتعديل الوصل.
+                </p>
+            @elseif ($confirmable)
+                <button type="button" class="btn-primary mt-4 w-full"
+                        onclick="document.getElementById('confirm-amount').showModal()">
+                    تأكيد مبلغ الوصل
+                </button>
+                <p class="mt-2 text-center text-xs text-ink-500">يُراجَع الرقم مرّة واحدة ثم يُقفَل.</p>
+
+                <dialog id="confirm-amount" class="modal">
+                    <form method="POST" action="{{ route('shipments.amount', $shipment) }}">
+                        @csrf
+                        <div class="modal-head">
+                            <h3 class="font-bold">تأكيد مبلغ الوصل {{ $shipment->number }}</h3>
+                            <p class="mt-1 text-xs text-ink-500">
+                                راجع الرقم مع المندوب قبل التأكيد — بعده لا يُعدَّل.
+                            </p>
+                        </div>
+
+                        <div class="modal-body">
+                            <div class="flex justify-between rounded-lg bg-ink-50 px-3 py-2 text-sm">
+                                <span class="text-ink-600">المكتوب على الوصل</span>
+                                <span class="num font-semibold">{{ number_format($shipment->cod_amount) }}</span>
+                            </div>
+
+                            <div>
+                                <label class="field-label" for="confirm_amount_input">المبلغ المحصَّل فعلاً</label>
+                                <input id="confirm_amount_input" name="collected_amount" type="number"
+                                       min="0" step="250" required class="field-input num"
+                                       value="{{ old('collected_amount', $shipment->collected_amount) }}">
+                                <p class="field-hint">
+                                    أيّ فرق عن المبلغ الحالي يُقيَّد حركةً على حساب التاجر والمندوب معاً.
+                                </p>
+                                @error('collected_amount') <p class="field-error">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label class="field-label" for="confirm_amount_note">سبب الفرق (إن وُجد)</label>
+                                <input id="confirm_amount_note" name="note" type="text" maxlength="255"
+                                       class="field-input" placeholder="مثلاً: ردّ الزبون قطعة">
+                            </div>
+
+                            <label class="flex items-start gap-2 rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-700">
+                                <input type="checkbox" name="acknowledge" value="1" required
+                                       class="mt-0.5 size-4 accent-[var(--color-warn-700)]">
+                                <span>أُقرّ أن هذا المبلغ نهائي، ولا يُعدَّل بعد التأكيد.</span>
+                            </label>
+                            @error('acknowledge') <p class="field-error">{{ $message }}</p> @enderror
+                        </div>
+
+                        <div class="modal-foot">
+                            <button type="button" class="btn-ghost"
+                                    onclick="document.getElementById('confirm-amount').close()">تراجع</button>
+                            <button type="submit" class="btn-primary">تأكيد نهائي</button>
+                        </div>
+                    </form>
+                </dialog>
+            @endif
         </section>
 
         <section class="card p-5">
