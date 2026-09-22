@@ -29,6 +29,7 @@ use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\ManifestController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
+use App\Http\Controllers\Tenant\PermissionController;
 use App\Http\Controllers\Tenant\PickupAgentController;
 use App\Http\Controllers\Tenant\PriceListController;
 use App\Http\Controllers\Tenant\ReportController;
@@ -39,6 +40,7 @@ use App\Http\Controllers\Tenant\ShipmentController;
 use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
 use App\Http\Controllers\Tenant\UserController;
+use App\Http\Controllers\Tenant\ZoneController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -57,11 +59,11 @@ Route::middleware('tenant')->group(function () {
 
         Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
         Route::get('/shipments/create', [ShipmentController::class, 'create'])
-            ->middleware('staff')->name('shipments.create');
+            ->middleware(['staff', 'can:shipments.create'])->name('shipments.create');
         Route::post('/shipments', [ShipmentController::class, 'store'])
-            ->middleware('staff')->name('shipments.store');
+            ->middleware(['staff', 'can:shipments.create'])->name('shipments.store');
 
-        Route::middleware('staff')->group(function () {
+        Route::middleware(['staff', 'can:shipments.create'])->group(function () {
             Route::get('/shipments/import', [ShipmentImportController::class, 'create'])->name('shipments.import');
             Route::get('/shipments/import/template', [ShipmentImportController::class, 'template'])->name('shipments.import.template');
             Route::post('/shipments/import', [ShipmentImportController::class, 'store'])->name('shipments.import.store');
@@ -69,33 +71,54 @@ Route::middleware('tenant')->group(function () {
         });
         Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
         Route::post('/shipments/{shipment}/status', [ShipmentStatusController::class, 'update'])
-            ->middleware('staff')->name('shipments.status');
+            ->middleware(['staff', 'can:shipments.status'])->name('shipments.status');
         Route::post('/shipments/assign', [ShipmentStatusController::class, 'assign'])
-            ->middleware('staff')->name('shipments.assign');
+            ->middleware(['staff', 'can:shipments.assign'])->name('shipments.assign');
         Route::post('/shipments/{shipment}/amount', [ShipmentAmountController::class, 'update'])
-            ->middleware('staff')->name('shipments.amount');
+            ->middleware(['staff', 'can:money.confirm_amount'])->name('shipments.amount');
 
         Route::middleware('staff')->group(function () {
             // الراجع خطوتان: من المندوب إلى المخزن، ومن المخزن إلى التاجر
-            Route::get('/returns', [ReturnController::class, 'incoming'])->name('returns.incoming');
-            Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
-            Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
-            Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+            Route::middleware('can:returns.manage')->group(function () {
+                Route::get('/returns', [ReturnController::class, 'incoming'])->name('returns.incoming');
+                Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
+                Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
+                Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+            });
+
+            Route::middleware('can:settings.permissions')->group(function () {
+                Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
+                Route::post('/permissions/{user}', [PermissionController::class, 'update'])->name('permissions.update');
+            });
+
+            Route::middleware('can:settings.zones')->group(function () {
+                Route::get('/zones', [ZoneController::class, 'index'])->name('zones.index');
+                Route::post('/zones', [ZoneController::class, 'store'])->name('zones.store');
+                Route::delete('/zones/{zone}', [ZoneController::class, 'destroy'])->name('zones.destroy');
+            });
 
             // الرقابة: قوائم تُحسَم لا تقارير تُقرأ
-            Route::get('/control/duplicates', [ControlController::class, 'duplicates'])->name('control.duplicates');
-            Route::post('/control/duplicates/{shipment}/clear', [ControlController::class, 'clearDuplicate'])->name('control.duplicates.clear');
-            Route::post('/control/duplicates/{shipment}/cancel', [ControlController::class, 'cancelDuplicate'])->name('control.duplicates.cancel');
-            Route::get('/control/forced', [ControlController::class, 'forced'])->name('control.forced');
+            Route::middleware('can:control.duplicates')->group(function () {
+                Route::get('/control/duplicates', [ControlController::class, 'duplicates'])->name('control.duplicates');
+                Route::post('/control/duplicates/{shipment}/clear', [ControlController::class, 'clearDuplicate'])->name('control.duplicates.clear');
+                Route::post('/control/duplicates/{shipment}/cancel', [ControlController::class, 'cancelDuplicate'])->name('control.duplicates.cancel');
+            });
+            Route::get('/control/forced', [ControlController::class, 'forced'])
+                ->middleware('can:control.force')->name('control.forced');
 
             // مندوب الاستلام: دور محاسبيّ مستقلّ عن مندوب التوصيل
-            Route::get('/pickup-agents', [PickupAgentController::class, 'index'])->name('pickup-agents.index');
-            Route::get('/pickup-agents/objections', [PickupAgentController::class, 'objections'])->name('pickup-agents.objections');
-            Route::post('/pickup-agents/objections/{share}', [PickupAgentController::class, 'resolve'])->name('pickup-agents.resolve');
-            Route::get('/pickup-agents/{courier}', [PickupAgentController::class, 'show'])->name('pickup-agents.show');
-            Route::post('/pickup-agents/{courier}/pay', [PickupAgentController::class, 'pay'])->name('pickup-agents.pay');
+            Route::middleware('can:money.view')->group(function () {
+                Route::get('/pickup-agents', [PickupAgentController::class, 'index'])->name('pickup-agents.index');
+                Route::get('/pickup-agents/objections', [PickupAgentController::class, 'objections'])->name('pickup-agents.objections');
+                Route::get('/pickup-agents/{courier}', [PickupAgentController::class, 'show'])->name('pickup-agents.show');
+            });
+            Route::middleware('can:money.settle')->group(function () {
+                Route::post('/pickup-agents/objections/{share}', [PickupAgentController::class, 'resolve'])->name('pickup-agents.resolve');
+                Route::post('/pickup-agents/{courier}/pay', [PickupAgentController::class, 'pay'])->name('pickup-agents.pay');
+            });
 
             // ستّة تقارير لا واحد وثلاثون
+            Route::middleware('can:reports.view')->group(function () {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
             Route::get('/reports/returns', [ReportController::class, 'returns'])->name('reports.returns');
             Route::get('/reports/couriers', [ReportController::class, 'couriers'])->name('reports.couriers');
@@ -103,8 +126,10 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/governorates', [ReportController::class, 'governorates'])->name('reports.governorates');
             Route::get('/reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
             Route::get('/reports/profit', [ReportController::class, 'profit'])->name('reports.profit');
+            });
 
             // النقل بين المراكز: كيس مختوم على كشف، والوارد يُستلَم كيساً كيساً
+            Route::middleware('can:transport.manage')->group(function () {
             Route::get('/bags', [BagController::class, 'index'])->name('bags.index');
             Route::post('/bags', [BagController::class, 'store'])->name('bags.store');
             Route::get('/bags/{bag}', [BagController::class, 'show'])->name('bags.show');
@@ -121,21 +146,28 @@ Route::middleware('tenant')->group(function () {
             Route::delete('/manifests/{manifest}/bags/{bag}', [ManifestController::class, 'unload'])->name('manifests.unload');
             Route::post('/manifests/{manifest}/dispatch', [ManifestController::class, 'dispatchManifest'])->name('manifests.dispatch');
             Route::post('/manifests/{manifest}/receive', [ManifestController::class, 'receive'])->name('manifests.receive');
+            });
 
             // القاصة والمصروفات: كم في الدرج، وأين ذهب
-            Route::get('/cash', [CashBoxController::class, 'index'])->name('cash.index');
-            Route::post('/cash', [CashBoxController::class, 'store'])->name('cash.store');
-            Route::post('/cash/transfer', [CashBoxController::class, 'transfer'])->name('cash.transfer');
-            Route::post('/cash/{box}/adjust', [CashBoxController::class, 'adjust'])->name('cash.adjust');
+            Route::middleware('can:money.cash')->group(function () {
+                Route::get('/cash', [CashBoxController::class, 'index'])->name('cash.index');
+                Route::post('/cash', [CashBoxController::class, 'store'])->name('cash.store');
+                Route::post('/cash/transfer', [CashBoxController::class, 'transfer'])->name('cash.transfer');
+                Route::post('/cash/{box}/adjust', [CashBoxController::class, 'adjust'])->name('cash.adjust');
+            });
 
-            Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
-            Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
-            Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'pay'])->name('expenses.pay');
-            Route::post('/expenses/{expense}/cancel', [ExpenseController::class, 'cancel'])->name('expenses.cancel');
+            Route::middleware('can:money.expenses')->group(function () {
+                Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
+                Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+                Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'pay'])->name('expenses.pay');
+                Route::post('/expenses/{expense}/cancel', [ExpenseController::class, 'cancel'])->name('expenses.cancel');
+            });
 
-            Route::get('/pickups', [TenantPickupRequestController::class, 'index'])->name('pickups.index');
-            Route::post('/pickups/{pickup}/assign', [TenantPickupRequestController::class, 'assign'])->name('pickups.assign');
-            Route::post('/pickups/{pickup}/cancel', [TenantPickupRequestController::class, 'cancel'])->name('pickups.cancel');
+            Route::middleware('can:pickups.manage')->group(function () {
+                Route::get('/pickups', [TenantPickupRequestController::class, 'index'])->name('pickups.index');
+                Route::post('/pickups/{pickup}/assign', [TenantPickupRequestController::class, 'assign'])->name('pickups.assign');
+                Route::post('/pickups/{pickup}/cancel', [TenantPickupRequestController::class, 'cancel'])->name('pickups.cancel');
+            });
         });
 
         Route::get('/couriers/cash', [ShipmentStatusController::class, 'cashBoard'])
@@ -143,27 +175,41 @@ Route::middleware('tenant')->group(function () {
 
         // إدارة التجّار والمندوبين والنقد: لموظّفي الشركة فقط.
         Route::middleware('staff')->group(function () {
-            Route::resource('merchants', MerchantController::class)->except(['destroy']);
-            Route::resource('couriers', CourierController::class)->except(['destroy']);
-            Route::resource('users', UserController::class)->except(['destroy', 'show']);
-            Route::resource('branches', BranchController::class)->except(['destroy', 'show']);
+            Route::resource('merchants', MerchantController::class)->except(['destroy'])->middleware('can:settings.people');
+            Route::resource('couriers', CourierController::class)->except(['destroy'])->middleware('can:settings.people');
+            Route::resource('users', UserController::class)->except(['destroy', 'show'])
+                ->middleware('can:settings.people');
+            Route::resource('branches', BranchController::class)->except(['destroy', 'show'])
+                ->middleware('can:settings.branches');
 
-            Route::get('/pricing', [PriceListController::class, 'index'])->name('pricing.index');
-            Route::post('/pricing', [PriceListController::class, 'store'])->name('pricing.store');
-            Route::get('/pricing/{pricing}', [PriceListController::class, 'edit'])->name('pricing.edit');
-            Route::put('/pricing/{pricing}', [PriceListController::class, 'update'])->name('pricing.update');
+            Route::middleware('can:settings.pricing')->group(function () {
+                Route::get('/pricing', [PriceListController::class, 'index'])->name('pricing.index');
+                Route::post('/pricing', [PriceListController::class, 'store'])->name('pricing.store');
+                Route::get('/pricing/{pricing}', [PriceListController::class, 'edit'])->name('pricing.edit');
+                Route::put('/pricing/{pricing}', [PriceListController::class, 'update'])->name('pricing.update');
+            });
 
             Route::prefix('settlements')->name('settlements.')->group(function () {
-                Route::get('couriers', [CourierSettlementController::class, 'index'])->name('couriers.index');
-                Route::post('couriers', [CourierSettlementController::class, 'store'])->name('couriers.store');
-                Route::get('couriers/{settlement}', [CourierSettlementController::class, 'show'])->name('couriers.show');
-                Route::post('couriers/{settlement}/confirm', [CourierSettlementController::class, 'confirm'])->name('couriers.confirm');
+                Route::get('couriers', [CourierSettlementController::class, 'index'])
+                    ->middleware('can:money.view')->name('couriers.index');
+                Route::post('couriers', [CourierSettlementController::class, 'store'])
+                    ->middleware('can:money.settle')->name('couriers.store');
+                Route::get('couriers/{settlement}', [CourierSettlementController::class, 'show'])
+                    ->middleware('can:money.view')->name('couriers.show');
+                Route::post('couriers/{settlement}/confirm', [CourierSettlementController::class, 'confirm'])
+                    ->middleware('can:money.settle')->name('couriers.confirm');
 
-                Route::get('merchants', [MerchantSettlementController::class, 'index'])->name('merchants.index');
-                Route::post('merchants', [MerchantSettlementController::class, 'store'])->name('merchants.store');
-                Route::get('merchants/{settlement}', [MerchantSettlementController::class, 'show'])->name('merchants.show');
-                Route::post('merchants/{settlement}/confirm', [MerchantSettlementController::class, 'confirm'])->name('merchants.confirm');
-                Route::post('merchants/{settlement}/pay', [MerchantSettlementController::class, 'pay'])->name('merchants.pay');
+                // كشف التاجر: بناؤه وإقفاله تسوية، ودفعه صلاحية أخرى
+                Route::middleware('can:money.view')->group(function () {
+                    Route::get('merchants', [MerchantSettlementController::class, 'index'])->name('merchants.index');
+                    Route::get('merchants/{settlement}', [MerchantSettlementController::class, 'show'])->name('merchants.show');
+                });
+                Route::middleware('can:money.settle')->group(function () {
+                    Route::post('merchants', [MerchantSettlementController::class, 'store'])->name('merchants.store');
+                    Route::post('merchants/{settlement}/confirm', [MerchantSettlementController::class, 'confirm'])->name('merchants.confirm');
+                });
+                Route::post('merchants/{settlement}/pay', [MerchantSettlementController::class, 'pay'])
+                    ->middleware('can:money.pay')->name('merchants.pay');
             });
         });
 

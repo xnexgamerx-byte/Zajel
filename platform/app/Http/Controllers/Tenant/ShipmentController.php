@@ -64,7 +64,8 @@ class ShipmentController extends Controller
             'statuses'     => ShipmentStatus::cases(),
             'merchants'    => Merchant::orderBy('business_name')->get(['id', 'business_name']),
             'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
-            'couriers'     => Courier::delivering()->active()->orderBy('name')->get(['id', 'name']),
+            'couriers'     => Courier::delivering()->active()->orderBy('name')
+                ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'totals'       => $this->totals($request),
         ]);
     }
@@ -107,7 +108,8 @@ class ShipmentController extends Controller
             // الخيارات تأتي من خريطة الانتقالات نفسها، فلا تظهر في الواجهة
             // حالة لا يقبلها النظام — الواجهة والمنطق مصدرهما واحد.
             'nextStatuses' => $shipment->status->allowedNext(),
-            'couriers'     => Courier::delivering()->active()->orderBy('name')->get(['id', 'name']),
+            'couriers'     => Courier::delivering()->active()->orderBy('name')
+                ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'hubs'         => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(),
         ]);

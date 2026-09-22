@@ -60,51 +60,67 @@
                 @php
                     $groups = $staff ? [
                         ['العمليات', [
-                            ['dashboard', 'لوحة اليوم', ['dashboard']],
-                            ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show']],
-                            ['shipments.create', 'شحنة جديدة', ['shipments.create']],
-                            ['shipments.import', 'رفع من ملف', ['shipments.import*']],
-                            ['pickups.index', 'طلبات الاستلام', ['pickups.*']],
-                            ['returns.incoming', 'استلام الراجع', ['returns.incoming']],
-                            ['returns.outgoing', 'تسليم الراجع', ['returns.outgoing']],
+                            ['dashboard', 'لوحة اليوم', ['dashboard'], null],
+                            ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show'], 'shipments.view'],
+                            ['shipments.create', 'شحنة جديدة', ['shipments.create'], 'shipments.create'],
+                            ['shipments.import', 'رفع من ملف', ['shipments.import*'], 'shipments.create'],
+                            ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
+                            ['returns.incoming', 'استلام الراجع', ['returns.incoming'], 'returns.manage'],
+                            ['returns.outgoing', 'تسليم الراجع', ['returns.outgoing'], 'returns.manage'],
                         ]],
                         ['النقل', [
-                            ['bags.index', 'الأكياس', ['bags.*']],
-                            ['manifests.index', 'كشوف النقل', ['manifests.index', 'manifests.show']],
-                            ['manifests.inbound', 'وارد المراكز', ['manifests.inbound']],
+                            ['bags.index', 'الأكياس', ['bags.*'], 'transport.manage'],
+                            ['manifests.index', 'كشوف النقل', ['manifests.index', 'manifests.show'], 'transport.manage'],
+                            ['manifests.inbound', 'وارد المراكز', ['manifests.inbound'], 'transport.manage'],
                         ]],
                         ['الأطراف', [
-                            ['merchants.index', 'التجّار', ['merchants.*']],
-                            ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit']],
-                            ['pickup-agents.index', 'مندوبو الاستلام', ['pickup-agents.*']],
+                            ['merchants.index', 'التجّار', ['merchants.*'], 'settings.people'],
+                            ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit'], 'settings.people'],
+                            ['pickup-agents.index', 'مندوبو الاستلام', ['pickup-agents.*'], 'money.view'],
                         ]],
                         ['المال', [
-                            ['couriers.cash', 'نقد المندوبين', ['couriers.cash']],
-                            ['settlements.couriers.index', 'تسوية المندوبين', ['settlements.couriers.*']],
-                            ['settlements.merchants.index', 'تسوية التجّار', ['settlements.merchants.*']],
-                            ['cash.index', 'القاصة', ['cash.index']],
-                            ['expenses.index', 'المصروفات', ['expenses.index']],
-                            ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit']],
+                            ['couriers.cash', 'نقد المندوبين', ['couriers.cash'], 'money.view'],
+                            ['settlements.couriers.index', 'تسوية المندوبين', ['settlements.couriers.*'], 'money.view'],
+                            ['settlements.merchants.index', 'تسوية التجّار', ['settlements.merchants.*'], 'money.view'],
+                            ['cash.index', 'القاصة', ['cash.index'], 'money.cash'],
+                            ['expenses.index', 'المصروفات', ['expenses.index'], 'money.expenses'],
+                            ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit'], 'settings.pricing'],
                         ]],
                         ['التقارير', [
-                            ['reports.index', 'كل التقارير', ['reports.*']],
-                            ['control.duplicates', 'مشتبه بتكرارها', ['control.duplicates']],
-                            ['control.forced', 'واصل إجباري', ['control.forced']],
+                            ['reports.index', 'كل التقارير', ['reports.*'], 'reports.view'],
+                            ['control.duplicates', 'مشتبه بتكرارها', ['control.duplicates'], 'control.duplicates'],
+                            ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
                         ]],
                         ['الإعدادات', [
-                            ['users.index', 'المستخدمون', ['users.*']],
-                            ['branches.index', 'الفروع', ['branches.*']],
+                            ['users.index', 'المستخدمون', ['users.*'], 'settings.people'],
+                            ['permissions.index', 'الصلاحيات', ['permissions.*'], 'settings.permissions'],
+                            ['branches.index', 'الفروع', ['branches.*'], 'settings.branches'],
+                            ['zones.index', 'المناطق', ['zones.*'], 'settings.zones'],
                         ]],
                     ] : [
-                        ['', [['shipments.index', 'الشحنات', ['shipments.*']]]],
+                        ['', [['shipments.index', 'الشحنات', ['shipments.*'], null]]],
                     ];
+                @endphp
+
+                @php
+                    /*
+                    | الرابط لا يظهر لمن لا يستطيع فتحه: قائمة تُفضي إلى
+                    | 403 أسوأ من قائمة قصيرة، وهي تُطلع الموظّف على ما
+                    | لا يخصّه.
+                    */
+                    $groups = collect($groups)
+                        ->map(fn ($group) => [$group[0], collect($group[1])
+                            ->filter(fn ($link) => ($link[3] ?? null) === null || auth()->user()->can($link[3]))
+                            ->values()->all()])
+                        ->filter(fn ($group) => count($group[1]) > 0)
+                        ->values()->all();
                 @endphp
 
                 @foreach ($groups as [$label, $links])
                     @if ($label)
                         <div class="side-group">{{ $label }}</div>
                     @endif
-                    @foreach ($links as [$route, $text, $patterns])
+                    @foreach ($links as [$route, $text, $patterns, $ability])
                         @php $active = collect($patterns)->contains(fn ($p) => request()->routeIs($p)); @endphp
                         <a href="{{ route($route) }}"
                            class="side-link {{ $active ? 'side-link-active' : '' }}">

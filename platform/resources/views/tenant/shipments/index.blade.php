@@ -204,10 +204,14 @@
             <span data-bulk-count>0</span> شحنة مختارة
         </span>
 
-        <select name="courier_id" class="field-input w-auto min-w-52" required>
+        {{-- تغطية المندوب بجانب اسمه: التوزيع الصباحي يُصيب من أول مرّة --}}
+        <select name="courier_id" class="field-input w-auto min-w-64" required>
             <option value="">اختر المندوب</option>
             @foreach ($couriers as $courier)
-                <option value="{{ $courier->id }}">{{ $courier->name }}</option>
+                @php $covers = $courier->zones->pluck('governorate.name_ar')->filter()->unique(); @endphp
+                <option value="{{ $courier->id }}">
+                    {{ $courier->name }}{{ $covers->isNotEmpty() ? ' — '.$covers->take(3)->implode('، ') : ' — بلا مناطق' }}
+                </option>
             @endforeach
         </select>
 
