@@ -25,6 +25,24 @@ class BuildCourierSettlement
     public function handle(Courier $courier, ?User $actor = null, array $options = []): CourierSettlement
     {
         return DB::transaction(function () use ($courier, $actor, $options) {
+            /*
+            | كشف مفتوح واحد لكل طرف.
+            |
+            | الشحنات لا تُوسَم إلّا عند الإقفال، فبناء كشف ثانٍ قبل إقفال
+            | الأول يلتقط الشحنات نفسها: كشفان بالمبلغ نفسه، وإقفالهما
+            | يدفع مرّتين. وُجد بالتجربة على ١٦٣٧٦ شحنة و٩٧٣ مليوناً.
+            */
+            $open = CourierSettlement::where('courier_id', $courier->id)
+                ->where('status', 'draft')
+                ->lockForUpdate()
+                ->first();
+
+            if ($open) {
+                throw ValidationException::withMessages([
+                    'courier_id' => "للمندوب {$courier->name} كشف مفتوح ({$open->code}). أقفِله أو ألغِه قبل بناء كشف جديد.",
+                ]);
+            }
+
             $shipments = $this->eligible($courier, $options);
 
             if ($shipments->isEmpty()) {

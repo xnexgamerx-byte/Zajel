@@ -110,6 +110,71 @@ class SettlementCycleTest extends TestCase
         return $this->walk($shipment->refresh(), [ShipmentStatus::Returned]);
     }
 
+    // ------------------------------------------------------ كشف مفتوح واحد
+
+    public function test_a_second_open_sheet_for_the_same_courier_is_refused(): void
+    {
+        $this->deliver(50_000);
+
+        Tenancy::runFor($this->company, function () {
+            app(BuildCourierSettlement::class)->handle($this->courier, $this->actor);
+
+            // الشحنات لا تُوسَم إلّا عند الإقفال، فكشف ثانٍ يلتقطها نفسها
+            $this->expectException(ValidationException::class);
+            app(BuildCourierSettlement::class)->handle($this->courier->refresh(), $this->actor);
+        });
+    }
+
+    public function test_the_same_shipment_never_lands_on_two_courier_sheets(): void
+    {
+        $this->deliver(50_000);
+        $this->deliver(80_000);
+
+        Tenancy::runFor($this->company, function () {
+            $first = app(BuildCourierSettlement::class)->handle($this->courier, $this->actor);
+
+            try {
+                app(BuildCourierSettlement::class)->handle($this->courier->refresh(), $this->actor);
+            } catch (ValidationException) {
+                // متوقّع
+            }
+
+            $this->assertSame(1, CourierSettlement::count());
+            $this->assertSame(2, $first->refresh()->lines()->count());
+        });
+    }
+
+    public function test_a_second_open_sheet_for_the_same_merchant_is_refused(): void
+    {
+        $this->deliver(50_000);
+
+        Tenancy::runFor($this->company, function () {
+            app(BuildMerchantSettlement::class)->handle($this->merchant, $this->actor);
+
+            $this->expectException(ValidationException::class);
+            app(BuildMerchantSettlement::class)->handle($this->merchant->refresh(), $this->actor);
+        });
+    }
+
+    public function test_a_new_sheet_is_allowed_once_the_previous_one_is_closed(): void
+    {
+        $this->deliver(50_000);
+
+        Tenancy::runFor($this->company, function () {
+            $first = app(BuildCourierSettlement::class)->handle($this->courier, $this->actor);
+            app(ConfirmCourierSettlement::class)->handle($first, $this->actor);
+        });
+
+        $this->deliver(30_000);
+
+        Tenancy::runFor($this->company, function () {
+            $second = app(BuildCourierSettlement::class)->handle($this->courier->refresh(), $this->actor);
+
+            $this->assertSame(1, $second->shipments_count, 'الكشف الثاني يأخذ الجديد وحده');
+            $this->assertSame(30_000, (int) $second->cod_total);
+        });
+    }
+
     // ------------------------------------------------------ تسوية المندوب
 
     public function test_a_courier_settlement_gathers_the_unsettled_shipments(): void

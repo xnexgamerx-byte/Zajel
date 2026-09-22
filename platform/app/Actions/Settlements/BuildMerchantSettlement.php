@@ -25,6 +25,24 @@ class BuildMerchantSettlement
     public function handle(Merchant $merchant, ?User $actor = null, array $options = []): MerchantSettlement
     {
         return DB::transaction(function () use ($merchant, $actor, $options) {
+            /*
+            | كشف مفتوح واحد لكل طرف.
+            |
+            | الشحنات لا تُوسَم إلّا عند الإقفال، فبناء كشف ثانٍ قبل إقفال
+            | الأول يلتقط الشحنات نفسها: كشفان بالمبلغ نفسه، وإقفالهما
+            | يدفع مرّتين. وُجد بالتجربة على ١٦٣٧٦ شحنة و٩٧٣ مليوناً.
+            */
+            $open = MerchantSettlement::where('merchant_id', $merchant->id)
+                ->where('status', 'draft')
+                ->lockForUpdate()
+                ->first();
+
+            if ($open) {
+                throw ValidationException::withMessages([
+                    'merchant_id' => "للتاجر {$merchant->business_name} كشف مفتوح ({$open->code}). أقفِله أو ألغِه قبل بناء كشف جديد.",
+                ]);
+            }
+
             $shipments = $this->eligible($merchant, $options);
 
             if ($shipments->isEmpty()) {
