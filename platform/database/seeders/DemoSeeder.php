@@ -43,6 +43,14 @@ class DemoSeeder extends Seeder
         $this->company('barq', 'البرق للتوصيل', 'Al-Barq Delivery', '#7C3AED', 'growth');
     }
 
+    /** أرقام تجريبية عراقية الشكل ومستقرّة: 07XX YYY ZZZZ */
+    private function phone(string $slug, string $prefix, int $index): string
+    {
+        $seed = crc32($slug) % 1000;
+
+        return $prefix.str_pad((string) ($seed * 100 + $index), 7, '0', STR_PAD_LEFT);
+    }
+
     private function company(string $slug, string $name, string $nameEn, string $color, string $planCode): void
     {
         $baghdad = Governorate::where('code', 'BGD')->first();
@@ -51,7 +59,7 @@ class DemoSeeder extends Seeder
             ['slug' => $slug],
             [
                 'name' => $name, 'name_en' => $nameEn, 'primary_color' => $color,
-                'phone' => '0770'.random_int(1000000, 9999999),
+                'phone' => $this->phone($slug, '0770', 0),
                 'governorate_id' => $baghdad?->id, 'status' => 'active',
             ],
         ));
@@ -85,7 +93,7 @@ class DemoSeeder extends Seeder
             );
 
             $owner = User::updateOrCreate(
-                ['company_id' => $company->id, 'phone' => '0770'.substr(md5($company->slug), 0, 7)],
+                ['company_id' => $company->id, 'phone' => $this->phone($company->slug, '0770', 1)],
                 [
                     'name' => 'صاحب '.$company->name, 'email' => $company->slug.'@zajel.iq',
                     'password' => 'password', 'role' => UserRole::CompanyOwner,
@@ -140,7 +148,7 @@ class DemoSeeder extends Seeder
                 ['company_id' => $company->id, 'code' => 'M'.str_pad((string) ($i + 1), 4, '0', STR_PAD_LEFT)],
                 [
                     'business_name' => $name, 'owner_name' => 'صاحب '.$name,
-                    'phone' => '0771'.str_pad((string) (1000000 + $i + crc32($company->slug) % 1000), 7, '0', STR_PAD_LEFT),
+                    'phone' => $this->phone($company->slug, '0771', $i + 1),
                     'branch_id' => $branch->id, 'governorate_id' => $baghdad?->id,
                     'address' => 'بغداد - الكرادة', 'landmark' => 'قرب مول بابل',
                     'price_list_id' => $list->id, 'status' => 'active', 'settlement_cycle' => 'weekly',
@@ -161,7 +169,7 @@ class DemoSeeder extends Seeder
 
         foreach ($specs as $i => [$name, $type]) {
             $code = 'C'.str_pad((string) ($i + 1), 4, '0', STR_PAD_LEFT);
-            $phone = '0772'.str_pad((string) (2000000 + $i + crc32($company->slug) % 1000), 7, '0', STR_PAD_LEFT);
+            $phone = $this->phone($company->slug, '0772', $i + 1);
 
             $user = User::updateOrCreate(
                 ['company_id' => $company->id, 'phone' => $phone],

@@ -1,0 +1,180 @@
+@extends('layouts.app')
+@section('title', 'الشحنات')
+
+@section('content')
+
+{{-- ملخّص اليوم --}}
+<div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+    @foreach ([
+        ['الكل', $totals['total'], 'text-slate-900'],
+        ['قيد التنفيذ', $totals['open'], 'text-sky-700'],
+        ['مسلَّمة', $totals['delivered'], 'text-emerald-700'],
+        ['راجعة', $totals['returned'], 'text-slate-600'],
+    ] as [$label, $value, $tone])
+        <div class="card p-4">
+            <div class="text-xs font-medium text-slate-500">{{ $label }}</div>
+            <div class="mt-1 text-2xl font-bold {{ $tone }}">{{ number_format($value) }}</div>
+        </div>
+    @endforeach
+
+    <div class="card p-4">
+        <div class="text-xs font-medium text-slate-500">مبالغ لم تُحصَّل</div>
+        <div class="mt-1 text-2xl font-bold text-amber-700" dir="ltr">
+            {{ number_format($totals['cod_open']) }}
+            <span class="text-sm font-medium text-slate-500">د.ع</span>
+        </div>
+    </div>
+</div>
+
+{{-- البحث والتصفية --}}
+<form method="GET" class="card mb-4 p-4">
+    <div class="grid grid-cols-1 gap-3 md:grid-cols-4 lg:grid-cols-6">
+        <div class="lg:col-span-2">
+            <label class="field-label" for="q">بحث</label>
+            <input id="q" name="q" value="{{ request('q') }}" class="field-input"
+                   placeholder="رقم وصل · باركود · هاتف المستلم · رقم طلب التاجر">
+        </div>
+
+        <div>
+            <label class="field-label" for="status">الحالة</label>
+            <select id="status" name="status" class="field-input">
+                <option value="">الكل</option>
+                @foreach ($statuses as $status)
+                    <option value="{{ $status->value }}" @selected(request('status') === $status->value)>
+                        {{ $status->label() }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+
+        <div>
+            <label class="field-label" for="merchant_id">التاجر</label>
+            <select id="merchant_id" name="merchant_id" class="field-input">
+                <option value="">الكل</option>
+                @foreach ($merchants as $merchant)
+                    <option value="{{ $merchant->id }}" @selected((int) request('merchant_id') === $merchant->id)>
+                        {{ $merchant->business_name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+
+        <div>
+            <label class="field-label" for="governorate_id">المحافظة</label>
+            <select id="governorate_id" name="governorate_id" class="field-input">
+                <option value="">الكل</option>
+                @foreach ($governorates as $gov)
+                    <option value="{{ $gov->id }}" @selected((int) request('governorate_id') === $gov->id)>
+                        {{ $gov->name_ar }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+
+        <div>
+            <label class="field-label" for="courier_id">المندوب</label>
+            <select id="courier_id" name="courier_id" class="field-input">
+                <option value="">الكل</option>
+                @foreach ($couriers as $courier)
+                    <option value="{{ $courier->id }}" @selected((int) request('courier_id') === $courier->id)>
+                        {{ $courier->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-end gap-3">
+        <div>
+            <label class="field-label" for="from">من تاريخ</label>
+            <input id="from" type="date" name="from" value="{{ request('from') }}" class="field-input">
+        </div>
+        <div>
+            <label class="field-label" for="to">إلى تاريخ</label>
+            <input id="to" type="date" name="to" value="{{ request('to') }}" class="field-input">
+        </div>
+
+        <button class="btn-primary">تطبيق</button>
+        <a href="{{ route('shipments.index') }}" class="btn-ghost">مسح</a>
+        <a href="{{ route('shipments.create') }}" class="btn-primary ms-auto">+ شحنة جديدة</a>
+    </div>
+</form>
+
+{{-- الجدول --}}
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                    <th class="px-4 py-3 text-start font-semibold">رقم الوصل</th>
+                    <th class="px-4 py-3 text-start font-semibold">التاجر</th>
+                    <th class="px-4 py-3 text-start font-semibold">المستلم</th>
+                    <th class="px-4 py-3 text-start font-semibold">الوجهة</th>
+                    <th class="px-4 py-3 text-start font-semibold">المبلغ</th>
+                    <th class="px-4 py-3 text-start font-semibold">الأجرة</th>
+                    <th class="px-4 py-3 text-start font-semibold">المندوب</th>
+                    <th class="px-4 py-3 text-start font-semibold">الحالة</th>
+                    <th class="px-4 py-3 text-start font-semibold">التاريخ</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                @forelse ($shipments as $shipment)
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3">
+                            <a href="{{ route('shipments.show', $shipment) }}"
+                               class="font-mono font-semibold text-brand-700 hover:underline" dir="ltr">
+                                {{ $shipment->number }}
+                            </a>
+                            @if ($shipment->attempts_count > 0)
+                                <span class="ms-1 rounded bg-amber-100 px-1.5 text-xs font-semibold text-amber-800">
+                                    {{ $shipment->attempts_count }} محاولة
+                                </span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3 text-slate-700">{{ $shipment->merchant->business_name }}</td>
+                        <td class="px-4 py-3">
+                            <div class="font-medium">{{ $shipment->recipient_name }}</div>
+                            <div class="text-xs text-slate-500" dir="ltr">{{ $shipment->recipient_phone }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-slate-700">
+                            {{ $shipment->governorate->name_ar }}
+                            @if ($shipment->city)
+                                <span class="text-slate-400">·</span>
+                                <span class="text-xs text-slate-500">{{ $shipment->city->name_ar }}</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3 font-semibold" dir="ltr">{{ number_format($shipment->cod_amount) }}</td>
+                        <td class="px-4 py-3 text-slate-600" dir="ltr">{{ number_format($shipment->total_fees) }}</td>
+                        <td class="px-4 py-3 text-slate-700">
+                            {{ $shipment->deliveryCourier?->name ?? '—' }}
+                        </td>
+                        <td class="px-4 py-3">
+                            <x-status-badge :status="$shipment->status" />
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-500" dir="ltr">
+                            {{ $shipment->created_at->format('Y-m-d H:i') }}
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="9" class="px-4 py-16 text-center">
+                            <div class="text-slate-500">لا توجد شحنات مطابقة.</div>
+                            <a href="{{ route('shipments.create') }}" class="btn-primary mt-4">أنشئ أول شحنة</a>
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    @if ($shipments->hasPages())
+        <div class="border-t border-slate-100 px-4 py-3">
+            {{ $shipments->links() }}
+        </div>
+    @endif
+</div>
+
+<p class="mt-3 text-xs text-slate-500">
+    إجمالي النتائج: {{ number_format($shipments->total()) }}
+</p>
+@endsection

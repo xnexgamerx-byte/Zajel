@@ -1,9 +1,47 @@
 @import 'tailwindcss';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Cairo', 'Noto Kufi Arabic', ui-sans-serif, system-ui, sans-serif;
+    --color-brand-50:  #f0fdfa;
+    --color-brand-100: #ccfbf1;
+    --color-brand-500: #14b8a6;
+    --color-brand-600: #0d9488;
+    --color-brand-700: #0f766e;
+}
+
+/* أرقام بعرض ثابت: أعمدة المبالغ وأرقام الوصل تبقى مصطفّة. */
+body {
+    font-feature-settings: 'tnum' 1;
+}
+
+@layer components {
+    .field-label {
+        @apply block text-sm font-medium text-slate-700 mb-1.5;
+    }
+
+    .field-input {
+        @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
+               shadow-sm transition outline-none placeholder:text-slate-400
+               focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25;
+    }
+
+    .field-error {
+        @apply mt-1 text-xs text-red-600;
+    }
+
+    .btn-primary {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
+               transition outline-none bg-brand-600 text-white
+               hover:bg-brand-700 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2;
+    }
+
+    .btn-ghost {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
+               transition outline-none bg-white text-slate-700 ring-1 ring-slate-300
+               hover:bg-slate-50 focus:ring-2 focus:ring-slate-400 focus:ring-offset-2;
+    }
+
+    .card {
+        @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200;
+    }
 }
