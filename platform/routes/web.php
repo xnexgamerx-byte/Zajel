@@ -152,6 +152,8 @@ Route::middleware('tenant')->group(function () {
             Route::get('/manifests', [ManifestController::class, 'index'])->name('manifests.index');
             Route::post('/manifests', [ManifestController::class, 'store'])->name('manifests.store');
             Route::get('/manifests/inbound', [ManifestController::class, 'inbound'])->name('manifests.inbound');
+            Route::get('/manifests/archive', [ManifestController::class, 'archive'])->name('manifests.archive');
+            Route::get('/manifests/{manifest}/print', [ManifestController::class, 'print'])->name('manifests.print');
             Route::get('/manifests/{manifest}', [ManifestController::class, 'show'])->name('manifests.show');
             Route::post('/manifests/{manifest}/load', [ManifestController::class, 'load'])->name('manifests.load');
             Route::delete('/manifests/{manifest}/bags/{bag}', [ManifestController::class, 'unload'])->name('manifests.unload');

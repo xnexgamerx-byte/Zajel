@@ -34,4 +34,9 @@ class Arabic
     {
         return static::count($n, ['شحنة واحدة', 'شحنتان', 'شحنات', 'شحنة']);
     }
+
+    public static function bags(int $n): string
+    {
+        return static::count($n, ['كيس واحد', 'كيسان', 'أكياس', 'كيساً']);
+    }
 }

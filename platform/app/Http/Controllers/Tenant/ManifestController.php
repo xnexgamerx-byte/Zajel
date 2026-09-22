@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Bag;
 use App\Models\Hub;
 use App\Models\Manifest;
+use App\Services\Reports\ReportPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -119,6 +120,54 @@ class ManifestController extends Controller
     }
 
     /** ٢١ — استلام منفيست وارد. */
+    /**
+     * أرشيف الكشوف: المُرسَل من مركزٍ والوارد إليه.
+     *
+     * النظام المرجعي يفصلهما في شاشتين (المرسلة للفروع، الواردة من
+     * الفروع). والفصل هنا اتجاهٌ على مركز واحد لا شاشتان: السؤال في
+     * الحالين «ما الذي خرج من هنا أو وصل إليه، ومتى، وهل وصل كاملاً».
+     */
+    public function archive(Request $request): View
+    {
+        $period = ReportPeriod::fromRequest($request);
+        [$from, $to] = $period->bounds();
+
+        $hubs = Hub::orderBy('name')->get(['id', 'name', 'branch_id', 'is_active']);
+        $hub = $hubs->firstWhere('id', $request->integer('hub_id'))
+            ?? $this->homeHub($hubs->where('is_active', true), $request->user()->branch_id);
+        $direction = $request->query('direction') === 'in' ? 'in' : 'out';
+
+        $manifests = Manifest::with(['fromHub:id,name', 'toHub:id,name'])
+            ->withCount(['bags as missing_count' => fn ($q) => $q->where('manifest_bags.is_missing', true)])
+            ->whereIn('status', ['arrived', 'closed'])
+            ->when($hub, fn ($q) => $q->where($direction === 'out' ? 'from_hub_id' : 'to_hub_id', $hub->id))
+            ->whereBetween('departed_at', [$from, $to])
+            ->when($request->boolean('missing'), fn ($q) => $q->whereHas('bags', fn ($b) => $b->where('manifest_bags.is_missing', true)))
+            ->orderByDesc('departed_at')
+            ->paginate(config('zajel.per_page'))
+            ->withQueryString();
+
+        return view('tenant.manifests.archive', [
+            'manifests' => $manifests,
+            'period'    => $period,
+            'hubs'      => $hubs,
+            'hub'       => $hub,
+            'direction' => $direction,
+        ]);
+    }
+
+    /** الورقة التي يحملها السائق: الأكياس بأرقامها وعدد ما فيها، وثلاثة تواقيع. */
+    public function print(Manifest $manifest): View
+    {
+        $manifest->load(['fromHub:id,name', 'toHub:id,name', 'bags' => fn ($q) => $q->orderBy('bags.id')]);
+
+        return view('tenant.manifests.print', [
+            'manifest'   => $manifest,
+            'dispatcher' => $manifest->dispatched_by_user_id ? \App\Models\User::find($manifest->dispatched_by_user_id, ['id', 'name']) : null,
+            'receiver'   => $manifest->received_by_user_id ? \App\Models\User::find($manifest->received_by_user_id, ['id', 'name']) : null,
+        ]);
+    }
+
     public function inbound(): View
     {
         return view('tenant.manifests.inbound', [

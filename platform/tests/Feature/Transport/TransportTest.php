@@ -511,6 +511,68 @@ class TransportTest extends TestCase
             ->assertSessionHas('success', fn (string $m) => str_contains($m, 'مفقودة'));
     }
 
+    // ── الأرشيف والطباعة ────────────────────────────────────────────
+
+    public function test_an_arrived_manifest_is_archived_as_sent_from_its_origin_and_received_at_its_destination(): void
+    {
+        [$manifest, $bag] = $this->dispatched();
+
+        Tenancy::runFor($this->company, fn () => $this->runner()->receive($manifest, [$bag->id], $this->staff));
+
+        $out = $this->actingAs($this->staff)
+            ->get($this->host().'/manifests/archive?hub_id='.$this->baghdad->id.'&direction=out')
+            ->assertOk()->viewData('manifests');
+        $in = $this->actingAs($this->staff)
+            ->get($this->host().'/manifests/archive?hub_id='.$this->basra->id.'&direction=in')
+            ->viewData('manifests');
+        $wrongWay = $this->actingAs($this->staff)
+            ->get($this->host().'/manifests/archive?hub_id='.$this->baghdad->id.'&direction=in')
+            ->viewData('manifests');
+
+        $this->assertSame([$manifest->id], $out->pluck('id')->all());
+        $this->assertSame([$manifest->id], $in->pluck('id')->all());
+        $this->assertCount(0, $wrongWay);
+    }
+
+    /** الأرشيف للمُقفَل: ما زال في الطريق مكانه شاشة الوارد لا الأرشيف. */
+    public function test_a_manifest_still_on_the_road_is_not_archived(): void
+    {
+        $this->dispatched();
+
+        $this->assertCount(0, $this->actingAs($this->staff)
+            ->get($this->host().'/manifests/archive?hub_id='.$this->baghdad->id.'&direction=out')
+            ->viewData('manifests'));
+    }
+
+    public function test_the_archive_can_show_only_manifests_that_lost_a_bag(): void
+    {
+        [$manifest] = $this->dispatched();
+
+        // استُلم بلا كيسه الوحيد: نقص
+        Tenancy::runFor($this->company, fn () => $this->runner()->receive($manifest, [], $this->staff));
+
+        $rows = $this->actingAs($this->staff)
+            ->get($this->host().'/manifests/archive?hub_id='.$this->baghdad->id.'&direction=out&missing=1')
+            ->viewData('manifests');
+
+        $this->assertSame([$manifest->id], $rows->pluck('id')->all());
+        $this->assertSame(1, (int) $rows->first()->missing_count);
+    }
+
+    public function test_the_printed_manifest_lists_every_bag_and_marks_the_missing_one(): void
+    {
+        [$manifest, $bag] = $this->dispatched();
+
+        Tenancy::runFor($this->company, fn () => $this->runner()->receive($manifest, [], $this->staff));
+
+        $this->actingAs($this->staff)
+            ->get($this->host().'/manifests/'.$manifest->id.'/print')
+            ->assertOk()
+            ->assertSee($bag->code)
+            ->assertSee('لم يصل')
+            ->assertSee('كيس واحد');
+    }
+
     public function test_a_merchant_login_cannot_reach_the_transport_screens(): void
     {
         $user = Tenancy::runFor($this->company, fn () => User::create([

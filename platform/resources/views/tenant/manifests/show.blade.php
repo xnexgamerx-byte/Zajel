@@ -16,7 +16,10 @@
             @endif
         </p>
     </div>
-    <a href="{{ route('manifests.index') }}" class="btn-ghost">رجوع للكشوف</a>
+    <div class="flex gap-2">
+        <a href="{{ route('manifests.print', $manifest) }}" class="btn-ghost">اطبع الكشف</a>
+        <a href="{{ route('manifests.index') }}" class="btn-ghost">رجوع للكشوف</a>
+    </div>
 </div>
 
 @if ($manifest->missingBags())

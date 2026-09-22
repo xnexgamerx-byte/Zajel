@@ -36,6 +36,12 @@ class ArabicTest extends TestCase
     {
         $this->assertSame('شحنة واحدة', Arabic::shipments(1));
         $this->assertSame('شحنتان', Arabic::shipments(2));
+
+        // «١٢ كيساً» لا «١٢ أكياس»، و«٣ أكياس» لا «٣ كيساً»
+        $this->assertSame('كيس واحد', Arabic::bags(1));
+        $this->assertSame('كيسان', Arabic::bags(2));
+        $this->assertSame('3 أكياس', Arabic::bags(3));
+        $this->assertSame('12 كيساً', Arabic::bags(12));
         $this->assertSame('5 شحنات', Arabic::shipments(5));
         $this->assertSame('30 شحنة', Arabic::shipments(30));
     }

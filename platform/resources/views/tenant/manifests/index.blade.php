@@ -20,6 +20,7 @@
         <a href="{{ route('manifests.index', array_filter(['status' => $value])) }}"
            class="chip {{ request('status', '') === $value ? 'chip-info' : 'chip-mute' }}">{{ $label }}</a>
     @endforeach
+    <a href="{{ route('manifests.archive') }}" class="chip chip-mute ms-auto">الأرشيف ←</a>
 </div>
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
