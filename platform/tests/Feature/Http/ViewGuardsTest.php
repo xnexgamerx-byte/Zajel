@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /**
- * فحص بنيوي على الحقول الرقمية.
+ * فحوص بنيوية على القوالب — أخطاء لا يكشفها اختبار وظيفيّ لأن الصفحة
+ * تُفتح وتعمل، لكنّ المستخدم يصطدم بها.
  *
  * step ليس تلميحاً لأسهم الزيادة بل قاعدة تحقّق يفرضها المتصفّح، وهي
  * تُقاس من min لا من الصفر. مع min="1" و step="250" تصير القيم
@@ -17,7 +18,7 @@ use Tests\TestCase;
  * والراحة المرجوّة من أسهم الزيادة لا تساوي رفض قيمة صحيحة يكتبها
  * المستخدم بيده.
  */
-class NumberInputsTest extends TestCase
+class ViewGuardsTest extends TestCase
 {
     public function test_no_number_field_rejects_valid_values_through_its_step(): void
     {
@@ -44,5 +45,23 @@ class NumberInputsTest extends TestCase
         }
 
         $this->assertSame([], $offenders, "حقول تمنع قيماً صحيحة:\n".implode("\n", $offenders));
+    }
+
+    /**
+     * صيغة diffForHumans المختصرة بلا ترجمة في ar_IQ، فتسقط إلى
+     * الإنجليزية: «منذ 5d» و«منذ 1w» وسط شاشة عربية. والصيغة الكاملة
+     * مترجَمة صحيحةً، فلا داعي للمختصرة أصلاً.
+     */
+    public function test_no_view_uses_the_untranslated_short_time_format(): void
+    {
+        $offenders = [];
+
+        foreach (File::allFiles(resource_path('views')) as $file) {
+            if (str_contains($file->getContents(), 'diffForHumans(short')) {
+                $offenders[] = $file->getRelativePathname();
+            }
+        }
+
+        $this->assertSame([], $offenders, "صيغة وقت مختصرة بلا ترجمة:\n".implode("\n", $offenders));
     }
 }

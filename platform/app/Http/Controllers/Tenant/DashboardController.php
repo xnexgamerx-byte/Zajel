@@ -9,6 +9,7 @@ use App\Models\Merchant;
 use App\Models\PickupRequest;
 use App\Models\Shipment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -46,6 +47,21 @@ class DashboardController extends Controller
             ->selectRaw('sum(cash_in_hand) as cash, sum(commission_balance) as commission')
             ->first();
 
+        // أقدم نقدٍ لم يُسلَّم بعد، وأقدم كشف تاجرٍ لم يُدفع
+        $oldestUncollected = Shipment::query()
+            ->visibleTo($user)
+            ->whereNotNull('delivered_at')
+            ->whereNull('courier_settled_at')
+            ->where('collected_amount', '>', 0)
+            ->min('delivered_at');
+
+        $oldestUnpaid = DB::table('merchant_settlements')
+            ->where('company_id', $user->company_id)
+            ->where('status', 'confirmed')
+            ->min('confirmed_at');
+
+        $staleAfter = (int) config('zajel.stale_shipment_days', 5);
+
         return view('tenant.dashboard', [
             'cards' => [
                 'today'          => $today,
@@ -70,6 +86,28 @@ class DashboardController extends Controller
                 ->get(),
 
             // من تجاوز سقف نقده يجب أن يُسوّى قبل أن يُسنَد إليه المزيد
+            /*
+            | التقادُم، وهو ما ينقص الأرقام أعلاه.
+            |
+            | «٨.٦ مليون بيد المندوبين» رقم لا يُقلق أحداً، و«أقدمها منذ
+            | ٣٧ يوماً» يُقلق. المبلغ وحده يبدو دورةَ عملٍ طبيعية؛ عمرُه
+            | هو ما يكشف أن أحداً لم يُسوِّ حساب مندوب منذ شهر.
+            */
+            'aging' => [
+                'cod_oldest_days' => $oldestUncollected
+                    ? (int) Carbon::parse($oldestUncollected)->diffInDays(now())
+                    : null,
+                'merchant_oldest_days' => $oldestUnpaid
+                    ? (int) Carbon::parse($oldestUnpaid)->diffInDays(now())
+                    : null,
+                'stale_shipments' => Shipment::query()
+                    ->visibleTo($user)
+                    ->whereNotIn('status', $terminal)
+                    ->where('status_changed_at', '<', now()->subDays($staleAfter))
+                    ->count(),
+                'stale_after' => $staleAfter,
+            ],
+
             'overCashLimit' => Courier::query()
                 ->where('cash_limit', '>', 0)
                 ->whereColumn('cash_in_hand', '>=', 'cash_limit')

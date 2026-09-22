@@ -85,6 +85,9 @@
                             ['expenses.index', 'المصروفات', ['expenses.index']],
                             ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit']],
                         ]],
+                        ['التقارير', [
+                            ['reports.index', 'كل التقارير', ['reports.*']],
+                        ]],
                         ['الإعدادات', [
                             ['users.index', 'المستخدمون', ['users.*']],
                             ['branches.index', 'الفروع', ['branches.*']],

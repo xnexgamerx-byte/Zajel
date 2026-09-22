@@ -28,6 +28,7 @@ use App\Http\Controllers\Tenant\ManifestController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
 use App\Http\Controllers\Tenant\PriceListController;
+use App\Http\Controllers\Tenant\ReportController;
 use App\Http\Controllers\Tenant\ReturnController;
 use App\Http\Controllers\Tenant\PricingQuoteController;
 use App\Http\Controllers\Tenant\ShipmentAmountController;
@@ -77,6 +78,15 @@ Route::middleware('tenant')->group(function () {
             Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
             Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
             Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+
+            // ستّة تقارير لا واحد وثلاثون
+            Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+            Route::get('/reports/returns', [ReportController::class, 'returns'])->name('reports.returns');
+            Route::get('/reports/couriers', [ReportController::class, 'couriers'])->name('reports.couriers');
+            Route::get('/reports/merchants', [ReportController::class, 'merchants'])->name('reports.merchants');
+            Route::get('/reports/governorates', [ReportController::class, 'governorates'])->name('reports.governorates');
+            Route::get('/reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
+            Route::get('/reports/profit', [ReportController::class, 'profit'])->name('reports.profit');
 
             // النقل بين المراكز: كيس مختوم على كشف، والوارد يُستلَم كيساً كيساً
             Route::get('/bags', [BagController::class, 'index'])->name('bags.index');

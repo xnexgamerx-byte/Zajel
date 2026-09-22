@@ -34,22 +34,56 @@
     @endforeach
 </div>
 
+@php
+    /*
+    | العمر يرافق المبلغ. «نقد بيد المندوبين ٨٫٦ مليون» يبدو دورة عمل
+    | طبيعية؛ «وأقدمه منذ ٣٧ يوماً» يقول إن أحداً لم يُسوِّ حساباً منذ
+    | شهر. الرقم الأول وحده لا يدفع أحداً لفعل شيء.
+    */
+    $age = fn (?int $days) => match (true) {
+        $days === null => ['—', 'text-ink-400'],
+        $days === 0    => ['اليوم', 'text-ink-500'],
+        $days >= 14    => ['أقدمه منذ '.\App\Support\Arabic::days($days), 'text-bad-700 font-semibold'],
+        $days >= 7     => ['أقدمه منذ '.\App\Support\Arabic::days($days), 'text-warn-700 font-semibold'],
+        default        => ['أقدمه منذ '.\App\Support\Arabic::days($days), 'text-ink-500'],
+    };
+@endphp
+
 <div class="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
     @foreach ([
-        ['مبالغ لم تُحصَّل', $cards['cod_open'], 'text-warn-700', 'على شحنات قيد التنفيذ'],
-        ['نقد بيد المندوبين', $cards['cash_in_hand'], 'text-bad-700', 'لم يُسلَّم للشركة'],
-        ['مستحقّ للتجّار', $cards['owed_merchants'], 'text-ink-900', 'لم يُدفَع بعد'],
-    ] as [$label, $value, $tone, $hint])
+        ['مبالغ لم تُحصَّل', $cards['cod_open'], 'text-warn-700', 'على شحنات قيد التنفيذ', null],
+        ['نقد بيد المندوبين', $cards['cash_in_hand'], 'text-bad-700', 'لم يُسلَّم للشركة', $aging['cod_oldest_days']],
+        ['مستحقّ للتجّار', $cards['owed_merchants'], 'text-ink-900', 'لم يُدفَع بعد', $aging['merchant_oldest_days']],
+    ] as [$label, $value, $tone, $hint, $days])
+        @php [$ageLabel, $ageTone] = $age($days); @endphp
         <div class="stat">
             <div class="stat-label">{{ $label }}</div>
             <div class="mt-1 text-2xl font-bold {{ $tone }}">
                 <span class="num">{{ number_format($value) }}</span>
                 <span class="text-sm font-medium text-ink-500">د.ع</span>
             </div>
-            <div class="mt-0.5 text-xs text-ink-400">{{ $hint }}</div>
+            <div class="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-xs">
+                <span class="text-ink-400">{{ $hint }}</span>
+                @if ($days !== null && $value > 0)
+                    <span class="{{ $ageTone }}">{{ $ageLabel }}</span>
+                @endif
+            </div>
         </div>
     @endforeach
 </div>
+
+@if ($aging['stale_shipments'] > 0)
+    <a href="{{ route('shipments.index', ['status' => 'failed_attempt']) }}"
+       class="card mb-5 flex flex-wrap items-center gap-3 border-warn-200 bg-warn-50 p-4 text-sm
+              text-warn-700 transition hover:border-warn-700">
+        {{-- الصيغة تحمل عددها: «شحنتان» و«٧ شحنات» و«١٢ شحنة» --}}
+        <span class="text-xl font-bold">{{ \App\Support\Arabic::shipments($aging['stale_shipments']) }}</span>
+        <span>
+            لم تتغيّر حالتها منذ أكثر من {{ \App\Support\Arabic::days($aging['stale_after']) }}
+            — كل يوم تأخير يزيد احتمال الراجع.
+        </span>
+    </a>
+@endif
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <div class="space-y-5 lg:col-span-2">
@@ -83,7 +117,7 @@
                                 {{ $shipment->deliveryCourier?->name ?? 'بلا مندوب' }}
                             </span>
                             <span class="text-xs text-ink-400" dir="ltr">
-                                {{ $shipment->status_changed_at?->diffForHumans(short: true) }}
+                                {{ $shipment->status_changed_at?->diffForHumans() }}
                             </span>
                         </a>
                     @endforeach
