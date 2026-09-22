@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsurePlatformUser;
+use App\Http\Middleware\EnsureMerchant;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\IdentifyPlatform;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
@@ -49,6 +50,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'staff'         => EnsureStaff::class,
+            'merchant'      => EnsureMerchant::class,
             'platform-user' => EnsurePlatformUser::class,
         ]);
 

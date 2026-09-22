@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('name', 160);                   // الاسم التجاري بالعربي
             $table->string('name_en', 160)->nullable();
             $table->string('logo_path')->nullable();
-            $table->string('primary_color', 9)->default('#1F6FEB');
+            $table->string('primary_color', 9)->default('#0D9488');
             $table->string('phone', 20)->nullable();
             $table->string('email', 160)->nullable();
             $table->foreignId('governorate_id')->nullable()->constrained()->nullOnDelete();

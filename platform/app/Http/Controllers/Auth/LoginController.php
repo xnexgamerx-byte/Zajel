@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Enums\UserRole;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,7 +56,15 @@ class LoginController extends Controller
             'last_login_ip' => $request->ip(),
         ])->save();
 
-        return redirect()->intended(route('shipments.index'));
+        return redirect()->intended($this->homeFor(Auth::user()));
+    }
+
+    /** لكل دور بيته: التاجر بوابته، والموظّف لوحة العمليات. */
+    protected function homeFor($user): string
+    {
+        return $user->role === UserRole::Merchant
+            ? route('portal.dashboard')
+            : route('shipments.index');
     }
 
     public function destroy(Request $request): RedirectResponse

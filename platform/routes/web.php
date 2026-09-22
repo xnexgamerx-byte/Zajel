@@ -2,6 +2,10 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
+use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
+use App\Http\Controllers\Portal\PickupRequestController;
+use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
+use App\Http\Controllers\Portal\StatementController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 use App\Http\Controllers\Platform\ImpersonationController;
 use App\Http\Controllers\Platform\InvoiceController;
@@ -64,6 +68,24 @@ Route::middleware('tenant')->group(function () {
         });
 
         Route::post('/quote', PricingQuoteController::class)->name('pricing.quote');
+
+        /*
+        | بوابة التاجر: نفس النظام ونفس البيانات، بواجهة تخصّه.
+        | كل شاشة هنا مقيّدة بـ merchant_id فوق تقييد الشركة.
+        */
+        Route::prefix('portal')->name('portal.')->middleware('merchant')->group(function () {
+            Route::get('/', PortalDashboardController::class)->name('dashboard');
+
+            Route::get('/shipments', [PortalShipmentController::class, 'index'])->name('shipments.index');
+            Route::get('/shipments/create', [PortalShipmentController::class, 'create'])->name('shipments.create');
+            Route::post('/shipments', [PortalShipmentController::class, 'store'])->name('shipments.store');
+            Route::get('/shipments/{shipment}', [PortalShipmentController::class, 'show'])->name('shipments.show');
+
+            Route::get('/statement', StatementController::class)->name('statement');
+
+            Route::get('/pickups', [PickupRequestController::class, 'index'])->name('pickups.index');
+            Route::post('/pickups', [PickupRequestController::class, 'store'])->name('pickups.store');
+        });
     });
 });
 
