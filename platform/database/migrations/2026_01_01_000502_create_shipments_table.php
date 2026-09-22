@@ -62,6 +62,7 @@ return new class extends Migration
             $table->bigInteger('cod_amount')->default(0);         // المطلوب تحصيله
             $table->bigInteger('collected_amount')->default(0);   // المحصَّل فعلاً
             $table->bigInteger('delivery_fee')->default(0);
+            $table->bigInteger('return_fee')->default(0);      // تُجمَّد وقت الإنشاء
             $table->bigInteger('extra_fee')->default(0);
             $table->bigInteger('cod_fee')->default(0);
             $table->bigInteger('discount')->default(0);

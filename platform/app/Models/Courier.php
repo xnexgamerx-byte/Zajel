@@ -66,4 +66,10 @@ class Courier extends Model
     {
         return $this->cash_limit > 0 && $this->cash_in_hand >= $this->cash_limit;
     }
+
+    /** ما يجب أن يسلّمه للشركة الآن: النقد الذي بيده ناقص عمولته. */
+    public function netDue(): int
+    {
+        return $this->cash_in_hand - $this->commission_balance;
+    }
 }

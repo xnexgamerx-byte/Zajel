@@ -106,6 +106,10 @@
         <table class="w-full text-sm">
             <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
+                    <th class="w-10 px-4 py-3 text-start">
+                        <input type="checkbox" data-select-all
+                               class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                    </th>
                     <th class="px-4 py-3 text-start font-semibold">رقم الوصل</th>
                     <th class="px-4 py-3 text-start font-semibold">التاجر</th>
                     <th class="px-4 py-3 text-start font-semibold">المستلم</th>
@@ -120,6 +124,11 @@
             <tbody class="divide-y divide-slate-100">
                 @forelse ($shipments as $shipment)
                     <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3">
+                            <input type="checkbox" form="assign-form" name="shipment_ids[]"
+                                   value="{{ $shipment->id }}" data-row-select
+                                   class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                        </td>
                         <td class="px-4 py-3">
                             <a href="{{ route('shipments.show', $shipment) }}"
                                class="font-mono font-semibold text-brand-700 hover:underline" dir="ltr">
@@ -157,7 +166,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="px-4 py-16 text-center">
+                        <td colspan="10" class="px-4 py-16 text-center">
                             <div class="text-slate-500">لا توجد شحنات مطابقة.</div>
                             <a href="{{ route('shipments.create') }}" class="btn-primary mt-4">أنشئ أول شحنة</a>
                         </td>
@@ -174,7 +183,33 @@
     @endif
 </div>
 
-<p class="mt-3 text-xs text-slate-500">
+<p class="mt-3 mb-20 text-xs text-slate-500">
     إجمالي النتائج: {{ number_format($shipments->total()) }}
 </p>
+
+{{-- شريط الإسناد الجماعي: يظهر عند اختيار صفوف --}}
+<form method="POST" action="{{ route('shipments.assign') }}" id="assign-form"
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur"
+      hidden data-bulk-bar>
+    @csrf
+    <div class="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-3">
+        <span class="text-sm font-semibold">
+            <span data-bulk-count>0</span> شحنة مختارة
+        </span>
+
+        <select name="courier_id" class="field-input w-auto min-w-52" required>
+            <option value="">اختر المندوب</option>
+            @foreach ($couriers as $courier)
+                <option value="{{ $courier->id }}">{{ $courier->name }}</option>
+            @endforeach
+        </select>
+
+        <button class="btn-primary">إسناد وإخراج للتوصيل</button>
+        <button type="button" class="btn-ghost" data-bulk-clear>إلغاء الاختيار</button>
+
+        <span class="ms-auto text-xs text-slate-500">
+            الشحنات التي لا تسمح حالتها بالإسناد تُتخطّى ويُبلَّغ بها.
+        </span>
+    </div>
+</form>
 @endsection

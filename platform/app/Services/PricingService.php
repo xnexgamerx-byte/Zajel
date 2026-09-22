@@ -16,8 +16,8 @@ class PricingService
 {
     /**
      * @return array{
-     *   delivery_fee:int, extra_fee:int, cod_fee:int, total_fees:int,
-     *   merchant_due:int, rule_id:?int, matched:bool
+     *   delivery_fee:int, return_fee:int, extra_fee:int, cod_fee:int,
+     *   total_fees:int, merchant_due:int, rule_id:?int, matched:bool
      * }
      */
     public function quote(
@@ -57,6 +57,7 @@ class PricingService
 
         return [
             'delivery_fee' => $deliveryFee,
+            'return_fee'   => $rule?->return_fee ?? 0,
             'extra_fee'    => $extraFee,
             'cod_fee'      => $codFee,
             'total_fees'   => $totalFees,

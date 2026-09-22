@@ -118,3 +118,61 @@ function initLiveQuote() {
 
     request();
 }
+
+/**
+ * لوحة الإجراء في صفحة الشحنة: تُظهر فقط الحقول التي تخصّ الحالة المختارة.
+ * data-when يحمل الحالات التي يظهر عندها الحقل.
+ */
+const statusForm = document.querySelector('[data-status-form]');
+
+if (statusForm) {
+    const select = statusForm.querySelector('#status');
+    const conditionals = [...statusForm.querySelectorAll('[data-when]')];
+
+    const refresh = () => {
+        const value = select.value;
+
+        for (const block of conditionals) {
+            const shows = block.dataset.when.split(' ');
+            block.hidden = !shows.includes(value);
+        }
+    };
+
+    select.addEventListener('change', refresh);
+    refresh();
+}
+
+/** شريط الإجراء الجماعي في قائمة الشحنات. */
+const bulkBar = document.querySelector('[data-bulk-bar]');
+
+if (bulkBar) {
+    const rows = [...document.querySelectorAll('[data-row-select]')];
+    const selectAll = document.querySelector('[data-select-all]');
+    const counter = bulkBar.querySelector('[data-bulk-count]');
+
+    const refresh = () => {
+        const chosen = rows.filter((row) => row.checked).length;
+
+        counter.textContent = chosen;
+        bulkBar.hidden = chosen === 0;
+
+        if (selectAll) {
+            selectAll.checked = chosen > 0 && chosen === rows.length;
+            selectAll.indeterminate = chosen > 0 && chosen < rows.length;
+        }
+    };
+
+    for (const row of rows) row.addEventListener('change', refresh);
+
+    selectAll?.addEventListener('change', () => {
+        for (const row of rows) row.checked = selectAll.checked;
+        refresh();
+    });
+
+    bulkBar.querySelector('[data-bulk-clear]')?.addEventListener('click', () => {
+        for (const row of rows) row.checked = false;
+        refresh();
+    });
+
+    refresh();
+}

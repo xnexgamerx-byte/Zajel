@@ -118,6 +118,105 @@
     </div>
 
     <div class="space-y-5">
+        {{-- لوحة الإجراء: الحالات المعروضة هي المسموحة فعلاً، لا كل الحالات --}}
+        <section class="card p-5" id="action-panel">
+            <h2 class="mb-4 text-sm font-bold">الإجراء التالي</h2>
+
+            @if (empty($nextStatuses))
+                <p class="rounded-lg bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
+                    الشحنة في حالة نهائية — «{{ $shipment->status->label() }}». لا إجراء بعدها.
+                </p>
+            @else
+                <form method="POST" action="{{ route('shipments.status', $shipment) }}" class="space-y-4"
+                      data-status-form>
+                    @csrf
+
+                    <div>
+                        <label class="field-label" for="status">الحالة الجديدة</label>
+                        <select id="status" name="status" class="field-input" required>
+                            <option value="">اختر</option>
+                            @foreach ($nextStatuses as $next)
+                                <option value="{{ $next->value }}" @selected(old('status') === $next->value)>
+                                    {{ $next->label() }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('status') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div data-when="out_for_delivery">
+                        <label class="field-label" for="courier_id">المندوب</label>
+                        <select id="courier_id" name="courier_id" class="field-input">
+                            <option value="">
+                                {{ $shipment->deliveryCourier?->name ?? 'اختر المندوب' }}
+                            </option>
+                            @foreach ($couriers as $courier)
+                                <option value="{{ $courier->id }}"
+                                        @selected((int) old('courier_id') === $courier->id)>
+                                    {{ $courier->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('courier_id') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div data-when="at_hub in_transit">
+                        <label class="field-label" for="hub_id">المركز</label>
+                        <select id="hub_id" name="hub_id" class="field-input">
+                            <option value="">بلا تغيير</option>
+                            @foreach ($hubs as $hub)
+                                <option value="{{ $hub->id }}" @selected((int) old('hub_id') === $hub->id)>
+                                    {{ $hub->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('hub_id') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div data-when="failed_attempt">
+                        <label class="field-label" for="failure_reason_id">سبب الفشل</label>
+                        <select id="failure_reason_id" name="failure_reason_id" class="field-input">
+                            <option value="">اختر السبب</option>
+                            @foreach ($reasons as $reason)
+                                <option value="{{ $reason->id }}"
+                                        data-requires-note="{{ $reason->requires_note ? '1' : '0' }}"
+                                        @selected((int) old('failure_reason_id') === $reason->id)>
+                                    {{ $reason->name_ar }} — {{ $reason->categoryLabel() }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-slate-500">
+                            التصنيف هو ما يسمح لاحقاً بإخبار التاجر لماذا ترجع شحناته.
+                        </p>
+                        @error('failure_reason_id') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div data-when="delivered partially_delivered">
+                        <label class="field-label" for="collected_amount">المبلغ المحصَّل</label>
+                        <div class="relative">
+                            <input id="collected_amount" name="collected_amount" type="number" min="0" step="250"
+                                   value="{{ old('collected_amount', $shipment->cod_amount) }}"
+                                   class="field-input pe-12 text-left" dir="ltr">
+                            <span class="absolute inset-y-0 end-3 flex items-center text-xs text-slate-400">د.ع</span>
+                        </div>
+                        <p class="mt-1 text-xs text-amber-700">
+                            هذا الرقم يدخل حساب التاجر ولا يُعدَّل بعد الحفظ.
+                        </p>
+                        @error('collected_amount') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label class="field-label" for="note">ملاحظة</label>
+                        <textarea id="note" name="note" rows="2" class="field-input"
+                                  placeholder="تُحفَظ في سجلّ الشحنة">{{ old('note') }}</textarea>
+                        @error('note') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full">تنفيذ</button>
+                </form>
+            @endif
+        </section>
+
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">الحساب</h2>
             <dl class="space-y-2 text-sm">

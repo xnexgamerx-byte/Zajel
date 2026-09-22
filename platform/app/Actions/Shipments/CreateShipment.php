@@ -85,6 +85,7 @@ class CreateShipment
 
                 'cod_amount'          => $cod,
                 'delivery_fee'        => $deliveryFee,
+                'return_fee'          => $quote['return_fee'],
                 'extra_fee'           => $extraFee,
                 'cod_fee'             => $codFee,
                 'discount'            => $discount,

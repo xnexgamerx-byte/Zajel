@@ -6,6 +6,7 @@ use App\Enums\ShipmentStatus;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Services\Ledger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -18,6 +19,8 @@ use Illuminate\Validation\ValidationException;
  */
 class ChangeShipmentStatus
 {
+    public function __construct(protected Ledger $ledger) {}
+
     public function handle(
         Shipment $shipment,
         ShipmentStatus $to,
@@ -67,11 +70,26 @@ class ChangeShipmentStatus
                 $attributes['hub_id'] = $options['hub_id'];
             }
 
-            // المبلغ المحصَّل يُثبَّت عند التسليم ولا يُعدَّل بعده
+            // المبلغ المحصَّل يُثبَّت عند التسليم ولا يُعدَّل بعده،
+            // ومعه تُجمَّد عمولة المندوب ويُعاد حساب مستحقّ التاجر على
+            // أساس ما حُصِّل فعلاً لا ما كان مطلوباً.
             if (in_array($to, [ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered], true)) {
                 $attributes['collected_amount'] = array_key_exists('collected_amount', $options)
                     ? (int) $options['collected_amount']
                     : $shipment->cod_amount;
+
+                $courier = $shipment->deliveryCourier;
+                $attributes['courier_commission'] = $courier?->commission_per_delivery ?? 0;
+
+                $attributes['merchant_due'] = $shipment->fees_paid_by === 'customer'
+                    ? $attributes['collected_amount'] - $shipment->cod_fee + $shipment->discount
+                    : $attributes['collected_amount'] - $shipment->total_fees;
+            }
+
+            if ($to === ShipmentStatus::Returned) {
+                $courier = $shipment->deliveryCourier;
+                $attributes['courier_commission'] = $courier?->commission_per_return ?? 0;
+                $attributes['merchant_due'] = -$shipment->return_fee;
             }
 
             $shipment->fill($attributes)->save();
@@ -93,6 +111,17 @@ class ChangeShipmentStatus
                 'lng'               => $options['lng'] ?? null,
                 'ip'                => request()->ip(),
             ]);
+
+            $shipment->refresh();
+
+            // المال يتحرّك بعد ثبوت الحالة، وداخل المعاملة نفسها:
+            // إمّا أن تُسجَّل الحالة والحركة معاً أو لا يُكتب شيء.
+            match ($to) {
+                ShipmentStatus::Delivered,
+                ShipmentStatus::PartiallyDelivered => $this->ledger->recordDelivery($shipment, $actor),
+                ShipmentStatus::Returned           => $this->ledger->recordReturn($shipment, $actor),
+                default                            => null,
+            };
 
             return $shipment->refresh();
         });

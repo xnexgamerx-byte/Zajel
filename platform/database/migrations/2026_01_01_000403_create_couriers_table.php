@@ -8,7 +8,11 @@ use Illuminate\Support\Facades\Schema;
  * المندوبون. النوع يفصل مندوب الاستلام عن مندوب التوصيل —
  * وظيفتان مختلفتان بحسابَين وأرباح وتقارير منفصلة، وهذا قرار غير قابل للتأجيل.
  *
- * cash_in_hand = النقد المحصَّل الذي لم يُسلَّم للشركة بعد.
+ * رقمان منفصلان لا رقم واحد مختلط:
+ *   cash_in_hand       = نقد الشركة الموجود فعلاً بجيب المندوب
+ *   commission_balance = ما تدين به الشركة له من عمولات لم تُدفَع
+ * خلطهما يعطي رقماً لا يُجيب أي سؤال: لا "كم نقد بيده؟" ولا "كم له؟".
+ * عند التسوية: الواجب تسليمه = cash_in_hand − commission_balance.
  */
 return new class extends Migration
 {
@@ -35,6 +39,7 @@ return new class extends Migration
             $table->bigInteger('commission_per_return')->nullable();
 
             $table->bigInteger('cash_in_hand')->default(0);
+            $table->bigInteger('commission_balance')->default(0);
             $table->bigInteger('cash_limit')->default(0);    // 0 = بلا سقف
 
             $table->enum('status', ['active', 'suspended', 'inactive'])->default('active');

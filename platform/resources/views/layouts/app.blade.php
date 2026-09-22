@@ -36,6 +36,10 @@
                class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.create') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
                 شحنة جديدة
             </a>
+            <a href="{{ route('couriers.cash') }}"
+               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('couriers.cash') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                نقد المندوبين
+            </a>
         </nav>
 
         <div class="ms-auto flex items-center gap-3">

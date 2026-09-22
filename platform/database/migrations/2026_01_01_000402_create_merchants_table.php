@@ -5,7 +5,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * التجّار — زبائن شركة التوصيل. balance موجب = للشركة عليه، سالب = للتاجر عندها.
+ * التجّار — زبائن شركة التوصيل.
+ *
+ * balance = ما تدين به الشركة للتاجر بالدينار.
+ *   موجب = للتاجر عند الشركة مال لم يُدفَع بعد
+ *   سالب = التاجر مدين للشركة (أجور رواجع أكثر من محصَّلاته)
+ * يُشتقّ من جدول transactions ولا يُكتب إلا معه في المعاملة نفسها.
  */
 return new class extends Migration
 {
@@ -38,7 +43,7 @@ return new class extends Migration
                 ->default('cash');
             $table->string('payout_account', 120)->nullable();
 
-            $table->bigInteger('balance')->default(0);   // د.ع — يُحدَّث من transactions فقط
+            $table->bigInteger('balance')->default(0);   // د.ع — انظر شرح الدلالة أعلاه
             $table->enum('status', ['active', 'suspended', 'pending'])->default('active');
             $table->string('notes', 500)->nullable();
 

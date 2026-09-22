@@ -8,7 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreShipmentRequest;
 use App\Models\City;
 use App\Models\Courier;
+use App\Models\FailureReason;
 use App\Models\Governorate;
+use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use Illuminate\Http\RedirectResponse;
@@ -85,7 +87,7 @@ class ShipmentController extends Controller
             ->with('success', "تم إنشاء الشحنة برقم وصل {$shipment->number}.");
     }
 
-    public function show(Shipment $shipment): View
+    public function show(Request $request, Shipment $shipment): View
     {
         $shipment->load([
             'merchant', 'governorate', 'city', 'deliveryCourier', 'pickupCourier',
@@ -93,7 +95,15 @@ class ShipmentController extends Controller
             'events.courier:id,name', 'events.failureReason:id,name_ar',
         ]);
 
-        return view('tenant.shipments.show', compact('shipment'));
+        return view('tenant.shipments.show', [
+            'shipment'   => $shipment,
+            // الخيارات تأتي من خريطة الانتقالات نفسها، فلا تظهر في الواجهة
+            // حالة لا يقبلها النظام — الواجهة والمنطق مصدرهما واحد.
+            'nextStatuses' => $shipment->status->allowedNext(),
+            'couriers'     => Courier::delivering()->active()->orderBy('name')->get(['id', 'name']),
+            'hubs'         => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(),
+        ]);
     }
 
     /**
