@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Courier;
+use App\Models\CourierSettlement;
+use App\Models\MerchantSettlement;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\Transaction;
@@ -99,6 +101,70 @@ class Ledger
     }
 
     /**
+     * المندوب سلّم النقد وقُبضت عمولته: يفرغ عمودَيه معاً.
+     *
+     * الخصومات (تلف، غرامة) تزيد ما عليه، لأنها مال الشركة لم يعد لديها.
+     */
+    public function recordCourierHandover(CourierSettlement $settlement, ?User $actor = null): void
+    {
+        DB::transaction(function () use ($settlement, $actor) {
+            $courier = $settlement->courier;
+            $code = $settlement->code;
+
+            // الترتيب مقصود: يُحمَّل الخصم أولاً فيصير جزءاً ممّا عليه،
+            // ثم يُسلَّم النقد كاملاً. بالعكس يبقى الخصم معلّقاً في رصيده
+            // بعد تسوية يُفترض أنها أقفلت حسابه.
+            $this->post(
+                courier: $courier,
+                direction: 'debit',
+                category: 'deduction',
+                amount: $settlement->deductions,
+                description: "خصم (تلف أو غرامة) — كشف {$code}",
+                actor: $actor,
+                referenceType: 'courier_settlement',
+                referenceId: $settlement->id,
+            );
+
+            $this->post(
+                courier: $courier,
+                direction: 'credit',
+                category: 'cash_handover',
+                amount: $settlement->cod_total + $settlement->deductions,
+                description: "تسليم نقد — كشف {$code}",
+                actor: $actor,
+                referenceType: 'courier_settlement',
+                referenceId: $settlement->id,
+            );
+
+            $this->post(
+                courier: $courier,
+                direction: 'debit',
+                category: 'commission_paid',
+                amount: $settlement->commission_total,
+                description: "قبض عمولة — كشف {$code}",
+                actor: $actor,
+                referenceType: 'courier_settlement',
+                referenceId: $settlement->id,
+            );
+        });
+    }
+
+    /** دُفع للتاجر مستحقّه: رصيده ينخفض بما قُبض. */
+    public function recordMerchantPayout(MerchantSettlement $settlement, ?User $actor = null): void
+    {
+        $this->post(
+            merchant: $settlement->merchant,
+            direction: 'debit',
+            category: 'payout',
+            amount: $settlement->net_amount,
+            description: "دفعة للتاجر — كشف {$settlement->code}",
+            actor: $actor,
+            referenceType: 'merchant_settlement',
+            referenceId: $settlement->id,
+        );
+    }
+
+    /**
      * يكتب الحركة ويُحدّث الرصيد المشتقّ معاً.
      * القفل على صفّ الحساب يمنع تضارب رصيدين عند تسليمين متزامنين.
      */
@@ -131,8 +197,8 @@ class Ledger
         // والعمولة المستحقّة له. خلطهما يُنتج رقماً لا يُجيب أي سؤال.
         [$balanceColumn, $delta] = match (true) {
             $merchant !== null                 => ['balance', $signed],
-            $category === 'commission'         => ['commission_balance', $signed],
-            $category === 'commission_paid'    => ['commission_balance', $signed],
+            in_array($category, ['commission', 'commission_paid'], true)
+                                               => ['commission_balance', $signed],
             default                            => ['cash_in_hand', -$signed],
         };
 

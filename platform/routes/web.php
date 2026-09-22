@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Tenant\CourierController;
+use App\Http\Controllers\Tenant\CourierSettlementController;
+use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PricingQuoteController;
 use App\Http\Controllers\Tenant\ShipmentController;
@@ -40,6 +42,19 @@ Route::middleware('tenant')->group(function () {
         Route::middleware('staff')->group(function () {
             Route::resource('merchants', MerchantController::class)->except(['destroy']);
             Route::resource('couriers', CourierController::class)->except(['destroy']);
+
+            Route::prefix('settlements')->name('settlements.')->group(function () {
+                Route::get('couriers', [CourierSettlementController::class, 'index'])->name('couriers.index');
+                Route::post('couriers', [CourierSettlementController::class, 'store'])->name('couriers.store');
+                Route::get('couriers/{settlement}', [CourierSettlementController::class, 'show'])->name('couriers.show');
+                Route::post('couriers/{settlement}/confirm', [CourierSettlementController::class, 'confirm'])->name('couriers.confirm');
+
+                Route::get('merchants', [MerchantSettlementController::class, 'index'])->name('merchants.index');
+                Route::post('merchants', [MerchantSettlementController::class, 'store'])->name('merchants.store');
+                Route::get('merchants/{settlement}', [MerchantSettlementController::class, 'show'])->name('merchants.show');
+                Route::post('merchants/{settlement}/confirm', [MerchantSettlementController::class, 'confirm'])->name('merchants.confirm');
+                Route::post('merchants/{settlement}/pay', [MerchantSettlementController::class, 'pay'])->name('merchants.pay');
+            });
         });
 
         Route::post('/quote', PricingQuoteController::class)->name('pricing.quote');

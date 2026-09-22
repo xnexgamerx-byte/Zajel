@@ -46,9 +46,13 @@
                class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('couriers.index') || request()->routeIs('couriers.show') || request()->routeIs('couriers.create') || request()->routeIs('couriers.edit') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
                 المندوبون
             </a>
-            <a href="{{ route('couriers.cash') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('couriers.cash') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                النقد
+            <a href="{{ route('settlements.couriers.index') }}"
+               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('settlements.couriers.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                تسوية المندوبين
+            </a>
+            <a href="{{ route('settlements.merchants.index') }}"
+               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('settlements.merchants.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                تسوية التجّار
             </a>
             @endif
         </nav>
