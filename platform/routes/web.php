@@ -17,6 +17,7 @@ use App\Http\Controllers\Platform\ImpersonationController;
 use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
+use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
 use App\Http\Controllers\Tenant\CashBoxController;
@@ -155,6 +156,14 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/cash/transfer', [CashBoxController::class, 'transfer'])->name('cash.transfer');
                 Route::post('/cash/{box}/adjust', [CashBoxController::class, 'adjust'])->name('cash.adjust');
             });
+
+            // محاسبة الفروع وتأميناتها
+            Route::middleware('can:money.view')->group(function () {
+                Route::get('/branch-accounts', [BranchAccountController::class, 'index'])->name('branch-accounts.index');
+                Route::get('/branch-accounts/deposits', [BranchAccountController::class, 'deposits'])->name('branch-accounts.deposits');
+            });
+            Route::post('/branch-accounts/deposits', [BranchAccountController::class, 'storeDeposit'])
+                ->middleware('can:money.cash')->name('branch-accounts.deposits.store');
 
             Route::middleware('can:money.expenses')->group(function () {
                 Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');

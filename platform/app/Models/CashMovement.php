@@ -36,6 +36,7 @@ class CashMovement extends Model
             'courier_handover' => 'تسليم نقد من مندوب',
             'merchant_payout'  => 'دفع لتاجر',
             'commission_paid'  => 'عمولة مندوب',
+            'merchant_deposit' => 'تأمين تاجر',
             'expense'          => 'مصروف',
             'transfer_in'      => 'مناقلة واردة',
             'transfer_out'     => 'مناقلة صادرة',
