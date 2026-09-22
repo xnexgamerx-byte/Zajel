@@ -71,6 +71,60 @@ class Ledger
     }
 
     /**
+     * حصّة مندوب الاستلام تُستحقّ عند إغلاق طلب الاستلام.
+     *
+     * لا نقد بيد مندوب الاستلام — هو يجمع طروداً لا أموالاً — فحركته
+     * عمولةٌ وحدها، ولذلك تُقفَل بدفع العمولة لا بتسوية نقد.
+     */
+    public function recordPickupShare(\App\Models\PickupShare $share, Courier $courier, ?User $actor = null): void
+    {
+        $this->post(
+            courier: $courier,
+            direction: 'credit',
+            category: 'commission',
+            amount: (int) $share->amount,
+            description: "حصّة استلام {$share->shipments_count} طرداً — طلب {$share->pickupRequest?->number}",
+            actor: $actor,
+            referenceType: 'pickup_share',
+            referenceId: $share->id,
+        );
+    }
+
+    /** قبض العمولة: يُفرّغ عمود العمولة وحده ولا يمسّ النقد. */
+    public function payCommission(Courier $courier, int $amount, ?User $actor = null, ?string $note = null): void
+    {
+        $this->post(
+            courier: $courier,
+            direction: 'debit',
+            category: 'commission_paid',
+            amount: $amount,
+            description: 'قبض عمولة'.($note ? " — {$note}" : ''),
+            actor: $actor,
+            referenceType: 'courier',
+            referenceId: $courier->id,
+        );
+    }
+
+    /** فرق الحصّة بعد قبول الاعتراض — حركة مستقلّة تحمل سببها. */
+    public function recordShareAdjustment(\App\Models\PickupShare $share, int $delta, ?User $actor = null, ?string $reason = null): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+
+        $this->post(
+            courier: $share->courier,
+            direction: $delta > 0 ? 'credit' : 'debit',
+            category: 'commission',
+            amount: abs($delta),
+            description: 'تعديل حصّة استلام'.($reason ? " — {$reason}" : ''),
+            actor: $actor,
+            referenceType: 'pickup_share',
+            referenceId: $share->id,
+        );
+    }
+
+    /**
      * تصحيح مبلغ محصَّل بعد تسجيل التسليم.
      *
      * لا يُمسّ الصفّ القديم: يُقيَّد الفرق بحركة معاكسة تحمل سببها، فيبقى

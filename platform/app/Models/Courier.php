@@ -40,6 +40,11 @@ class Courier extends Model
         return $this->hasMany(Shipment::class, 'delivery_courier_id');
     }
 
+    public function pickupShares(): HasMany
+    {
+        return $this->hasMany(PickupShare::class);
+    }
+
     public function pickups(): HasMany
     {
         return $this->hasMany(Shipment::class, 'pickup_courier_id');
@@ -60,6 +65,16 @@ class Courier extends Model
     public function scopeActive(Builder $q): Builder
     {
         return $q->where('status', 'active');
+    }
+
+    public function delivers(): bool
+    {
+        return in_array($this->type, ['delivery', 'both'], true);
+    }
+
+    public function picks(): bool
+    {
+        return in_array($this->type, ['pickup', 'both'], true);
     }
 
     public function hasReachedCashLimit(): bool

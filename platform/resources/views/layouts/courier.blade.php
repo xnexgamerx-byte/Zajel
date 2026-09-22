@@ -50,13 +50,24 @@
 {{-- شريط سفلي: الإبهام يصله بلا مدّ اليد --}}
 <nav class="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white"
      style="padding-bottom: env(safe-area-inset-bottom, 0px)">
-    <div class="grid grid-cols-4">
-        @foreach ([
-            ['courier.tasks', 'مهامي', 'courier.tasks'],
-            ['courier.pickups', 'استلام', 'courier.pickups'],
-            ['courier.today', 'اليوم', 'courier.today'],
-            ['courier.cash', 'حسابي', 'courier.cash'],
-        ] as [$route, $label, $pattern])
+    @php
+        /*
+        | الشريط يتبع دور المندوب: مندوب الاستلام لا نقد بيده فـ«حسابي»
+        | عنده شاشة فارغة، وحسابه الحقيقي حصصه. ومندوب التوصيل لا حصص له.
+        */
+        $me = auth()->user()->courier;
+
+        $tabs = collect([
+            ['courier.tasks', 'مهامي', 'courier.tasks', $me?->delivers()],
+            ['courier.pickups', 'استلام', 'courier.pickups', $me?->picks()],
+            ['courier.today', 'اليوم', 'courier.today', $me?->delivers()],
+            ['courier.shares', 'حصصي', 'courier.shares', $me?->picks()],
+            ['courier.cash', 'حسابي', 'courier.cash', $me?->delivers()],
+        ])->filter(fn ($tab) => $tab[3])->values();
+    @endphp
+
+    <div class="grid" style="grid-template-columns: repeat({{ max(1, $tabs->count()) }}, minmax(0, 1fr))">
+        @foreach ($tabs as [$route, $label, $pattern, $shown])
             <a href="{{ route($route) }}"
                class="flex flex-col items-center gap-0.5 py-2.5 text-xs font-semibold
                       {{ request()->routeIs($pattern) ? 'text-[var(--brand)]' : 'text-ink-500' }}">

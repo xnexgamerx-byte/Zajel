@@ -5,6 +5,7 @@ use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController
 use App\Http\Controllers\Courier\ActionController as CourierActionController;
 use App\Http\Controllers\Courier\CashController as CourierCashController;
 use App\Http\Controllers\Courier\PickupController as CourierPickupController;
+use App\Http\Controllers\Courier\ShareController as CourierShareController;
 use App\Http\Controllers\Courier\TaskController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\Portal\PickupRequestController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\ManifestController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
+use App\Http\Controllers\Tenant\PickupAgentController;
 use App\Http\Controllers\Tenant\PriceListController;
 use App\Http\Controllers\Tenant\ReportController;
 use App\Http\Controllers\Tenant\ReturnController;
@@ -78,6 +80,13 @@ Route::middleware('tenant')->group(function () {
             Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
             Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
             Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+
+            // مندوب الاستلام: دور محاسبيّ مستقلّ عن مندوب التوصيل
+            Route::get('/pickup-agents', [PickupAgentController::class, 'index'])->name('pickup-agents.index');
+            Route::get('/pickup-agents/objections', [PickupAgentController::class, 'objections'])->name('pickup-agents.objections');
+            Route::post('/pickup-agents/objections/{share}', [PickupAgentController::class, 'resolve'])->name('pickup-agents.resolve');
+            Route::get('/pickup-agents/{courier}', [PickupAgentController::class, 'show'])->name('pickup-agents.show');
+            Route::post('/pickup-agents/{courier}/pay', [PickupAgentController::class, 'pay'])->name('pickup-agents.pay');
 
             // ستّة تقارير لا واحد وثلاثون
             Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
@@ -157,6 +166,10 @@ Route::middleware('tenant')->group(function () {
         | شاشة المندوب: مصمَّمة للجوال، وأربعة إجراءات لا أكثر.
         */
         Route::prefix('courier')->name('courier.')->middleware('courier')->group(function () {
+            // حقّ الاعتراض لا معنى له إن لم يكن في يد صاحبه
+            Route::get('/shares', [CourierShareController::class, 'index'])->name('shares');
+            Route::post('/shares/{share}/object', [CourierShareController::class, 'object'])->name('shares.object');
+
             Route::get('/', [TaskController::class, 'index'])->name('tasks');
             Route::get('/search', [TaskController::class, 'search'])->name('search');
             Route::get('/today', [TaskController::class, 'today'])->name('today');

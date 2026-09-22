@@ -17,7 +17,10 @@ use Illuminate\Support\Facades\DB;
  */
 class CompletePickup
 {
-    public function __construct(protected ChangeShipmentStatus $changeStatus) {}
+    public function __construct(
+        protected ChangeShipmentStatus $changeStatus,
+        protected \App\Actions\Pickups\AccruePickupShare $shares,
+    ) {}
 
     public function handle(PickupRequest $pickup, int $actualCount, ?User $actor = null, ?string $note = null): PickupRequest
     {
@@ -46,6 +49,9 @@ class CompletePickup
                 'completed_at' => now(),
                 'notes'        => $note ?: $pickup->notes,
             ])->save();
+
+            // حصّة المندوب تُستحقّ هنا: الطرود في يده والعمل انتهى
+            $this->shares->handle($pickup->refresh(), $actor);
 
             return $pickup->refresh();
         });

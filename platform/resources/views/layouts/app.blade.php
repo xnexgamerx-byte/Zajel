@@ -76,6 +76,7 @@
                         ['الأطراف', [
                             ['merchants.index', 'التجّار', ['merchants.*']],
                             ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit']],
+                            ['pickup-agents.index', 'مندوبو الاستلام', ['pickup-agents.*']],
                         ]],
                         ['المال', [
                             ['couriers.cash', 'نقد المندوبين', ['couriers.cash']],
