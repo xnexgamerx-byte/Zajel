@@ -128,8 +128,9 @@ class ControlPlaneTest extends TestCase
         auth()->logout();
         $this->flushSession();
 
+        // الموظّف يدخل على لوحة اليوم
         $this->post($host.'/login', ['phone' => '07711112222', 'password' => 'secret123'])
-            ->assertRedirect($host.'/shipments');
+            ->assertRedirect($host);
 
         $owner = Tenancy::runFor($company, fn () => User::where('phone', '07711112222')->firstOrFail());
         $merchant = $this->makeMerchant($company, 'M0001');

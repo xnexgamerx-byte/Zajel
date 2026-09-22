@@ -44,37 +44,66 @@
             <span>{{ $company->name }}</span>
         </a>
 
+        @php $staff = auth()->user()->isStaff(); @endphp
+
+        {{-- روابط يومية ظاهرة، وبقيّة الأقسام خلف قائمة: تسعة روابط في
+             شريط واحد تجعل إيجاد أيّ منها أبطأ من إيجادها في مجموعتها. --}}
         <nav class="hidden items-center gap-1 text-sm md:flex">
-            @php $staff = auth()->user()->isStaff(); @endphp
+            @if ($staff)
+                <a href="{{ route('dashboard') }}"
+                   class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('dashboard') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                    اليوم
+                </a>
+            @endif
+
             <a href="{{ route('shipments.index') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.index') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.index') || request()->routeIs('shipments.show') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
                 الشحنات
             </a>
+
             @if ($staff)
-            <a href="{{ route('shipments.create') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.create') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                شحنة جديدة
-            </a>
-            <a href="{{ route('pickups.index') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('pickups.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                الاستلام
-            </a>
-            <a href="{{ route('merchants.index') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('merchants.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                التجّار
-            </a>
-            <a href="{{ route('couriers.index') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('couriers.index') || request()->routeIs('couriers.show') || request()->routeIs('couriers.create') || request()->routeIs('couriers.edit') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                المندوبون
-            </a>
-            <a href="{{ route('settlements.couriers.index') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('settlements.couriers.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                تسوية المندوبين
-            </a>
-            <a href="{{ route('settlements.merchants.index') }}"
-               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('settlements.merchants.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
-                تسوية التجّار
-            </a>
+                <a href="{{ route('shipments.create') }}"
+                   class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.create') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                    شحنة جديدة
+                </a>
+                <a href="{{ route('pickups.index') }}"
+                   class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('pickups.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                    الاستلام
+                </a>
+
+                @foreach ([
+                    ['الأطراف', ['merchants.*', 'couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit'], [
+                        ['merchants.index', 'التجّار'],
+                        ['couriers.index', 'المندوبون'],
+                    ]],
+                    ['المال', ['settlements.*', 'couriers.cash', 'pricing.*'], [
+                        ['settlements.couriers.index', 'تسوية المندوبين'],
+                        ['settlements.merchants.index', 'تسوية التجّار'],
+                        ['couriers.cash', 'نقد المندوبين'],
+                        ['pricing.index', 'التسعيرات'],
+                    ]],
+                    ['الإعدادات', ['users.*', 'branches.*'], [
+                        ['users.index', 'المستخدمون'],
+                        ['branches.index', 'الفروع'],
+                    ]],
+                ] as [$label, $patterns, $items])
+                    @php $open = collect($patterns)->contains(fn ($p) => request()->routeIs($p)); @endphp
+                    <div class="relative" data-menu>
+                        <button type="button" data-menu-toggle
+                                class="rounded-lg px-3 py-1.5 font-medium {{ $open ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                            {{ $label }} <span class="text-xs">▾</span>
+                        </button>
+                        <div hidden data-menu-panel
+                             class="absolute end-0 z-40 mt-1 w-52 overflow-hidden rounded-xl bg-white py-1 shadow-lg ring-1 ring-slate-200">
+                            @foreach ($items as [$route, $text])
+                                <a href="{{ route($route) }}"
+                                   class="block px-4 py-2 text-sm {{ request()->routeIs($route) ? 'bg-slate-50 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                                    {{ $text }}
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
             @endif
         </nav>
 

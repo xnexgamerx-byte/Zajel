@@ -65,7 +65,7 @@ class LoginController extends Controller
         return match ($user->role) {
             UserRole::Merchant => route('portal.dashboard'),
             UserRole::Courier  => route('courier.tasks'),
-            default            => route('shipments.index'),
+            default            => route('dashboard'),
         };
     }
 

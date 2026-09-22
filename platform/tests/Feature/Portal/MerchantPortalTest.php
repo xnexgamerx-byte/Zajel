@@ -100,7 +100,7 @@ class MerchantPortalTest extends TestCase
     {
         $this->post($this->host().'/login', [
             'phone' => $this->staff->phone, 'password' => 'password',
-        ])->assertRedirect($this->host().'/shipments');
+        ])->assertRedirect($this->host());   // لوحة اليوم
     }
 
     public function test_staff_cannot_open_the_merchant_portal(): void

@@ -15,14 +15,18 @@ use App\Http\Controllers\Platform\ImpersonationController;
 use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
+use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\CourierController;
+use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
+use App\Http\Controllers\Tenant\PriceListController;
 use App\Http\Controllers\Tenant\PricingQuoteController;
 use App\Http\Controllers\Tenant\ShipmentController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
+use App\Http\Controllers\Tenant\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,7 +41,7 @@ Route::middleware('tenant')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
     Route::middleware('auth')->group(function () {
-        Route::redirect('/', '/shipments');
+        Route::get('/', TenantDashboardController::class)->middleware('staff')->name('dashboard');
 
         Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
         Route::get('/shipments/create', [ShipmentController::class, 'create'])
@@ -63,6 +67,13 @@ Route::middleware('tenant')->group(function () {
         Route::middleware('staff')->group(function () {
             Route::resource('merchants', MerchantController::class)->except(['destroy']);
             Route::resource('couriers', CourierController::class)->except(['destroy']);
+            Route::resource('users', UserController::class)->except(['destroy', 'show']);
+            Route::resource('branches', BranchController::class)->except(['destroy', 'show']);
+
+            Route::get('/pricing', [PriceListController::class, 'index'])->name('pricing.index');
+            Route::post('/pricing', [PriceListController::class, 'store'])->name('pricing.store');
+            Route::get('/pricing/{pricing}', [PriceListController::class, 'edit'])->name('pricing.edit');
+            Route::put('/pricing/{pricing}', [PriceListController::class, 'update'])->name('pricing.update');
 
             Route::prefix('settlements')->name('settlements.')->group(function () {
                 Route::get('couriers', [CourierSettlementController::class, 'index'])->name('couriers.index');

@@ -15,6 +15,17 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * رقم عراقي الشكل ومستقرّ من بذرة نصّية.
+     *
+     * md5 يعطي أحرفاً سداسية عشرية فترفضها قواعد التحقّق — وهو ما جعل
+     * اختبار شاشة المستخدمين يفشل على حساب أنشأه المساعد نفسه.
+     */
+    protected function phoneFrom(string $seed, string $prefix = '0770'): string
+    {
+        return $prefix.substr(str_pad((string) crc32($seed), 7, '0', STR_PAD_LEFT), -7);
+    }
+
     protected function tearDown(): void
     {
         Tenancy::forget();
@@ -57,7 +68,7 @@ abstract class TestCase extends BaseTestCase
                 ['code' => $code],
                 [
                     'business_name' => 'متجر '.$code,
-                    'phone' => '0771'.substr(md5($company->slug.$code), 0, 7),
+                    'phone' => $this->phoneFrom($company->slug.$code, '0771'),
                     'branch_id' => $branch->id, 'price_list_id' => $list->id, 'status' => 'active',
                 ],
             );
@@ -67,7 +78,7 @@ abstract class TestCase extends BaseTestCase
     protected function makeUser(Company $company, UserRole $role = UserRole::CompanyOwner): User
     {
         return Tenancy::runFor($company, fn () => User::firstOrCreate(
-            ['phone' => '0770'.substr(md5($company->slug.$role->value), 0, 7)],
+            ['phone' => $this->phoneFrom($company->slug.$role->value)],
             ['name' => 'مستخدم', 'password' => 'password', 'role' => $role, 'is_active' => true],
         ));
     }

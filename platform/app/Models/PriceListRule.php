@@ -22,6 +22,21 @@ class PriceListRule extends Model
         return $this->belongsTo(PriceList::class);
     }
 
+    public function toGovernorate(): BelongsTo
+    {
+        return $this->belongsTo(Governorate::class, 'to_governorate_id');
+    }
+
+    public function fromGovernorate(): BelongsTo
+    {
+        return $this->belongsTo(Governorate::class, 'from_governorate_id');
+    }
+
+    public function toCity(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'to_city_id');
+    }
+
     /** كلّما كانت القاعدة أكثر تحديداً كانت أولى بالتطبيق. */
     public function specificity(): int
     {

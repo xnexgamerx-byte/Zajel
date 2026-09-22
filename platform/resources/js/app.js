@@ -214,3 +214,31 @@ if (courierForm && navigator.geolocation) {
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
     );
 }
+
+/** قوائم منسدلة في الشريط العلوي: واحدة مفتوحة في كل مرة. */
+const menus = [...document.querySelectorAll('[data-menu]')];
+
+for (const menu of menus) {
+    const toggle = menu.querySelector('[data-menu-toggle]');
+    const panel = menu.querySelector('[data-menu-panel]');
+
+    toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const wasOpen = !panel.hidden;
+
+        for (const other of menus) other.querySelector('[data-menu-panel]').hidden = true;
+
+        panel.hidden = wasOpen;
+    });
+}
+
+if (menus.length) {
+    document.addEventListener('click', () => {
+        for (const menu of menus) menu.querySelector('[data-menu-panel]').hidden = true;
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        for (const menu of menus) menu.querySelector('[data-menu-panel]').hidden = true;
+    });
+}
