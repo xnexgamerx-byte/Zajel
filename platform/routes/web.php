@@ -23,6 +23,7 @@ use App\Http\Controllers\Tenant\BagController;
 use App\Http\Controllers\Tenant\CashBoxController;
 use App\Http\Controllers\Tenant\ControlController;
 use App\Http\Controllers\Tenant\CourierController;
+use App\Http\Controllers\Tenant\CourierManifestController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
@@ -141,6 +142,10 @@ Route::middleware('tenant')->group(function () {
             Route::delete('/bags/{bag}/shipments/{shipment}', [BagController::class, 'remove'])->name('bags.remove');
             Route::post('/bags/{bag}/seal', [BagController::class, 'seal'])->name('bags.seal');
             Route::post('/bags/{bag}/open', [BagController::class, 'open'])->name('bags.open');
+
+            // كشف عهدة المندوب — ورقة تخرج معه وتُطابَق عند عودته
+            Route::get('/courier-manifests', [CourierManifestController::class, 'index'])->name('courier-manifests.index');
+            Route::get('/courier-manifests/{courier}', [CourierManifestController::class, 'show'])->name('courier-manifests.show');
 
             Route::get('/manifests', [ManifestController::class, 'index'])->name('manifests.index');
             Route::post('/manifests', [ManifestController::class, 'store'])->name('manifests.store');

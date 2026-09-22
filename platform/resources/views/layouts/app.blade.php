@@ -70,6 +70,7 @@
                         ]],
                         ['النقل', [
                             ['bags.index', 'الأكياس', ['bags.*'], 'transport.manage'],
+                            ['courier-manifests.index', 'كشوف المناديب', ['courier-manifests.*'], 'transport.manage'],
                             ['manifests.index', 'كشوف النقل', ['manifests.index', 'manifests.show'], 'transport.manage'],
                             ['manifests.inbound', 'وارد المراكز', ['manifests.inbound'], 'transport.manage'],
                         ]],

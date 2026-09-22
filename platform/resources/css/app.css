@@ -237,3 +237,51 @@ body {
         @apply border-ink-300 shadow-sm;
     }
 }
+
+/* ------------------------------------------------------------ الطباعة
+   شركة توصيل تطبع كل يوم: كشف المندوب، وكشف الحساب، والمنفيست. والورقة
+   تخرج بالأبيض والأسود على طابعة رخيصة، فالألوان الخفيفة تختفي والحدود
+   الرمادية لا تُرى. هنا يُثبَّت ما يُقرأ على الورق لا ما يَحسُن على
+   الشاشة: حدود سوداء، وخلفيات تُطبَع فعلاً، وصفٌّ لا ينقسم بين ورقتين. */
+@media print {
+    @page {
+        size: A4;
+        margin: 14mm 12mm;
+    }
+
+    html, body {
+        background: #fff !important;
+        font-size: 11pt;
+    }
+
+    /* الجداول الطويلة: العنوان يتكرّر أعلى كل ورقة وإلا صارت الثانية أرقاماً بلا معنى */
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    tr, .avoid-break { break-inside: avoid; }
+
+    .tbl th,
+    .tbl td {
+        border-bottom: 1px solid #000 !important;
+        padding-block: 5pt;
+    }
+
+    .tbl thead {
+        background: #e7e5e4 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .chip {
+        border: 1px solid #000 !important;
+        background: transparent !important;
+        color: #000 !important;
+    }
+
+    /* الرابط على الورق ليس رابطاً */
+    a { text-decoration: none !important; color: inherit !important; }
+
+    .card {
+        border-color: #000 !important;
+        box-shadow: none !important;
+    }
+}
