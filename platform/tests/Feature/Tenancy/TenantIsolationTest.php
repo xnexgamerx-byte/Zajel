@@ -5,6 +5,8 @@ namespace Tests\Feature\Tenancy;
 use App\Actions\Shipments\CreateShipment;
 use App\Exceptions\MissingTenantContextException;
 use App\Models\Company;
+use App\Models\PriceList;
+use App\Models\Branch;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
@@ -112,6 +114,39 @@ class TenantIsolationTest extends TestCase
 
             $this->assertSame($a->id, $merchant->fresh()->company_id);
         });
+    }
+
+    public function test_a_passed_company_id_never_overrides_the_current_tenant(): void
+    {
+        $this->seedReference();
+        $alpha = $this->makeCompany('zajel', 'الزاجل');
+        $other = $this->makeCompany('barq', 'البرق');
+        $this->makeMerchant($alpha);
+
+        // كل النماذج $guarded = ['id']، أي أن company_id قابل للإسناد
+        // الجَماعيّ: استدعاءٌ واحد بـ $request->all() كان ينشئ صفّاً في
+        // شركة أخرى من داخل شركتك.
+        $merchant = Tenancy::runFor($alpha, fn () => Merchant::create([
+            'code'          => 'X1',
+            'business_name' => 'محاولة',
+            'phone'         => '07999999999',
+            'company_id'    => $other->id,
+            'branch_id'     => Branch::withoutGlobalScopes()->where('company_id', $alpha->id)->value('id'),
+            'price_list_id' => PriceList::withoutGlobalScopes()->where('company_id', $alpha->id)->value('id'),
+            'status'        => 'active',
+        ]));
+
+        $this->assertSame(
+            $alpha->id,
+            (int) $merchant->company_id,
+            'هويّة الشركة تُفرَض من السياق ولا تُؤخَذ من المُدخَل',
+        );
+
+        Tenancy::runFor($other, fn () => $this->assertSame(
+            0,
+            Merchant::where('code', 'X1')->count(),
+            'لم يظهر الصفّ في الشركة الأخرى',
+        ));
     }
 
     /**

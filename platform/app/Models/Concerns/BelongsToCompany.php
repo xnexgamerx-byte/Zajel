@@ -20,9 +20,22 @@ trait BelongsToCompany
         static::addGlobalScope(static::companyScope());
 
         static::creating(function ($model) {
-            if (! $model->getAttribute('company_id')) {
-                $model->setAttribute('company_id', app(TenantContext::class)->id());
+            $current = app(TenantContext::class)->id();
+
+            /*
+            | داخل سياق شركة: هويّتها تُفرَض ولا تُؤخَذ من المُدخَل.
+            |
+            | كان الملء مشروطاً بخلوّ الحقل، فقيمةٌ مُمرَّرة تُحترم. وكل
+            | النماذج $guarded = ['id']، أي أن company_id قابل للإسناد
+            | الجَماعيّ: استدعاءٌ واحد بـ $request->all() ينشئ صفّاً في
+            | شركة أخرى من داخل شركتك. جُرّب فوقع.
+            */
+            if ($current !== null) {
+                $model->setAttribute('company_id', $current);
             }
+
+            // وضع النواة يترك القيمة كما هي: صفوف النواة نفسها
+            // (مدير منصّة مثلاً) تحمل company_id فارغاً عن قصد.
         });
 
         static::updating(function ($model) {
