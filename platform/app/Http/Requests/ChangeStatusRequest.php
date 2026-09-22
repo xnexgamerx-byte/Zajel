@@ -51,9 +51,26 @@ class ChangeStatusRequest extends FormRequest
                 );
             }
 
-            // الاستعلامات هنا مفلترة بالشركة، فمندوب شركة أخرى غير موجود أصلاً.
-            if ($this->courier_id && ! Courier::whereKey($this->courier_id)->exists()) {
-                $validator->errors()->add('courier_id', 'المندوب غير موجود.');
+            /*
+            | الاستعلامات هنا مفلترة بالشركة، فمندوب شركة أخرى غير موجود أصلاً.
+            |
+            | والوجود وحده لا يكفي: مسار الإسناد الجَماعي يفرض
+            | delivering()->active() وهذا المسار كان يكتفي بـ exists —
+            | فمندوب استلام أو موقوف يُسنَد إليه توصيلٌ من شاشة الشحنة
+            | الواحدة. القائمة المنسدلة لا تعرضه، لكن «إخفاء الزرّ ليس
+            | منعاً»، والطلب يُصاغ بيد. ومندوب الاستلام عمولته وتسويته
+            | دورةٌ أخرى، فتوصيلةٌ باسمه لا تُحاسَب في أيّ منهما.
+            */
+            if ($this->courier_id) {
+                $courier = Courier::whereKey($this->courier_id)->first();
+
+                if (! $courier) {
+                    $validator->errors()->add('courier_id', 'المندوب غير موجود.');
+                } elseif ($courier->status !== 'active') {
+                    $validator->errors()->add('courier_id', "المندوب «{$courier->name}» غير مفعّل.");
+                } elseif (! $courier->delivers()) {
+                    $validator->errors()->add('courier_id', "المندوب «{$courier->name}» مندوب استلام لا توصيل.");
+                }
             }
 
             if ($this->hub_id && ! Hub::whereKey($this->hub_id)->exists()) {
