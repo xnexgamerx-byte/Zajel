@@ -2,6 +2,10 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
+use App\Http\Controllers\Courier\ActionController as CourierActionController;
+use App\Http\Controllers\Courier\CashController as CourierCashController;
+use App\Http\Controllers\Courier\PickupController as CourierPickupController;
+use App\Http\Controllers\Courier\TaskController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\Portal\PickupRequestController;
 use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
@@ -15,6 +19,7 @@ use App\Http\Controllers\Tenant\CourierController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\MerchantController;
+use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
 use App\Http\Controllers\Tenant\PricingQuoteController;
 use App\Http\Controllers\Tenant\ShipmentController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
@@ -45,6 +50,12 @@ Route::middleware('tenant')->group(function () {
         Route::post('/shipments/assign', [ShipmentStatusController::class, 'assign'])
             ->middleware('staff')->name('shipments.assign');
 
+        Route::middleware('staff')->group(function () {
+            Route::get('/pickups', [TenantPickupRequestController::class, 'index'])->name('pickups.index');
+            Route::post('/pickups/{pickup}/assign', [TenantPickupRequestController::class, 'assign'])->name('pickups.assign');
+            Route::post('/pickups/{pickup}/cancel', [TenantPickupRequestController::class, 'cancel'])->name('pickups.cancel');
+        });
+
         Route::get('/couriers/cash', [ShipmentStatusController::class, 'cashBoard'])
             ->middleware('staff')->name('couriers.cash');
 
@@ -68,6 +79,20 @@ Route::middleware('tenant')->group(function () {
         });
 
         Route::post('/quote', PricingQuoteController::class)->name('pricing.quote');
+
+        /*
+        | شاشة المندوب: مصمَّمة للجوال، وأربعة إجراءات لا أكثر.
+        */
+        Route::prefix('courier')->name('courier.')->middleware('courier')->group(function () {
+            Route::get('/', [TaskController::class, 'index'])->name('tasks');
+            Route::get('/search', [TaskController::class, 'search'])->name('search');
+            Route::get('/today', [TaskController::class, 'today'])->name('today');
+            Route::get('/cash', CourierCashController::class)->name('cash');
+            Route::get('/pickups', [CourierPickupController::class, 'index'])->name('pickups');
+            Route::post('/pickups/{pickup}/complete', [CourierPickupController::class, 'complete'])->name('pickups.complete');
+            Route::get('/shipments/{shipment}', [TaskController::class, 'show'])->name('shipments.show');
+            Route::post('/shipments/{shipment}', CourierActionController::class)->name('shipments.act');
+        });
 
         /*
         | بوابة التاجر: نفس النظام ونفس البيانات، بواجهة تخصّه.

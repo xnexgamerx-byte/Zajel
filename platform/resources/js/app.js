@@ -192,3 +192,25 @@ for (const toggle of document.querySelectorAll('[data-toggle]')) {
     toggle.addEventListener('change', refresh);
     refresh();
 }
+
+/**
+ * شاشة المندوب: يلتقط الموقع عند فتح شحنة ويُرفقه بالتسجيل.
+ *
+ * إثبات أن المندوب كان عند الباب يحسم خلافاً بين تاجر ومندوب لا يحسمه
+ * كلام. صامت عند الرفض: التسجيل أهم من الإحداثيات.
+ */
+const courierForm = document.querySelector('[data-courier-form]');
+
+if (courierForm && navigator.geolocation) {
+    const lat = courierForm.querySelector('[data-geo-lat]');
+    const lng = courierForm.querySelector('[data-geo-lng]');
+
+    navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+            lat.value = coords.latitude.toFixed(7);
+            lng.value = coords.longitude.toFixed(7);
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+    );
+}

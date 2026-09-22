@@ -62,9 +62,11 @@ class LoginController extends Controller
     /** لكل دور بيته: التاجر بوابته، والموظّف لوحة العمليات. */
     protected function homeFor($user): string
     {
-        return $user->role === UserRole::Merchant
-            ? route('portal.dashboard')
-            : route('shipments.index');
+        return match ($user->role) {
+            UserRole::Merchant => route('portal.dashboard'),
+            UserRole::Courier  => route('courier.tasks'),
+            default            => route('shipments.index'),
+        };
     }
 
     public function destroy(Request $request): RedirectResponse

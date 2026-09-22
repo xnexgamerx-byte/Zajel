@@ -55,6 +55,10 @@
                class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('shipments.create') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
                 شحنة جديدة
             </a>
+            <a href="{{ route('pickups.index') }}"
+               class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('pickups.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
+                الاستلام
+            </a>
             <a href="{{ route('merchants.index') }}"
                class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs('merchants.*') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50' }}">
                 التجّار
