@@ -27,6 +27,7 @@
             @foreach ([
                 ['admin.dashboard', 'الرئيسية', 'admin.dashboard'],
                 ['admin.companies.index', 'الشركات', 'admin.companies.*'],
+                ['admin.invoices.index', 'الفواتير', 'admin.invoices.*'],
                 ['admin.plans.index', 'الباقات', 'admin.plans.*'],
             ] as [$route, $label, $pattern])
                 <a href="{{ route($route) }}"

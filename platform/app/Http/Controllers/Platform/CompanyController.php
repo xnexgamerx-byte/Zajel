@@ -10,6 +10,7 @@ use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Governorate;
+use App\Models\Invoice;
 use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\Shipment;
@@ -95,6 +96,7 @@ class CompanyController extends Controller
                 ->first(),
             'plans'        => Plan::where('is_active', true)->orderBy('sort_order')->get(),
             'audit'        => AuditLog::where('company_id', $company->id)->latest('id')->limit(20)->get(),
+            'invoices'     => Invoice::where('company_id', $company->id)->latest('id')->limit(6)->get(),
         ]);
     }
 

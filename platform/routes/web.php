@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 use App\Http\Controllers\Platform\ImpersonationController;
+use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Tenant\CourierController;
@@ -86,6 +87,11 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
         Route::post('/companies/{company}/suspend', [PlatformCompanyController::class, 'suspend'])->name('companies.suspend');
         Route::post('/companies/{company}/activate', [PlatformCompanyController::class, 'activate'])->name('companies.activate');
         Route::post('/companies/{company}/impersonate', [ImpersonationController::class, 'start'])->name('companies.impersonate');
+
+        Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::post('/invoices/generate', [InvoiceController::class, 'generate'])->name('invoices.generate');
+        Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+        Route::post('/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('invoices.pay');
 
         Route::get('/plans', [PlanController::class, 'index'])->name('plans.index');
         Route::get('/plans/create', [PlanController::class, 'create'])->name('plans.create');

@@ -74,6 +74,30 @@
         </section>
 
         <section class="card p-5">
+            <h2 class="mb-4 text-sm font-bold">آخر فواتيرها</h2>
+
+            @if ($invoices->isEmpty())
+                <p class="py-6 text-center text-sm text-slate-500">لا فواتير بعد.</p>
+            @else
+                <div class="divide-y divide-slate-100">
+                    @foreach ($invoices as $invoice)
+                        <a href="{{ route('admin.invoices.show', $invoice) }}"
+                           class="flex flex-wrap items-center gap-3 py-2.5 text-sm hover:bg-slate-50">
+                            <span class="font-mono text-xs font-semibold text-brand-700" dir="ltr">
+                                {{ $invoice->number }}
+                            </span>
+                            <span class="text-xs text-slate-500" dir="ltr">
+                                {{ $invoice->period_start->format('Y-m') }}
+                            </span>
+                            <span class="ms-auto font-semibold" dir="ltr">{{ number_format($invoice->total) }} د.ع</span>
+                            <x-invoice-status :status="$invoice->status" />
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+        </section>
+
+        <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">سجلّ التدقيق</h2>
             <p class="mb-4 text-xs text-slate-500">
                 كل دخول من المنصّة إلى هذا النظام مسجَّل هنا — وهذا ما يجعل الشركة تثق بوضع حساباتها فيه.
