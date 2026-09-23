@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">تسليم الراجع للتاجر</h1>
+    <h1 class="page-title">تسليم الراجع للتاجر</h1>
     <p class="mt-1 text-sm text-ink-500">
         طرود وصلت المخزن وتنتظر صاحبها. عند التسليم تُقيَّد أجرة الراجع على حساب التاجر.
     </p>

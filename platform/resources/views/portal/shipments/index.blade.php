@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-    <h1 class="text-xl font-bold">شحناتي</h1>
+    <h1 class="page-title">شحناتي</h1>
     <a href="{{ route('portal.shipments.create') }}" class="btn-primary">+ شحنة جديدة</a>
 </div>
 

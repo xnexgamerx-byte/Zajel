@@ -2,15 +2,15 @@
 @section('title', 'تسجيل الدخول')
 
 @section('content')
-<div class="mx-auto mt-10 w-full max-w-sm">
-    <div class="mb-7 text-center">
-        <div class="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl text-2xl font-black text-white"
+<div class="mx-auto mt-6 w-full max-w-md sm:mt-14">
+    <div class="mb-8 text-center">
+        <div class="mx-auto mb-5 grid size-16 place-items-center rounded-[22px] border border-ink-900 text-2xl font-bold text-white"
              style="background: {{ $company->primary_color }}">ز</div>
-        <h1 class="text-xl font-bold">{{ $company->name }}</h1>
+        <h1 class="page-title">{{ $company->name }}</h1>
         <p class="mt-1 text-sm text-ink-500">نظام إدارة الشحنات</p>
     </div>
 
-    <form method="POST" action="{{ route('login') }}" class="card space-y-4 p-6">
+    <form method="POST" action="{{ route('login') }}" class="card space-y-5 rounded-[28px] p-6 sm:p-8">
         @csrf
 
         <div>
@@ -29,11 +29,11 @@
 
         <label class="flex items-center gap-2 text-sm text-ink-600">
             <input type="checkbox" name="remember" value="1"
-                   class="rounded border-ink-300 text-ink-900 focus:ring-ink-900/20">
+                   class="rounded">
             تذكّرني
         </label>
 
-        <button type="submit" class="btn-primary w-full">دخول</button>
+        <button type="submit" class="btn-primary w-full py-3 text-base">دخول</button>
     </form>
 </div>
 @endsection

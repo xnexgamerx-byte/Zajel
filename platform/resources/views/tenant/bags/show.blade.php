@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
         <div class="flex items-center gap-3">
-            <h1 class="num text-xl font-bold">{{ $bag->code }}</h1>
+            <h1 class="page-title num">{{ $bag->code }}</h1>
             <span class="chip {{ $bag->statusTone() }}">{{ $bag->statusLabel() }}</span>
         </div>
         <p class="mt-1 text-sm text-ink-500">

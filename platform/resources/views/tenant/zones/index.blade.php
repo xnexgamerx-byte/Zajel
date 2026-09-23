@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">توزيع المندوبين على المناطق</h1>
+    <h1 class="page-title">توزيع المندوبين على المناطق</h1>
     <p class="mt-1 text-sm text-ink-500">
         المحافظة بلا مندوب هي ما يجعل شحنةً تنام في المخزن بلا أن يسأل عنها أحد.
     </p>

@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">الفروع</h1>
+        <h1 class="page-title">الفروع</h1>
         <p class="mt-1 text-sm text-ink-500">
             كل شحنة تتبع فرعاً، والمستخدم المقيّد بفرع لا يرى غيره.
         </p>

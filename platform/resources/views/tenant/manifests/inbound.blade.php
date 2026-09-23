@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">وارد المراكز</h1>
+    <h1 class="page-title">وارد المراكز</h1>
     <p class="mt-1 text-sm text-ink-500">
         كشوف في الطريق إليك. حدّد الأكياس التي وصلت فعلاً — وما لم تحدّده يُسجَّل مفقوداً لا منسيّاً.
     </p>

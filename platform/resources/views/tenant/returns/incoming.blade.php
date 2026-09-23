@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">استلام الراجع من المندوب</h1>
+    <h1 class="page-title">استلام الراجع من المندوب</h1>
     <p class="mt-1 text-sm text-ink-500">
         طرود قُرّر إرجاعها وما زالت بيد المندوب. تُصبح جاهزة للتسليم للتاجر بعد استلامها هنا.
     </p>

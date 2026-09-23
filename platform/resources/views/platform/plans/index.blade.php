@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">الباقات</h1>
+        <h1 class="page-title">الباقات</h1>
         <p class="mt-1 text-sm text-ink-500">
             ما تبيعه للشركات. تعديل باقة لا يمسّ اشتراكاً قائماً — أسعاره مجمَّدة.
         </p>

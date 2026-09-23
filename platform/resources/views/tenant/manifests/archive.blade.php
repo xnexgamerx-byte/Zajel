@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">أرشيف الكشوف</h1>
+        <h1 class="page-title">أرشيف الكشوف</h1>
         <p class="mt-1 text-sm text-ink-500">ما خرج من مركزٍ أو وصل إليه، ومتى، وهل وصل كاملاً.</p>
     </div>
     <a href="{{ route('manifests.index') }}" class="btn-ghost">الكشوف المتداولة</a>

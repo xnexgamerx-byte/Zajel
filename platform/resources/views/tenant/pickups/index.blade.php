@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">طلبات الاستلام</h1>
+        <h1 class="page-title">طلبات الاستلام</h1>
         <p class="mt-1 text-sm text-ink-500">تجّار جهّزوا طرودهم وينتظرون مندوب استلام.</p>
     </div>
     @if ($pending)

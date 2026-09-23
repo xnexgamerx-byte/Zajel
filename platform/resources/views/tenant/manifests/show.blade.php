@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
         <div class="flex items-center gap-3">
-            <h1 class="num text-xl font-bold">{{ $manifest->code }}</h1>
+            <h1 class="page-title num">{{ $manifest->code }}</h1>
             <span class="chip {{ $manifest->statusTone() }}">{{ $manifest->statusLabel() }}</span>
         </div>
         <p class="mt-1 text-sm text-ink-500">

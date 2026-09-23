@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">القاصة</h1>
+        <h1 class="page-title">القاصة</h1>
         <p class="mt-1 text-sm text-ink-500">
             ما بقي في الدرج بعد تسليم المندوبين ودفع التجّار والمصروفات.
         </p>

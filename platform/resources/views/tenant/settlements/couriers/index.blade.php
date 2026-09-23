@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">تسويات المندوبين</h1>
+    <h1 class="page-title">تسويات المندوبين</h1>
     <p class="mt-1 text-sm text-ink-500">
         إقفال حساب المندوب: يسلّم النقد، يقبض عمولته، ويُغلَق الكشف فلا يُعدَّل.
     </p>

@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">المصروفات</h1>
+    <h1 class="page-title">المصروفات</h1>
     <p class="mt-1 text-sm text-ink-500">ماذا علينا هذه الفترة، وأين ذهب المال.</p>
 </div>
 

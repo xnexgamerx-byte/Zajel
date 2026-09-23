@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">{{ $courier->name }}</h1>
+        <h1 class="page-title">{{ $courier->name }}</h1>
         <p class="num mt-1 text-sm text-ink-500">{{ $courier->phone }} · مندوب استلام</p>
     </div>
     <a href="{{ route('pickup-agents.index') }}" class="btn-ghost">رجوع</a>

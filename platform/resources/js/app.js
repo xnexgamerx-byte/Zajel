@@ -243,15 +243,21 @@ if (menus.length) {
     });
 }
 
-/** فتح الشريط الجانبي على الشاشات الصغيرة. */
+/**
+ * درج الشريط الجانبي على الشاشات الصغيرة.
+ *
+ * زرّ القائمة وزرّ الإغلاق والغطاء خلف الدرج كلّها تقلب data-open، والظهور
+ * يقرّره CSS (max-lg:hidden max-lg:data-open:block). على الشاشة الكبيرة
+ * الشريط ظاهرٌ دائماً فلا شيء ينتظر السكربت ليظهر.
+ */
 const sidebar = document.querySelector('[data-sidebar]');
-const sidebarToggle = document.querySelector('[data-sidebar-toggle]');
 
-if (sidebar && sidebarToggle) {
-    const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
-    const sync = () => { sidebar.hidden = !isDesktop(); };
+if (sidebar) {
+    for (const toggle of document.querySelectorAll('[data-sidebar-toggle]')) {
+        toggle.addEventListener('click', () => sidebar.toggleAttribute('data-open'));
+    }
 
-    sidebarToggle.addEventListener('click', () => { sidebar.hidden = !sidebar.hidden; });
-    window.addEventListener('resize', sync);
-    sync();
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') sidebar.removeAttribute('data-open');
+    });
 }

@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">اعتراضات حصص الاستلام</h1>
+    <h1 class="page-title">اعتراضات حصص الاستلام</h1>
     <p class="mt-1 text-sm text-ink-500">
         نظام حوافز بآلية تظلّم: «جمعتُ أربعين طرداً واحتسبتم لي ثلاثين» خلافٌ له أثر مكتوب هنا لا مكالمة تُنسى.
     </p>

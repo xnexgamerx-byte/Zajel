@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">حسابات مندوبي الاستلام</h1>
+        <h1 class="page-title">حسابات مندوبي الاستلام</h1>
         <p class="mt-1 text-sm text-ink-500">
             يجمع طروداً لا أموالاً، فحسابه عمولة صافية لا تسوية نقد.
         </p>

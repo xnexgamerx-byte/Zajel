@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">بيانات الشركة</h1>
+    <h1 class="page-title">بيانات الشركة</h1>
     <p class="mt-1 text-sm text-ink-500">ما يراه تجّارك ومناديبك: كيف يصلونك، ولون واجهتك.</p>
 </div>
 

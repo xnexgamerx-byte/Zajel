@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">إشعارات جماعية</h1>
+    <h1 class="page-title">إشعارات جماعية</h1>
     <p class="mt-1 text-sm text-ink-500">
         إعلانٌ واحد يبلغ كل مناديب التوصيل أو الاستلام أو التجّار — في تطبيقاتهم، ومعه مَن قرأه.
     </p>

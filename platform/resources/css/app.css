@@ -1,59 +1,83 @@
 @import 'tailwindcss';
 
 /*
-| نظام تصميم زاجل
+| نظام تصميم زاجل — لغة «FleetSense» البصرية (Figma: Logistics Dashboard).
 |
-| ثلاثة مبادئ حكمت الاختيارات:
-|  1) محايدات دافئة (stone) لا باردة (slate). الشاشة تُفتح ثماني ساعات
-|     يومياً، والرمادي البارد يُتعب العين أسرع.
-|  2) اللون محجوز للمعنى. الحالات وحدها تحمل لوناً؛ ما عداها حبر ومحايد.
-|     حين لا ينافسها شيء، تُقرأ الحالة من طرف الشاشة.
-|  3) لون العلامة متغيّر لكل شركة، فالهيكل محايد واللون لمسة لا خلفية.
+| ما أُخذ من التصميم، لا من محتواه:
+|  1) حبرٌ واحد (#303030) للنصّ والحدود والأسطح الداكنة. كل سطحٍ مُحاط
+|     بخطٍّ رفيع منه بدل الظلّ: الشكل يُقرأ بالحدّ لا بالعمق.
+|  2) أصفرٌ واحد (#FFDA5F) للفعل المهمّ والبطاقة البارزة، ولمسات هادئة
+|     من الزيتونيّ واللافندر. اللون خارج الحالات لمسةٌ لا خلفية.
+|  3) زوايا واسعة: البطاقات ٢٤، الصفوف ١٦، الأزرار والحقول حبوبٌ كاملة.
+|  4) خطٌّ هندسيّ (Readex Pro — امتداد Lexend للعربية، أقرب ما في
+|     العربية إلى Lufga في التصميم) وعناوين كبيرة بوزنٍ نصف ثقيل.
+|
+| وألوان الحالة ما زالت محجوزة للمعنى: كل شارةٍ تحمل نصّها ونقطتها،
+| فاللون تعزيزٌ لا قناةٌ وحيدة.
 */
 
 @theme {
-    --font-sans: 'Cairo', 'Noto Kufi Arabic', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Readex Pro', 'Cairo', ui-sans-serif, system-ui, sans-serif;
+    /* الأرقام بخطّ الواجهة نفسه كما في التصميم، بعرضٍ ثابت (tnum) */
+    --font-mono: 'Readex Pro', ui-monospace, SFMono-Regular, monospace;
 
-    /* محايدات دافئة */
-    --color-ink-50:  #fafaf9;
-    --color-ink-100: #f5f5f4;
-    --color-ink-200: #e7e5e4;
-    --color-ink-300: #d6d3d1;
-    --color-ink-400: #a8a29e;
-    --color-ink-500: #78716c;
-    --color-ink-600: #57534e;
-    --color-ink-700: #44403c;
-    --color-ink-800: #292524;
-    --color-ink-900: #1c1917;
-    --color-ink-950: #0c0a09;
+    /* الحبر ومحايداته — مرساها #303030 من التصميم */
+    --color-ink-50:  #f8f8f5;
+    --color-ink-100: #f0f0eb;
+    --color-ink-200: #e3e3dc;
+    --color-ink-300: #cecec6;
+    --color-ink-400: #9393a2;
+    --color-ink-500: #696973;
+    --color-ink-600: #515158;
+    --color-ink-700: #3f3f44;
+    --color-ink-800: #363638;
+    --color-ink-900: #303030;
+    --color-ink-950: #1c1c1c;
 
-    /* علامة المنصّة — لوحة النواة وحدها */
-    --color-plat-50:  #f5f3ff;
-    --color-plat-100: #ede9fe;
-    --color-plat-400: #a78bfa;
-    --color-plat-500: #8b5cf6;
-    --color-plat-600: #7c3aed;
-    --color-plat-700: #6d28d9;
-    --color-plat-900: #4c1d95;
+    /* لمسات التصميم */
+    --color-sun:        #ffda5f;
+    --color-sun-soft:   #fff4cc;
+    --color-amber:      #ffc861;
+    --color-sage:       #d5d6b6;
+    --color-sage-soft:  #e7e7db;
+    --color-lilac:      #e3dcf1;
+    --color-lilac-soft: #f3effa;
+
+    /* علامة المنصّة — لوحة النواة وحدها: بنفسجيّ الغلاف */
+    --color-plat-50:  #f4f0fe;
+    --color-plat-100: #e3dcf1;
+    --color-plat-400: #a992f8;
+    --color-plat-500: #8b6cf6;
+    --color-plat-600: #7453ea;
+    --color-plat-700: #5f3fd6;
+    --color-plat-900: #3b2687;
 
     /*
-    | ألوان الحالة — مجموعة محجوزة، لا تُستعمل لأي شيء آخر.
-    | مُتحقَّق منها: أسوأ زوج متجاور ΔE 22.8 (deutan) و24.6 (رؤية عادية)،
-    | والتباين مع السطح ≥ 3:1 للجميع. ومع ذلك تحمل كل شارة نصّها،
-    | فاللون تعزيز لا قناة وحيدة.
+    | ألوان الحالة — مجموعة محجوزة. الأحمر من التصميم (#B80000)، والبقيّة
+    | بدرجاتٍ تتّسق مع لوحته. التباين مع السطح ≥ 4.5:1 لنصّ كل شارة.
     */
-    --color-ok-50:   #ecfdf5;
-    --color-ok-200:  #a7f3d0;
-    --color-ok-700:  #047857;
-    --color-info-50:  #eff6ff;
-    --color-info-200: #bfdbfe;
-    --color-info-700: #1d4ed8;
-    --color-warn-50:  #fffbeb;
-    --color-warn-200: #fde68a;
-    --color-warn-700: #d97706;
-    --color-bad-50:   #fff1f2;
-    --color-bad-200:  #fecdd3;
-    --color-bad-700:  #9f1239;
+    --color-ok-50:    #edf5ea;
+    --color-ok-200:   #b9d9ae;
+    --color-ok-700:   #226b2b;
+    --color-info-50:  #f1edfb;
+    --color-info-200: #d6ccf2;
+    --color-info-700: #5237b8;
+    --color-warn-50:  #fff5d6;
+    --color-warn-200: #f7d98a;
+    --color-warn-700: #9a5a00;
+    --color-bad-50:   #fdeeee;
+    --color-bad-200:  #f1bcbc;
+    --color-bad-700:  #b80000;
+
+    /* الزوايا والظلال كما في التصميم */
+    --radius-lg:  0.875rem;
+    --radius-xl:  1.125rem;
+    --radius-2xl: 1.5rem;
+    --radius-3xl: 1.875rem;
+
+    --shadow-xs: 0 0 #0000;
+    --shadow-sm: 0 1px 0 rgb(48 48 48 / 0.05);
+    --shadow-2xl: 0 28px 60px -18px rgb(48 48 48 / 0.28);
 
     /*
     | لون الشركة كأداة Tailwind (border-brand، text-brand…). القيمة تبقى
@@ -66,9 +90,8 @@
 }
 
 /*
-| لون الشركة يصل من الخادم كمتغيّر واحد، ومنه تُشتقّ الدرجات.
-| color-mix يعني أن تغيير اللون في لوحة النواة يغيّر النظام كلّه
-| بلا إعادة بناء للأنماط.
+| لون الشركة يصل من الخادم كمتغيّر واحد، ومنه تُشتقّ الدرجات. يبقى
+| هويّةَ الشركة: شارتها، وعدّاداتها، وروابطها، ورأس تطبيق مندوبها.
 */
 :root {
     --brand: #0f766e;
@@ -79,86 +102,160 @@
 
 body {
     font-feature-settings: 'tnum' 1;          /* أرقام بعرض ثابت: الأعمدة تصطفّ */
-    background-color: var(--color-ink-100);
+    background-color: var(--color-ink-50);
     color: var(--color-ink-900);
 }
 
+/* مربّعات الاختيار والأزرار الدائرية بحبر التصميم */
+input[type='checkbox'],
+input[type='radio'] {
+    accent-color: var(--color-ink-900);
+    width: 1rem;
+    height: 1rem;
+}
+
 @layer components {
+    /* ------------------------------------------------------- عنوان الصفحة */
+    .page-title {
+        @apply text-[26px] leading-tight font-semibold tracking-[-0.01em] text-ink-900 md:text-[32px];
+    }
+
+    .page-sub {
+        @apply mt-1 text-sm text-ink-500;
+    }
+
     /*
     | نافذة لا رجعة. <dialog> الأصلية تحمل تركيز لوحة المفاتيح وإغلاق
     | Esc وطبقة التعتيم بلا مكتبة، ويبقى علينا المظهر وحده.
     */
     .modal {
-        @apply m-auto w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-ink-200 bg-white p-0 text-ink-900 shadow-2xl;
+        @apply m-auto w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-[28px] border border-ink-900
+               bg-white p-0 text-ink-900 shadow-2xl;
     }
 
     .modal::backdrop {
-        background-color: color-mix(in oklab, var(--color-ink-950) 55%, transparent);
+        background-color: color-mix(in oklab, var(--color-ink-900) 45%, transparent);
+        backdrop-filter: blur(3px);
     }
 
     .modal-head {
-        @apply border-b border-ink-100 px-5 py-4;
+        @apply border-b border-ink-200 px-6 py-5;
     }
 
     .modal-body {
-        @apply space-y-4 px-5 py-5;
+        @apply space-y-4 px-6 py-5;
     }
 
     .modal-foot {
-        @apply flex flex-wrap items-center justify-end gap-3 border-t border-ink-100 bg-ink-50 px-5 py-4;
+        @apply flex flex-wrap items-center justify-end gap-3 border-t border-ink-200 bg-ink-50 px-6 py-4;
     }
 
     /* ------------------------------------------------------------ نماذج */
     .field-label {
-        @apply mb-1.5 block text-sm font-medium text-ink-700;
+        @apply mb-1.5 block text-[13px] font-medium text-ink-700;
     }
 
+    /* حقل البحث في التصميم: حبّةٌ بحدٍّ حبريّ ونصٍّ رماديّ للإرشاد */
     .field-input {
-        @apply w-full rounded-lg border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900
-               shadow-xs outline-none transition placeholder:text-ink-400
-               focus:border-ink-400 focus:ring-2 focus:ring-ink-900/10
-               disabled:bg-ink-100 disabled:text-ink-500;
+        @apply w-full rounded-full border border-ink-900 bg-white px-4 py-2.5 text-sm text-ink-900
+               outline-none transition placeholder:text-ink-400
+               focus:ring-4 focus:ring-sun/70
+               disabled:border-ink-300 disabled:bg-ink-100 disabled:text-ink-500;
+    }
+
+    textarea.field-input,
+    select.field-input[multiple],
+    select.field-input[size] {
+        @apply rounded-2xl;
+    }
+
+    /* سهم القائمة المنسدلة في جهة النهاية (اليسار في الصفحة اليمينية) */
+    select.field-input:not([multiple]):not([size]) {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23303030' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-size: 1rem;
+        background-position: left 1rem center;
+        padding-inline-end: 2.5rem;
+    }
+
+    [dir='ltr'] select.field-input:not([multiple]):not([size]) {
+        background-position: right 1rem center;
     }
 
     .field-error {
-        @apply mt-1 text-xs font-medium text-bad-700;
+        @apply mt-1.5 text-xs font-medium text-bad-700;
     }
 
     .field-hint {
-        @apply mt-1 text-xs text-ink-500;
+        @apply mt-1.5 text-xs text-ink-500;
     }
 
-    /* ------------------------------------------------------------ أزرار */
+    /* ------------------------------------------------------------ أزرار
+       حبوبٌ كاملة كقائمة التصميم: الحبر للفعل الأساسيّ، والأصفر للفعل
+       الأبرز في الشاشة، والمُحاط للثانويّ. */
+    .btn-primary,
+    .btn-accent,
+    .btn-ghost,
+    .btn-danger {
+        @apply inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm
+               font-medium whitespace-nowrap transition outline-none
+               focus-visible:ring-4 focus-visible:ring-sun/70
+               disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
     .btn-primary {
-        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
-               text-white shadow-xs transition outline-none
-               hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ink-900/20 focus-visible:ring-offset-2;
-        background-color: var(--brand);
+        @apply border-ink-900 bg-ink-900 text-white hover:bg-ink-700;
+    }
+
+    .btn-accent {
+        @apply border-ink-900 bg-sun text-ink-900 hover:brightness-95;
     }
 
     .btn-ghost {
-        @apply inline-flex items-center justify-center gap-2 rounded-lg border border-ink-300 bg-white
-               px-4 py-2 text-sm font-semibold text-ink-700 shadow-xs transition outline-none
-               hover:bg-ink-50 focus-visible:ring-2 focus-visible:ring-ink-900/15 focus-visible:ring-offset-2;
+        @apply border-ink-900 bg-white text-ink-900 hover:bg-ink-100;
     }
 
     .btn-danger {
-        @apply inline-flex items-center justify-center gap-2 rounded-lg border border-bad-200 bg-white
-               px-4 py-2 text-sm font-semibold text-bad-700 shadow-xs transition outline-none
-               hover:bg-bad-50 focus-visible:ring-2 focus-visible:ring-bad-700/20 focus-visible:ring-offset-2;
+        @apply border-bad-700 bg-white text-bad-700 hover:bg-bad-50;
+    }
+
+    /* زرّ دائريّ بأيقونة: الجرس والحساب وفتح القائمة */
+    .icon-btn {
+        @apply relative grid size-10 shrink-0 place-items-center rounded-full border border-ink-900 bg-white/60
+               text-ink-900 transition hover:bg-ink-100;
     }
 
     /* ------------------------------------------------------------ أسطح */
     .card {
-        @apply rounded-xl border border-ink-200 bg-white shadow-xs;
+        @apply rounded-[24px] border border-ink-900 bg-white;
     }
 
     .card-title {
-        @apply text-sm font-bold text-ink-900;
+        @apply text-[17px] font-semibold text-ink-900;
     }
 
     .card-hint {
-        @apply mt-1 text-xs text-ink-500;
+        @apply mt-1 text-[13px] text-ink-500;
+    }
+
+    /* رأس قسمٍ داكن كلوحة «Drivers at risk» في التصميم */
+    .panel-head {
+        @apply flex h-12 items-center gap-2.5 rounded-2xl bg-ink-900 ps-2 pe-4 text-white;
+    }
+
+    .panel-head-icon {
+        @apply grid size-8 shrink-0 place-items-center rounded-[10px] text-ink-900;
+    }
+
+    .panel-head-title {
+        @apply text-base font-semibold;
+    }
+
+    /* صفٌّ مُحاط يفتح شيئاً: سطر في قائمة اللوحة */
+    .row-link {
+        @apply flex items-center gap-3 rounded-2xl border border-ink-900 bg-white py-3 ps-4 pe-2.5 text-sm
+               transition hover:bg-sun-soft;
     }
 
     /* ------------------------------------------------------------ جداول */
@@ -167,19 +264,27 @@ body {
     }
 
     .tbl thead {
-        @apply bg-ink-50 text-xs text-ink-500;
+        @apply text-xs text-ink-500;
     }
 
     .tbl th {
-        @apply px-4 py-3 text-start font-semibold;
+        @apply border-b border-ink-900 px-4 py-3.5 text-start font-medium whitespace-nowrap;
     }
 
     .tbl tbody tr {
-        @apply border-t border-ink-100 transition hover:bg-ink-50/70;
+        @apply border-t border-ink-200 transition hover:bg-sun-soft/60;
+    }
+
+    .tbl tbody tr:first-child {
+        @apply border-t-0;
     }
 
     .tbl td {
-        @apply px-4 py-3;
+        @apply px-4 py-3.5;
+    }
+
+    .tbl tfoot {
+        @apply border-t border-ink-900 bg-ink-50 font-semibold;
     }
 
     /* رقم أو مبلغ: لاتيني، ثابت العرض، غير قابل للالتباس */
@@ -204,50 +309,109 @@ body {
 
     /* ------------------------------------------------------------ شارات */
     .chip {
-        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+        @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap;
     }
 
-    .chip-ok   { @apply bg-ok-50   text-ok-700   ring-1 ring-ok-200; }
-    .chip-info { @apply bg-info-50 text-info-700 ring-1 ring-info-200; }
-    .chip-warn { @apply bg-warn-50 text-warn-700 ring-1 ring-warn-200; }
-    .chip-bad  { @apply bg-bad-50  text-bad-700  ring-1 ring-bad-200; }
-    .chip-mute { @apply bg-ink-100 text-ink-600  ring-1 ring-ink-200; }
+    .chip-ok   { @apply border-ok-200   bg-ok-50   text-ok-700; }
+    .chip-info { @apply border-info-200 bg-info-50 text-info-700; }
+    .chip-warn { @apply border-warn-200 bg-warn-50 text-warn-700; }
+    .chip-bad  { @apply border-bad-200  bg-bad-50  text-bad-700; }
+    .chip-mute { @apply border-ink-200  bg-ink-100 text-ink-600; }
 
     /* نقطة أمام النص: قناة ثانية إلى جانب اللون والكلمة */
     .chip::before {
         content: '';
-        @apply h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70;
+        @apply h-1.5 w-1.5 shrink-0 rounded-full bg-current;
     }
 
-    /* ------------------------------------------------------- شريط جانبي */
+    /* ------------------------------------------------------------ تنبيهات */
+    .alert {
+        @apply flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm;
+    }
+
+    .alert-ok  { @apply border-ok-700/40  bg-ok-50  text-ok-700; }
+    .alert-bad { @apply border-bad-700/40 bg-bad-50 text-bad-700; }
+
+    /* ------------------------------------------------------- شريط جانبي
+       قائمة التصميم الحبّيّة عموديّةً: العنصر الحاليّ حبّةٌ داكنة. */
     .side-link {
-        @apply flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-600
+        @apply flex items-center gap-3 rounded-full px-3.5 py-2 text-sm text-ink-700
                transition hover:bg-ink-100 hover:text-ink-900;
     }
 
-    .side-link-active {
-        @apply bg-white text-ink-900 shadow-xs ring-1 ring-ink-200;
+    .side-link svg {
+        @apply size-[18px] shrink-0 text-ink-500;
+    }
+
+    .side-link-active,
+    .side-link-active:hover {
+        @apply bg-ink-900 text-white;
+    }
+
+    .side-link-active svg {
+        @apply text-sun;
     }
 
     .side-group {
-        @apply px-3 pb-1.5 pt-4 text-[11px] font-bold uppercase tracking-wide text-ink-400;
+        @apply px-3.5 pb-1.5 pt-5 text-[11px] font-medium tracking-wide text-ink-400;
+    }
+
+    /* قائمة أفقية حبّيّة كرأس التصميم: بوابة التاجر وتطبيق المندوب */
+    .pill-nav {
+        @apply flex items-center gap-0.5 rounded-full border border-ink-900 bg-white/60 p-[3px];
+    }
+
+    .pill-nav-item {
+        @apply flex items-center gap-2 rounded-full px-4 py-1.5 text-sm whitespace-nowrap text-ink-900 transition
+               hover:bg-ink-100;
+    }
+
+    .pill-nav-item-active,
+    .pill-nav-item-active:hover {
+        @apply bg-ink-900 text-ink-100;
     }
 
     /* ---------------------------------------------- بطاقة رقم في اللوحة */
     .stat {
-        @apply rounded-xl border border-ink-200 bg-white p-4 shadow-xs transition;
+        @apply rounded-[24px] border border-ink-900 bg-white px-5 py-4 transition;
     }
 
     .stat-label {
-        @apply text-xs font-medium text-ink-500;
+        @apply text-[13px] text-ink-500;
     }
 
     .stat-value {
-        @apply mt-1 text-2xl font-bold text-ink-900;
+        @apply mt-1.5 text-[28px] leading-none font-semibold text-ink-900;
     }
 
     a.stat:hover {
-        @apply border-ink-300 shadow-sm;
+        @apply bg-sun-soft;
+    }
+
+    /* بطاقة المؤشّر كما في التصميم: دائرة داكنة بأيقونة، ثم الرقم والاسم */
+    .kpi {
+        @apply flex items-center gap-4 rounded-[24px] border border-ink-900 bg-white px-4 py-3 transition;
+    }
+
+    a.kpi:hover {
+        @apply bg-sun-soft;
+    }
+
+    .kpi-accent,
+    a.kpi-accent:hover {
+        @apply bg-sun;
+    }
+
+    .kpi-icon {
+        @apply grid size-13 shrink-0 place-items-center rounded-full bg-ink-900 text-white;
+    }
+
+    .kpi-value {
+        @apply text-[28px] leading-none font-semibold text-ink-900;
+    }
+
+    .kpi-label {
+        @apply mt-1.5 text-sm text-ink-700;
     }
 }
 
@@ -293,8 +457,11 @@ body {
     /* الرابط على الورق ليس رابطاً */
     a { text-decoration: none !important; color: inherit !important; }
 
-    .card {
+    .card,
+    .stat,
+    .kpi {
         border-color: #000 !important;
+        border-radius: 6pt !important;
         box-shadow: none !important;
     }
 }

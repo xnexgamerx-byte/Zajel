@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">الأكياس</h1>
+    <h1 class="page-title">الأكياس</h1>
     <p class="mt-1 text-sm text-ink-500">
         نقل مئة طرد بين مركزين يعني مسح كيس واحد لا مئة باركود.
     </p>

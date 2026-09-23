@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">الفواتير</h1>
+    <h1 class="page-title">الفواتير</h1>
     <p class="mt-1 text-sm text-ink-500">
         اشتراك الشركة وعمولة شحناتها المسلَّمة. كل شحنة تدخل فاتورة واحدة فقط.
     </p>

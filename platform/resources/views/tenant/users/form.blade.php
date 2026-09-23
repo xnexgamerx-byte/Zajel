@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5 flex items-center justify-between">
-    <h1 class="text-xl font-bold">{{ $staff->exists ? 'تعديل ' . $staff->name : 'مستخدم جديد' }}</h1>
+    <h1 class="page-title">{{ $staff->exists ? 'تعديل ' . $staff->name : 'مستخدم جديد' }}</h1>
     <a href="{{ route('users.index') }}" class="btn-ghost">رجوع</a>
 </div>
 

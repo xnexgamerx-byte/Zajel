@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">طلبات الاستلام</h1>
+    <h1 class="page-title">طلبات الاستلام</h1>
     <p class="mt-1 text-sm text-ink-500">اطلب مندوباً يأتي إلى متجرك ليأخذ الطرود الجاهزة.</p>
 </div>
 

@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">مستخدمو الشركة</h1>
+        <h1 class="page-title">مستخدمو الشركة</h1>
         <p class="mt-1 text-sm text-ink-500">
             حسابات المندوبين والتجّار تُدار من شاشاتها، لأن لكلٍّ سجلّاً تشغيلياً لا مجرّد حساب.
         </p>

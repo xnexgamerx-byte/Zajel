@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">المحادثات</h1>
+    <h1 class="page-title">المحادثات</h1>
     <p class="mt-1 text-sm text-ink-500">أسئلة التجّار للشركة لا لموظّفٍ بعينه: يراها كل مَن يردّ، وما ينتظرنا أوّلاً.</p>
 </div>
 

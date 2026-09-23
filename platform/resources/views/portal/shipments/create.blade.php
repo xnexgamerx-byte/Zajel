@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex items-center justify-between">
     <div>
-        <h1 class="text-xl font-bold">شحنة جديدة</h1>
+        <h1 class="page-title">شحنة جديدة</h1>
         <p class="mt-1 text-sm text-ink-500">
             رقم الوصل يُولَّد عند الحفظ، والأجرة تُحسب من تسعيرتك مع {{ $company->name }}.
         </p>
@@ -134,7 +134,7 @@
                 </label>
                 <div class="relative">
                     <input id="cod_amount" name="cod_amount" type="number" min="0" step="1" required
-                           class="field-input pe-12 text-left" dir="ltr" value="{{ old('cod_amount', 0) }}">
+                           class="field-input ps-12 text-left" dir="ltr" value="{{ old('cod_amount', 0) }}">
                     <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                 </div>
                 <p class="mt-1 text-xs text-ink-500">صفر = الزبون دفع لك مسبقاً.</p>

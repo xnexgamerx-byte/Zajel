@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex items-center justify-between">
     <div>
-        <h1 class="text-xl font-bold">{{ $courier->exists ? 'تعديل ' . $courier->name : 'مندوب جديد' }}</h1>
+        <h1 class="page-title">{{ $courier->exists ? 'تعديل ' . $courier->name : 'مندوب جديد' }}</h1>
         <p class="mt-1 text-sm text-ink-500">
             {{ $courier->exists ? 'الرمز ' . $courier->code : 'الرمز يُولَّد تلقائياً عند الحفظ.' }}
         </p>
@@ -116,7 +116,7 @@
                         <label class="field-label" for="{{ $field }}">{{ $label }}</label>
                         <div class="relative">
                             <input id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="1"
-                                   class="field-input pe-12 text-left" dir="ltr"
+                                   class="field-input ps-12 text-left" dir="ltr"
                                    value="{{ old($field, $courier->$field) }}">
                             <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                         </div>
@@ -128,7 +128,7 @@
                     <label class="field-label" for="cash_limit">سقف النقد بيده</label>
                     <div class="relative">
                         <input id="cash_limit" name="cash_limit" type="number" min="0" step="1"
-                               class="field-input pe-12 text-left" dir="ltr"
+                               class="field-input ps-12 text-left" dir="ltr"
                                value="{{ old('cash_limit', $courier->cash_limit ?? 0) }}">
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>

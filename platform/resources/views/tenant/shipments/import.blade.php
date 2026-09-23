@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">رفع شحنات من ملف</h1>
+    <h1 class="page-title">رفع شحنات من ملف</h1>
     <p class="mt-1 text-sm text-ink-500">
         بديل إدخال مئة شحنة واحدة واحدة. تُعاين قبل الحفظ، ويُنبَّه على المكرّر.
     </p>

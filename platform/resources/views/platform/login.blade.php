@@ -2,14 +2,14 @@
 @section('title', 'دخول إدارة المنصّة')
 
 @section('content')
-<div class="mx-auto mt-14 w-full max-w-sm">
-    <div class="mb-7 text-center">
-        <div class="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-plat-600 text-2xl font-black text-white">ز</div>
-        <h1 class="text-xl font-bold">إدارة منصّة زاجل</h1>
+<div class="mx-auto mt-6 w-full max-w-md sm:mt-14">
+    <div class="mb-8 text-center">
+        <div class="mx-auto mb-5 grid size-16 place-items-center rounded-[22px] border border-ink-900 bg-plat-500 text-2xl font-bold text-white">ز</div>
+        <h1 class="page-title">إدارة منصّة زاجل</h1>
         <p class="mt-1 text-sm text-ink-500">دخول مدراء المنصّة فقط</p>
     </div>
 
-    <form method="POST" action="{{ route('admin.login') }}" class="card space-y-4 p-6">
+    <form method="POST" action="{{ route('admin.login') }}" class="card space-y-5 rounded-[28px] p-6 sm:p-8">
         @csrf
         <div>
             <label class="field-label" for="phone">رقم الهاتف</label>
@@ -25,10 +25,10 @@
         </div>
         <label class="flex items-center gap-2 text-sm text-ink-600">
             <input type="checkbox" name="remember" value="1"
-                   class="rounded border-ink-300 text-plat-600 focus:ring-plat-600/20">
+                   class="rounded">
             تذكّرني
         </label>
-        <button type="submit" class="btn-primary w-full">دخول</button>
+        <button type="submit" class="btn-primary w-full py-3 text-base">دخول</button>
     </form>
 </div>
 @endsection

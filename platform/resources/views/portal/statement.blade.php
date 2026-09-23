@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">حسابي مع {{ $company->name }}</h1>
+        <h1 class="page-title">حسابي مع {{ $company->name }}</h1>
         <p class="mt-1 text-sm text-ink-500">
             كل سطر هنا نتيجة حدث على شحنة — لا إدخال يدوي.
         </p>

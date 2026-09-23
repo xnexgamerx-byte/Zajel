@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">تتبّع التغييرات</h1>
+        <h1 class="page-title">تتبّع التغييرات</h1>
         <p class="mt-1 text-sm text-ink-500">مَن غيّر ماذا ومتى — سجلٌّ لا يُعدَّل ولا يُحذف منه شيء.</p>
     </div>
     <a href="{{ route('reports.index', $period->query()) }}" class="btn-ghost">كل التقارير</a>

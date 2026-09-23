@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex items-center justify-between">
     <div>
-        <h1 class="text-xl font-bold">شحنة جديدة</h1>
+        <h1 class="page-title">شحنة جديدة</h1>
         <p class="mt-1 text-sm text-ink-500">رقم الوصل يُولَّد تلقائياً عند الحفظ.</p>
     </div>
     <a href="{{ route('shipments.index') }}" class="btn-ghost">رجوع للقائمة</a>
@@ -176,7 +176,7 @@
                     </label>
                     <div class="relative">
                         <input id="cod_amount" name="cod_amount" type="number" min="0" step="1"
-                               value="{{ old('cod_amount', 0) }}" class="field-input pe-12 text-left" dir="ltr" required>
+                               value="{{ old('cod_amount', 0) }}" class="field-input ps-12 text-left" dir="ltr" required>
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>
                     <p class="mt-1 text-xs text-ink-500">صفر = مدفوع مسبقاً.</p>
@@ -199,7 +199,7 @@
                     <label class="field-label" for="delivery_fee">أجرة التوصيل</label>
                     <div class="relative">
                         <input id="delivery_fee" name="delivery_fee" type="number" min="0" step="1"
-                               value="{{ old('delivery_fee') }}" class="field-input pe-12 text-left" dir="ltr"
+                               value="{{ old('delivery_fee') }}" class="field-input ps-12 text-left" dir="ltr"
                                placeholder="تُحسب من التسعيرة">
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>

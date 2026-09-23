@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">الشركات المشتركة</h1>
+        <h1 class="page-title">الشركات المشتركة</h1>
         <p class="mt-1 text-sm text-ink-500">لكل شركة نظامها المعزول على نطاقها الفرعي.</p>
     </div>
     <a href="{{ route('admin.companies.create') }}" class="btn-primary">+ تسجيل شركة</a>

@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">{{ $conversation->subject }}</h1>
+        <h1 class="page-title">{{ $conversation->subject }}</h1>
         <p class="mt-1 text-sm text-ink-500">
             <a href="{{ route('merchants.show', $conversation->merchant_id) }}" class="hover:underline">{{ $conversation->merchant?->business_name }}</a>
             <span class="num">· {{ $conversation->merchant?->phone }}</span>

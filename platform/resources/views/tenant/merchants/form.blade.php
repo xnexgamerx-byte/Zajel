@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex items-center justify-between">
     <div>
-        <h1 class="text-xl font-bold">{{ $merchant->exists ? 'تعديل ' . $merchant->business_name : 'تاجر جديد' }}</h1>
+        <h1 class="page-title">{{ $merchant->exists ? 'تعديل ' . $merchant->business_name : 'تاجر جديد' }}</h1>
         @if ($merchant->exists)
             <p class="mt-1 text-sm text-ink-500">الرمز {{ $merchant->code }}</p>
         @else

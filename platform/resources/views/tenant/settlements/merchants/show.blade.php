@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
         <div class="flex items-center gap-3">
-            <h1 class="font-mono text-2xl font-bold" dir="ltr">{{ $settlement->code }}</h1>
+            <h1 class="page-title font-mono" dir="ltr">{{ $settlement->code }}</h1>
             <x-settlement-status :status="$settlement->status" />
         </div>
         <p class="mt-1 text-sm text-ink-500">

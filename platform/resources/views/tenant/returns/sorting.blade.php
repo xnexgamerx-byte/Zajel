@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">فرز الراجع للفروع</h1>
+        <h1 class="page-title">فرز الراجع للفروع</h1>
         <p class="mt-1 text-sm text-ink-500">
             الراجع يعود إلى حيث يقف المندوب لا إلى حيث يقف التاجر. ما على رفٍّ غير رفّ فرع تاجره يُكيَّس إليه.
         </p>

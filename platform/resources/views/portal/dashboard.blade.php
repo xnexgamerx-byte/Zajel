@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">أهلاً {{ $merchant->owner_name ?: $merchant->business_name }}</h1>
+        <h1 class="page-title">أهلاً {{ $merchant->owner_name ?: $merchant->business_name }}</h1>
         <p class="mt-1 text-sm text-ink-500">وضع شحناتك وحسابك مع {{ $company->name }}.</p>
     </div>
     <a href="{{ route('portal.shipments.create') }}" class="btn-primary">+ شحنة جديدة</a>

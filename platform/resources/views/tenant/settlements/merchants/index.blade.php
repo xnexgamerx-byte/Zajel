@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">تسويات التجّار</h1>
+    <h1 class="page-title">تسويات التجّار</h1>
     <p class="mt-1 text-sm text-ink-500">
         كشف حساب ثم دفع — خطوتان لا واحدة، فالكشف يُتّفق عليه قبل أن يتحرّك المال.
     </p>

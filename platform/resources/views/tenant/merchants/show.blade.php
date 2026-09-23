@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">{{ $merchant->business_name }}</h1>
+        <h1 class="page-title">{{ $merchant->business_name }}</h1>
         <p class="mt-1 text-sm text-ink-500">
             <span class="font-mono" dir="ltr">{{ $merchant->code }}</span>
             @if ($merchant->owner_name) · {{ $merchant->owner_name }} @endif

@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
         <div class="flex items-center gap-3">
-            <h1 class="font-mono text-2xl font-bold" dir="ltr">{{ $settlement->code }}</h1>
+            <h1 class="page-title font-mono" dir="ltr">{{ $settlement->code }}</h1>
             <x-settlement-status :status="$settlement->status" />
         </div>
         <p class="mt-1 text-sm text-ink-500">
@@ -116,7 +116,7 @@
                     <label class="field-label" for="deductions">خصومات عليه</label>
                     <div class="relative">
                         <input id="deductions" name="deductions" type="number" min="0" step="1"
-                               value="{{ old('deductions', 0) }}" class="field-input pe-12 text-left" dir="ltr">
+                               value="{{ old('deductions', 0) }}" class="field-input ps-12 text-left" dir="ltr">
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>
                     <p class="mt-1 text-xs text-ink-500">تلف، غرامة، أو نقص — تزيد ما يسلّمه.</p>

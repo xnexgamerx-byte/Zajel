@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5 flex items-center justify-between">
-    <h1 class="text-xl font-bold">{{ $branch->exists ? 'تعديل ' . $branch->name : 'فرع جديد' }}</h1>
+    <h1 class="page-title">{{ $branch->exists ? 'تعديل ' . $branch->name : 'فرع جديد' }}</h1>
     <a href="{{ route('branches.index') }}" class="btn-ghost">رجوع</a>
 </div>
 

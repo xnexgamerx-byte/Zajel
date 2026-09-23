@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5 flex items-center justify-between">
-    <h1 class="text-xl font-bold">{{ $plan->exists ? 'تعديل ' . $plan->name : 'باقة جديدة' }}</h1>
+    <h1 class="page-title">{{ $plan->exists ? 'تعديل ' . $plan->name : 'باقة جديدة' }}</h1>
     <a href="{{ route('admin.plans.index') }}" class="btn-ghost">رجوع</a>
 </div>
 
@@ -85,7 +85,7 @@
                         <label class="field-label" for="{{ $field }}">{{ $label }}</label>
                         <div class="relative">
                             <input id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="1"
-                                   class="field-input pe-12 text-left" dir="ltr" required
+                                   class="field-input ps-12 text-left" dir="ltr" required
                                    value="{{ old($field, $plan->$field ?? 0) }}">
                             <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                         </div>

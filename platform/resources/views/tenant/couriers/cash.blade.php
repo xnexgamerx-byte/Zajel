@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">النقد بيد المندوبين</h1>
+        <h1 class="page-title">النقد بيد المندوبين</h1>
         <p class="mt-1 text-sm text-ink-500">
             ما حُصِّل من الزبائن ولم يُسلَّم للشركة بعد، والعمولة المستحقّة لكل مندوب.
             الأرقام مشتقّة من دفتر الحركات لا مُدخَلة يدوياً.

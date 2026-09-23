@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">المندوبون</h1>
+        <h1 class="page-title">المندوبون</h1>
         <p class="mt-1 text-sm text-ink-500">
             مندوب الاستلام ومندوب التوصيل وظيفتان مختلفتان — والنوع هنا يحدّد ما يُسنَد إليه.
         </p>

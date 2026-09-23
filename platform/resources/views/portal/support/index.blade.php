@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">الدعم</h1>
+    <h1 class="page-title">الدعم</h1>
     <p class="mt-1 text-sm text-ink-500">اسأل {{ $company->name }} هنا، وتجد الردّ في المحادثة نفسها.</p>
 </div>
 

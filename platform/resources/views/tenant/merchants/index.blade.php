@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">التجّار</h1>
+        <h1 class="page-title">التجّار</h1>
         <p class="mt-1 text-sm text-ink-500">زبائن شركتك — من يرسل الشحنات.</p>
     </div>
     <div class="flex items-center gap-3">

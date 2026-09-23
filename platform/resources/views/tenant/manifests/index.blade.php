@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">كشوف النقل</h1>
+        <h1 class="page-title">كشوف النقل</h1>
         <p class="mt-1 text-sm text-ink-500">سيارة واحدة، سائق واحد، عدّة أكياس — وورقة تُثبت مَن سلّم ومَن استلم.</p>
     </div>
     @if ($inbound)

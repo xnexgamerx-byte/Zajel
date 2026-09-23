@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">عملاء منقطعون</h1>
+        <h1 class="page-title">عملاء منقطعون</h1>
         <p class="mt-1 text-sm text-ink-500">تجّار نشطون لم يُرسلوا شحنة واحدة منذ {{ \App\Support\Arabic::days($days) }}.</p>
     </div>
     <a href="{{ route('reports.index') }}" class="btn-ghost">كل التقارير</a>

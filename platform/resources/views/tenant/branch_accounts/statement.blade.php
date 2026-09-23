@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">كشف حساب {{ $branch?->name ?? 'الفرع' }}</h1>
+        <h1 class="page-title">كشف حساب {{ $branch?->name ?? 'الفرع' }}</h1>
         <p class="mt-1 text-sm text-ink-500">
             كل دينارٍ دخل صناديق الفرع أو خرج منها، بالترتيب، برصيدٍ جارٍ من الافتتاحيّ إلى الختاميّ.
         </p>

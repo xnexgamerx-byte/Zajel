@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex items-center justify-between">
     <div>
-        <h1 class="text-xl font-bold">تسجيل شركة جديدة</h1>
+        <h1 class="page-title">تسجيل شركة جديدة</h1>
         <p class="mt-1 text-sm text-ink-500">
             يُنشأ نظام كامل: فرع، مركز فرز، تسعيرة افتراضية، وحساب صاحب الشركة.
         </p>

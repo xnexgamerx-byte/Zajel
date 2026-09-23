@@ -8,7 +8,7 @@
 
     <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-            <h1 class="text-xl font-bold">{{ $list->name }}</h1>
+            <h1 class="page-title">{{ $list->name }}</h1>
             <p class="mt-1 text-sm text-ink-500">
                 اترك أجرة التوصيل فارغة لتُحذف قاعدة تلك المحافظة وتُستعمل القاعدة العامة.
             </p>

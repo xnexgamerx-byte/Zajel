@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="text-xl font-bold">معاينة الاستيراد</h1>
+    <h1 class="page-title">معاينة الاستيراد</h1>
     <p class="mt-1 text-sm text-ink-500">لم يُحفَظ شيء بعد.</p>
 </div>
 
