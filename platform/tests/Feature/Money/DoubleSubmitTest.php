@@ -169,6 +169,65 @@ class DoubleSubmitTest extends TestCase
         });
     }
 
+    private function outForDelivery(int $cod = 100_000): Shipment
+    {
+        return Tenancy::runFor($this->company, function () use ($cod) {
+            $shipment = app(CreateShipment::class)->handle([
+                'merchant_id' => $this->merchant->id, 'recipient_name' => 'علي',
+                'recipient_phone' => '07801234567', 'governorate_id' => $this->baghdad()->id,
+                'address' => 'بغداد', 'landmark' => 'قرب الجامع', 'cod_amount' => $cod,
+            ], $this->staff);
+
+            $change = app(ChangeShipmentStatus::class);
+            $change->handle($shipment->refresh(), ShipmentStatus::PickedUp, $this->staff);
+            $change->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, $this->staff, ['courier_id' => $this->courier->id]);
+
+            return $shipment->refresh();
+        });
+    }
+
+    /** نقرتان على «سُلِّمت» من هاتف المندوب: الثانية لا تُضيف شيئاً. */
+    public function test_a_double_tap_on_delivered_credits_once(): void
+    {
+        $shipment = $this->outForDelivery();
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            [$a, $b] = [Shipment::findOrFail($shipment->id), Shipment::findOrFail($shipment->id)];
+            $change = app(ChangeShipmentStatus::class);
+
+            $change->handle($a, ShipmentStatus::Delivered, $this->staff);
+            $change->handle($b, ShipmentStatus::Delivered, $this->staff);
+
+            $this->assertSame(1, Transaction::where('category', 'cod_collected')->count());
+            $this->assertSame(1, Transaction::where('category', 'shipment_due')->count());
+            $this->assertSame(100_000, (int) $this->courier->fresh()->cash_in_hand);
+        });
+    }
+
+    /**
+     * وأسوأ منها: نسخةٌ قديمة تقول «مع المندوب» فتُسجّل محاولةً فاشلة على
+     * شحنةٍ سُلِّمت وقُيّد نقدها — فتنقلب المسلَّمة فاشلةً والمال باقٍ.
+     */
+    public function test_a_stale_copy_cannot_undo_a_delivery(): void
+    {
+        $shipment = $this->outForDelivery();
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            [$a, $b] = [Shipment::findOrFail($shipment->id), Shipment::findOrFail($shipment->id)];
+            $change = app(ChangeShipmentStatus::class);
+            $reason = \App\Models\FailureReason::where('code', 'no_answer')->value('id');
+
+            $change->handle($a, ShipmentStatus::Delivered, $this->staff);
+
+            try {
+                $change->handle($b, ShipmentStatus::FailedAttempt, $this->staff, ['failure_reason_id' => $reason]);
+                $this->fail('نسخةٌ قديمة أعادت شحنةً مسلَّمة إلى «محاولة فاشلة».');
+            } catch (ValidationException) {
+                $this->assertSame(ShipmentStatus::Delivered, $shipment->fresh()->status);
+            }
+        });
+    }
+
     public function test_an_expense_is_paid_once(): void
     {
         Tenancy::runFor($this->company, function () {

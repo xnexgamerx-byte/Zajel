@@ -27,6 +27,28 @@ class ChangeShipmentStatus
         ?User $actor = null,
         array $options = [],
     ): Shipment {
+        return DB::transaction(function () use ($shipment, $to, $actor, $options) {
+            /*
+            | الحال من القاعدة بعد قفل الصفّ، لا من النسخة التي بيد المستدعي.
+            |
+            | كان «من أين» يُقرأ من الذاكرة ويُفحَص خارج المعاملة. فنقرتان على
+            | «سُلِّمت» تقيّدان التسليم مرّتين (النقد والعمولة ومستحقّ التاجر)،
+            | ونسخةٌ قديمة تقول «مع المندوب» تُسجّل محاولةً فاشلة على شحنةٍ
+            | سُلِّمت وقُيّد مالها. الآن النقرة الثانية لا تفعل شيئاً — الحال
+            | صارت ما طُلب — والانتقال من حالٍ مضت يُرفض.
+            */
+            $shipment->setRawAttributes(
+                Shipment::query()->lockForUpdate()->findOrFail($shipment->id)->getAttributes(),
+                true,
+            );
+            $shipment->setRelations([]);
+
+            return $this->transition($shipment, $to, $actor, $options);
+        });
+    }
+
+    protected function transition(Shipment $shipment, ShipmentStatus $to, ?User $actor, array $options): Shipment
+    {
         $from = $shipment->status;
 
         if ($from === $to) {
