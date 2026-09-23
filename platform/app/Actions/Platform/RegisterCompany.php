@@ -128,9 +128,10 @@ class RegisterCompany
             'commission_per_shipment' => $plan->commission_per_shipment,
             'commission_percent'      => $plan->commission_percent,
             'starts_at'               => now()->toDateString(),
+            // بلا فيضان: اشتراكٌ يبدأ ٣١ كانون الثاني ينتهي آخر شباط لا ٣ آذار
             'ends_at'                 => $cycle === 'yearly'
-                ? now()->addYear()->toDateString()
-                : now()->addMonth()->toDateString(),
+                ? now()->addYearNoOverflow()->toDateString()
+                : now()->addMonthNoOverflow()->toDateString(),
             'auto_renew'              => true,
         ]));
     }

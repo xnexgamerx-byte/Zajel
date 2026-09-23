@@ -155,8 +155,9 @@
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-ink-500">المتبقّي</dt>
-                        <dd class="font-bold {{ $subscription->daysRemaining() <= 7 ? 'text-bad-700' : 'text-[var(--brand)]' }}">
-                            {{ $subscription->daysRemaining() }} يوم
+                        @php $days = $subscription->daysUntilEnd(); @endphp
+                        <dd class="font-bold {{ $days <= 7 ? 'text-bad-700' : 'text-[var(--brand)]' }}">
+                            {{ $days < 0 ? 'انتهى منذ '.\App\Support\Arabic::days(-$days) : ($days === 0 ? 'ينتهي اليوم' : \App\Support\Arabic::days($days)) }}
                         </dd>
                     </div>
                 </dl>

@@ -36,6 +36,27 @@ class Subscription extends Model
 
     public function daysRemaining(): int
     {
-        return max(0, (int) now()->startOfDay()->diffInDays($this->ends_at, false));
+        return max(0, $this->daysUntilEnd());
+    }
+
+    /**
+     * الأيام حتى النهاية بإشارتها: سالبٌ لما انتهى.
+     *
+     * daysRemaining تقصّ السالب إلى صفر — فاشتراكٌ انتهى قبل عشرة أيام
+     * كان يُعرض «ينتهي اليوم». وهذا يُبقي الماضي ماضياً.
+     */
+    public function daysUntilEnd(): int
+    {
+        return (int) now()->startOfDay()->diffInDays($this->ends_at->copy()->startOfDay(), false);
+    }
+
+    /** موضعه على خطّ الانتهاء: lapsed (انتهى ولم يُجدَّد)، today، soon. */
+    public function expiryState(): string
+    {
+        return match (true) {
+            $this->daysUntilEnd() < 0   => 'lapsed',
+            $this->daysUntilEnd() === 0 => 'today',
+            default                     => 'soon',
+        };
     }
 }

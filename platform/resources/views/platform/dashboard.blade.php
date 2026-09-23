@@ -48,27 +48,55 @@
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
     <section class="card p-5">
-        <h2 class="mb-4 text-sm font-bold">اشتراكات تنتهي خلال أسبوعين</h2>
+        <h2 class="mb-4 text-sm font-bold">انتهاء الاشتراكات</h2>
 
         @if ($expiring->isEmpty())
-            <p class="py-8 text-center text-sm text-ink-500">لا شيء ينتهي قريباً.</p>
+            <p class="py-8 text-center text-sm text-ink-500">لا اشتراك انتهى ولا ينتهي خلال أسبوعين.</p>
         @else
-            <div class="divide-y divide-ink-100">
-                @foreach ($expiring as $subscription)
-                    <div class="flex flex-wrap items-center justify-between gap-2 py-2.5">
-                        <a href="{{ route('admin.companies.show', $subscription->company) }}"
-                           class="font-semibold text-[var(--brand)] hover:underline">
-                            {{ $subscription->company->name }}
-                        </a>
-                        <span class="text-xs text-ink-500">{{ $subscription->plan->name }}</span>
-                        @php $days = $subscription->daysRemaining(); @endphp
-                        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1
-                                     {{ $days <= 3 ? 'bg-bad-50 text-bad-700 ring-bad-200' : 'bg-warn-50 text-warn-700 ring-warn-200' }}">
-                            {{ $days === 0 ? 'ينتهي اليوم' : "باقٍ {$days} يوم" }}
-                        </span>
+            @foreach ([
+                'lapsed' => ['انتهت ولم تُجدَّد', 'chip-bad'],
+                'today'  => ['تنتهي اليوم', 'chip-warn'],
+                'soon'   => ['تنتهي خلال أسبوعين', 'chip-info'],
+            ] as $state => [$heading, $tone])
+                @continue(! $expiring->has($state))
+                <div class="mb-4 last:mb-0">
+                    <div class="mb-1.5 flex items-center gap-2">
+                        <span class="chip {{ $tone }}">{{ $heading }}</span>
+                        <span class="num text-xs text-ink-500">{{ number_format($expiring[$state]->count()) }}</span>
                     </div>
-                @endforeach
-            </div>
+                    <div class="divide-y divide-ink-100">
+                        @foreach ($expiring[$state] as $subscription)
+                            @php $days = $subscription->daysUntilEnd(); @endphp
+                            <div class="flex flex-wrap items-center justify-between gap-2 py-2">
+                                <a href="{{ route('admin.companies.show', $subscription->company) }}"
+                                   class="font-semibold text-[var(--brand)] hover:underline">
+                                    {{ $subscription->company->name }}
+                                </a>
+                                <span class="text-xs text-ink-500">
+                                    {{ $subscription->plan->name }}
+                                    @if ($subscription->status === 'trialing') · تجريبي @endif
+                                    @if ($subscription->status === 'past_due') · متأخّر الدفع @endif
+                                </span>
+                                <span class="text-xs {{ $days < 0 ? 'font-semibold text-bad-700' : 'text-ink-600' }}">
+                                    @if ($days < 0)
+                                        انتهى منذ {{ \App\Support\Arabic::days(-$days) }}
+                                    @elseif ($days === 0)
+                                        اليوم
+                                    @else
+                                        باقٍ {{ \App\Support\Arabic::days($days) }} · <span class="num">{{ $subscription->ends_at->format('Y-m-d') }}</span>
+                                    @endif
+                                    {{-- التلقائيّ النشط يتجدّد ليلاً (zajel:renew)؛ غيره يحتاج قراراً --}}
+                                    @if ($subscription->status === 'active' && $subscription->auto_renew)
+                                        <span class="chip chip-mute ms-1">يتجدّد تلقائياً</span>
+                                    @elseif ($days >= 0)
+                                        <span class="chip chip-warn ms-1">لا يتجدّد</span>
+                                    @endif
+                                </span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endforeach
         @endif
     </section>
 

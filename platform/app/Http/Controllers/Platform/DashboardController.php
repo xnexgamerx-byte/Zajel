@@ -23,13 +23,20 @@ class DashboardController extends Controller
             ->selectRaw('sum(case when status = ? then 1 else 0 end) as delivered', [ShipmentStatus::Delivered->value])
             ->first();
 
-        // اشتراكات تنتهي خلال أسبوعين — تذكير تجديد لا تقرير
+        /*
+        | خطّ انتهاء الاشتراكات: انتهى ولم يُجدَّد، ينتهي اليوم، ينتهي قريباً.
+        |
+        | «انتهى ولم يُجدَّد» أخطرها: شركةٌ تعمل على اشتراكٍ مضى أجله —
+        | إمّا فاتورةٌ لم تُحصَّل أو إيقافٌ لم يُنفَّذ. وكان يُعرض «ينتهي
+        | اليوم» لأن العدّ كان يقصّ السالب إلى صفر.
+        */
         $expiring = Subscription::acrossCompanies()
-            ->whereIn('status', ['trialing', 'active'])
+            ->whereIn('status', ['trialing', 'active', 'past_due'])
             ->whereUntilDate('ends_at', now()->addDays(14))
             ->with(['plan:id,name', 'company:id,name,slug,status'])
             ->orderBy('ends_at')
-            ->get();
+            ->get()
+            ->groupBy(fn (Subscription $s) => $s->expiryState());
 
         $mrr = (int) Subscription::acrossCompanies()
             ->whereIn('status', ['active'])

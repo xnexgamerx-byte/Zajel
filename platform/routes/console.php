@@ -16,3 +16,12 @@ Schedule::command('zajel:bill')
     ->monthlyOn(2, '02:00')
     ->timezone('Asia/Baghdad')
     ->withoutOverlapping();
+
+/*
+| تجديد الاشتراكات التلقائية كل ليلة، قبل أن يفتح أحدٌ لوحة المنصّة:
+| ما يظهر فيها «انتهى ولم يُجدَّد» يكون حينها ما يحتاج قراراً فعلاً.
+*/
+Schedule::command('zajel:renew')
+    ->dailyAt('01:00')
+    ->timezone('Asia/Baghdad')
+    ->withoutOverlapping();
