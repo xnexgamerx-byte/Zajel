@@ -418,18 +418,25 @@ class ReportController extends Controller
         | نسبة الرجوع من المُقفَل في المدّة لا من الإجمالي: الشحنة المفتوحة
         | لم يُعرف مصيرها بعد. والمُقفَل يُقرأ بتاريخ إقفاله — تسليماً أو
         | رجوعاً — لا بتاريخ إنشائه.
+        |
+        | استعلامان لا «أو» واحدة بين عمودَي تاريخ: «أو» كهذه لا يخدمها فهرس،
+        | فكان التقرير يقرأ الشحنات كلّها منذ أوّل يوم (٣٢٥ مللي ثانية على
+        | ١٦٥ ألفاً). والمجموعتان لا تتداخلان: للشحنة حالةٌ واحدة.
         */
-        $closed = Shipment::query()
+        $closedBy = fn (array $statuses, string $column) => Shipment::query()
             ->visibleTo($request->user())
-            ->where(fn ($q) => $q
-                ->where(fn ($d) => $d->whereIn('status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
-                    ->whereBetween('delivered_at', [$from, $to]))
-                ->orWhere(fn ($r) => $r->where('status', ShipmentStatus::Returned->value)
-                    ->whereBetween('returned_at', [$from, $to])))
+            ->whereIn('status', $statuses)
+            ->whereBetween($column, [$from, $to])
             ->selectRaw('merchant_id, count(*) as closed')
             ->groupBy('merchant_id')
             ->toBase()
             ->pluck('closed', 'merchant_id');
+
+        $closed = $closedBy([ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value], 'delivered_at');
+
+        foreach ($closedBy([ShipmentStatus::Returned->value], 'returned_at') as $merchantId => $count) {
+            $closed[$merchantId] = ($closed[$merchantId] ?? 0) + $count;
+        }
 
         $merchants = $returned()
             ->join('merchants', 'merchants.id', '=', 'shipments.merchant_id')
