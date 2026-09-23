@@ -132,9 +132,16 @@ class ReportsTest extends TestCase
 
     public function test_the_month_expression_matches_the_database_driver(): void
     {
-        // التعبير يختلف بين المحرّكين، والإنتاج MySQL والاختبارات SQLite
-        $this->assertSame("strftime('%Y-%m', created_at)", SqlDate::month('created_at'));
-        $this->assertSame('date(created_at)', SqlDate::day('created_at'));
+        // التعبير يختلف بين المحرّكين، فيُحكَم عليه بما يُرجعه على المحرّك
+        // الموصول لا بنصّه: كان الاختبار يثبّت صيغة SQLite فيسقط على MySQL
+        // والكودُ فيه سليم.
+        $row = \Illuminate\Support\Facades\DB::selectOne(
+            'select '.SqlDate::month('created_at').' as m, '.SqlDate::day('created_at').' as d'
+            ." from (select '2026-09-15 23:30:00' as created_at) t",
+        );
+
+        $this->assertSame('2026-09', $row->m);
+        $this->assertSame('2026-09-15', (string) $row->d);
     }
 
     // ── ١ لماذا ترجع شحناتي ─────────────────────────────────────────
