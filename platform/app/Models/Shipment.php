@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class Shipment extends Model
 {
@@ -156,6 +157,15 @@ class Shipment extends Model
     /**
      * البحث الموحّد الذي تستعمله خدمة العملاء: رقم وصل، باركود،
      * رقم طلب التاجر، أو رقم هاتف المستلم.
+     *
+     * اتّحادٌ لا «أو». MySQL لا يدمج فهارسَ «أو» واحدةٍ معها شرط الشركة
+     * (جُرّب حتى بتلميح INDEX_MERGE)، فكان يمسح شحنات الشركة كلّها: ٤٥٠
+     * مللي ثانية على ١٦٥ ألفاً، تكبر كل يوم. كل فرعٍ هنا بحثٌ في فهرسه
+     * وحده، والنتيجة معرّفاتٌ قليلة تُقرأ صفوفها بالمفتاح: ١٠.
+     *
+     * كل فرعٍ استعلامٌ من النموذج نفسه فيمرّ بنطاق الشركة — الاتّحاد لا
+     * يرى شحنات شركةٍ أخرى. ويُرفَع عنه الحذف الناعم وحده، لأن الاستعلام
+     * الخارجي يحمله، فتبقى الفروع قراءةً من الفهرس لا من الجدول.
      */
     public function scopeSearch(Builder $q, ?string $term): Builder
     {
@@ -165,19 +175,30 @@ class Shipment extends Model
             return $q;
         }
 
-        return $q->where(function (Builder $w) use ($term) {
-            $w->where('number', $term)
-                ->orWhere('barcode', $term)
-                ->orWhere('merchant_reference', $term)
-                ->orWhere('recipient_phone', $term)
-                ->orWhere('recipient_phone_alt', $term);
+        $branch = fn (string $column, string $operator, string $value) => static::query()
+            ->withoutGlobalScope(SoftDeletingScope::class)
+            ->where($column, $operator, $value)
+            ->select('id')
+            ->toBase();
 
-            // بحث جزئي بالاسم فقط عند 3 أحرف فأكثر — حتى لا نمسح الجدول
-            if (mb_strlen($term) >= 3) {
-                $w->orWhere('recipient_name', 'like', $term.'%')
-                    ->orWhere('number', 'like', $term.'%');
-            }
-        });
+        $hits = $branch('number', '=', $term);
+
+        foreach (['barcode', 'merchant_reference', 'recipient_phone', 'recipient_phone_alt'] as $column) {
+            $hits->union($branch($column, '=', $term));
+        }
+
+        // بحث جزئي بالاسم فقط عند 3 أحرف فأكثر — بدايةٌ تُقرأ من الفهرس
+        if (mb_strlen($term) >= 3) {
+            $hits->union($branch('recipient_name', 'like', $term.'%'))
+                ->union($branch('number', 'like', $term.'%'));
+        }
+
+        // في جدولٍ مشتقّ: MySQL لا يربط «IN (اتّحاد)» ربطاً نصفيّاً فيعيده مع
+        // كل صفّ، والمشتقّ يُحسَب مرّةً ثم يُقرأ بالمفتاح
+        return $q->whereIn(
+            $q->qualifyColumn('id'),
+            fn ($sub) => $sub->fromSub($hits, 'search_hits')->select('search_hits.id'),
+        );
     }
 
     /**

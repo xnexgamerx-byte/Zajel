@@ -25,9 +25,12 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // كل العدّادات من استعلام واحد مجمَّع بدل ستّة
+        // كل العدّادات من استعلام واحد مجمَّع بدل ستّة، على المفتوحة وحدها:
+        // البطاقات لا تعدّ غيرها، والمنتهية تكبر مع كل يوم (١٥٥ ألفاً من ١٦٥
+        // في سنة) فكان التجميع يقرأها كلّها ليرميها: ٧٨ مللي ثانية ← ٢
         $byStatus = Shipment::query()
             ->visibleTo($user)
+            ->whereIn('status', ShipmentStatus::openValues())
             ->selectRaw('status, count(*) as c, sum(cod_amount) as cod')
             ->groupBy('status')
             ->toBase()
