@@ -212,11 +212,40 @@ class Shipment extends Model
                 ->orWhere($q->qualifyColumn('pickup_courier_id'), $user->courier_id ?? 0));
         }
 
+        /*
+        | الفرع يرى شحنات تجّاره، وما وصل مركزه ليوزّعه.
+        |
+        | branch_id فرعُ المنشأ (فرع التاجر)، فشحنةٌ من تاجرٍ في بغداد
+        | إلى زبونٍ في البصرة لم يكن يراها موظّف البصرة ولو كانت على
+        | رفّه تنتظر مندوباً منه. hub_id مكانها الآن، فيدخل به.
+        */
         if ($user->isBranchLimited()) {
-            return $q->where($q->qualifyColumn('branch_id'), $user->branch_id);
+            return $q->where(fn (Builder $w) => $w
+                ->where($q->qualifyColumn('branch_id'), $user->branch_id)
+                ->orWhereIn($q->qualifyColumn('hub_id'), Hub::query()->select('id')->where('branch_id', $user->branch_id)));
         }
 
         return $q;
+    }
+
+    /**
+     * ربط المسار بالشحنة يمرّ بـ visibleTo لمن سجّل دخوله.
+     *
+     * كانت أربعة مسارات تكتب على شحنةٍ برقمها — تغيير الحالة، وتأكيد
+     * المبلغ الذي لا رجعة فيه، وحسم التكرار مرّتين — بلا فحص رؤية: صفحة
+     * الشحنة تُرجع 404 لموظّف فرعٍ آخر، والإرسال إليها يمرّ. والفحص هنا
+     * يغطّي كل مسارٍ فيه {shipment} اليوم وما يُضاف غداً، للموظّف والمندوب
+     * والتاجر معاً، فلا يتوقّف على تذكّر سطرٍ في كل متحكّم.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $query = $this->newQuery()->where($field ?? $this->getRouteKeyName(), $value);
+
+        if ($user = auth()->user()) {
+            $query->visibleTo($user);
+        }
+
+        return $query->first();
     }
 
     // ---------------------------------------------------------------- مساعدات
