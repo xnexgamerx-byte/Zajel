@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\AppendOnly;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\FitsColumns;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,11 +14,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ShipmentEvent extends Model
 {
-    use AppendOnly, BelongsToCompany;
+    use AppendOnly, BelongsToCompany, FitsColumns;
 
     public const UPDATED_AT = null;
 
     protected $guarded = ['id'];
+
+    /** نصٌّ مُركَّب يُقصّ على عموده بدل أن يُسقط الحفظ — FitsColumns */
+    protected array $fits = ['note' => 500];
 
     /**
      * أنواع الأحداث — مصدرٌ واحد لا قائمتان.

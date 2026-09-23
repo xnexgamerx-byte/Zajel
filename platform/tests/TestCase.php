@@ -26,6 +26,20 @@ abstract class TestCase extends BaseTestCase
         return $prefix.substr(str_pad((string) crc32($seed), 7, '0', STR_PAD_LEFT), -7);
     }
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        /*
+        | أطوال الأعمدة كما في الإنتاج: SQLite لا تفرضها وMySQL تفرضها.
+        | بلا هذا يمرّ نصٌّ أطول من عموده في كل اختبار ويُسقط الصفحة في
+        | الإنتاج — Tests\Support\ColumnLengths.
+        */
+        \Illuminate\Support\Facades\Event::listen('eloquent.saving: *', function (string $event, array $models) {
+            \Tests\Support\ColumnLengths::assertFits($models[0]);
+        });
+    }
+
     protected function tearDown(): void
     {
         Tenancy::forget();

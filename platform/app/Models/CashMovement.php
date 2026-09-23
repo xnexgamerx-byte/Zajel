@@ -4,16 +4,20 @@ namespace App\Models;
 
 use App\Models\Concerns\AppendOnly;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\FitsColumns;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CashMovement extends Model
 {
-    use AppendOnly, BelongsToCompany;
+    use AppendOnly, BelongsToCompany, FitsColumns;
 
     public $timestamps = false;
 
     protected $guarded = ['id'];
+
+    /** نصٌّ مُركَّب يُقصّ على عموده بدل أن يُسقط الحفظ — FitsColumns */
+    protected array $fits = ['description' => 255];
 
     protected function casts(): array
     {
