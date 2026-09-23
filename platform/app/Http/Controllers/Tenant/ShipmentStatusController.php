@@ -78,7 +78,7 @@ class ShipmentStatusController extends Controller
             $moved++;
         }
 
-        $message = "أُسندت {$moved} شحنة إلى {$courier->name}.";
+        $message = 'أُسندت '.\App\Support\Arabic::shipments($moved)." إلى {$courier->name}.";
 
         if ($skipped) {
             $message .= ' تُخطّيت '.count($skipped).' شحنة لأن حالتها لا تسمح: '

@@ -100,5 +100,5 @@
     @endif
 </div>
 
-<p class="mt-3 text-xs text-ink-500">الإجمالي: {{ number_format($shipments->total()) }} شحنة</p>
+<p class="mt-3 text-xs text-ink-500">الإجمالي: {{ \App\Support\Arabic::shipments($shipments->total()) }}</p>
 @endsection

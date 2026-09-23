@@ -107,7 +107,7 @@
                         <select name="bag_id" class="field-input" required>
                             @foreach ($available as $bag)
                                 <option value="{{ $bag->id }}">
-                                    {{ $bag->code }} ({{ number_format($bag->shipments_count) }} شحنة)
+                                    {{ $bag->code }} ({{ \App\Support\Arabic::shipments((int) $bag->shipments_count) }})
                                 </option>
                             @endforeach
                         </select>

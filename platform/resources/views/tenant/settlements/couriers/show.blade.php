@@ -21,7 +21,7 @@
     <div class="lg:col-span-2">
         <section class="card overflow-hidden">
             <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">
-                سطور الكشف — {{ number_format($settlement->shipments_count) }} شحنة
+                سطور الكشف — {{ \App\Support\Arabic::shipments((int) $settlement->shipments_count) }}
             </h2>
 
             <div class="overflow-x-auto">

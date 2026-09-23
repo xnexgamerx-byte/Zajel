@@ -41,7 +41,7 @@
                 </div>
                 <div class="mt-1 flex items-center justify-between">
                     <span class="text-xs text-ink-500">
-                        {{ $settlement->shipments_count }} شحنة
+                        {{ \App\Support\Arabic::shipments((int) $settlement->shipments_count) }}
                         · <span dir="ltr">{{ $settlement->created_at->format('Y-m-d') }}</span>
                     </span>
                     <span class="font-bold" dir="ltr">{{ number_format($settlement->net_amount) }}</span>

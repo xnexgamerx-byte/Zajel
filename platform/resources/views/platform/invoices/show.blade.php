@@ -97,7 +97,7 @@
                     <dt class="text-ink-600">
                         العمولة
                         <span class="text-xs text-ink-400">
-                            ({{ number_format($invoice->billable_shipments) }} شحنة)
+                            ({{ \App\Support\Arabic::shipments((int) $invoice->billable_shipments) }})
                         </span>
                     </dt>
                     <dd dir="ltr">{{ number_format($invoice->commission_amount) }}</dd>

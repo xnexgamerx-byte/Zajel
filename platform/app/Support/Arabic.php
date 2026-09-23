@@ -39,4 +39,14 @@ class Arabic
     {
         return static::count($n, ['كيس واحد', 'كيسان', 'أكياس', 'كيساً']);
     }
+
+    public static function parcels(int $n): string
+    {
+        return static::count($n, ['طرد واحد', 'طردان', 'طرود', 'طرداً']);
+    }
+
+    public static function merchants(int $n): string
+    {
+        return static::count($n, ['تاجر واحد', 'تاجران', 'تجّار', 'تاجراً']);
+    }
 }

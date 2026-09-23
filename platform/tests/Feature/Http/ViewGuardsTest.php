@@ -64,4 +64,37 @@ class ViewGuardsTest extends TestCase
 
         $this->assertSame([], $offenders, "صيغة وقت مختصرة بلا ترجمة:\n".implode("\n", $offenders));
     }
+
+    /**
+     * العدد والمعدود بقاعدة لا بسَلسَلة.
+     *
+     * «{{ $n }} شحنة» صحيحةٌ فوق العشرة وحدها: «5 شحنة» و«1 شحنة» و«2 يوم»
+     * أوّل ما يلاحظه القارئ العربي. وكانت في أحد عشر موضعاً، منها سطرٌ في
+     * الفاتورة التي تدفعها الشركة. فكل رقمٍ متغيّرٍ يسبق معدوداً يمرّ
+     * بـ App\Support\Arabic.
+     */
+    public function test_no_counted_noun_follows_a_raw_number(): void
+    {
+        $nouns = 'شحنة|شحنات|يوم|أيام|يوماً|تاجر|تجّار|كيس|أكياس|مندوب|مناديب|طرد|طرود';
+        // نهاية طباعة رقمٍ متغيّر: }} في القالب، أو {$x} / $x في نصٍّ PHP
+        $pattern = '/(\}\}|\{\$[^}]+\}|\$[a-z_]+(?:->[a-z_]+)*)\s*('.$nouns.')(?![\p{Arabic}])/u';
+
+        $offenders = [];
+
+        foreach ([resource_path('views'), app_path()] as $root) {
+            foreach (File::allFiles($root) as $file) {
+                foreach (preg_split('/\R/', $file->getContents()) as $n => $line) {
+                    if (str_contains($line, 'Arabic::') || preg_match('/^\s*(\/\/|\*|\||\{\{--)/', $line)) {
+                        continue;
+                    }
+
+                    if (preg_match($pattern, $line)) {
+                        $offenders[] = $file->getRelativePathname().':'.($n + 1).'  '.trim($line);
+                    }
+                }
+            }
+        }
+
+        $this->assertSame([], $offenders, "رقمٌ متغيّر قبل معدودٍ بلا Arabic:\n".implode("\n", $offenders));
+    }
 }

@@ -29,7 +29,7 @@
                     </div>
                     <div class="mt-1 text-sm text-ink-500">
                         {{ $list->rules_count }} قاعدة
-                        · {{ number_format($usage[$list->id] ?? 0) }} تاجر
+                        · {{ \App\Support\Arabic::merchants((int) ($usage[$list->id] ?? 0)) }}
                         @if ($list->is_default)
                             <span class="text-ink-400">(+ {{ number_format($defaultUsers) }} بلا تسعيرة خاصة)</span>
                         @endif

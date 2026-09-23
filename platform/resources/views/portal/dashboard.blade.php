@@ -107,7 +107,7 @@
                 @foreach ($pickups as $pickup)
                     <div class="mb-3 rounded-lg bg-info-50 px-3 py-2.5 text-sm ring-1 ring-info-200">
                         <div class="font-semibold">
-                            طلب {{ $pickup->number }} — {{ $pickup->expected_count }} طرد
+                            طلب {{ $pickup->number }} — {{ \App\Support\Arabic::parcels((int) $pickup->expected_count) }}
                         </div>
                         <div class="mt-0.5 text-xs text-info-700">
                             {{ ['pending' => 'بانتظار إسناد مندوب', 'assigned' => 'أُسند لمندوب',

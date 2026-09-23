@@ -162,7 +162,7 @@ class GenerateInvoice
             InvoiceItem::create([
                 'invoice_id'  => $invoice->id,
                 'type'        => 'commission',
-                'description' => "عمولة {$count} شحنة مسلَّمة",
+                'description' => 'عمولة الشحنات المسلَّمة — '.\App\Support\Arabic::shipments($count),
                 'quantity'    => $count,
                 'unit_price'  => $perShipment,
                 'amount'      => $count * $perShipment,
@@ -173,7 +173,7 @@ class GenerateInvoice
             InvoiceItem::create([
                 'invoice_id'  => $invoice->id,
                 'type'        => 'commission',
-                'description' => "نسبة {$percent}% من قيمة {$count} شحنة",
+                'description' => "نسبة {$percent}% من قيمة ".\App\Support\Arabic::shipments($count),
                 'quantity'    => 1,
                 'unit_price'  => $amount - ($count * $perShipment),
                 'amount'      => $amount - ($count * $perShipment),

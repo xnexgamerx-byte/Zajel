@@ -52,7 +52,7 @@ class MerchantSettlementController extends Controller
 
         return redirect()
             ->route('settlements.merchants.show', $settlement)
-            ->with('success', "فُتح كشف {$settlement->code} بـ {$settlement->shipments_count} شحنة.");
+            ->with('success', "فُتح كشف {$settlement->code}، فيه ".\App\Support\Arabic::shipments((int) $settlement->shipments_count).'.');
     }
 
     public function show(MerchantSettlement $settlement): View

@@ -137,7 +137,7 @@
                 <div class="space-y-2.5">
                     @foreach ($byGovernorate as $row)
                         <div class="group flex items-center gap-3"
-                             title="{{ $row->name }}: {{ number_format($row->c) }} شحنة قيد التنفيذ">
+                             title="{{ $row->name }}: {{ \App\Support\Arabic::shipments((int) $row->c) }} قيد التنفيذ">
                             <span class="w-24 shrink-0 truncate text-sm text-ink-600">{{ $row->name }}</span>
 
                             {{-- القضيب رفيع ونهايته وحدها مدوّرة، وقاعدته مربّعة عند خطّ الأساس --}}
