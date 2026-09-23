@@ -1,0 +1,93 @@
+# الاختبارات على كل دفعة — مرّتين: على SQLite كما يعمل المطوّر، وعلى
+# MySQL 8 كما يعمل الإنتاج.
+#
+# المرّة الثانية ليست تكراراً. SQLite تقبل ما يُسقطه MySQL: مفتاحاً
+# أجنبياً إلى جدولٍ لم يُنشأ بعد، واسم عمودٍ خاطئاً تُرجعه نصّاً، ونصّاً
+# أطول من عموده، وقفلَ صفٍّ لا تنفّذه أصلاً. هكذا بقيت الترحيلات نفسها
+# لا تعمل على MySQL وكل اختبار أخضر.
+
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests (${{ matrix.db }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, mysql]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: zajel_test
+          MYSQL_USER: zajel
+          MYSQL_PASSWORD: zajel
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    defaults:
+      run:
+        working-directory: platform
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, pdo_mysql, zip, gd, intl, bcmath
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+
+      - name: Composer
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      # الصفحات تُرسَم في الاختبارات، و@vite يحتاج البيان المبنيّ
+      - name: Assets
+        run: npm ci && npm run build
+
+      - name: Environment
+        run: cp .env.example .env && php artisan key:generate
+
+      - name: Tests on SQLite
+        if: matrix.db == 'sqlite'
+        run: php artisan test
+
+      - name: Tests on MySQL 8
+        if: matrix.db == 'mysql'
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: zajel_test
+          DB_USERNAME: zajel
+          DB_PASSWORD: zajel
+        run: php artisan test
