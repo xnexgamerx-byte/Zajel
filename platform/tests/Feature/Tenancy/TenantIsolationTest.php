@@ -159,8 +159,9 @@ class TenantIsolationTest extends TestCase
             \App\Models\Company::class,       // هو الجذر نفسه
             \App\Models\FailureReason::class, // company_id = null يعني سبب عام
             \App\Models\ExpenseCategory::class, // company_id = null يعني باباً عاماً
-            \App\Models\Setting::class,       // company_id = null يعني إعداد عام
-            \App\Models\AuditLog::class,      // يُقرأ في وضع النواة للتدقيق
+            \App\Models\Setting::class,       // company_id = null يعني إعداد عام — ولا يُقرأ في أي مكان
+            // AuditLog كان هنا «يُقرأ في وضع النواة» — وذاك ما يجعله فخّاً:
+            // أوّل قراءةٍ من داخل شركة تقرأ سجلّات الشركات كلّها. صار مقيَّداً.
         ];
 
         $missing = [];
@@ -198,6 +199,43 @@ class TenantIsolationTest extends TestCase
             $missing,
             'نماذج تحمل company_id بلا BelongsToCompany — تسريب محتمل: '.implode(', ', $missing),
         );
+    }
+
+    /**
+     * العامّ والخاصّ في جدولٍ واحد (أسباب الفشل، أبواب المصروف): لا نطاق
+     * يحرسه، فالحارس أن كل قراءةٍ تمرّ بـ availableFor — وإلا رأت شركةٌ
+     * أسباب شركةٍ أخرى الخاصّة في قائمتها.
+     */
+    public function test_shared_and_own_tables_are_only_read_through_available_for(): void
+    {
+        $offenders = [];
+
+        foreach (File::allFiles(app_path()) as $file) {
+            if ($file->getExtension() !== 'php' || str_contains($file->getPathname(), 'Models')) {
+                continue;
+            }
+
+            preg_match_all('/(FailureReason|ExpenseCategory)::(?!class\b|availableFor\b)(\w+)/', $file->getContents(), $matches, PREG_SET_ORDER);
+
+            foreach ($matches as [$whole]) {
+                $offenders[] = $file->getRelativePathname().' — '.$whole;
+            }
+        }
+
+        $this->assertSame([], $offenders, "قراءة جدولٍ عامّ-خاصّ بلا availableFor:\n".implode("\n", $offenders));
+    }
+
+    public function test_one_companys_audit_trail_is_invisible_to_another(): void
+    {
+        $a = $this->makeCompany('alpha', 'ألفا');
+        $b = $this->makeCompany('beta', 'بيتا');
+
+        Tenancy::runFor($a, fn () => \App\Models\AuditLog::create(['action' => 'company_settings_updated']));
+
+        $this->assertSame(0, Tenancy::runFor($b, fn () => \App\Models\AuditLog::count()));
+        $this->assertSame(1, Tenancy::runFor($a, fn () => \App\Models\AuditLog::count()));
+        // والنواة ترى الكلّ كما كانت
+        $this->assertSame(1, Tenancy::runAsPlatform(fn () => \App\Models\AuditLog::count()));
     }
 
     /**

@@ -40,9 +40,9 @@ class DashboardController extends Controller
         $deliveredToday = Shipment::query()->visibleTo($user)
             ->whereOnDate('delivered_at', today())->count();
 
+        // المحذوفون داخلون: مندوبٌ فُصل وبيده نقد لم يُسلَّم — والنقد لا يُحذف بحذفه
         $money = DB::table('couriers')
             ->where('company_id', $user->company_id)
-            ->whereNull('deleted_at')
             ->selectRaw('sum(cash_in_hand) as cash, sum(commission_balance) as commission')
             ->first();
 
