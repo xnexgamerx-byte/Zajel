@@ -547,6 +547,22 @@ class ShipmentImportTest extends TestCase
             ->assertSessionHasErrors('file');
     }
 
+    public function test_a_sheet_named_as_a_page_is_refused(): void
+    {
+        // ملفٌّ حقيقيّ: المزيَّف يأخذ نوعه من اسمه، والحقيقيّ يُفحَص محتواه —
+        // CSV يقبله mimes — والاسم هو ما كان يُحفَظ به على القرص.
+        // (‎.php يحجبه لارافيل نفسه في mimes؛ ‎.html و‎.svg لا)
+        $path = tempnam(sys_get_temp_dir(), 'zajel-test-');
+        file_put_contents($path, "name,phone\nعلي,07701234567\n");
+        $file = new UploadedFile($path, 'شحنات.html', null, null, true);
+
+        $this->actingAs($this->alphaUser)
+            ->post($this->host().'/portal/shipments/import', ['file' => $file])
+            ->assertSessionHasErrors('file');
+
+        $this->assertSame([], \Illuminate\Support\Facades\Storage::disk('local')->allFiles('imports'));
+    }
+
     public function test_the_template_downloads_as_a_sheet(): void
     {
         $this->actingAs($this->alphaUser)

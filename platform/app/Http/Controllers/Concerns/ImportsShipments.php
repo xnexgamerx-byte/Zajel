@@ -26,8 +26,10 @@ trait ImportsShipments
     /** يرفع الملف ويخزّنه مؤقّتاً ثم يعرض المعاينة — لا يُنشئ شيئاً بعد. */
     protected function storeUpload(Request $request): string
     {
+        // mimes يفحص المحتوى، وextensions يفحص الاسم الذي يُحفَظ به الملف
+        // أدناه: بدونه يُخزَّن CSV سليمٌ باسم ‎.html أو ‎.svg كما سمّاه رافعه.
         $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'extensions:xlsx,xls,csv,txt', 'max:5120'],
         ], [], ['file' => 'الملف']);
 
         $this->pruneStaleUploads($request);
