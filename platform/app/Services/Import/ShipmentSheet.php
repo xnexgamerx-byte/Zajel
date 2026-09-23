@@ -4,6 +4,7 @@ namespace App\Services\Import;
 
 use App\Models\City;
 use App\Models\Governorate;
+use App\Support\Phone;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -206,24 +207,10 @@ class ShipmentSheet
         return ['row' => $rowNumber, 'data' => $data, 'errors' => $errors];
     }
 
-    /** يقبل 07xx، +9647xx، و07xx بفواصل أو مسافات. */
+    /** يقبل 07xx، +9647xx، و07xx بفواصل أو مسافات — والقاعدة في Phone. */
     protected function normalisePhone(string $raw): ?string
     {
-        $digits = preg_replace('/\D+/', '', $this->toLatinDigits($raw));
-
-        if ($digits === '') {
-            return null;
-        }
-
-        if (str_starts_with($digits, '964')) {
-            $digits = '0'.substr($digits, 3);
-        }
-
-        if (strlen($digits) === 10 && str_starts_with($digits, '7')) {
-            $digits = '0'.$digits;
-        }
-
-        return preg_match('/^07[0-9]{9}$/', $digits) ? $digits : null;
+        return Phone::normalise($raw);
     }
 
     protected function matchGovernorate(string $raw, Collection $governorates): ?Governorate
@@ -263,12 +250,7 @@ class ShipmentSheet
     /** الأرقام العربية الشرقية تصل من بعض الملفات كما هي. */
     protected function toLatinDigits(string $raw): string
     {
-        return strtr($raw, [
-            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
-            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
-            '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
-            '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
-        ]);
+        return Phone::latinDigits($raw);
     }
 
     /** يوحّد الهمزات والتاء المربوطة والمسافات — أسماء المحافظات تُكتب بصور شتّى. */

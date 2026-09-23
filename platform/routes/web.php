@@ -18,8 +18,11 @@ use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\Portal\SupportController as PortalSupportController;
 use App\Http\Controllers\Tenant\AnnouncementController;
 use App\Http\Controllers\Tenant\BranchAccountController;
+use App\Http\Controllers\Tenant\CompanySettingsController;
+use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
 use App\Http\Controllers\Tenant\CashBoxController;
@@ -136,6 +139,21 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/debtors', [ReportController::class, 'debtors'])->name('reports.debtors');
             Route::get('/reports/changes', [ReportController::class, 'changes'])->name('reports.changes');
             Route::get('/reports/returns-money', [ReportController::class, 'returnsMoney'])->name('reports.returns-money');
+            });
+
+            // المحادثات مع التجّار: للشركة لا لموظّفٍ بعينه
+            Route::middleware('can:support.reply')->group(function () {
+                Route::get('/conversations', [ConversationController::class, 'index'])->name('conversations.index');
+                Route::post('/conversations', [ConversationController::class, 'store'])->name('conversations.store');
+                Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->name('conversations.show');
+                Route::post('/conversations/{conversation}/reply', [ConversationController::class, 'reply'])->name('conversations.reply');
+                Route::post('/conversations/{conversation}/close', [ConversationController::class, 'close'])->name('conversations.close');
+            });
+
+            // بيانات الشركة: الهاتف وواتساب الدعم واللون
+            Route::middleware('can:settings.company')->group(function () {
+                Route::get('/settings/company', [CompanySettingsController::class, 'edit'])->name('settings.company');
+                Route::put('/settings/company', [CompanySettingsController::class, 'update'])->name('settings.company.update');
             });
 
             // الإشعارات الجماعية: إعلانٌ واحد للمناديب أو للتجّار، ومَن قرأه
@@ -285,6 +303,11 @@ Route::middleware('tenant')->group(function () {
 
             Route::get('/statement', StatementController::class)->name('statement');
             Route::get('/inbox', [InboxController::class, 'portal'])->name('inbox');
+
+            Route::get('/support', [PortalSupportController::class, 'index'])->name('support.index');
+            Route::post('/support', [PortalSupportController::class, 'store'])->name('support.store');
+            Route::get('/support/{conversation}', [PortalSupportController::class, 'show'])->name('support.show');
+            Route::post('/support/{conversation}/reply', [PortalSupportController::class, 'reply'])->name('support.reply');
 
             Route::get('/pickups', [PickupRequestController::class, 'index'])->name('pickups.index');
             Route::post('/pickups', [PickupRequestController::class, 'store'])->name('pickups.store');

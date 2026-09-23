@@ -34,6 +34,9 @@ class Ability
     /** إعلانٌ واحد يبلغ كل المناديب أو كل التجّار */
     public const NOTIFY_SEND = 'notify.send';
 
+    /** الردّ على محادثات التجّار */
+    public const SUPPORT_REPLY = 'support.reply';
+
     // المال
     public const MONEY_VIEW = 'money.view';
 
@@ -63,6 +66,9 @@ class Ability
 
     public const SETTINGS_PERMISSIONS = 'settings.permissions';
 
+    /** هاتف الشركة وواتساب الدعم ولونها */
+    public const SETTINGS_COMPANY = 'settings.company';
+
     public const REPORTS_VIEW = 'reports.view';
 
     /** @return array<string, array{label: string, abilities: array<string, string>}> */
@@ -78,6 +84,7 @@ class Ability
                 self::RETURNS_MANAGE   => 'الراجع: استلاماً وتسليماً',
                 self::TRANSPORT_MANAGE => 'الأكياس وكشوف النقل',
                 self::NOTIFY_SEND      => 'الإشعارات الجماعية',
+                self::SUPPORT_REPLY    => 'محادثات التجّار',
             ]],
             'money' => ['label' => 'المال', 'abilities' => [
                 self::MONEY_VIEW           => 'عرض الحسابات والأرصدة',
@@ -98,6 +105,7 @@ class Ability
                 self::SETTINGS_PRICING      => 'التسعيرات',
                 self::SETTINGS_ZONES        => 'المناطق',
                 self::SETTINGS_PERMISSIONS  => 'الصلاحيات',
+                self::SETTINGS_COMPANY      => 'بيانات الشركة وواتساب الدعم',
             ]],
         ];
     }
@@ -147,14 +155,16 @@ class Ability
             UserRole::BranchManager => [
                 ...$operations, self::MONEY_VIEW, self::REPORTS_VIEW,
                 self::CONTROL_DUPLICATES, self::SETTINGS_ZONES, self::NOTIFY_SEND,
+                self::SUPPORT_REPLY,
             ],
 
             // العمليات تُبلغ المناديب كل صباح: «ابدأوا السابعة»، «الطريق مغلق»
-            UserRole::Operations => [...$operations, self::REPORTS_VIEW, self::NOTIFY_SEND],
+            UserRole::Operations => [...$operations, self::REPORTS_VIEW, self::NOTIFY_SEND, self::SUPPORT_REPLY],
 
-            // خدمة العملاء تقرأ وتُنشئ ولا تُغيّر مصير شحنة ولا ديناراً
+            // خدمة العملاء تقرأ وتُنشئ وتُجيب، ولا تُغيّر مصير شحنة ولا ديناراً
             UserRole::CustomerService => [
                 self::SHIPMENTS_VIEW, self::SHIPMENTS_CREATE, self::REPORTS_VIEW,
+                self::SUPPORT_REPLY,
             ],
 
             UserRole::Accountant => [

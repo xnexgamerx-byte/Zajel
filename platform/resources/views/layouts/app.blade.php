@@ -61,6 +61,7 @@
                     $groups = $staff ? [
                         ['العمليات', [
                             ['dashboard', 'لوحة اليوم', ['dashboard'], null],
+                            ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
                             ['announcements.index', 'إشعارات جماعية', ['announcements.*'], 'notify.send'],
                             ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show'], 'shipments.view'],
                             ['shipments.create', 'شحنة جديدة', ['shipments.create'], 'shipments.create'],
@@ -103,6 +104,7 @@
                             ['permissions.index', 'الصلاحيات', ['permissions.*'], 'settings.permissions'],
                             ['branches.index', 'الفروع', ['branches.*'], 'settings.branches'],
                             ['zones.index', 'المناطق', ['zones.*'], 'settings.zones'],
+                            ['settings.company', 'بيانات الشركة', ['settings.company*'], 'settings.company'],
                         ]],
                     ] : [
                         ['', [['shipments.index', 'الشحنات', ['shipments.*'], null]]],
@@ -132,6 +134,10 @@
                         <a href="{{ route($route) }}"
                            class="side-link {{ $active ? 'side-link-active' : '' }}">
                             {{ $text }}
+                            {{-- ما ينتظر ردّنا يُعَدّ على الرابط نفسه: لا يُكتشف بفتح الشاشة --}}
+                            @if ($route === 'conversations.index' && ($waiting = \App\Models\Conversation::visibleTo(auth()->user())->where('status', 'open')->where('last_author', 'merchant')->count()))
+                                <span class="num ms-auto rounded-full px-1.5 text-[11px] font-bold text-white" style="background: var(--brand)">{{ $waiting }}</span>
+                            @endif
                         </a>
                     @endforeach
                 @endforeach

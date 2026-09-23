@@ -34,10 +34,14 @@
                 ['portal.shipments.import', 'رفع من ملف', 'portal.shipments.import*'],
                 ['portal.pickups.index', 'طلبات الاستلام', 'portal.pickups.*'],
                 ['portal.statement', 'حسابي', 'portal.statement'],
+                ['portal.support.index', 'الدعم', 'portal.support.*'],
             ] as [$route, $label, $pattern])
                 <a href="{{ route($route) }}"
                    class="rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs($pattern) ? 'bg-ink-100 text-ink-900' : 'text-ink-600 hover:bg-ink-50' }}">
                     {{ $label }}
+                    @if ($route === 'portal.support.index' && ($replies = \App\Models\Conversation::where('merchant_id', auth()->user()->merchant_id)->where('merchant_unread', true)->count()))
+                        <span class="num ms-1 rounded-full px-1.5 text-[11px] font-bold text-white" style="background: var(--brand)">{{ $replies }}</span>
+                    @endif
                 </a>
             @endforeach
         </nav>
@@ -71,6 +75,7 @@
             ['portal.shipments.import', 'رفع'],
             ['portal.pickups.index', 'استلام'],
             ['portal.statement', 'حسابي'],
+            ['portal.support.index', 'الدعم'],
         ] as [$route, $label])
             <a href="{{ route($route) }}"
                class="shrink-0 rounded-lg px-3 py-1.5 font-medium {{ request()->routeIs($route) ? 'bg-ink-100 text-ink-900' : 'text-ink-600' }}">
