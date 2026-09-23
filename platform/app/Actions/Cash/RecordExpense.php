@@ -53,13 +53,16 @@ class RecordExpense
     /** دفع مصروف مسجَّل من صندوق: هنا فقط يغادر النقد الدرج. */
     public function pay(Expense $expense, CashBox $box, ?User $actor = null): Expense
     {
-        if ($expense->isLocked()) {
-            throw ValidationException::withMessages([
-                'status' => "المصروف {$expense->number} {$expense->statusLabel()} سلفاً.",
-            ]);
-        }
-
         return DB::transaction(function () use ($expense, $box, $actor) {
+            // الحال بعد القفل: دفعتان متزامنتان كانتا تُخرجان المبلغ من الدرج مرّتين
+            $this->claim($expense);
+
+            if ($expense->isLocked()) {
+                throw ValidationException::withMessages([
+                    'status' => "المصروف {$expense->number} {$expense->statusLabel()} سلفاً.",
+                ]);
+            }
+
             $expense->forceFill([
                 'status'          => 'paid',
                 'cash_box_id'     => $box->id,
@@ -87,11 +90,14 @@ class RecordExpense
      */
     public function cancel(Expense $expense, string $reason, ?User $actor = null): Expense
     {
-        if ($expense->status === 'cancelled') {
-            throw ValidationException::withMessages(['status' => 'هذا المصروف ملغى سلفاً.']);
-        }
-
         return DB::transaction(function () use ($expense, $reason, $actor) {
+            // والإلغاء كذلك: إلغاءان متزامنان كانا يُعيدان المبلغ إلى الدرج مرّتين
+            $this->claim($expense);
+
+            if ($expense->status === 'cancelled') {
+                throw ValidationException::withMessages(['status' => "المصروف {$expense->number} ملغى سلفاً."]);
+            }
+
             if ($expense->status === 'paid' && $expense->cashBox) {
                 $this->cash->in(
                     box: $expense->cashBox,
@@ -112,6 +118,13 @@ class RecordExpense
 
             return $expense->refresh();
         });
+    }
+
+    /** يقفل صفّ المصروف ويملأ نسخة المستدعي بحاله في القاعدة الآن. */
+    protected function claim(Expense $expense): void
+    {
+        $expense->setRawAttributes(Expense::query()->lockForUpdate()->findOrFail($expense->id)->getAttributes(), true);
+        $expense->unsetRelation('cashBox');
     }
 
     protected function box(array $data, Expense $expense): CashBox

@@ -47,6 +47,25 @@ class ConfirmAmount
 
     public function handle(Shipment $shipment, int $amount, ?User $actor = null, ?string $note = null): Shipment
     {
+        return DB::transaction(function () use ($shipment, $amount, $actor, $note) {
+            /*
+            | الحال من القاعدة بعد القفل، والفرقُ من المبلغ الذي فيها.
+            |
+            | كان «مؤكَّد سابقاً» يُفحَص على النسخة التي بيد المستدعي، والفرق
+            | يُحسب من مبلغها القديم — فتأكيدان متزامنان يمرّان ويُطبّقان
+            | التصحيح مرّتين: ٥ آلاف تصير عشرة في حساب التاجر.
+            */
+            $shipment->setRawAttributes(
+                Shipment::query()->lockForUpdate()->findOrFail($shipment->id)->getAttributes(),
+                true,
+            );
+
+            return $this->confirm($shipment, $amount, $actor, $note);
+        });
+    }
+
+    protected function confirm(Shipment $shipment, int $amount, ?User $actor, ?string $note): Shipment
+    {
         if ($shipment->amount_confirmed) {
             throw ValidationException::withMessages([
                 'amount' => 'مبلغ هذا الوصل مؤكَّد سابقاً، ولا يُعدَّل بعد التأكيد.',

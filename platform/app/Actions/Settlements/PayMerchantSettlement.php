@@ -26,11 +26,14 @@ class PayMerchantSettlement
 
     public function confirm(MerchantSettlement $settlement, ?User $actor = null, ?string $notes = null): MerchantSettlement
     {
-        if ($settlement->isLocked()) {
-            throw ValidationException::withMessages(['status' => 'هذا الكشف مُقفَل بالفعل.']);
-        }
-
         return DB::transaction(function () use ($settlement, $actor, $notes) {
+            // الحال من القاعدة بعد القفل، لا من النسخة التي بيد المستدعي
+            $this->claim($settlement);
+
+            if ($settlement->isLocked()) {
+                throw ValidationException::withMessages(['status' => 'هذا الكشف مُقفَل بالفعل.']);
+            }
+
             $settlement->forceFill([
                 'status'               => 'confirmed',
                 'notes'                => $notes,
@@ -68,13 +71,24 @@ class PayMerchantSettlement
         ?string $method = null,
         ?string $reference = null,
     ): MerchantSettlement {
-        if ($settlement->status !== 'confirmed') {
-            throw ValidationException::withMessages([
-                'status' => 'أقفِل الكشف أولاً قبل تسجيل الدفع.',
-            ]);
-        }
-
         return DB::transaction(function () use ($settlement, $actor, $method, $reference) {
+            /*
+            | الفحص بعد القفل لا قبله.
+            |
+            | كان يُقرأ على النسخة التي بيد المستدعي خارج المعاملة، فضغطتان
+            | على «دفعت» تمرّان معاً: قيد دفعٍ مرّتين في حساب التاجر، ونقدٌ
+            | يخرج من الدرج مرّتين. جُرّب بنسختين فوقع.
+            */
+            $this->claim($settlement);
+
+            if ($settlement->status !== 'confirmed') {
+                throw ValidationException::withMessages([
+                    'status' => $settlement->status === 'paid'
+                        ? "الكشف {$settlement->code} مدفوعٌ سلفاً."
+                        : 'أقفِل الكشف أولاً قبل تسجيل الدفع.',
+                ]);
+            }
+
             $settlement->forceFill([
                 'status'           => 'paid',
                 'payout_method'    => $method ?? $settlement->payout_method,
@@ -88,6 +102,18 @@ class PayMerchantSettlement
 
             return $settlement->refresh();
         });
+    }
+
+    /**
+     * يقفل صفّ الكشف ويملأ نسخة المستدعي بحاله في القاعدة الآن — فتبقى
+     * نسخته هي التي تُحفَظ وتُعاد، ولا تفترق عن الصفّ.
+     */
+    protected function claim(MerchantSettlement $settlement): void
+    {
+        $settlement->setRawAttributes(
+            MerchantSettlement::query()->lockForUpdate()->findOrFail($settlement->id)->getAttributes(),
+            true,
+        );
     }
 
     /**

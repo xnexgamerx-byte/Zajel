@@ -86,11 +86,14 @@ class AccruePickupShare
      */
     public function resolve(PickupShare $share, ?int $agreedCount, string $note, ?User $actor = null): PickupShare
     {
-        if ($share->status !== 'objected') {
-            throw ValidationException::withMessages(['objection' => 'لا اعتراض على هذه الحصّة.']);
-        }
-
         return DB::transaction(function () use ($share, $agreedCount, $note, $actor) {
+            // الحال بعد القفل: قبولان متزامنان كانا يقيّدان الفرق مرّتين
+            $share->setRawAttributes(PickupShare::query()->lockForUpdate()->findOrFail($share->id)->getAttributes(), true);
+
+            if ($share->status !== 'objected') {
+                throw ValidationException::withMessages(['objection' => 'لا اعتراض على هذه الحصّة — أو بُتّ فيه سلفاً.']);
+            }
+
             if ($agreedCount === null) {
                 $share->forceFill([
                     'status'              => 'rejected',

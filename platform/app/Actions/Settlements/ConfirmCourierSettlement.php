@@ -24,13 +24,22 @@ class ConfirmCourierSettlement
 
     public function handle(CourierSettlement $settlement, ?User $actor = null, int $deductions = 0, ?string $notes = null): CourierSettlement
     {
-        if ($settlement->isLocked()) {
-            throw ValidationException::withMessages([
-                'status' => 'هذا الكشف مُقفَل بالفعل.',
-            ]);
-        }
-
         return DB::transaction(function () use ($settlement, $actor, $deductions, $notes) {
+            /*
+            | الحال من القاعدة بعد القفل: إقفالان متزامنان كانا يقيّدان
+            | تسليم النقد مرّتين، ويُدخلانه الدرج مرّتين.
+            */
+            $settlement->setRawAttributes(
+                CourierSettlement::query()->lockForUpdate()->findOrFail($settlement->id)->getAttributes(),
+                true,
+            );
+
+            if ($settlement->isLocked()) {
+                throw ValidationException::withMessages([
+                    'status' => "الكشف {$settlement->code} مُقفَل بالفعل.",
+                ]);
+            }
+
             $settlement->forceFill([
                 'deductions'           => $deductions,
                 'net_amount'           => $settlement->cod_total - $settlement->commission_total + $deductions,

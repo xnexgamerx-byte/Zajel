@@ -279,6 +279,32 @@ class PickupAgentTest extends TestCase
             ->resolve($share->refresh(), 9, 'مرّة أخرى', $this->staff));
     }
 
+    /**
+     * والقبول المزدوج — ضغطتان أو نافذتان — بنسختين قُرئتا قبل البتّ:
+     * الاختبار السابق يقرأ الحصّة من جديد فلا يرى المسابقة.
+     */
+    public function test_a_double_accept_from_stale_copies_posts_the_difference_once(): void
+    {
+        $this->complete($this->pickup(4), 4);
+
+        $share = Tenancy::runFor($this->company, fn () => PickupShare::firstOrFail());
+        Tenancy::runFor($this->company, fn () => app(AccruePickupShare::class)->object($share, 6, 'سبب'));
+
+        Tenancy::runFor($this->company, function () use ($share) {
+            [$a, $b] = [PickupShare::findOrFail($share->id), PickupShare::findOrFail($share->id)];
+
+            app(AccruePickupShare::class)->resolve($a, 6, 'قُبل', $this->staff);
+
+            try {
+                app(AccruePickupShare::class)->resolve($b, 6, 'قُبل', $this->staff);
+                $this->fail('قبولٌ ثانٍ بنسخةٍ قديمة مرّ.');
+            } catch (ValidationException) {
+                $this->assertSame(3_000, (int) $this->agent->refresh()->commission_balance);
+                $this->assertCount(2, Transaction::where('reference_type', 'pickup_share')->get());
+            }
+        });
+    }
+
     // ── الدفع ───────────────────────────────────────────────────────
 
     public function test_paying_the_agent_empties_his_balance_and_the_drawer(): void
