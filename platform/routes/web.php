@@ -23,6 +23,7 @@ use App\Http\Controllers\Tenant\AnnouncementController;
 use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
+use App\Http\Controllers\Tenant\ReconcileController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
 use App\Http\Controllers\Tenant\CashBoxController;
@@ -202,6 +203,7 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/branch-accounts', [BranchAccountController::class, 'index'])->name('branch-accounts.index');
                 Route::get('/branch-accounts/deposits', [BranchAccountController::class, 'deposits'])->name('branch-accounts.deposits');
                 Route::get('/branch-accounts/statement', [BranchAccountController::class, 'statement'])->name('branch-accounts.statement');
+                Route::get('/money/reconcile', ReconcileController::class)->name('money.reconcile');
                 Route::get('/branch-accounts/statement/print', [BranchAccountController::class, 'statementPrint'])->name('branch-accounts.statement.print');
             });
             Route::post('/branch-accounts/deposits', [BranchAccountController::class, 'storeDeposit'])

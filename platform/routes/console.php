@@ -25,3 +25,12 @@ Schedule::command('zajel:renew')
     ->dailyAt('01:00')
     ->timezone('Asia/Baghdad')
     ->withoutOverlapping();
+
+/*
+| مطابقة الدفتر كل ليلة بعد التجديد: الأرصدة بالقيود، والقيود بالشحنات.
+| تخرج بغير الصفر إن وجدت فرقاً، فيلتقطها منبّه المهامّ.
+*/
+Schedule::command('zajel:reconcile')
+    ->dailyAt('01:30')
+    ->timezone('Asia/Baghdad')
+    ->withoutOverlapping();

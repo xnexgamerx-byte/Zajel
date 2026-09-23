@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AppendOnly;
 use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Transaction extends Model
 {
-    use BelongsToCompany;
+    use AppendOnly, BelongsToCompany;
 
     public const UPDATED_AT = null;
 

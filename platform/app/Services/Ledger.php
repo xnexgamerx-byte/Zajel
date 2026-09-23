@@ -348,6 +348,126 @@ class Ledger
         ]);
     }
 
+    /**
+     * مطابقة الدفتر بالشحنات — ما لا تراه reconcile().
+     *
+     * reconcile() يطابق الرصيد المخزَّن بمجموع القيود، فيقول «مطابق» ما
+     * دام العمودان متّفقين — ولو كانت القيود نفسها لا تُطابق الشحنات.
+     * رأيتُ تاجراً رصيده سالب ٧٣٣ مليوناً و reconcile() يقول مطابق: دُفع
+     * له كشفٌ عن آلاف الشحنات المسلَّمة، ولم يُقيَّد لأيٍّ منها مستحقّ.
+     *
+     * والثابت هنا لكل شحنة: ما قُيِّد عليها في حساب تاجرها (مستحقّ،
+     * أجرة رجوع، تصحيح مبلغ) يساوي merchant_due إن كانت في حالٍ يتحرّك
+     * فيها المال (مسلَّمة، مسلَّمة جزئياً، راجعة)، وصفراً فيما عداها.
+     *
+     * @return \Illuminate\Support\Collection<int, object{id:int, number:string, merchant_id:int, status:string, expected:int, posted:int}>
+     */
+    public function shipmentsOffLedger(?int $merchantId = null, ?\DateTimeInterface $since = null, int $limit = 200)
+    {
+        [$query, $expected, $states] = $this->offLedgerQuery($merchantId, $since);
+
+        return $query
+            ->select('shipments.id', 'shipments.number', 'shipments.merchant_id', 'shipments.status')
+            ->selectRaw("{$expected} as expected", $states)
+            ->selectRaw('coalesce(posted.posted, 0) as posted')
+            ->orderBy('shipments.id')
+            ->limit($limit)
+            ->toBase()
+            ->get();
+    }
+
+    /** الشيء نفسه مجمَّعاً بالتاجر: كم شحنة، وكم كان يجب أن يُقيَّد، وكم قُيِّد. */
+    public function offLedgerByMerchant(?\DateTimeInterface $since = null)
+    {
+        [$query, $expected, $states] = $this->offLedgerQuery(null, $since);
+
+        return $query
+            ->select('shipments.merchant_id')
+            ->selectRaw('count(*) as shipments')
+            ->selectRaw("sum({$expected}) as expected", $states)
+            ->selectRaw('sum(coalesce(posted.posted, 0)) as posted')
+            ->groupBy('shipments.merchant_id')
+            ->toBase()
+            ->get();
+    }
+
+    /** @return array{\Illuminate\Database\Eloquent\Builder, string, array<int, string>} */
+    protected function offLedgerQuery(?int $merchantId, ?\DateTimeInterface $since): array
+    {
+        $states = [
+            \App\Enums\ShipmentStatus::Delivered->value,
+            \App\Enums\ShipmentStatus::PartiallyDelivered->value,
+            \App\Enums\ShipmentStatus::Returned->value,
+        ];
+
+        $posted = Transaction::query()
+            ->select('shipment_id')
+            ->selectRaw("sum(case when direction = 'credit' then amount else -amount end) as posted")
+            ->where('account_type', 'merchant')
+            ->whereIn('category', ['shipment_due', 'return_fee', 'amount_correction'])
+            ->whereNotNull('shipment_id')
+            ->groupBy('shipment_id');
+
+        // عناصر نائبة لا قيم: لا شيء من المُدخَل يدخل نصّ الاستعلام
+        $expected = 'case when shipments.status in ('.implode(',', array_fill(0, count($states), '?')).') then shipments.merchant_due else 0 end';
+
+        $query = Shipment::query()
+            ->leftJoinSub($posted, 'posted', 'posted.shipment_id', '=', 'shipments.id')
+            ->when($merchantId, fn ($q) => $q->where('shipments.merchant_id', $merchantId))
+            ->when($since, fn ($q) => $q->where('shipments.status_changed_at', '>=', $since))
+            ->whereRaw("coalesce(posted.posted, 0) <> {$expected}", $states);
+
+        return [$query, $expected, $states];
+    }
+
+    /**
+     * أرصدة مخزَّنة لا تساوي مجموع دفترها — للتجّار والمناديب كلّهم دفعةً.
+     *
+     * reconcile() لحسابٍ واحد؛ هذه للشركة كلّها باستعلامٍ لكل نوع لا
+     * استعلامين لكل حساب: خمسمئة تاجر لا تصير ألف استعلام.
+     *
+     * @return array{merchants: \Illuminate\Support\Collection, couriers: \Illuminate\Support\Collection}
+     */
+    public function balancesOff(): array
+    {
+        $signed = "sum(case when direction = 'credit' then amount else -amount end)";
+
+        $merchantLedger = Transaction::query()->where('account_type', 'merchant')
+            ->selectRaw("account_id, {$signed} as ledger")->groupBy('account_id')
+            ->toBase()->pluck('ledger', 'account_id');
+
+        $merchants = Merchant::query()->get(['id', 'business_name', 'balance'])
+            ->map(fn (Merchant $m) => (object) [
+                'id' => $m->id, 'name' => $m->business_name,
+                'stored' => (int) $m->balance, 'ledger' => (int) ($merchantLedger[$m->id] ?? 0),
+            ])
+            ->filter(fn ($row) => $row->stored !== $row->ledger)
+            ->values();
+
+        $courierLedger = Transaction::query()->where('account_type', 'courier')
+            ->selectRaw("account_id,
+                sum(case when category in ('commission', 'commission_paid') then 0 else (case when direction = 'credit' then amount else -amount end) end) as cash,
+                sum(case when category in ('commission', 'commission_paid') then (case when direction = 'credit' then amount else -amount end) else 0 end) as commission")
+            ->groupBy('account_id')
+            ->toBase()->get()->keyBy('account_id');
+
+        $couriers = Courier::withTrashed()->get(['id', 'name', 'cash_in_hand', 'commission_balance'])
+            ->map(function (Courier $c) use ($courierLedger) {
+                $row = $courierLedger[$c->id] ?? null;
+
+                // النقد بيد المندوب سالبُ مجموع قيوده (ما حصّله مدينٌ به للشركة)
+                return (object) [
+                    'id' => $c->id, 'name' => $c->name,
+                    'cash_stored' => (int) $c->cash_in_hand, 'cash_ledger' => -(int) ($row->cash ?? 0),
+                    'commission_stored' => (int) $c->commission_balance, 'commission_ledger' => (int) ($row->commission ?? 0),
+                ];
+            })
+            ->filter(fn ($row) => $row->cash_stored !== $row->cash_ledger || $row->commission_stored !== $row->commission_ledger)
+            ->values();
+
+        return ['merchants' => $merchants, 'couriers' => $couriers];
+    }
+
     /** @param  array<string, array{int, int}>  $pairs  [مجموع الدفتر, المخزَّن] */
     protected function result(array $pairs): array
     {

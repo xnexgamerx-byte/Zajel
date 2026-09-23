@@ -58,11 +58,9 @@ class CashBook
         return DB::transaction(function () use ($from, $to, $amount, $description, $actor) {
             $note = $description ?: "مناقلة {$from->name} ← {$to->name}";
 
-            $sent = $this->post($from, 'out', 'transfer_out', $amount, $note, $actor, 'cash_box', $to->id);
-            $received = $this->post($to, 'in', 'transfer_in', $amount, $note, $actor, 'cash_box', $from->id);
-
-            $sent?->forceFill(['counterpart_box_id' => $to->id])->save();
-            $received?->forceFill(['counterpart_box_id' => $from->id])->save();
+            // الطرف الآخر يُكتب مع الحركة لا بعدها: الحركة لا تُعدَّل بعد كتابتها
+            $sent = $this->post($from, 'out', 'transfer_out', $amount, $note, $actor, 'cash_box', $to->id, $to->id);
+            $received = $this->post($to, 'in', 'transfer_in', $amount, $note, $actor, 'cash_box', $from->id, $from->id);
 
             return [$sent, $received];
         });
@@ -77,6 +75,7 @@ class CashBook
         ?User $actor,
         ?string $referenceType,
         ?int $referenceId,
+        ?int $counterpartBoxId = null,
     ): ?CashMovement {
         if ($amount === 0) {
             return null;
@@ -88,7 +87,7 @@ class CashBook
             ]);
         }
 
-        return DB::transaction(function () use ($box, $direction, $category, $amount, $description, $actor, $referenceType, $referenceId) {
+        return DB::transaction(function () use ($box, $direction, $category, $amount, $description, $actor, $referenceType, $referenceId, $counterpartBoxId) {
             // القفل يمنع حركتين متزامنتين من كتابة balance_after نفسه
             $fresh = CashBox::query()->lockForUpdate()->findOrFail($box->id);
             $balance = $fresh->balance + ($direction === 'in' ? $amount : -$amount);
@@ -105,6 +104,7 @@ class CashBook
                 'balance_after'      => $balance,
                 'reference_type'     => $referenceType,
                 'reference_id'       => $referenceId,
+                'counterpart_box_id' => $counterpartBoxId,
                 'description'        => $description,
                 'created_by_user_id' => $actor?->id,
             ]);
