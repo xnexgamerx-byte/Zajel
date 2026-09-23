@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Enums\UserRole;
+use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,7 +33,18 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ], [], ['phone' => 'رقم الهاتف', 'password' => 'كلمة المرور']);
 
-        $key = 'login:'.$request->ip().':'.$data['phone'];
+        /*
+        | الرقم يُوحَّد قبل كل شيء: قبل مفتاح المحاولات وقبل الاستعلام.
+        |
+        | MySQL (utf8mb4_unicode_ci) ترى «٠٧٧٠…» و«۰۷۷۰…» و«０７７０…»
+        | رقماً واحداً مع «0770…»، وكان مفتاح المحاولات النصَّ كما كُتب:
+        | فلكل صيغةٍ خمسُ محاولاتٍ جديدة، وأحد عشر خانةً في عشرات
+        | الأبجديات تخمينٌ بلا سقف لكلمة سرّ أي حساب. الآن للحساب مفتاحٌ
+        | واحد، والاستعلام لا يرى إلا 07 وتسعة أرقام لاتينية — وما لا
+        | يُوحَّد لا يصل القاعدة أصلاً، إذ لا حساب إلا بهذه الصيغة.
+        */
+        $phone = Phone::normalise($data['phone']);
+        $key = 'login:'.$request->ip().':'.($phone ?? '?');
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
             throw ValidationException::withMessages([
@@ -40,7 +52,9 @@ class LoginController extends Controller
             ]);
         }
 
-        if (! Auth::attempt($data, $request->boolean('remember'))) {
+        $credentials = ['phone' => $phone, 'password' => $data['password']];
+
+        if ($phone === null || ! Auth::attempt($credentials, $request->boolean('remember'))) {
             RateLimiter::hit($key, 300);
 
             throw ValidationException::withMessages([

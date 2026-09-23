@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,8 +33,12 @@ class LoginController extends Controller
             ]);
         }
 
-        // السياق هنا سياق نواة، فالاستعلام يرى مستخدمي company_id = null
-        if (! Auth::attempt($data + ['company_id' => null], $request->boolean('remember'))) {
+        // الرقم يُوحَّد كما في دخول الشركات (Auth\LoginController)، والسياق
+        // هنا سياق نواة، فالاستعلام يرى مستخدمي company_id = null
+        $phone = Phone::normalise($data['phone']);
+        $credentials = ['phone' => $phone, 'password' => $data['password'], 'company_id' => null];
+
+        if ($phone === null || ! Auth::attempt($credentials, $request->boolean('remember'))) {
             RateLimiter::hit($key, 300);
 
             throw ValidationException::withMessages(['phone' => 'بيانات الدخول غير صحيحة.']);
