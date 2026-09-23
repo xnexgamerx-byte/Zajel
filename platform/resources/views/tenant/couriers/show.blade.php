@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">{{ $courier->name }}</h1>
+        <h1 class="page-title">{{ $courier->name }}</h1>
         <p class="mt-1 text-sm text-ink-500">
             <span class="font-mono" dir="ltr">{{ $courier->code }}</span>
             · <span dir="ltr">{{ $courier->phone }}</span>
@@ -93,7 +93,7 @@
                                     <td class="py-2 text-xs text-ink-500">
                                         {{ ['cod_collected' => 'تحصيل نقد', 'commission' => 'عمولة',
                                             'commission_paid' => 'دفع عمولة', 'cash_handover' => 'تسليم نقد',
-                                            ][$tx->category] ?? $tx->category }}
+                                            ][$tx->category] ?? $tx->categoryLabel() }}
                                     </td>
                                     <td class="py-2 font-semibold {{ $tx->direction === 'credit' ? 'text-ok-700' : 'text-ink-900' }}"
                                         dir="ltr">{{ number_format($tx->amount) }}</td>

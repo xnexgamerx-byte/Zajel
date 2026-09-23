@@ -1,0 +1,5 @@
+@extends('errors.layout')
+@section('code', '401')
+@section('icon', 'lock')
+@section('title', 'يلزم تسجيل الدخول')
+@section('message', 'سجّل الدخول ثم افتح الصفحة من جديد.')

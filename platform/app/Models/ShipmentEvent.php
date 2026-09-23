@@ -55,9 +55,26 @@ class ShipmentEvent extends Model
         'system'   => 'النظام',
     ];
 
+    /**
+     * ما يُكتب في to_status وليس حالةَ شحنة: علاماتٌ على حدثٍ ماليّ.
+     * كانت تظهر في سجلّ الشحنة كما خُزِّنت («settled_with_courier»).
+     */
+    public const MARKERS = [
+        'settled_with_courier'  => 'سُوّيت مع المندوب',
+        'settled_with_merchant' => 'سُوّيت مع التاجر',
+    ];
+
     public function typeLabel(): string
     {
         return self::TYPES[$this->event_type] ?? $this->event_type;
+    }
+
+    /** عنوان الحدث في السجلّ: اسم الحالة، أو اسم العلامة، بالعربية. */
+    public function toLabel(): string
+    {
+        return \App\Enums\ShipmentStatus::tryFrom((string) $this->to_status)?->label()
+            ?? self::MARKERS[$this->to_status]
+            ?? (string) $this->to_status;
     }
 
     public function actorLabel(): string

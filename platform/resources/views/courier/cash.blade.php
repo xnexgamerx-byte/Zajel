@@ -58,7 +58,7 @@
         <div class="min-w-0 flex-1">
             <div class="truncate text-sm font-medium">
                 {{ ['cod_collected' => 'تحصيل', 'commission' => 'عمولة', 'commission_paid' => 'قبض عمولة',
-                    'cash_handover' => 'تسليم نقد', 'deduction' => 'خصم'][$tx->category] ?? $tx->category }}
+                    'cash_handover' => 'تسليم نقد', 'deduction' => 'خصم'][$tx->category] ?? $tx->categoryLabel() }}
                 @if ($tx->shipment)
                     <span class="font-mono text-xs text-ink-400" dir="ltr">{{ $tx->shipment->number }}</span>
                 @endif

@@ -1,0 +1,5 @@
+@extends('errors.layout')
+@section('code', '500')
+@section('icon', 'alert')
+@section('title', 'حدث خطأ غير متوقَّع')
+@section('message', 'سُجِّل الخطأ. أعد المحاولة بعد قليل، وإن تكرّر فأبلغ مدير النظام.')

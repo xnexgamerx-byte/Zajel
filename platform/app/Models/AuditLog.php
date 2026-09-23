@@ -20,6 +20,27 @@ class AuditLog extends Model
 
     public const UPDATED_AT = null;
 
+    /**
+     * أسماء الأفعال بالعربية. كانت الشاشتان تحملان قائمتين كُتبتا قبل ثلاثة
+     * أفعالٍ أُضيفت بعدهما، فظهر «company_settings_updated» كما خُزِّن.
+     * ويُلزم ArabicLabelsTest كل فعلٍ يُكتب في الشيفرة بأن يكون هنا.
+     */
+    public const ACTIONS = [
+        'company_registered'       => 'سُجّلت شركة',
+        'company_suspended'        => 'أُوقفت شركة',
+        'company_activated'        => 'فُعّلت شركة',
+        'company_settings_updated' => 'عُدِّلت بيانات الشركة',
+        'impersonation_started'    => 'دخول إلى نظام شركة',
+        'impersonation_ended'      => 'خروج من نظام شركة',
+        'payment_recorded'         => 'سُجِّلت دفعة',
+        'subscription_renewed'     => 'جُدِّد الاشتراك',
+    ];
+
+    public function actionLabel(): string
+    {
+        return self::ACTIONS[$this->action] ?? (string) $this->action;
+    }
+
     protected $guarded = ['id'];
 
     protected function casts(): array

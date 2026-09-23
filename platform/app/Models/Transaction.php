@@ -17,6 +17,28 @@ class Transaction extends Model
 {
     use AppendOnly, BelongsToCompany, FitsColumns;
 
+    /**
+     * أنواع القيد بالعربية. الشاشتان اللتان تعرضانها كتبتا قائمتيهما قبل
+     * «تصحيح المبلغ»، فظهر «amount_correction» كما خُزِّن في كشف المندوب.
+     * ويُلزم ArabicLabelsTest كل نوعٍ يقيّده الدفتر بأن يكون هنا.
+     */
+    public const CATEGORIES = [
+        'shipment_due'      => 'مستحقّ شحنة',
+        'return_fee'        => 'أجرة راجع',
+        'amount_correction' => 'تصحيح مبلغ',
+        'payout'            => 'دفع للتاجر',
+        'cod_collected'     => 'تحصيل نقد',
+        'commission'        => 'عمولة',
+        'commission_paid'   => 'دفع عمولة',
+        'cash_handover'     => 'تسليم نقد',
+        'deduction'         => 'خصم',
+    ];
+
+    public function categoryLabel(): string
+    {
+        return self::CATEGORIES[$this->category] ?? (string) $this->category;
+    }
+
     public const UPDATED_AT = null;
 
     protected $guarded = ['id'];

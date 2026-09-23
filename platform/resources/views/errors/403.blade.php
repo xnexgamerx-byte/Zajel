@@ -1,0 +1,5 @@
+@extends('errors.layout')
+@section('code', '403')
+@section('icon', 'lock')
+@section('title', 'غير مصرّح')
+@section('message', 'لا تملك صلاحية فتح هذه الصفحة. راجع مدير النظام إن كنت تحتاجها.')

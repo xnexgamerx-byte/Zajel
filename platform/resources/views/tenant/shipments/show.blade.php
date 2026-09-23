@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
         <div class="flex items-center gap-3">
-            <h1 class="font-mono text-2xl font-bold" dir="ltr">{{ $shipment->number }}</h1>
+            <h1 class="page-title font-mono" dir="ltr">{{ $shipment->number }}</h1>
             <x-status-badge :status="$shipment->status" />
         </div>
         <p class="mt-1 text-sm text-ink-500">
@@ -91,7 +91,7 @@
 
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="text-sm font-semibold">
-                                {{ $status?->label() ?? $event->to_status }}
+                                {{ $event->toLabel() }}
                             </span>
                             <span class="text-xs text-ink-400" dir="ltr">
                                 {{ $event->created_at->format('Y-m-d H:i') }}
@@ -211,7 +211,7 @@
                         <div class="relative">
                             <input id="collected_amount" name="collected_amount" type="number" min="0" step="1"
                                    value="{{ old('collected_amount', $shipment->cod_amount) }}"
-                                   class="field-input pe-12 text-left" dir="ltr">
+                                   class="field-input ps-12 text-left" dir="ltr">
                             <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                         </div>
                         <p class="mt-1 text-xs text-warn-700">

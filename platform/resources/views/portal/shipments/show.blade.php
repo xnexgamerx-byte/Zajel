@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
         <div class="flex items-center gap-3">
-            <h1 class="font-mono text-2xl font-bold" dir="ltr">{{ $shipment->number }}</h1>
+            <h1 class="page-title font-mono" dir="ltr">{{ $shipment->number }}</h1>
             <x-status-badge :status="$shipment->status" />
         </div>
         <p class="mt-1 text-sm text-ink-500">
@@ -39,7 +39,7 @@
                         <span class="absolute -start-[1.6rem] top-1 grid h-3 w-3 place-items-center rounded-full
                                      {{ $loop->last ? 'bg-[var(--brand)] ring-4 ring-[var(--brand-line)]' : 'bg-ink-300' }}"></span>
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class="text-sm font-semibold">{{ $status?->label() ?? $event->to_status }}</span>
+                            <span class="text-sm font-semibold">{{ $event->toLabel() }}</span>
                             <span class="text-xs text-ink-400" dir="ltr">
                                 {{ $event->created_at->format('Y-m-d H:i') }}
                             </span>

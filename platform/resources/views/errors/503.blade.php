@@ -1,0 +1,5 @@
+@extends('errors.layout')
+@section('code', '503')
+@section('icon', 'sliders')
+@section('title', 'النظام في صيانة')
+@section('message', 'نعود خلال دقائق.')

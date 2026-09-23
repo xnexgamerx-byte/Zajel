@@ -4,7 +4,7 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div>
-        <h1 class="text-xl font-bold">نظرة عامة</h1>
+        <h1 class="page-title">نظرة عامة</h1>
         <p class="mt-1 text-sm text-ink-500">كل الشركات المشتركة على المنصّة.</p>
     </div>
     <a href="{{ route('admin.companies.create') }}" class="btn-primary">+ تسجيل شركة</a>
@@ -110,13 +110,7 @@
                 @foreach ($audit as $entry)
                     <div class="flex items-center justify-between gap-3 py-2">
                         <span class="text-sm">
-                            {{ [
-                                'company_registered'     => 'سُجّلت شركة',
-                                'company_suspended'      => 'أُوقفت شركة',
-                                'company_activated'      => 'فُعّلت شركة',
-                                'impersonation_started'  => 'دخول إلى نظام شركة',
-                                'impersonation_ended'    => 'خروج من نظام شركة',
-                            ][$entry->action] ?? $entry->action }}
+                            {{ $entry->actionLabel() }}
                             @if ($entry->user_name)
                                 <span class="text-ink-500">— {{ $entry->user_name }}</span>
                             @endif

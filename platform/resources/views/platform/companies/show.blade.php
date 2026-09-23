@@ -6,7 +6,7 @@
     <div>
         <div class="flex items-center gap-3">
             <span class="h-5 w-5 rounded-lg" style="background: {{ $company->primary_color }}"></span>
-            <h1 class="text-xl font-bold">{{ $company->name }}</h1>
+            <h1 class="page-title">{{ $company->name }}</h1>
             <x-company-status :status="$company->status" />
         </div>
         <p class="mt-1 font-mono text-sm text-ink-500" dir="ltr">
@@ -116,7 +116,7 @@
                                     'company_activated'     => 'تفعيل',
                                     'impersonation_started' => 'دخول من المنصّة',
                                     'impersonation_ended'   => 'خروج من المنصّة',
-                                ][$entry->action] ?? $entry->action }}
+                                ][$entry->action] ?? $entry->actionLabel() }}
                                 @if ($entry->user_name)
                                     <span class="text-ink-500">— {{ $entry->user_name }}</span>
                                 @endif
