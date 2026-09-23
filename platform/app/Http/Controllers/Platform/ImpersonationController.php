@@ -10,9 +10,22 @@ use Illuminate\Http\Request;
 
 class ImpersonationController extends Controller
 {
+    /** على نطاق المنصّة: يكتب التذكرة ويحوّل إلى نطاق الشركة. */
     public function start(Request $request, Company $company, ImpersonateCompany $action): RedirectResponse
     {
-        $action->start($request, $company);
+        return redirect()->away($action->start($request, $company));
+    }
+
+    /** على نطاق الشركة: يصرف التذكرة ويفتح جلسة الشركة. */
+    public function enter(Request $request, string $token, ImpersonateCompany $action): RedirectResponse
+    {
+        abort_unless(
+            $action->enter($request, $token),
+            404,
+            'رابط الدخول انتهى أو استُعمل. ادخل من لوحة المنصّة من جديد.',
+        );
+
+        $company = $request->attributes->get('company');
 
         return redirect()
             ->route('shipments.index')
@@ -21,14 +34,9 @@ class ImpersonationController extends Controller
 
     public function stop(Request $request, ImpersonateCompany $action): RedirectResponse
     {
-        $actor = $action->stop($request);
+        $platform = $action->stop($request);
 
-        if (! $actor) {
-            return redirect()->route('admin.login');
-        }
-
-        return redirect()
-            ->route('admin.dashboard')
-            ->with('success', 'عُدت إلى لوحة المنصّة.');
+        // ليس دخولاً من المنصّة: مستخدم الشركة يعود إلى لوحته
+        return $platform ? redirect()->away($platform) : redirect()->route('dashboard');
     }
 }

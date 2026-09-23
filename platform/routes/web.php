@@ -351,7 +351,17 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
     });
 });
 
-// إنهاء الانتحال يتم من داخل نظام الشركة، فهو في مجموعة المستأجر
+// الدخول يُصرَف وينتهي داخل نظام الشركة، فهما في مجموعة المستأجر:
+// نطاق الشركة يصرف تذكرةً كتبتها لوحة المنصّة (ImpersonateCompany).
+// والصرف يستبدل مَن في الجلسة بصاحب التذكرة — وقد فُحص أنه من هذه
+// الشركة — فلا معنى لطرد مَن كان فيها قبله: على مضيفٍ واحدٍ في التطوير
+// كان هو المدير نفسه، فيُطرَد إلى الدخول قبل أن تُصرَف تذكرته.
+Route::middleware('tenant')
+    ->withoutMiddleware(\App\Http\Middleware\EnsureUserBelongsToTenant::class)
+    ->get('/impersonate/{token}', [ImpersonationController::class, 'enter'])
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->name('impersonation.enter');
+
 Route::middleware(['tenant', 'auth'])
     ->post('/stop-impersonating', [ImpersonationController::class, 'stop'])
     ->name('impersonation.stop');

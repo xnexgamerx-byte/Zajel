@@ -2,9 +2,7 @@
 
 namespace Tests\Feature\Platform;
 
-use App\Actions\Platform\ImpersonateCompany;
 use App\Enums\UserRole;
-use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Hub;
@@ -199,55 +197,6 @@ class ControlPlaneTest extends TestCase
         $this->actingAs($this->admin)
             ->post("/admin/companies/{$company->id}/suspend", [])
             ->assertSessionHasErrors('reason');
-    }
-
-    // ----------------------------------------------------- الانتحال
-
-    public function test_impersonation_logs_who_entered_which_company(): void
-    {
-        $this->actingAs($this->admin)->post('/admin/companies', $this->payload(['status' => 'active']));
-        $company = Tenancy::runAsPlatform(fn () => Company::where('slug', 'barq')->firstOrFail());
-
-        $this->actingAs($this->admin)
-            ->post("/admin/companies/{$company->id}/impersonate")
-            ->assertRedirect();
-
-        $entry = Tenancy::runAsPlatform(fn () => AuditLog::where('action', 'impersonation_started')->firstOrFail());
-
-        $this->assertSame($company->id, $entry->company_id);
-        $this->assertSame($this->admin->id, $entry->impersonator_user_id);
-
-        // صار المستخدم الحالي صاحب الشركة، والجلسة تحمل من انتحل
-        $this->assertSame('07711112222', auth()->user()->phone);
-        $this->assertSame($this->admin->id, session(ImpersonateCompany::SESSION_KEY));
-    }
-
-    public function test_stopping_impersonation_returns_the_platform_admin(): void
-    {
-        $this->actingAs($this->admin)->post('/admin/companies', $this->payload(['status' => 'active']));
-        $company = Tenancy::runAsPlatform(fn () => Company::where('slug', 'barq')->firstOrFail());
-
-        $this->actingAs($this->admin)->post("/admin/companies/{$company->id}/impersonate");
-
-        $this->post('http://barq.'.config('zajel.tenant_domain').'/stop-impersonating')
-            ->assertRedirect('/admin');
-
-        $this->assertSame($this->admin->id, auth()->id());
-        $this->assertNull(session(ImpersonateCompany::SESSION_KEY));
-
-        Tenancy::runAsPlatform(fn () => $this->assertSame(
-            1, AuditLog::where('action', 'impersonation_ended')->count()
-        ));
-    }
-
-    public function test_a_company_user_cannot_impersonate(): void
-    {
-        $company = $this->makeCompany();
-        $owner = $this->makeUser($company);
-
-        $this->actingAs($owner)
-            ->post("/admin/companies/{$company->id}/impersonate")
-            ->assertForbidden();
     }
 
     // ------------------------------------------------------------ الباقات

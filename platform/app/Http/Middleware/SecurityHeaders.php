@@ -60,6 +60,17 @@ class SecurityHeaders
         $assets = rtrim((string) config('app.asset_url'), '/');
         $self = trim("'self' {$assets}");
 
+        /*
+        | النماذج تُرسَل إلى النظام وحده — وهو نطاقاتٌ فرعية لا نطاقٌ واحد.
+        |
+        | المتصفّح يطبّق form-action على التحويل الذي يلي الإرسال أيضاً: دخول
+        | مدير المنصّة إلى شركةٍ يُرسَل على admin.{النطاق} ويُحوَّل إلى نطاق
+        | الشركة، والخروج بالعكس. بـ 'self' وحدها رفضهما Chrome («Refused to
+        | send form data») — جُرِّب في المتصفّح، ولا يراه اختبار HTTP.
+        */
+        $domain = (string) config('zajel.tenant_domain');
+        $ours = $domain !== '' ? ["*.{$domain}:*"] : [];
+
         $directives = [
             'default-src'     => [$self],
             'script-src'      => [$self, "'unsafe-inline'"],
@@ -69,7 +80,7 @@ class SecurityHeaders
             'connect-src'     => ["'self'"],
             'object-src'      => ["'none'"],
             'base-uri'        => ["'self'"],
-            'form-action'     => ["'self'"],
+            'form-action'     => ["'self'", ...$ours],
             'frame-ancestors' => ["'none'"],
         ];
 

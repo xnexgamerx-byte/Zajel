@@ -32,6 +32,9 @@ class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString("object-src 'none'", $policy);
         $this->assertStringNotContainsString('unsafe-eval', $policy);
 
+        // دخول المنصّة إلى شركة يُرسَل على نطاقٍ ويُحوَّل إلى آخر
+        $this->assertStringContainsString("form-action 'self' *.".config('zajel.tenant_domain').':*', $policy);
+
         // http المحلّي لا يُقفَل على https
         $response->assertHeaderMissing('Strict-Transport-Security');
         $response->assertHeaderMissing('Cross-Origin-Opener-Policy');
