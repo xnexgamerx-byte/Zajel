@@ -15,7 +15,13 @@
             @endif
         </p>
     </div>
-    <a href="{{ route('portal.shipments.index') }}" class="btn-ghost">رجوع</a>
+    <div class="flex flex-wrap items-center gap-2">
+        <a href="{{ route('portal.shipments.labels', ['ids' => [$shipment->id]]) }}" target="_blank" class="btn-ghost">
+            <x-icon name="printer" class="size-5"/>
+            طباعة الوصل
+        </a>
+        <a href="{{ route('portal.shipments.index') }}" class="btn-ghost">رجوع</a>
+    </div>
 </div>
 
 @if ($shipment->lastFailureReason && $shipment->status->isOpen())

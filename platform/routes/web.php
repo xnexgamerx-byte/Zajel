@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ShipmentLabelController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
@@ -89,6 +90,9 @@ Route::middleware('tenant')->group(function () {
             Route::post('/shipments/import', [ShipmentImportController::class, 'store'])->name('shipments.import.store');
             Route::post('/shipments/import/confirm', [ShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
         });
+        // قبل /shipments/{shipment}: وإلا قُرئت «labels» رقمَ شحنة
+        Route::get('/shipments/labels', [ShipmentLabelController::class, 'staff'])
+            ->middleware(['staff', 'can:shipments.view'])->name('shipments.labels');
         Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
         Route::middleware(['staff', 'can:shipments.edit'])->group(function () {
             Route::get('/shipments/{shipment}/edit', [ShipmentController::class, 'edit'])->name('shipments.edit');
@@ -317,6 +321,7 @@ Route::middleware('tenant')->group(function () {
             Route::post('/shipments/import', [PortalShipmentImportController::class, 'store'])->name('shipments.import.store');
             Route::post('/shipments/import/confirm', [PortalShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
             Route::post('/shipments', [PortalShipmentController::class, 'store'])->name('shipments.store');
+            Route::get('/shipments/labels', [ShipmentLabelController::class, 'portal'])->name('shipments.labels');
             Route::get('/shipments/{shipment}', [PortalShipmentController::class, 'show'])->name('shipments.show');
 
             Route::get('/statement', StatementController::class)->name('statement');

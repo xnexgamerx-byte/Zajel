@@ -216,6 +216,11 @@
         </select>
 
         <button type="submit" class="btn-primary">إسناد وإخراج للتوصيل</button>
+        {{-- الطباعة رابطٌ لا نموذج: نموذج GET كان سيحمل رمز الحماية في العنوان --}}
+        <button type="button" class="btn-ghost" data-bulk-print="{{ route('shipments.labels') }}">
+            <x-icon name="printer" class="size-5"/>
+            طباعة الوصولات
+        </button>
         <button type="button" class="btn-ghost" data-bulk-clear>إلغاء الاختيار</button>
 
         <span class="ms-auto text-xs text-ink-500">

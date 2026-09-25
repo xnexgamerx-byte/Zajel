@@ -179,6 +179,18 @@ if (bulkBar) {
         refresh();
     });
 
+    const print = bulkBar.querySelector('[data-bulk-print]');
+
+    print?.addEventListener('click', () => {
+        const url = new URL(print.dataset.bulkPrint, location.href);
+
+        for (const row of rows) {
+            if (row.checked) url.searchParams.append('ids[]', row.value);
+        }
+
+        window.open(url, '_blank', 'noopener');
+    });
+
     bulkBar.querySelector('[data-bulk-clear]')?.addEventListener('click', () => {
         for (const row of rows) row.checked = false;
         refresh();

@@ -4,7 +4,14 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <h1 class="page-title">شحناتي</h1>
-    <a href="{{ route('portal.shipments.create') }}" class="btn-primary">+ شحنة جديدة</a>
+    <div class="flex flex-wrap items-center gap-2">
+        {{-- ما لم يستلمه المندوب بعد: يُطبع ويُلصَق قبل أن يصل --}}
+        <a href="{{ route('portal.shipments.labels', ['new' => 1]) }}" target="_blank" class="btn-ghost">
+            <x-icon name="printer" class="size-5"/>
+            طباعة وصولات الشحنات الجديدة
+        </a>
+        <a href="{{ route('portal.shipments.create') }}" class="btn-primary">+ شحنة جديدة</a>
+    </div>
 </div>
 
 <form method="GET" class="card mb-4 flex flex-wrap items-end gap-3 p-4">

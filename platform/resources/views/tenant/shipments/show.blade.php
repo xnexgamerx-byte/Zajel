@@ -24,6 +24,10 @@
                 </a>
             @endcan
         @endif
+        <a href="{{ route('shipments.labels', ['ids' => [$shipment->id]]) }}" target="_blank" class="btn-ghost">
+            <x-icon name="printer" class="size-5"/>
+            طباعة الوصل
+        </a>
         <a href="{{ route('shipments.index') }}" class="btn-ghost">رجوع للقائمة</a>
     </div>
 </div>

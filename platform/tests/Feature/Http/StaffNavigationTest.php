@@ -33,7 +33,7 @@ class StaffNavigationTest extends TestCase
     /** شاشاتٌ تُفتح من داخل غيرها لا من الشريط: نماذج الإضافة، والطباعة، وقالب الاستيراد */
     private const OPENED_FROM_ELSEWHERE = [
         'branches.create', 'couriers.create', 'merchants.create', 'users.create',
-        'shipments.import.template', 'branch-accounts.statement.print',
+        'shipments.import.template', 'branch-accounts.statement.print', 'shipments.labels',
     ];
 
     private Company $company;
