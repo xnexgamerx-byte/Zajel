@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
 use App\Http\Controllers\Courier\ActionController as CourierActionController;
@@ -58,6 +59,17 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('tenant')->group(function () {
+    /*
+     | تتبّع الزبون: بلا حساب، وبحدٍّ للمحاولات. رقم الوصل مع آخر أربعة من
+     | الهاتف، أو رابط QR من الوصل ببصمته.
+     */
+    Route::middleware('throttle:30,1')->group(function () {
+        Route::get('/track', [TrackingController::class, 'form'])->name('track');
+        Route::get('/t/{number}/{token}', [TrackingController::class, 'show'])
+            ->where(['number' => '[A-Za-z0-9\-]+', 'token' => '[a-f0-9]{16}'])
+            ->name('track.show');
+    });
+
     Route::get('/login', [LoginController::class, 'show'])->middleware('guest')->name('login');
     Route::post('/login', [LoginController::class, 'store'])->middleware('guest');
     Route::post('/logout', [LoginController::class, 'destroy'])->middleware('auth')->name('logout');
