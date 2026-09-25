@@ -21,6 +21,20 @@ if [ -z "${APP_KEY:-}" ]; then
     exit 1
 fi
 
+# مفتاحٌ لُصق مع اسمه (APP_KEY=base64:…) أو بين علامتي تنصيص يُصحَّح: القيمة
+# نفسها، فلا تتغيّر روابط QR. وما بقي غير صالحٍ بعدها يوقف البدء برسالة، بدل
+# «Unsupported cipher» في كل صفحة
+APP_KEY=${APP_KEY#APP_KEY=}
+APP_KEY=$(printf '%s' "$APP_KEY" | tr -d "\"' \r\n\t")
+export APP_KEY
+
+if ! php -r '$k = (string) getenv("APP_KEY"); if (str_starts_with($k, "base64:")) { $k = base64_decode(substr($k, 7), true); } exit(is_string($k) && strlen($k) === 32 ? 0 : 1);'; then
+    echo "APP_KEY غير صالح: يبدأ بـ base64: ثم ٤٤ حرفاً، بلا APP_KEY= قبله وبلا علامات تنصيص." >&2
+    echo "إن لم تُطبَع وصولاتٌ بعد فضع هذه القيمة في Variables، واحفظها في مكانٍ آمن:" >&2
+    echo "APP_KEY=base64:$(head -c 32 /dev/urandom | base64)" >&2
+    exit 1
+fi
+
 # Railway: الموقع بلا APP_URL يُبنى من النطاق
 if [ -z "${APP_URL:-}" ] && [ -n "${ZAJEL_TENANT_DOMAIN:-}" ]; then
     export APP_URL="https://admin.${ZAJEL_TENANT_DOMAIN}"

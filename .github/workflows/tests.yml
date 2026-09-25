@@ -185,6 +185,10 @@ jobs:
           out=$(docker run --rm -e APP_KEY="base64:$(openssl rand -base64 32)" -e DB_URL= zajel-railway 2>&1 || true)
           echo "$out" | grep -q 'DB_URL وصل فارغاً'
 
+          # مفتاحٌ ناقص: رسالةٌ عند البدء، لا «Unsupported cipher» في كل صفحة
+          out=$(docker run --rm -e APP_KEY="base64:qakQ/pm8nsDKeT5yxLu7c68w" zajel-railway 2>&1 || true)
+          echo "$out" | grep -q 'APP_KEY غير صالح'
+
       - name: Logs
         if: failure()
         run: |
