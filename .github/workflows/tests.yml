@@ -183,7 +183,7 @@ jobs:
 
           # مرجع DB_URL لم يجد خدمة القاعدة: رسالةٌ تقول ذلك، لا مئة سطر
           out=$(docker run --rm -e APP_KEY="base64:$(openssl rand -base64 32)" -e DB_URL= zajel-railway 2>&1 || true)
-          echo "$out" | grep -q 'DB_URL فارغ'
+          echo "$out" | grep -q 'DB_URL وصل فارغاً'
 
       - name: Logs
         if: failure()

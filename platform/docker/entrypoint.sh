@@ -34,10 +34,18 @@ case "$1" in
         # أنّ المرجع لم يجد خدمةً بذلك الاسم، فيتّصل Laravel بـ 127.0.0.1
         # ويسقط بمئة سطرٍ لا تقول ذلك
         if [ "$1" = "zajel-railway" ] && [ -z "${DB_URL:-}" ] && [ -z "${DB_HOST:-}" ]; then
-            echo "DB_URL فارغ: مرجعه لم يجد خدمة قاعدة البيانات." >&2
-            echo "في المشروع خدمة MySQL باسم MySQL تماماً، وفي متغيّرات زاجل:" >&2
-            echo 'DB_URL=${{MySQL.MYSQL_URL}}' >&2
-            echo "وإن كان اسم خدمة القاعدة غير ذلك فضعه مكان MySQL." >&2
+            if [ -n "${DB_URL+set}" ]; then
+                echo "DB_URL وصل فارغاً: مرجعه لم يجد خدمة قاعدة البيانات." >&2
+                echo "في المشروع خدمة MySQL باسم MySQL تماماً، وفي متغيّرات زاجل:" >&2
+                echo 'DB_URL=${{MySQL.MYSQL_URL}}' >&2
+                echo "وإن كان اسم خدمة القاعدة غير ذلك فضعه مكان MySQL." >&2
+            else
+                echo "DB_URL لم يصل إلى هذه الخدمة (${RAILWAY_SERVICE_NAME:-؟}) أصلاً." >&2
+                echo "أضفه في Variables لهذه الخدمة نفسها واحفظه (✓)، ثم Deploy لتطبيق التغيير." >&2
+            fi
+            # الأسماء وحدها، لا القيم: فيها كلمة سرّ القاعدة
+            names=$(env | cut -d= -f1 | grep -iE 'db|mysql|database' | grep -vx 'DB_CONNECTION' | sort | tr '\n' ' ')
+            echo "متغيّرات القاعدة التي وصلت: ${names:-لا شيء}" >&2
             exit 1
         fi
 
