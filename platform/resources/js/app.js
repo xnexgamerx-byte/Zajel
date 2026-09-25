@@ -46,6 +46,7 @@ function initCityLinking() {
 /** يعرض الأجرة ومستحقّ التاجر قبل الحفظ. */
 function initLiveQuote() {
     const url = form.dataset.quoteUrl;
+    const original = form.dataset.original ? JSON.parse(form.dataset.original) : null;
     const token = document.querySelector('meta[name="csrf-token"]')?.content;
     const box = document.getElementById('quote-box');
     const warning = box?.querySelector('[data-quote-warning]');
@@ -83,7 +84,12 @@ function initLiveQuote() {
         if (!merchantId || !governorateId) return;
 
         const manualRaw = form.elements.delivery_fee?.value;
-        const manualFee = manualRaw === '' ? null : Number(manualRaw);
+        let manualFee = manualRaw === '' ? null : Number(manualRaw);
+
+        // في التعديل: الأجرة الفارغة تبقى كما هي ما لم تتغيّر المحافظة أو المنطقة أو الوزن
+        const rerouted = original && ['governorate_id', 'city_id', 'weight_grams']
+            .some((name) => String(form.elements[name]?.value ?? '') !== String(original[name] ?? ''));
+        if (manualFee === null && original && !rerouted) manualFee = original.delivery_fee;
 
         try {
             const response = await fetch(url, {

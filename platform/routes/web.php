@@ -78,6 +78,10 @@ Route::middleware('tenant')->group(function () {
             Route::post('/shipments/import/confirm', [ShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
         });
         Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
+        Route::middleware(['staff', 'can:shipments.edit'])->group(function () {
+            Route::get('/shipments/{shipment}/edit', [ShipmentController::class, 'edit'])->name('shipments.edit');
+            Route::put('/shipments/{shipment}', [ShipmentController::class, 'update'])->name('shipments.update');
+        });
         Route::post('/shipments/{shipment}/status', [ShipmentStatusController::class, 'update'])
             ->middleware(['staff', 'can:shipments.status'])->name('shipments.status');
         Route::post('/shipments/assign', [ShipmentStatusController::class, 'assign'])

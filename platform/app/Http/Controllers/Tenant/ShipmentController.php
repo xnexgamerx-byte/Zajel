@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Shipments\CreateShipment;
+use App\Actions\Shipments\UpdateShipment;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreShipmentRequest;
+use App\Http\Requests\UpdateShipmentRequest;
 use App\Models\City;
 use App\Models\Courier;
 use App\Models\FailureReason;
@@ -88,14 +90,38 @@ class ShipmentController extends Controller
             ->with('success', "تم إنشاء الشحنة برقم وصل {$shipment->number}.");
     }
 
+    public function edit(Request $request, Shipment $shipment): View
+    {
+        $this->ensureVisible($request, $shipment);
+
+        abort_unless(
+            UpdateShipment::editable($shipment),
+            403,
+            'لا تُعدَّل شحنةٌ بعد تسليمها أو إرجاعها أو إلغائها — مالها قُيِّد في الحسابات.',
+        );
+
+        return view('tenant.shipments.edit', [
+            'shipment'     => $shipment->load('merchant:id,business_name'),
+            'reroutable'   => UpdateShipment::reroutable($shipment),
+            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+        ]);
+    }
+
+    public function update(UpdateShipmentRequest $request, Shipment $shipment, UpdateShipment $action): RedirectResponse
+    {
+        $this->ensureVisible($request, $shipment);
+
+        $action->handle($shipment, $request->validated(), $request->user());
+
+        return redirect()
+            ->route('shipments.show', $shipment)
+            ->with('success', "حُفظت بيانات الشحنة {$shipment->number}.");
+    }
+
     public function show(Request $request, Shipment $shipment): View
     {
-        // ربط المسار بالنموذج يطبّق فلترة الشركة وحدها. بلا هذا السطر
-        // يفتح تاجرٌ شحنة تاجر آخر بكتابة رقمها في العنوان.
-        abort_unless(
-            Shipment::whereKey($shipment->id)->visibleTo($request->user())->exists(),
-            404,
-        );
+        $this->ensureVisible($request, $shipment);
 
         $shipment->load([
             'merchant', 'governorate', 'city', 'deliveryCourier', 'pickupCourier',
@@ -113,6 +139,18 @@ class ShipmentController extends Controller
             'hubs'         => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(),
         ]);
+    }
+
+    /**
+     * ربط المسار بالنموذج يطبّق فلترة الشركة وحدها. بلا هذا الفحص يفتح
+     * موظّفٌ مقيَّد بفرعٍ شحنةَ فرعٍ آخر — أو يعدّلها — بكتابة رقمها في العنوان.
+     */
+    private function ensureVisible(Request $request, Shipment $shipment): void
+    {
+        abort_unless(
+            Shipment::whereKey($shipment->id)->visibleTo($request->user())->exists(),
+            404,
+        );
     }
 
     /**

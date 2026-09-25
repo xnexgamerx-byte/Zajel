@@ -21,6 +21,9 @@ class Ability
 
     public const SHIPMENTS_CREATE = 'shipments.create';
 
+    /** تصحيح هاتفٍ أو عنوانٍ أو مبلغٍ قبل أن تُقفَل الشحنة — كل تعديلٍ في سجلّها */
+    public const SHIPMENTS_EDIT = 'shipments.edit';
+
     public const SHIPMENTS_STATUS = 'shipments.status';
 
     public const SHIPMENTS_ASSIGN = 'shipments.assign';
@@ -78,6 +81,7 @@ class Ability
             'operations' => ['label' => 'العمليات', 'abilities' => [
                 self::SHIPMENTS_VIEW   => 'عرض الشحنات',
                 self::SHIPMENTS_CREATE => 'إنشاء شحنة ورفع ملف',
+                self::SHIPMENTS_EDIT   => 'تعديل بيانات الشحنة',
                 self::SHIPMENTS_STATUS => 'تغيير حالة شحنة',
                 self::SHIPMENTS_ASSIGN => 'إسناد للمندوبين',
                 self::PICKUPS_MANAGE   => 'طلبات الاستلام',
@@ -138,7 +142,7 @@ class Ability
     public static function defaultsFor(UserRole $role): array
     {
         $operations = [
-            self::SHIPMENTS_VIEW, self::SHIPMENTS_CREATE, self::SHIPMENTS_STATUS,
+            self::SHIPMENTS_VIEW, self::SHIPMENTS_CREATE, self::SHIPMENTS_EDIT, self::SHIPMENTS_STATUS,
             self::SHIPMENTS_ASSIGN, self::PICKUPS_MANAGE, self::RETURNS_MANAGE,
             self::TRANSPORT_MANAGE,
         ];

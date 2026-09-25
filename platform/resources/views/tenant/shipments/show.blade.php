@@ -15,7 +15,17 @@
             @endif
         </p>
     </div>
-    <a href="{{ route('shipments.index') }}" class="btn-ghost">رجوع للقائمة</a>
+    <div class="flex flex-wrap items-center gap-2">
+        @if (\App\Actions\Shipments\UpdateShipment::editable($shipment))
+            @can('shipments.edit')
+                <a href="{{ route('shipments.edit', $shipment) }}" class="btn-ghost">
+                    <x-icon name="sliders" class="size-5"/>
+                    تعديل البيانات
+                </a>
+            @endcan
+        @endif
+        <a href="{{ route('shipments.index') }}" class="btn-ghost">رجوع للقائمة</a>
+    </div>
 </div>
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">

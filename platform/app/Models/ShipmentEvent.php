@@ -38,6 +38,7 @@ class ShipmentEvent extends Model
         'forced_status'    => 'حالة إجبارية',
         'money'            => 'مالي',
         'amount_confirmed' => 'تأكيد مبلغ',
+        'edited'           => 'تعديل بيانات',
         'return_received'  => 'استلام راجع',
         'return_arrived'   => 'وصول راجع لفرع',
         'return_sorted'    => 'فرز راجع لفرع',

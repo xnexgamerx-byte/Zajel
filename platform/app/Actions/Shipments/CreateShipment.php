@@ -52,11 +52,8 @@ class CreateShipment
             $extraFee = (int) ($data['extra_fee'] ?? $quote['extra_fee']);
             $discount = (int) ($data['discount'] ?? 0);
             $codFee = $quote['cod_fee'];
-            $totalFees = max(0, $deliveryFee + $extraFee + $codFee - $discount);
-
-            $merchantDue = $feesPaidBy === 'customer'
-                ? $cod - $codFee + $discount
-                : $cod - $totalFees;
+            ['total_fees' => $totalFees, 'merchant_due' => $merchantDue] =
+                PricingService::totals($cod, $feesPaidBy, $deliveryFee, $extraFee, $codFee, $discount);
 
             $number = $this->sequences->next('shipment');
 

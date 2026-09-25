@@ -49,21 +49,38 @@ class PricingService
             $codFee = (int) round($codAmount * ($rule->cod_fee_percent / 100)) + $rule->cod_fee_flat;
         }
 
-        $totalFees = max(0, $deliveryFee + $extraFee + $codFee - $discount);
-
-        $merchantDue = $feesPaidBy === 'customer'
-            ? $codAmount - $codFee + $discount
-            : $codAmount - $totalFees;
-
         return [
             'delivery_fee' => $deliveryFee,
             'return_fee'   => $rule?->return_fee ?? 0,
             'extra_fee'    => $extraFee,
             'cod_fee'      => $codFee,
-            'total_fees'   => $totalFees,
-            'merchant_due' => $merchantDue,
+            ...self::totals($codAmount, $feesPaidBy, $deliveryFee, $extraFee, $codFee, $discount),
             'rule_id'      => $rule?->id,
             'matched'      => $rule !== null,
+        ];
+    }
+
+    /**
+     * مجموع الأجور ومستحقّ التاجر من أجزائهما — معادلةٌ واحدة يستعملها
+     * التسعير والإنشاء والتعديل، فلا تحسب شاشةٌ مستحقّاً غير الذي تحفظه أخرى.
+     *
+     * @return array{total_fees:int, merchant_due:int}
+     */
+    public static function totals(
+        int $codAmount,
+        string $feesPaidBy,
+        int $deliveryFee,
+        int $extraFee,
+        int $codFee,
+        int $discount,
+    ): array {
+        $totalFees = max(0, $deliveryFee + $extraFee + $codFee - $discount);
+
+        return [
+            'total_fees'   => $totalFees,
+            'merchant_due' => $feesPaidBy === 'customer'
+                ? $codAmount - $codFee + $discount
+                : $codAmount - $totalFees,
         ];
     }
 
