@@ -1,83 +1,87 @@
 @import 'tailwindcss';
 
 /*
-| نظام تصميم زاجل — لغة «FleetSense» البصرية (Figma: Logistics Dashboard).
+| نظام تصميم زاجل — لغة «نظام تصميم الإمارات» البصرية (UAE Design System).
 |
-| ما أُخذ من التصميم، لا من محتواه:
-|  1) حبرٌ واحد (#303030) للنصّ والحدود والأسطح الداكنة. كل سطحٍ مُحاط
-|     بخطٍّ رفيع منه بدل الظلّ: الشكل يُقرأ بالحدّ لا بالعمق.
-|  2) أصفرٌ واحد (#FFDA5F) للفعل المهمّ والبطاقة البارزة، ولمسات هادئة
-|     من الزيتونيّ واللافندر. اللون خارج الحالات لمسةٌ لا خلفية.
-|  3) زوايا واسعة: البطاقات ٢٤، الصفوف ١٦، الأزرار والحقول حبوبٌ كاملة.
-|  4) خطٌّ هندسيّ (Readex Pro — امتداد Lexend للعربية، أقرب ما في
-|     العربية إلى Lufga في التصميم) وعناوين كبيرة بوزنٍ نصف ثقيل.
+| المصدر: @aegov/design-system (TDRA، رخصة MIT). لوحته تأتي من الحزمة نفسها
+| عبر aegov-palette.js، والمكوّنات هنا مكتوبة على مواصفاته لا منسوخة منه:
+| قاعدته كُتبت لمواقع المحتوى (عنوانٌ بحجم ٦٢ بكسل، وهامش ٣٢ تحت كل فقرة،
+| وخطّ تحت كل رابط) وتقلب شاشات البيانات الكثيفة لو دخلت كما هي.
 |
-| وألوان الحالة ما زالت محجوزة للمعنى: كل شارةٍ تحمل نصّها ونقطتها،
-| فاللون تعزيزٌ لا قناةٌ وحيدة.
+| ما أُخذ منه:
+|  1) الذهبيّ (primary) للفعل والعنصر الحاليّ، والبرتقاليّ المساند
+|     (primary-support) لحلقة التركيز، والأسود المزرقّ (aeblack) للنصّ
+|     والمحايدات. وشريطٌ ذهبيّ متدرّج أعلى الرأس توقيعُه.
+|  2) خطّاه في الصفحة اليمينية: Alexandria للعناوين وNoto Kufi Arabic للنصّ،
+|     وRoboto — خطّه اللاتيني — للأرقام بعرضٍ ثابت.
+|  3) حقولٌ بحلقة ذهبية عرضها ٢ بكسل وزواياها ٨، وأزرارٌ ممتلئة بالذهبيّ،
+|     وشاراتٌ بخلفيةٍ فاتحة ونصٍّ داكن من اللون نفسه ونقطة مؤشّر.
+|  4) شريط تنقّل رماديّ فاتح بعناوين عريضة، والحاليّ مسطّرٌ بالذهبيّ الداكن،
+|     وقوائم منسدلة بيضاء يتقدّمها اسمها بالذهبيّ.
+|
+| وألوان الحالة محجوزة للمعنى: كل شارة تحمل نصّها ونقطتها، فاللون تعزيزٌ
+| لا قناةٌ وحيدة.
 */
 
+@plugin './aegov-palette.js';
+
 @theme {
-    --font-sans: 'Readex Pro', 'Cairo', ui-sans-serif, system-ui, sans-serif;
-    /* الأرقام بخطّ الواجهة نفسه كما في التصميم، بعرضٍ ثابت (tnum) */
-    --font-mono: 'Readex Pro', ui-monospace, SFMono-Regular, monospace;
+    --font-sans: 'Noto Kufi Arabic', 'Alexandria', ui-sans-serif, system-ui, sans-serif;
+    --font-heading: 'Alexandria', 'Noto Kufi Arabic', ui-sans-serif, system-ui, sans-serif;
+    /* الأرقام بخطّ النظام اللاتيني، بعرضٍ ثابت (tnum) فتصطفّ في الأعمدة */
+    --font-mono: 'Roboto', ui-monospace, SFMono-Regular, monospace;
 
-    /* الحبر ومحايداته — مرساها #303030 من التصميم */
-    --color-ink-50:  #f8f8f5;
-    --color-ink-100: #f0f0eb;
-    --color-ink-200: #e3e3dc;
-    --color-ink-300: #cecec6;
-    --color-ink-400: #9393a2;
-    --color-ink-500: #696973;
-    --color-ink-600: #515158;
-    --color-ink-700: #3f3f44;
-    --color-ink-800: #363638;
-    --color-ink-900: #303030;
-    --color-ink-950: #1c1c1c;
-
-    /* لمسات التصميم */
-    --color-sun:        #ffda5f;
-    --color-sun-soft:   #fff4cc;
-    --color-amber:      #ffc861;
-    --color-sage:       #d5d6b6;
-    --color-sage-soft:  #e7e7db;
-    --color-lilac:      #e3dcf1;
-    --color-lilac-soft: #f3effa;
-
-    /* علامة المنصّة — لوحة النواة وحدها: بنفسجيّ الغلاف */
-    --color-plat-50:  #f4f0fe;
-    --color-plat-100: #e3dcf1;
-    --color-plat-400: #a992f8;
-    --color-plat-500: #8b6cf6;
-    --color-plat-600: #7453ea;
-    --color-plat-700: #5f3fd6;
-    --color-plat-900: #3b2687;
+    /* شاشة ١٩٢٠: فيها وحدها تتّسع أيقونات القوائم الاثنتي عشرة في صفٍّ واحد */
+    --breakpoint-3xl: 112rem;
 
     /*
-    | ألوان الحالة — مجموعة محجوزة. الأحمر من التصميم (#B80000)، والبقيّة
-    | بدرجاتٍ تتّسق مع لوحته. التباين مع السطح ≥ 4.5:1 لنصّ كل شارة.
+    | المحايدات بأسماء الشاشات القديمة (ink) وقيم نظام التصميم، فتتبعه كل
+    | شاشة كتبت text-ink-500 أو border-ink-200 بلا تعديل. السلّم مُزاح
+    | درجةً في أوّله: ink-200 خطٌّ فاصل خفيف كما يستعمل النظام aeblack-100.
     */
-    --color-ok-50:    #edf5ea;
-    --color-ok-200:   #b9d9ae;
-    --color-ok-700:   #226b2b;
-    --color-info-50:  #f1edfb;
-    --color-info-200: #d6ccf2;
-    --color-info-700: #5237b8;
-    --color-warn-50:  #fff5d6;
-    --color-warn-200: #f7d98a;
-    --color-warn-700: #9a5a00;
-    --color-bad-50:   #fdeeee;
-    --color-bad-200:  #f1bcbc;
-    --color-bad-700:  #b80000;
+    --color-ink-50:  var(--color-aeblack-50);
+    --color-ink-100: var(--color-whitely-400);
+    --color-ink-200: var(--color-aeblack-100);
+    --color-ink-300: var(--color-aeblack-200);
+    --color-ink-400: var(--color-aeblack-400);
+    --color-ink-500: var(--color-aeblack-500);
+    --color-ink-600: var(--color-aeblack-600);
+    --color-ink-700: var(--color-aeblack-700);
+    --color-ink-800: var(--color-aeblack-800);
+    --color-ink-900: var(--color-aeblack-900);
+    --color-ink-950: var(--color-aeblack-950);
 
-    /* الزوايا والظلال كما في التصميم */
-    --radius-lg:  0.875rem;
-    --radius-xl:  1.125rem;
-    --radius-2xl: 1.5rem;
-    --radius-3xl: 1.875rem;
+    /* لمسات التصميم السابق، مردودة إلى لوحة النظام */
+    --color-sun:        var(--color-primary-400);
+    --color-sun-soft:   var(--color-primary-50);
+    --color-amber:      var(--color-camel-300);
+    --color-sage:       var(--color-primary-100);
+    --color-sage-soft:  var(--color-primary-50);
+    --color-lilac:      var(--color-seablue-100);
+    --color-lilac-soft: var(--color-seablue-50);
 
-    --shadow-xs: 0 0 #0000;
-    --shadow-sm: 0 1px 0 rgb(48 48 48 / 0.05);
-    --shadow-2xl: 0 28px 60px -18px rgb(48 48 48 / 0.28);
+    /* علامة المنصّة — لوحة النواة وحدها: الأزرق التقنيّ من لوحة النظام */
+    --color-plat-50:  var(--color-techblue-50);
+    --color-plat-100: var(--color-techblue-100);
+    --color-plat-400: var(--color-techblue-400);
+    --color-plat-500: var(--color-techblue-500);
+    --color-plat-600: var(--color-techblue-600);
+    --color-plat-700: var(--color-techblue-700);
+    --color-plat-900: var(--color-techblue-900);
+
+    /* ألوان الحالة كما في شارات النظام: أخضر، أزرق تقنيّ، جمليّ، أحمر */
+    --color-ok-50:    var(--color-aegreen-50);
+    --color-ok-200:   var(--color-aegreen-200);
+    --color-ok-700:   var(--color-aegreen-700);
+    --color-info-50:  var(--color-techblue-50);
+    --color-info-200: var(--color-techblue-200);
+    --color-info-700: var(--color-techblue-700);
+    --color-warn-50:  var(--color-camel-50);
+    --color-warn-200: var(--color-camel-200);
+    --color-warn-700: var(--color-camel-700);
+    --color-bad-50:   var(--color-aered-50);
+    --color-bad-200:  var(--color-aered-200);
+    --color-bad-700:  var(--color-aered-700);
 
     /*
     | لون الشركة كأداة Tailwind (border-brand، text-brand…). القيمة تبقى
@@ -91,7 +95,7 @@
 
 /*
 | لون الشركة يصل من الخادم كمتغيّر واحد، ومنه تُشتقّ الدرجات. يبقى
-| هويّةَ الشركة: شارتها، وعدّاداتها، وروابطها، ورأس تطبيق مندوبها.
+| هويّةَ الشركة: مربّع شعارها، وعدّاداتها، ورأس تطبيق مندوبها.
 */
 :root {
     --brand: #0f766e;
@@ -102,22 +106,36 @@
 
 body {
     font-feature-settings: 'tnum' 1;          /* أرقام بعرض ثابت: الأعمدة تصطفّ */
-    background-color: var(--color-ink-50);
-    color: var(--color-ink-900);
+    background-color: var(--color-whitely-50);
+    color: var(--color-aeblack-800);
 }
 
-/* مربّعات الاختيار والأزرار الدائرية بحبر التصميم */
+h1, h2, h3 {
+    font-family: var(--font-heading);
+}
+
+/* مربّعات الاختيار والأزرار الدائرية بذهبيّ النظام */
 input[type='checkbox'],
 input[type='radio'] {
-    accent-color: var(--color-ink-900);
-    width: 1rem;
-    height: 1rem;
+    accent-color: var(--color-primary-600);
+    width: 1.125rem;
+    height: 1.125rem;
+}
+
+/* حلقة التركيز الموحّدة للنظام: برتقاليّ مساند، ٢ بكسل، بإزاحة */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--color-primary-support-600);
+    outline-offset: 2px;
 }
 
 @layer components {
-    /* ------------------------------------------------------- عنوان الصفحة */
+    /* ------------------------------------------------------- عنوان الصفحة
+       مقاسا h5/h4 في النظام (٢٦/٣٢ بكسل) بخطّ العناوين. */
     .page-title {
-        @apply text-[26px] leading-tight font-semibold tracking-[-0.01em] text-ink-900 md:text-[32px];
+        @apply font-heading text-[1.625rem] leading-tight font-bold text-aeblack-900 md:text-[2rem];
     }
 
     .page-sub {
@@ -129,13 +147,12 @@ input[type='radio'] {
     | Esc وطبقة التعتيم بلا مكتبة، ويبقى علينا المظهر وحده.
     */
     .modal {
-        @apply m-auto w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-[28px] border border-ink-900
-               bg-white p-0 text-ink-900 shadow-2xl;
+        @apply m-auto w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-xl border-0 border-t-4 border-primary-600
+               bg-white p-0 text-aeblack-900 shadow-2xl;
     }
 
     .modal::backdrop {
-        background-color: color-mix(in oklab, var(--color-ink-900) 45%, transparent);
-        backdrop-filter: blur(3px);
+        background-color: color-mix(in oklab, var(--color-aeblack-900) 50%, transparent);
     }
 
     .modal-head {
@@ -150,41 +167,50 @@ input[type='radio'] {
         @apply flex flex-wrap items-center justify-end gap-3 border-t border-ink-200 bg-ink-50 px-6 py-4;
     }
 
-    /* ------------------------------------------------------------ نماذج */
+    /* ------------------------------------------------------------ نماذج
+       حقل النظام الصغير (control-sm): حلقةٌ ذهبية داخلية بعرض ٢، ونصٌّ بذهبيّ
+       داكن، وتركيزٌ يبدّل الحلقة إلى البرتقاليّ المساند. */
     .field-label {
-        @apply mb-1.5 block text-[13px] font-medium text-ink-700;
+        @apply mb-1 block text-sm leading-6 font-medium text-aeblack-800;
     }
 
-    /* حقل البحث في التصميم: حبّةٌ بحدٍّ حبريّ ونصٍّ رماديّ للإرشاد */
     .field-input {
-        @apply w-full rounded-full border border-ink-900 bg-white px-4 py-2.5 text-sm text-ink-900
-               outline-none transition placeholder:text-ink-400
-               focus:ring-4 focus:ring-sun/70
-               disabled:border-ink-300 disabled:bg-ink-100 disabled:text-ink-500;
+        @apply w-full rounded-lg border-0 bg-white px-4 py-2.5 text-sm leading-5 text-primary-900 outline-none
+               transition-shadow placeholder:text-aeblack-500
+               disabled:cursor-not-allowed disabled:opacity-40;
+        box-shadow: inset 0 0 0 2px var(--color-primary-600);
     }
 
-    textarea.field-input,
-    select.field-input[multiple],
-    select.field-input[size] {
-        @apply rounded-2xl;
+    .field-input:focus {
+        box-shadow: inset 0 0 0 2px var(--color-primary-support-600),
+                    0 0 0 4px color-mix(in oklab, var(--color-primary-support-600) 18%, transparent);
     }
 
-    /* سهم القائمة المنسدلة في جهة النهاية (اليسار في الصفحة اليمينية) */
+    .field-input[aria-invalid='true'] {
+        @apply bg-aered-50 text-aered-900;
+        box-shadow: inset 0 0 0 2px var(--color-aered-600);
+    }
+
+    textarea.field-input {
+        @apply leading-6;
+    }
+
+    /* سهم القائمة المنسدلة بلون النظام، في جهة النهاية (اليسار في الصفحة اليمينية) */
     select.field-input:not([multiple]):not([size]) {
         appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23303030' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C5E24' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
-        background-size: 1rem;
-        background-position: left 1rem center;
+        background-size: 1.25rem;
+        background-position: left 0.625rem center;
         padding-inline-end: 2.5rem;
     }
 
     [dir='ltr'] select.field-input:not([multiple]):not([size]) {
-        background-position: right 1rem center;
+        background-position: right 0.625rem center;
     }
 
     .field-error {
-        @apply mt-1.5 text-xs font-medium text-bad-700;
+        @apply mt-1 text-sm text-aered-600;
     }
 
     .field-hint {
@@ -192,87 +218,86 @@ input[type='radio'] {
     }
 
     /* ------------------------------------------------------------ أزرار
-       حبوبٌ كاملة كقائمة التصميم: الحبر للفعل الأساسيّ، والأصفر للفعل
-       الأبرز في الشاشة، والمُحاط للثانويّ. */
+       زرّ النظام الصغير (btn-sm): ذهبيٌّ ممتلئ للفعل، ومُحاطٌ بالذهبيّ
+       للثانويّ. الحدّ بعرض ٢ في الجميع فتتساوى الارتفاعات. */
     .btn-primary,
     .btn-accent,
     .btn-ghost,
     .btn-danger {
-        @apply inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm
-               font-medium whitespace-nowrap transition outline-none
-               focus-visible:ring-4 focus-visible:ring-sun/70
-               disabled:cursor-not-allowed disabled:opacity-50;
+        @apply inline-flex shrink-0 items-center justify-center gap-2 rounded-md border-2 px-5 py-1.5 text-sm leading-6
+               font-medium whitespace-nowrap transition-colors select-none
+               disabled:pointer-events-none disabled:opacity-40;
     }
 
-    .btn-primary {
-        @apply border-ink-900 bg-ink-900 text-white hover:bg-ink-700;
-    }
-
+    .btn-primary,
     .btn-accent {
-        @apply border-ink-900 bg-sun text-ink-900 hover:brightness-95;
+        @apply border-transparent bg-primary-600 text-white hover:bg-primary-500;
+        box-shadow: inset 0 1px color-mix(in oklab, var(--color-whitely-50) 20%, transparent);
     }
 
     .btn-ghost {
-        @apply border-ink-900 bg-white text-ink-900 hover:bg-ink-100;
+        @apply border-primary-600 bg-transparent text-primary-700 hover:bg-primary-50;
     }
 
     .btn-danger {
-        @apply border-bad-700 bg-white text-bad-700 hover:bg-bad-50;
+        @apply border-aered-600 bg-transparent text-aered-700 hover:bg-aered-50;
     }
 
-    /* زرّ دائريّ بأيقونة: الجرس والحساب وفتح القائمة */
+    /* زرّ أيقونة (btn-icon): الخروج وفتح القائمة وجرس الإشعارات */
     .icon-btn {
-        @apply relative grid size-10 shrink-0 place-items-center rounded-full border border-ink-900 bg-white/60
-               text-ink-900 transition hover:bg-ink-100;
+        @apply relative grid size-10 shrink-0 place-items-center rounded-md text-aeblack-700 transition-colors
+               hover:bg-primary-50 hover:text-primary-700;
     }
 
     /* ------------------------------------------------------------ أسطح */
     .card {
-        @apply rounded-[24px] border border-ink-900 bg-white;
+        @apply rounded-xl border border-ink-200 bg-white;
     }
 
     .card-title {
-        @apply text-[17px] font-semibold text-ink-900;
+        @apply font-heading text-lg font-bold text-aeblack-900;
     }
 
     .card-hint {
         @apply mt-1 text-[13px] text-ink-500;
     }
 
-    /* رأس قسمٍ داكن كلوحة «Drivers at risk» في التصميم */
+    /* رأس قسم: أيقونةٌ في مربّع ذهبيّ فاتح، ثم العنوان بخطّ العناوين */
     .panel-head {
-        @apply flex h-12 items-center gap-2.5 rounded-2xl bg-ink-900 ps-2 pe-4 text-white;
+        @apply flex items-center gap-2.5 border-b-2 border-primary-200 pb-2.5;
     }
 
     .panel-head-icon {
-        @apply grid size-8 shrink-0 place-items-center rounded-[10px] text-ink-900;
+        @apply grid size-9 shrink-0 place-items-center rounded-lg bg-primary-50 text-primary-700;
     }
 
     .panel-head-title {
-        @apply text-base font-semibold;
+        @apply font-heading text-lg font-bold text-aeblack-900;
     }
 
-    /* صفٌّ مُحاط يفتح شيئاً: سطر في قائمة اللوحة */
+    /* صفٌّ يفتح شيئاً: سطر في قائمة اللوحة */
     .row-link {
-        @apply flex items-center gap-3 rounded-2xl border border-ink-900 bg-white py-3 ps-4 pe-2.5 text-sm
-               transition hover:bg-sun-soft;
+        @apply flex items-center gap-3 rounded-lg border border-ink-200 bg-white py-3 ps-4 pe-3 text-sm
+               transition-colors hover:border-primary-300 hover:bg-primary-50;
     }
 
-    /* ------------------------------------------------------------ جداول */
+    /* ------------------------------------------------------------ جداول
+       لا جدول في النظام نفسه؛ هذا على لغته: رأسٌ رماديّ فاتح يسطّره الذهبيّ،
+       وصفوفٌ بفواصل خفيفة يُضيئها المرور بذهبيٍّ باهت. */
     .tbl {
         @apply w-full text-sm;
     }
 
     .tbl thead {
-        @apply text-xs text-ink-500;
+        @apply bg-ink-50 text-[13px] text-aeblack-700;
     }
 
     .tbl th {
-        @apply border-b border-ink-900 px-4 py-3.5 text-start font-medium whitespace-nowrap;
+        @apply border-b-2 border-primary-500 px-4 py-3 text-start font-semibold whitespace-nowrap;
     }
 
     .tbl tbody tr {
-        @apply border-t border-ink-200 transition hover:bg-sun-soft/60;
+        @apply border-t border-ink-200 transition-colors hover:bg-primary-50/60;
     }
 
     .tbl tbody tr:first-child {
@@ -280,11 +305,11 @@ input[type='radio'] {
     }
 
     .tbl td {
-        @apply px-4 py-3.5;
+        @apply px-4 py-3;
     }
 
     .tbl tfoot {
-        @apply border-t border-ink-900 bg-ink-50 font-semibold;
+        @apply border-t-2 border-ink-200 bg-ink-50 font-semibold;
     }
 
     /* رقم أو مبلغ: لاتيني، ثابت العرض، غير قابل للالتباس */
@@ -307,73 +332,153 @@ input[type='radio'] {
         text-align: right;
     }
 
-    /* ------------------------------------------------------------ شارات */
+    /* ------------------------------------------------------------ شارات
+       شارة النظام (aegov-badge): زاويةٌ صغيرة، ووزنٌ نصف ثقيل، ونقطة مؤشّر. */
     .chip {
-        @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap;
+        @apply inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs leading-5 font-semibold whitespace-nowrap;
     }
 
-    .chip-ok   { @apply border-ok-200   bg-ok-50   text-ok-700; }
-    .chip-info { @apply border-info-200 bg-info-50 text-info-700; }
-    .chip-warn { @apply border-warn-200 bg-warn-50 text-warn-700; }
-    .chip-bad  { @apply border-bad-200  bg-bad-50  text-bad-700; }
-    .chip-mute { @apply border-ink-200  bg-ink-100 text-ink-600; }
+    .chip-ok   { @apply bg-aegreen-50  text-aegreen-700; }
+    .chip-info { @apply bg-techblue-50 text-techblue-700; }
+    .chip-warn { @apply bg-camel-50    text-camel-700; }
+    .chip-bad  { @apply bg-aered-50    text-aered-700; }
+    .chip-mute { @apply bg-ink-100     text-aeblack-700; }
 
-    /* نقطة أمام النص: قناة ثانية إلى جانب اللون والكلمة */
+    /* نقطة أمام النص (badge-indicator): قناة ثانية إلى جانب اللون والكلمة */
     .chip::before {
         content: '';
-        @apply h-1.5 w-1.5 shrink-0 rounded-full bg-current;
+        @apply size-2 shrink-0 rounded-full bg-current;
     }
 
     /* ------------------------------------------------------------ تنبيهات */
     .alert {
-        @apply flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm;
+        @apply flex items-start gap-3 rounded px-5 py-3.5 text-sm;
     }
 
-    .alert-ok  { @apply border-ok-700/40  bg-ok-50  text-ok-700; }
-    .alert-bad { @apply border-bad-700/40 bg-bad-50 text-bad-700; }
+    .alert-ok  { @apply bg-aegreen-50 text-aegreen-800; }
+    .alert-bad { @apply bg-aered-50   text-aered-800; }
 
-    /* ------------------------------------------------------- شريط جانبي
-       قائمة التصميم الحبّيّة عموديّةً: العنصر الحاليّ حبّةٌ داكنة. */
-    .side-link {
-        @apply flex items-center gap-3 rounded-full px-3.5 py-2 text-sm text-ink-700
-               transition hover:bg-ink-100 hover:text-ink-900;
+    /* ------------------------------------------------------------ الوعاء
+       عرض الرأس والشريط والمحتوى معاً، فتصطفّ حوافّها. وعلى شاشة ١٩٢٠ أعرض:
+       القوائم الاثنتا عشرة بأيقوناتها تحتاج نحو ١٧٠٠ بكسل. */
+    .shell {
+        @apply mx-auto w-full max-w-screen-2xl px-4 lg:px-6 3xl:max-w-[115rem];
     }
 
-    .side-link svg {
-        @apply size-[18px] shrink-0 text-ink-500;
+    /* ------------------------------------------------------------ الرأس
+       شريطٌ ذهبيّ متدرّج بارتفاع ٨ بكسل فوق كل شيء (aegov-header). */
+    .ds-header {
+        @apply relative bg-white pt-2;
     }
 
-    .side-link-active,
-    .side-link-active:hover {
-        @apply bg-ink-900 text-white;
+    .ds-header::before {
+        content: '';
+        @apply absolute inset-x-0 top-0 h-2;
+        background-image: linear-gradient(to bottom, var(--color-primary-400), var(--color-primary-600));
     }
 
-    .side-link-active svg {
-        @apply text-sun;
+    /* مربّع شعار الشركة: لونها، وحرفها */
+    .brand-tile {
+        @apply grid size-11 shrink-0 place-items-center rounded-lg font-heading text-lg font-bold text-white;
+        background: var(--brand);
     }
 
-    .side-group {
-        @apply px-3.5 pb-1.5 pt-5 text-[11px] font-medium tracking-wide text-ink-400;
+    /* ------------------------------------------------------- شريط التنقّل
+       main-navigation في النظام: رماديٌّ فاتح، وعناوين عريضة، والعنصر
+       الحاليّ مسطّرٌ بالذهبيّ الداكن. على الهاتف يصير قائمةً عمودية. */
+    .nav-strip {
+        @apply border-y border-ink-200 bg-aeblack-50;
     }
 
-    /* قائمة أفقية حبّيّة كرأس التصميم: بوابة التاجر وتطبيق المندوب */
-    .pill-nav {
-        @apply flex items-center gap-0.5 rounded-full border border-ink-900 bg-white/60 p-[3px];
+    .nav-menu {
+        @apply flex flex-col py-2 xl:flex-row xl:flex-wrap xl:py-0;
     }
 
-    .pill-nav-item {
-        @apply flex items-center gap-2 rounded-full px-4 py-1.5 text-sm whitespace-nowrap text-ink-900 transition
-               hover:bg-ink-100;
+    .nav-item {
+        @apply flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-start text-sm font-bold whitespace-nowrap
+               text-aeblack-800 transition-colors hover:text-primary-700
+               xl:h-14 xl:w-auto xl:gap-1.5 xl:rounded-none xl:border-b-[3px] xl:border-transparent xl:px-2 xl:py-0
+               xl:text-[13px] 2xl:px-2.5 2xl:text-sm 3xl:px-3;
     }
 
-    .pill-nav-item-active,
-    .pill-nav-item-active:hover {
-        @apply bg-ink-900 text-ink-100;
+    .nav-item[aria-expanded='true'] {
+        @apply bg-white text-primary-700 xl:border-primary-400 xl:bg-transparent;
+    }
+
+    .nav-item-active,
+    .nav-item-active:hover {
+        @apply text-primary-900 xl:border-primary-900;
+    }
+
+    /* الأيقونات على الهاتف وعلى الشاشة الواسعة؛ وتُخفى بينهما ليتّسع الصفّ */
+    .nav-item-icon {
+        @apply size-5 shrink-0 text-primary-600 xl:max-3xl:hidden;
+    }
+
+    /* سهم القائمة على الهاتف وحده: على الشاشة الواسعة يأكل من الصفّ ما لا يُحتمل */
+    .nav-item-caret {
+        @apply ms-auto size-3.5 shrink-0 text-ink-400 transition-transform xl:hidden;
+    }
+
+    .nav-item[aria-expanded='true'] .nav-item-caret {
+        @apply rotate-180;
+    }
+
+    /* عدّادٌ على القائمة: ما ينتظر ردّنا */
+    .nav-badge {
+        @apply grid h-5 min-w-5 place-items-center rounded-full bg-aered-600 px-1.5 font-mono text-[11px] leading-none
+               font-semibold text-white;
+    }
+
+    /* القائمة المنسدلة (submenu): بيضاء، يسطّرها الذهبيّ من أعلى، ويتقدّمها اسمها */
+    .submenu {
+        @apply mb-2 ms-5 border-s-2 border-primary-200 ps-2
+               xl:absolute xl:start-0 xl:top-full xl:z-40 xl:m-0 xl:w-max xl:min-w-60 xl:max-w-[36rem]
+               xl:rounded-b-lg xl:border-s-0 xl:border-t-[3px] xl:border-primary-600 xl:bg-white xl:p-3 xl:shadow-xl;
+    }
+
+    /* قائمةٌ طويلة تنفتح عمودين كقوائم النظام الكبيرة */
+    .submenu-wide .submenu-list {
+        @apply xl:columns-2 xl:gap-2;
+    }
+
+    /* قائمةٌ قرب حافّة الشاشة تنفتح نحو الداخل (يضعها السكربت) */
+    .submenu-flip {
+        @apply xl:start-auto xl:end-0;
+    }
+
+    .submenu-title {
+        @apply hidden px-3 pb-2 font-heading text-sm font-bold text-primary-600 xl:block;
+    }
+
+    .submenu-link {
+        @apply flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-aeblack-900 transition-colors
+               break-inside-avoid hover:bg-primary-50 hover:text-primary-700 hover:underline;
+    }
+
+    .submenu-link-active,
+    .submenu-link-active:hover {
+        @apply bg-primary-50 font-semibold text-primary-800;
+    }
+
+    /* تبويبات أفقية (aegov-tab): بوابة التاجر ولوحة المنصّة */
+    .tab-nav {
+        @apply flex gap-1 overflow-x-auto;
+    }
+
+    .tab-link {
+        @apply inline-flex h-14 shrink-0 items-center gap-2 border-b-[3px] border-transparent px-3 text-sm font-bold
+               whitespace-nowrap text-aeblack-700 transition-colors hover:border-primary-500 hover:text-aeblack-950;
+    }
+
+    .tab-link-active,
+    .tab-link-active:hover {
+        @apply border-primary-500 text-primary-600;
     }
 
     /* ---------------------------------------------- بطاقة رقم في اللوحة */
     .stat {
-        @apply rounded-[24px] border border-ink-900 bg-white px-5 py-4 transition;
+        @apply rounded-xl border border-ink-200 bg-white px-5 py-4 transition-colors;
     }
 
     .stat-label {
@@ -381,37 +486,41 @@ input[type='radio'] {
     }
 
     .stat-value {
-        @apply mt-1.5 text-[28px] leading-none font-semibold text-ink-900;
+        @apply mt-1.5 text-[26px] leading-none font-bold text-aeblack-900;
     }
 
     a.stat:hover {
-        @apply bg-sun-soft;
+        @apply border-primary-300 bg-primary-50;
     }
 
-    /* بطاقة المؤشّر كما في التصميم: دائرة داكنة بأيقونة، ثم الرقم والاسم */
+    /* بطاقة المؤشّر: أيقونةٌ في مربّع ذهبيّ فاتح، ثم الرقم والاسم */
     .kpi {
-        @apply flex items-center gap-4 rounded-[24px] border border-ink-900 bg-white px-4 py-3 transition;
+        @apply flex items-center gap-4 rounded-xl border border-ink-200 bg-white px-4 py-4 transition-colors;
     }
 
     a.kpi:hover {
-        @apply bg-sun-soft;
+        @apply border-primary-300 bg-primary-50;
     }
 
     .kpi-accent,
     a.kpi-accent:hover {
-        @apply bg-sun;
+        @apply border-primary-300 bg-primary-50;
     }
 
     .kpi-icon {
-        @apply grid size-13 shrink-0 place-items-center rounded-full bg-ink-900 text-white;
+        @apply grid size-12 shrink-0 place-items-center rounded-lg bg-primary-50 text-primary-700;
+    }
+
+    .kpi-accent .kpi-icon {
+        @apply bg-primary-600 text-white;
     }
 
     .kpi-value {
-        @apply text-[28px] leading-none font-semibold text-ink-900;
+        @apply text-[28px] leading-none font-bold text-aeblack-900;
     }
 
     .kpi-label {
-        @apply mt-1.5 text-sm text-ink-700;
+        @apply mt-1.5 text-sm text-aeblack-600;
     }
 }
 

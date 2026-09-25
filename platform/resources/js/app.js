@@ -215,49 +215,93 @@ if (courierForm && navigator.geolocation) {
     );
 }
 
-/** قوائم منسدلة في الشريط العلوي: واحدة مفتوحة في كل مرة. */
-const menus = [...document.querySelectorAll('[data-menu]')];
+/**
+ * قوائم الشريط العلوي: واحدة مفتوحة في كل مرة.
+ *
+ * الزرّ يحمل حالته (aria-expanded) فيقرؤها قارئ الشاشة ويرسمها CSS. وعلى
+ * الشاشة الواسعة تنسدل القائمة تحت عنوانها، فإن تجاوزت حافّة الشاشة
+ * انفتحت نحو الداخل. وعلى الهاتف تنفتح في مكانها داخل الدرج.
+ */
+const menus = [...document.querySelectorAll('[data-menu]')].map((menu) => ({
+    toggle: menu.querySelector('[data-menu-toggle]'),
+    panel: menu.querySelector('[data-menu-panel]'),
+}));
+
+const closeMenus = (except = null) => {
+    for (const menu of menus) {
+        if (menu === except) continue;
+        menu.panel.hidden = true;
+        menu.panel.classList.remove('submenu-flip');
+        menu.toggle.setAttribute('aria-expanded', 'false');
+    }
+};
 
 for (const menu of menus) {
-    const toggle = menu.querySelector('[data-menu-toggle]');
-    const panel = menu.querySelector('[data-menu-panel]');
-
-    toggle.addEventListener('click', (event) => {
+    menu.toggle.addEventListener('click', (event) => {
         event.stopPropagation();
-        const wasOpen = !panel.hidden;
+        const opening = menu.panel.hidden;
 
-        for (const other of menus) other.querySelector('[data-menu-panel]').hidden = true;
+        closeMenus(menu);
+        menu.panel.hidden = !opening;
+        menu.toggle.setAttribute('aria-expanded', String(opening));
 
-        panel.hidden = wasOpen;
+        if (opening) {
+            const box = menu.panel.getBoundingClientRect();
+            if (box.left < 8 || box.right > document.documentElement.clientWidth - 8) {
+                menu.panel.classList.add('submenu-flip');
+            }
+        } else {
+            menu.panel.classList.remove('submenu-flip');
+        }
     });
+
+    // نقرةٌ داخل القائمة المفتوحة لا تُغلقها؛ الرابط وحده ينقل
+    menu.panel.addEventListener('click', (event) => event.stopPropagation());
 }
 
 if (menus.length) {
-    document.addEventListener('click', () => {
-        for (const menu of menus) menu.querySelector('[data-menu-panel]').hidden = true;
-    });
+    document.addEventListener('click', () => closeMenus());
 
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        for (const menu of menus) menu.querySelector('[data-menu-panel]').hidden = true;
+
+        const open = menus.find((menu) => !menu.panel.hidden);
+        closeMenus();
+        open?.toggle.focus();
     });
 }
 
 /**
- * درج الشريط الجانبي على الشاشات الصغيرة.
+ * درج القوائم على الشاشات الصغيرة.
  *
- * زرّ القائمة وزرّ الإغلاق والغطاء خلف الدرج كلّها تقلب data-open، والظهور
- * يقرّره CSS (max-lg:hidden max-lg:data-open:block). على الشاشة الكبيرة
- * الشريط ظاهرٌ دائماً فلا شيء ينتظر السكربت ليظهر.
+ * زرّ القائمة يقلب data-open، والظهور يقرّره CSS (max-xl:hidden
+ * max-xl:data-open:block). على الشاشة الواسعة الشريط ظاهرٌ دائماً فلا شيء
+ * ينتظر السكربت ليظهر.
  */
-const sidebar = document.querySelector('[data-sidebar]');
+const drawer = document.querySelector('[data-drawer]');
 
-if (sidebar) {
-    for (const toggle of document.querySelectorAll('[data-sidebar-toggle]')) {
-        toggle.addEventListener('click', () => sidebar.toggleAttribute('data-open'));
+if (drawer) {
+    const toggles = [...document.querySelectorAll('[data-drawer-toggle]')];
+
+    const setOpen = (open) => {
+        drawer.toggleAttribute('data-open', open);
+        for (const toggle of toggles) toggle.setAttribute('aria-expanded', String(open));
+    };
+
+    for (const toggle of toggles) {
+        toggle.addEventListener('click', () => setOpen(!drawer.hasAttribute('data-open')));
     }
 
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') sidebar.removeAttribute('data-open');
+        if (event.key === 'Escape') setOpen(false);
+    });
+}
+
+/** زرّ البحث في أوّل الشريط: يضع المؤشّر في حقل البحث عن شحنة. */
+for (const button of document.querySelectorAll('[data-focus]')) {
+    button.addEventListener('click', () => {
+        const field = document.getElementById(button.dataset.focus);
+        field?.focus();
+        field?.select();
     });
 }

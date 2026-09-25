@@ -106,8 +106,8 @@ class SecurityHeadersTest extends TestCase
             }
         }
 
-        // الخطوط في خمس صفحاتٍ على الأقلّ — وإلا فالحارس لا يرى شيئاً
-        $this->assertGreaterThanOrEqual(5, $checked);
+        // الخطوط في قالبٍ واحد (partials/fonts) تضمّه كل التخطيطات — إن لم يرَه الحارس فهو لا يرى شيئاً
+        $this->assertGreaterThanOrEqual(1, $checked);
         $this->assertSame([], $blocked, "مصدرٌ خارجي تحجبه سياسة المحتوى:\n".implode("\n", $blocked));
 
         foreach (array_filter($allowed) as $directive => $origins) {

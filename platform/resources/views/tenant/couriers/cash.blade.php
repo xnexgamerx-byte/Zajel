@@ -10,7 +10,7 @@
             الأرقام مشتقّة من دفتر الحركات لا مُدخَلة يدوياً.
         </p>
     </div>
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-3">
         <div class="card px-5 py-3 text-center">
             <div class="text-xs text-ink-500">نقد معلّق</div>
             <div class="text-2xl font-bold text-warn-700"><span class="num">{{ number_format($total) }}</span> د.ع</div>

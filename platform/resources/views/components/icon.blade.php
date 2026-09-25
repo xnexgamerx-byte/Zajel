@@ -149,6 +149,24 @@
         @case('grid')
             <rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>
             @break
+        @case('chevron-down')
+            <path d="m6 9 6 6 6-6"/>
+            @break
+        @case('boxes')
+            <rect x="3" y="13" width="8" height="7.5" rx="1"/><rect x="13" y="13" width="8" height="7.5" rx="1"/><rect x="8" y="3.5" width="8" height="7.5" rx="1"/><path d="M7 13v2.5"/><path d="M17 13v2.5"/><path d="M12 3.5V6"/>
+            @break
+        @case('bank')
+            <path d="M3 9.5 12 4l9 5.5"/><path d="M4.5 9.5h15"/><path d="M6 12v5"/><path d="M10 12v5"/><path d="M14 12v5"/><path d="M18 12v5"/><path d="M4.5 17h15"/><path d="M3.5 20h17"/>
+            @break
+        @case('trend')
+            <path d="M4 4v16h16"/><path d="m7.5 14.5 3.5-4 3 2.5 4.5-5.5"/><path d="M15 7.5h3.5V11"/>
+            @break
+        @case('review')
+            <rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="m8.5 12.5 2.5 2.5 5-5.5"/>
+            @break
+        @case('card')
+            <rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/>
+            @break
         @default
             <circle cx="12" cy="12" r="2"/>
     @endswitch

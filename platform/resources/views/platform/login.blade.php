@@ -4,12 +4,12 @@
 @section('content')
 <div class="mx-auto mt-6 w-full max-w-md sm:mt-14">
     <div class="mb-8 text-center">
-        <div class="mx-auto mb-5 grid size-16 place-items-center rounded-[22px] border border-ink-900 bg-plat-500 text-2xl font-bold text-white">ز</div>
+        <div class="brand-tile mx-auto mb-5 size-16 rounded-xl text-2xl">ز</div>
         <h1 class="page-title">إدارة منصّة زاجل</h1>
         <p class="mt-1 text-sm text-ink-500">دخول مدراء المنصّة فقط</p>
     </div>
 
-    <form method="POST" action="{{ route('admin.login') }}" class="card space-y-5 rounded-[28px] p-6 sm:p-8">
+    <form method="POST" action="{{ route('admin.login') }}" class="card space-y-5 border-t-4 border-t-primary-600 p-6 sm:p-8">
         @csrf
         <div>
             <label class="field-label" for="phone">رقم الهاتف</label>
@@ -28,7 +28,7 @@
                    class="rounded">
             تذكّرني
         </label>
-        <button type="submit" class="btn-primary w-full py-3 text-base">دخول</button>
+        <button type="submit" class="btn-primary w-full py-2.5 text-base">دخول</button>
     </form>
 </div>
 @endsection

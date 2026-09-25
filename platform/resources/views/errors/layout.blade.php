@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title')</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    @include('partials.fonts')
 
     @vite(['resources/css/app.css'])
 </head>
 <body class="grid min-h-screen place-items-center px-4 antialiased">
 
+<div class="ds-header fixed inset-x-0 top-0" aria-hidden="true"></div>
+
 {{--
-  صفحات الخطأ بالعربية وبلغة التصميم. لا تقرأ الجلسة ولا القاعدة: بعضها
+  صفحات الخطأ بالعربية وبلغة نظام التصميم. لا تقرأ الجلسة ولا القاعدة: بعضها
   يُرسَم قبل أن تُعرَف الشركة أصلاً (نطاقٌ مجهول)، فأيّ استعلامٍ هنا يرمي.
 
   رسالة abort() تظهر إن كانت عربية فقط — الإنجليزية رسائل داخلية
@@ -46,8 +46,8 @@
 @endphp
 
 <main class="w-full max-w-md text-center">
-    <div class="card rounded-[28px] px-6 py-10 sm:px-10">
-        <div class="mx-auto mb-6 grid size-16 place-items-center rounded-full bg-ink-900 text-sun">
+    <div class="card border-t-4 border-t-primary-600 px-6 py-10 sm:px-10">
+        <div class="mx-auto mb-6 grid size-16 place-items-center rounded-xl bg-primary-50 text-primary-700">
             <x-icon :name="trim($__env->yieldContent('icon')) ?: 'alert'" class="size-8"/>
         </div>
         <div class="num text-sm font-medium text-ink-500">@yield('code')</div>

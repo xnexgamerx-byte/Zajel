@@ -10,7 +10,7 @@
     <a href="{{ route('shipments.index') }}" class="btn-ghost">كل الشحنات</a>
 </div>
 
-{{-- ستّ بطاقات: أسئلة الصباح كلّها في نظرة — بطاقات مؤشّر التصميم، والأولى بارزة --}}
+{{-- ستّ بطاقات: أسئلة الصباح كلّها في نظرة — بطاقات مؤشّر، والأولى بارزة بالذهبيّ --}}
 <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
     @foreach ([
         ['أُنشئت اليوم', $cards['today'], null, 'plus'],
@@ -60,9 +60,9 @@
         <div class="card flex flex-col gap-3 px-5 py-4">
             <div class="flex items-center justify-between gap-3">
                 <span class="text-[15px] font-medium">{{ $label }}</span>
-                <span class="grid size-9 place-items-center rounded-full border border-ink-900"><x-icon :name="$icon" class="size-[18px]"/></span>
+                <span class="grid size-10 place-items-center rounded-lg bg-primary-50 text-primary-700"><x-icon :name="$icon" class="size-5"/></span>
             </div>
-            <div class="text-[32px] leading-none font-semibold {{ $tone }}">
+            <div class="text-[32px] leading-none font-bold {{ $tone }}">
                 <span class="num">{{ number_format($value) }}</span>
                 <span class="text-sm font-normal text-ink-500">د.ع</span>
             </div>
@@ -77,18 +77,21 @@
 </div>
 
 @if ($aging['stale_shipments'] > 0)
-    {{-- بطاقة التصميم الزيتونية: جملة الفعل، ثم زرّ دائريّ داكن يفتحها --}}
+    {{-- تنبيه النظام التحذيريّ: جملة الفعل، ثم زرّ دائريّ ذهبيّ يفتحها --}}
     <a href="{{ route('shipments.index', ['status' => 'failed_attempt']) }}"
-       class="mb-5 flex items-center gap-4 rounded-[24px] border border-ink-900 bg-sage px-5 py-4 transition hover:brightness-[0.97]">
+       class="mb-5 flex items-center gap-4 rounded-lg border-s-4 border-camel-500 bg-camel-50 px-5 py-4 transition-colors hover:bg-camel-100">
+        <span class="grid size-11 shrink-0 place-items-center rounded-lg bg-camel-100 text-camel-700">
+            <x-icon name="clock" class="size-6"/>
+        </span>
         <div class="min-w-0 flex-1">
             {{-- الصيغة تحمل عددها: «شحنتان» و«٧ شحنات» و«١٢ شحنة» --}}
-            <div class="text-[20px] font-semibold">{{ \App\Support\Arabic::shipments($aging['stale_shipments']) }}</div>
-            <div class="mt-0.5 text-[15px]">
+            <div class="font-heading text-[20px] font-bold text-aeblack-900">{{ \App\Support\Arabic::shipments($aging['stale_shipments']) }}</div>
+            <div class="mt-0.5 text-[15px] text-aeblack-700">
                 لم تتغيّر حالتها منذ أكثر من {{ \App\Support\Arabic::days($aging['stale_after']) }}
                 — كل يوم تأخير يزيد احتمال الراجع.
             </div>
         </div>
-        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-ink-900 text-white">
+        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-primary-600 text-white">
             <x-icon name="arrow" class="size-4 rtl:-scale-x-100"/>
         </span>
     </a>
@@ -98,10 +101,10 @@
     <div class="space-y-5 lg:col-span-2">
         <section>
             <div class="panel-head">
-                <span class="panel-head-icon bg-amber"><x-icon name="alert" class="size-4"/></span>
+                <span class="panel-head-icon"><x-icon name="alert" class="size-5"/></span>
                 <h2 class="panel-head-title">شحنات متعثّرة</h2>
                 <a href="{{ route('shipments.index', ['status' => 'failed_attempt']) }}"
-                   class="ms-auto text-sm font-medium text-sun hover:underline">الكل</a>
+                   class="ms-auto text-sm font-medium text-primary-600 hover:text-primary-500 hover:underline">الكل</a>
             </div>
             <p class="card-hint mb-3 mt-2.5 px-1">
                 الأقدم أولاً — كل يوم تأخير يرفع احتمال أن تصير راجعة.
@@ -116,7 +119,7 @@
                             <span class="font-mono text-sm font-semibold" dir="ltr">
                                 {{ $shipment->number }}
                             </span>
-                            <span class="h-px w-2.5 bg-ink-900" aria-hidden="true"></span>
+                            <span class="h-px w-2.5 bg-ink-300" aria-hidden="true"></span>
                             <span class="min-w-28 flex-1 truncate">{{ $shipment->recipient_name }}</span>
                             @if ($shipment->lastFailureReason)
                                 <span class="chip chip-warn">
@@ -151,9 +154,9 @@
                              title="{{ $row->name }}: {{ \App\Support\Arabic::shipments((int) $row->c) }} قيد التنفيذ">
                             <span class="w-24 shrink-0 truncate text-sm text-ink-700">{{ $row->name }}</span>
 
-                            {{-- أعمدة التصميم: حبرٌ على مسارٍ لافنديّ، ونهايتها وحدها مدوّرة --}}
-                            <div class="h-3 flex-1 rounded-full bg-lilac-soft">
-                                <div class="h-full rounded-full bg-ink-900 transition group-hover:bg-ink-700"
+                            {{-- عمودٌ ذهبيّ على مسارٍ ذهبيٍّ باهت: الطول وحده يحمل المقدار --}}
+                            <div class="h-3 flex-1 rounded-full bg-primary-50">
+                                <div class="h-full rounded-full bg-primary-600 transition-colors group-hover:bg-primary-700"
                                      style="width: {{ max(2, round($row->c / $max * 100)) }}%"></div>
                             </div>
 
@@ -182,7 +185,7 @@
 
         <section>
             <div class="panel-head">
-                <span class="panel-head-icon bg-lilac"><x-icon name="cash" class="size-4"/></span>
+                <span class="panel-head-icon"><x-icon name="cash" class="size-5"/></span>
                 <h2 class="panel-head-title">تجاوزوا سقف النقد</h2>
             </div>
             <p class="card-hint mb-3 mt-2.5 px-1">سوِّ معهم قبل إسناد شحنات جديدة.</p>

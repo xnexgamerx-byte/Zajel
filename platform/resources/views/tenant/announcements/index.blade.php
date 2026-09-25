@@ -20,7 +20,7 @@
                 @foreach ($audiences as $value => $label)
                     <label class="flex cursor-pointer items-center justify-between rounded-lg border border-ink-200 px-3 py-2 has-[:checked]:border-[var(--brand)] has-[:checked]:bg-ink-50">
                         <span class="flex items-center gap-2">
-                            <input type="radio" name="audience" value="{{ $value }}" required @checked(old('audience', 'delivery_couriers') === $value)>
+                            <input type="radio" name="audience" value="{{ $value }}" required @checked(old('audience', $audience) === $value)>
                             {{ $label }}
                         </span>
                         {{-- كم سيبلغ قبل أن يُرسَل: إعلانٌ لجمهورٍ بلا حسابات لا يقرؤه أحد --}}

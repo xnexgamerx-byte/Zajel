@@ -27,10 +27,14 @@ class AnnouncementController extends Controller
             ->keys()
             ->mapWithKeys(fn ($audience) => [$audience => (new Announcement(['audience' => $audience]))->reach()]);
 
+        // «إرسال إشعار لكافة …» في الشريط يفتح الصفحة وقد اختير جمهورها
+        $chosen = $request->query('audience');
+
         return view('tenant.announcements.index', [
             'announcements' => $announcements,
             'audiences'     => Announcement::AUDIENCES,
             'reach'         => $reach,
+            'audience'      => is_string($chosen) && array_key_exists($chosen, Announcement::AUDIENCES) ? $chosen : 'delivery_couriers',
         ]);
     }
 
