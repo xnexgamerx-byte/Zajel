@@ -26,7 +26,7 @@ docker compose stop web scheduler
 
 ./backup.sh
 
-dir=$(grep -E '^BACKUP_DIR=' .env | cut -d= -f2-); dir=${dir:-/var/backups/zajel}
+dir=$(grep -E '^BACKUP_DIR=' .env | cut -d= -f2- || true); dir=${dir:-/var/backups/zajel}
 dump=$(ls -t "$dir"/zajel-*.sql.gz | head -n 1)
 
 work=$(mktemp -d)
