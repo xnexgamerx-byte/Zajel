@@ -20,6 +20,12 @@ php artisan serve
 php artisan zajel:demo-credentials
 ```
 
+## التشغيل على خادم
+
+Docker بأربع حاويات وشهادات HTTPS تلقائية لكل شركة، ونسخ احتياطيّ ليليّ:
+[`deploy/README.md`](../deploy/README.md). وتجربة الشحنات الحقيقية الأولى:
+[`docs/plan/16-pilot-guide.md`](../docs/plan/16-pilot-guide.md).
+
 ## البنية
 
 ```
