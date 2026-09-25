@@ -16,12 +16,14 @@
 	root * /var/www/html/public
 	encode zstd gzip
 
-	# لوحة المنصّة على admin وحده: لا نموذج دخولٍ لها على نطاق كل شركة
-	@platformElsewhere {
+	# لا نموذج دخولٍ للوحة المنصّة على نطاق شركة (barq.النطاق). وتُفتح على
+	# admin.النطاق، وعلى عنوان Railway المجاني حين يعمل النظام بلا نطاق.
+	@platformOnCompany {
 		path /admin /admin/*
+		host *.{$ZAJEL_TENANT_DOMAIN}
 		not host admin.{$ZAJEL_TENANT_DOMAIN}
 	}
-	respond @platformElsewhere 404
+	respond @platformOnCompany 404
 
 	@build path /build/*
 	header @build Cache-Control "public, max-age=31536000, immutable"

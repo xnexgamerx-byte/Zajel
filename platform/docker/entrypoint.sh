@@ -30,7 +30,32 @@ as_www php artisan optimize
 
 case "$1" in
     php-fpm8.5|zajel-railway)
-        as_www php artisan migrate --force
+        # Railway: DB_URL مرجعٌ إلى خدمة MySQL (${{MySQL.MYSQL_URL}}). فارغٌ يعني
+        # أنّ المرجع لم يجد خدمةً بذلك الاسم، فيتّصل Laravel بـ 127.0.0.1
+        # ويسقط بمئة سطرٍ لا تقول ذلك
+        if [ "$1" = "zajel-railway" ] && [ -z "${DB_URL:-}" ] && [ -z "${DB_HOST:-}" ]; then
+            echo "DB_URL فارغ: مرجعه لم يجد خدمة قاعدة البيانات." >&2
+            echo "في المشروع خدمة MySQL باسم MySQL تماماً، وفي متغيّرات زاجل:" >&2
+            echo 'DB_URL=${{MySQL.MYSQL_URL}}' >&2
+            echo "وإن كان اسم خدمة القاعدة غير ذلك فضعه مكان MySQL." >&2
+            exit 1
+        fi
+
+        # قاعدةٌ تبدأ مع التطبيق (أوّل نشرٍ على Railway) تتأخّر ثوانيَ: تُنتظَر
+        # بدل السقوط. وغير ذلك من أخطاء الترحيل يُظهَر فوراً كما هو
+        attempt=1
+        until as_www php artisan migrate --force > /tmp/migrate.log 2>&1; do
+            if [ "$attempt" -ge 20 ] \
+                || ! grep -qE 'SQLSTATE\[HY000\] \[(2002|2006|2013)\]|getaddrinfo|php_network_getaddresses' /tmp/migrate.log; then
+                cat /tmp/migrate.log >&2
+                exit 1
+            fi
+            echo "قاعدة البيانات لم تجب بعد (محاولة $attempt من 20)…" >&2
+            attempt=$((attempt + 1))
+            sleep 3
+        done
+        cat /tmp/migrate.log
+
         as_www php artisan zajel:bootstrap
         ;;
 esac

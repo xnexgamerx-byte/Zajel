@@ -8,6 +8,14 @@ return [
     'tenant_domain' => env('ZAJEL_TENANT_DOMAIN', 'zajel.iq'),
 
     /*
+     | نظامٌ بلا نطاق: عنوان Railway المجاني (xxx.up.railway.app) عنوانٌ
+     | واحد، لا نطاقات فرعية. فتُخدَم عليه — وعلى كل عنوانٍ ليس نطاقاً
+     | فرعياً لـ tenant_domain — هذه الشركة وحدها، ولوحة المنصّة تحت /admin.
+     | فارغٌ (الافتراضي): لا شركة إلا بنطاقها الفرعي.
+     */
+    'default_company' => env('ZAJEL_DEFAULT_COMPANY'),
+
+    /*
      | العملة — دينار عراقي بلا كسور. كل المبالغ BIGINT بالدينار الصحيح.
      */
     'currency' => [

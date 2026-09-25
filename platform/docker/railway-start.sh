@@ -3,6 +3,10 @@
 # وRailway يتولّى HTTPS. خدمةٌ واحدة لا ثلاث: إعداداتٌ واحدة، وبناءٌ واحد.
 set -euo pipefail
 
+# Caddy يبني قاعدة لوحة المنصّة من النطاق؛ فارغاً تصير «*.» فيرفض الإعداد.
+# والافتراضي نفسه في config/zajel.php
+export ZAJEL_TENANT_DOMAIN="${ZAJEL_TENANT_DOMAIN:-zajel.iq}"
+
 php-fpm8.5 --nodaemonize &
 fpm=$!
 caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &

@@ -14,6 +14,9 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * وفي التطوير المحلي حيث لا نطاقات فرعية، يُقبل ?company=slug مرّة واحدة
  * ثم يُحفَظ في الجلسة — هذا مسار تطوير فقط ولا يعمل في الإنتاج.
+ *
+ * وبلا نطاقٍ أصلاً (عنوان Railway المجاني): الشركة الافتراضية
+ * (zajel.default_company) على كل عنوانٍ ليس نطاقاً فرعياً للنطاق الأساسي.
  */
 class IdentifyTenant
 {
@@ -23,7 +26,9 @@ class IdentifyTenant
         // يبقى سياق الطلب السابق في الحاوية، فيُحدَّد المستأجر الخطأ.
         Tenancy::forget();
 
-        $company = $this->fromSubdomain($request) ?? $this->fromSession($request);
+        $company = $this->fromSubdomain($request)
+            ?? $this->fromSession($request)
+            ?? $this->fromDefault($request);
 
         if (! $company) {
             abort(404, 'لم يُحدَّد النظام المطلوب. تأكّد من العنوان.');
@@ -72,6 +77,23 @@ class IdentifyTenant
         $slug = $request->session()->get('dev_company');
 
         return $slug ? $this->lookup($slug) : null;
+    }
+
+    /**
+     * الشركة الافتراضية لعنوانٍ ليس من نطاقاتنا الفرعية — عنوان Railway
+     * المجاني مثلاً. ونطاقٌ فرعيّ لشركةٍ غير موجودة (barqq.zajel.iq
+     * مكتوباً خطأً) لا يقع عليها: يبقى ٤٠٤، لا نظامَ شركةٍ أخرى.
+     */
+    protected function fromDefault(Request $request): ?Company
+    {
+        $slug = (string) config('zajel.default_company');
+        $base = (string) config('zajel.tenant_domain');
+
+        if ($slug === '' || ($base !== '' && str_ends_with($request->getHost(), '.'.$base))) {
+            return null;
+        }
+
+        return $this->lookup($slug);
     }
 
     /**

@@ -176,8 +176,14 @@ jobs:
           at() { curl -s -o /dev/null -w '%{http_code}' -H "Host: $1" "http://127.0.0.1:8080$2"; }
           test "$(at admin.zajel.test /up)" = 200
           test "$(at admin.zajel.test /admin/login)" = 200
-          test "$(at zajel.test /admin/login)" = 404
+          # لوحة المنصّة لا على نطاق شركة، وعلى عنوان Railway المجاني (بلا نطاق)
+          test "$(at barq.zajel.test /admin/login)" = 404
+          test "$(at zajel-production.up.railway.app /admin/login)" = 200
           docker logs rwweb 2>&1 | grep -q 'أُنشئ مدير المنصّة'
+
+          # مرجع DB_URL لم يجد خدمة القاعدة: رسالةٌ تقول ذلك، لا مئة سطر
+          out=$(docker run --rm -e APP_KEY="base64:$(openssl rand -base64 32)" -e DB_URL= zajel-railway 2>&1 || true)
+          echo "$out" | grep -q 'DB_URL فارغ'
 
       - name: Logs
         if: failure()
