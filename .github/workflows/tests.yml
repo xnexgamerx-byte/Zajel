@@ -129,7 +129,7 @@ jobs:
         run: docker compose exec -T -u www-data app php artisan db:seed --force
 
       - name: Smoke
-        run: |
+        run: &smoke |
           at() { curl -sk --resolve "$1:443:127.0.0.1" -o /dev/null -w '%{http_code}' "https://$1$2"; }
 
           # لوحة المنصّة بشهادتها وواجهتها المبنيّة
@@ -142,6 +142,24 @@ jobs:
           # نطاقٌ لا شركة له: لا شهادة تُصدَر له
           ! curl -sk --resolve nope.zajel.test:443:127.0.0.1 -o /dev/null https://nope.zajel.test/login
 
+      # النقل إلى خادمٍ آخر كما في README: حزمةٌ من القديم، ثم خادمٌ فارغ يسترجعها
+      - name: Move to a new server
+        run: |
+          sudo ./export.sh
+          bundle=$(sudo sh -c 'ls -t /var/backups/zajel/zajel-move-*.tar.gz | head -n 1')
+          sudo docker compose down -v
+          sudo rm -f .env .installed
+          sudo ./setup.sh --restore "$bundle" < /dev/null
+
+      - name: Smoke after the move
+        run: *smoke
+
+      - name: The data moved
+        run: |
+          count=$(sudo docker compose exec -T db sh -c \
+            'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e "SELECT COUNT(*) FROM zajel.governorates"')
+          test "$count" -gt 0
+
       - name: Logs
         if: failure()
-        run: docker compose logs --no-color | tail -n 200
+        run: sudo docker compose logs --no-color | tail -n 200
