@@ -1,0 +1,118 @@
+# زاجل على خادمٍ واحد: التطبيق، والمجدوِل، وخادم الويب بشهاداته، وقاعدة البيانات.
+# الإعداد كلّه في .env بجانب هذا الملف (يكتبه setup.sh). التفاصيل في README.md.
+
+name: zajel
+
+x-app-env: &app-env
+  APP_NAME: زاجل
+  APP_ENV: production
+  APP_KEY: ${APP_KEY:?APP_KEY مفقود في .env}
+  APP_DEBUG: "false"
+  APP_URL: https://admin.${DOMAIN}
+  APP_LOCALE: ar
+  APP_FALLBACK_LOCALE: ar
+  ZAJEL_TENANT_DOMAIN: ${DOMAIN:?DOMAIN مفقود في .env}
+  DB_CONNECTION: mysql
+  DB_HOST: db
+  DB_PORT: "3306"
+  DB_DATABASE: zajel
+  DB_USERNAME: zajel
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD مفقود في .env}
+  SESSION_DRIVER: database
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+  CACHE_STORE: database
+  # لا مهامّ مؤجَّلة في النظام: ما يُرسَل يُرسَل في الطلب نفسه، فلا عامل طابور يُنسى
+  QUEUE_CONNECTION: sync
+  LOG_CHANNEL: stack
+  LOG_STACK: daily,stderr
+  LOG_LEVEL: warning
+  MAIL_MAILER: log
+
+x-app-build: &app-build
+  context: ../platform
+  target: app
+
+services:
+  app:
+    build: *app-build
+    image: zajel-app
+    restart: unless-stopped
+    environment: *app-env
+    volumes:
+      - storage:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    # سليمٌ حين يصير PHP-FPM العمليةَ الأولى، أي بعد أن انتهت الترحيلات
+    # (docker/entrypoint.sh). عليه ينتظر الويب والمجدوِل، و«up --wait».
+    healthcheck:
+      test: ["CMD-SHELL", "test \"$$(cat /proc/1/comm)\" = php-fpm8.5"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 15m
+
+  # فوترة الشهر، وتجديد الاشتراكات، ومطابقة الدفتر كل ليلة (routes/console.php)
+  scheduler:
+    build: *app-build
+    image: zajel-app
+    restart: unless-stopped
+    user: www-data
+    command: ["php", "artisan", "schedule:work"]
+    environment: *app-env
+    volumes:
+      - storage:/var/www/html/storage
+    depends_on:
+      app:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../platform
+      target: web
+    image: zajel-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL مفقود في .env}
+      CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # ربع ذاكرة خادمٍ بـ ٤ غيغابايت؛ يُرفع مع الخادم
+      - --innodb-buffer-pool-size=${DB_BUFFER_POOL:-1G}
+    environment:
+      MYSQL_DATABASE: zajel
+      MYSQL_USER: zajel
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD مفقود في .env}
+      TZ: UTC
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  db:
+  storage:
+  caddy_data:
+  caddy_config:

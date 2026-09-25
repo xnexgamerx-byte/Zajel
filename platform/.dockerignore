@@ -1,0 +1,27 @@
+# ما يُبنى داخل الصورة لا يُنسَخ من جهاز المطوّر
+node_modules
+vendor
+public/build
+public/hot
+public/storage
+
+# أسرارٌ وبياناتٌ محلّية لا تدخل صورةً أبداً
+.env
+.env.*
+!.env.example
+auth.json
+database/*.sqlite*
+storage/*.key
+storage/app/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing
+storage/logs/*
+bootstrap/cache/*.php
+
+tests
+.phpunit.cache
+.phpunit.result.cache
+Dockerfile
+.dockerignore

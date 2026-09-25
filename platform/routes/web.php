@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ShipmentLabelController;
+use App\Http\Controllers\TlsAskController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
@@ -63,13 +64,16 @@ Route::middleware('tenant')->group(function () {
     /*
      | تتبّع الزبون: بلا حساب، وبحدٍّ للمحاولات. رقم الوصل مع آخر أربعة من
      | الهاتف، أو رابط QR من الوصل ببصمته.
+     |
+     | الحدّ بعنوان IP، وشبكات الهاتف العراقية تُخرج ألوف المشتركين من عنوانٍ
+     | واحد. فالحدّ الضيّق على البحث وحده — هو ما يُخمَّن فيه —، وأمّا الرابط
+     | فبصمته ٦٤ بتّاً لا تُحزَر، وحدّه للحِمل لا للتخمين.
      */
-    Route::middleware('throttle:30,1')->group(function () {
-        Route::get('/track', [TrackingController::class, 'form'])->name('track');
-        Route::get('/t/{number}/{token}', [TrackingController::class, 'show'])
-            ->where(['number' => '[A-Za-z0-9\-]+', 'token' => '[a-f0-9]{16}'])
-            ->name('track.show');
-    });
+    Route::get('/track', [TrackingController::class, 'form'])->middleware('throttle:30,1,track')->name('track');
+    Route::get('/t/{number}/{token}', [TrackingController::class, 'show'])
+        ->middleware('throttle:240,1,track-link')
+        ->where(['number' => '[A-Za-z0-9\-]+', 'token' => '[a-f0-9]{16}'])
+        ->name('track.show');
 
     Route::get('/login', [LoginController::class, 'show'])->middleware('guest')->name('login');
     Route::post('/login', [LoginController::class, 'store'])->middleware('guest');
@@ -337,6 +341,12 @@ Route::middleware('tenant')->group(function () {
         });
     });
 });
+
+/*
+| سؤال خادم الويب قبل إصدار شهادة HTTPS لنطاقٍ جديد (انظر deploy/Caddyfile).
+| خارج مجموعة tenant: السائل هو الخادم نفسه، لا زائرٌ على نطاق شركة.
+*/
+Route::get('/_tls/allowed', TlsAskController::class)->name('tls.ask');
 
 /*
 | لوحة النواة. تعمل في وضع المنصّة: لا شركة حالية ولا فلترة company_id،

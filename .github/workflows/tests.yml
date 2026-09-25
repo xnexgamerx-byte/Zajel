@@ -1,5 +1,5 @@
 # الاختبارات على كل دفعة — مرّتين: على SQLite كما يعمل المطوّر، وعلى
-# MySQL 8 كما يعمل الإنتاج.
+# MySQL 8.4 كما يعمل الإنتاج.
 #
 # المرّة الثانية ليست تكراراً. SQLite تقبل ما يُسقطه MySQL: مفتاحاً
 # أجنبياً إلى جدولٍ لم يُنشأ بعد، واسم عمودٍ خاطئاً تُرجعه نصّاً، ونصّاً
@@ -32,7 +32,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: zajel_test
@@ -91,3 +91,57 @@ jobs:
           DB_USERNAME: zajel
           DB_PASSWORD: zajel
         run: php artisan test
+
+  # صورة الإنتاج كما يبنيها الخادم (deploy/compose.yaml): تُبنى وتُشغَّل
+  # وتُسأل. فالخادم يوم التحديث لا يكتشف Dockerfile مكسوراً.
+  deploy:
+    name: deploy (compose smoke)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        working-directory: deploy
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # خادمٌ للرمي: شهادات Caddy من سلطته المحلية بدل Let's Encrypt
+      - name: Settings
+        run: |
+          cat > .env <<ENV
+          DOMAIN=zajel.test
+          ACME_EMAIL=ci@zajel.test
+          APP_KEY=base64:$(openssl rand -base64 32)
+          DB_PASSWORD=$(openssl rand -hex 16)
+          DB_ROOT_PASSWORD=$(openssl rand -hex 16)
+          DB_BUFFER_POOL=256M
+          CADDY_GLOBAL_OPTIONS=local_certs
+          ENV
+
+      # --wait: حتى تنتهي الترحيلات ويصير التطبيق سليماً
+      - name: Build and start
+        run: docker compose up -d --build --wait --wait-timeout 900
+
+      - name: Reference data
+        run: docker compose exec -T -u www-data app php artisan db:seed --force
+
+      - name: Smoke
+        run: |
+          at() { curl -sk --resolve "$1:443:127.0.0.1" -o /dev/null -w '%{http_code}' "https://$1$2"; }
+
+          # لوحة المنصّة بشهادتها وواجهتها المبنيّة
+          test "$(at admin.zajel.test /admin/login)" = 200
+          curl -sk --resolve admin.zajel.test:443:127.0.0.1 https://admin.zajel.test/admin/login | grep -q 'build/assets/'
+
+          # ولا لوحة منصّة على غير admin
+          test "$(at zajel.test /admin/login)" = 404
+
+          # نطاقٌ لا شركة له: لا شهادة تُصدَر له
+          ! curl -sk --resolve nope.zajel.test:443:127.0.0.1 -o /dev/null https://nope.zajel.test/login
+
+      - name: Logs
+        if: failure()
+        run: docker compose logs --no-color | tail -n 200

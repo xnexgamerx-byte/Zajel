@@ -157,5 +157,8 @@ class TrackingTest extends TestCase
         }
 
         $this->get($this->host().'/track?number='.$shipment->number.'&phone=4567')->assertStatus(429);
+
+        // ورابط QR لا يُحسب عليه تخمين غيره: خلف عنوانٍ واحدٍ زبائن كثيرون
+        $this->get($this->link($shipment))->assertOk();
     }
 }
