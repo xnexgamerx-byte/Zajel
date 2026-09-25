@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1
 #
-# صورة الإنتاج. تُبنى من deploy/compose.yaml، ولا يلزم على الخادم PHP ولا Node.
-#   app — PHP-FPM 8.5 بالشيفرة والحزم والواجهة المبنيّة
-#   web — Caddy بالملفات العامّة، يخدمها ويمرّر الباقي إلى app
+# صورة الإنتاج، ولا يلزم على الخادم PHP ولا Node.
+#   app     — PHP-FPM 8.5 بالشيفرة والحزم والواجهة المبنيّة   (deploy/compose.yaml)
+#   web     — Caddy بالملفات العامّة، يمرّر الباقي إلى app     (deploy/compose.yaml)
+#   railway — الاثنان والمجدوِل في حاويةٍ واحدة على $PORT (deploy/railway.md). آخر مرحلة
+#             عمداً: Railway يبني آخر مرحلةٍ في الملف
 
 # ── الواجهة: Vite يبني CSS وJS ──
 FROM node:22-alpine AS assets
@@ -53,3 +55,29 @@ CMD ["php-fpm8.5", "--nodaemonize"]
 # ── خادم الويب: الملفات العامّة في المسار نفسه الذي يراه PHP ──
 FROM caddy:2 AS web
 COPY --from=app /var/www/html/public /var/www/html/public
+
+# ── Railway: Caddy وPHP-FPM معاً، وإعدادات الإنتاج افتراضية فيبقى القليل للوحة ──
+FROM app AS railway
+
+COPY --from=caddy:2 /usr/bin/caddy /usr/bin/caddy
+COPY docker/Caddyfile.railway /etc/caddy/Caddyfile
+COPY docker/php-fpm.railway.conf /etc/php/8.5/fpm/pool.d/zzz-railway.conf
+COPY docker/railway-start.sh /usr/local/bin/zajel-railway
+
+# خلف وكيل Railway: عنوان الزائر من X-Forwarded-For (config/trustedproxy.php)
+ENV APP_NAME=زاجل \
+    APP_ENV=production \
+    APP_DEBUG=false \
+    APP_LOCALE=ar \
+    APP_FALLBACK_LOCALE=ar \
+    TRUSTED_PROXIES=* \
+    DB_CONNECTION=mysql \
+    SESSION_DRIVER=database \
+    SESSION_SECURE_COOKIE=true \
+    CACHE_STORE=database \
+    QUEUE_CONNECTION=sync \
+    LOG_CHANNEL=stderr \
+    LOG_LEVEL=warning \
+    MAIL_MAILER=log
+
+CMD ["zajel-railway"]

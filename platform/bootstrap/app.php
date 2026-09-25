@@ -24,6 +24,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // على كل ردّ، صفحةً كان أو ملفاً أو خطأً
         $middleware->append(SecurityHeaders::class);
 
+        /*
+         | من الوكيل (إن صُدِّق — config/trustedproxy.php) عنوانُ الزائر
+         | وبروتوكوله فقط، لا النطاق: النطاق يحدّد الشركة، فيُؤخذ من الطلب
+         | نفسه لا من رأسٍ قد يمرّره الوكيل كما كتبه الزائر.
+         */
+        $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_FOR
+            | Request::HEADER_X_FORWARDED_PORT
+            | Request::HEADER_X_FORWARDED_PROTO);
+
         $middleware->appendToGroup('tenant', [
             IdentifyTenant::class,
             EnsureUserBelongsToTenant::class,

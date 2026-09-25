@@ -160,6 +160,27 @@ jobs:
             'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e "SELECT COUNT(*) FROM zajel.governorates"')
           test "$count" -gt 0
 
+      # صورة Railway (آخر مرحلةٍ في Dockerfile) كما يشغّلها: قاعدةٌ اسمها
+      # railway، والمتغيّرات الأربعة وحدها من deploy/railway.md
+      - name: Railway image
+        run: |
+          docker build -t zajel-railway ../platform
+          docker network create rw
+          docker run -d --name rwdb --network rw -e MYSQL_DATABASE=railway -e MYSQL_ROOT_PASSWORD=ci mysql:8.4
+          docker run -d --name rwweb --network rw --restart on-failure -p 8080:8080 -e PORT=8080 \
+            -e APP_KEY="base64:$(openssl rand -base64 32)" -e ZAJEL_TENANT_DOMAIN=zajel.test \
+            -e DB_URL=mysql://root:ci@rwdb:3306/railway \
+            -e ZAJEL_ADMIN_PHONE=07701234567 -e ZAJEL_ADMIN_PASSWORD=ci-admin-secret zajel-railway
+          for _ in $(seq 1 90); do curl -sf -o /dev/null http://127.0.0.1:8080/up && break; sleep 2; done
+
+          at() { curl -s -o /dev/null -w '%{http_code}' -H "Host: $1" "http://127.0.0.1:8080$2"; }
+          test "$(at admin.zajel.test /up)" = 200
+          test "$(at admin.zajel.test /admin/login)" = 200
+          test "$(at zajel.test /admin/login)" = 404
+          docker logs rwweb 2>&1 | grep -q 'أُنشئ مدير المنصّة'
+
       - name: Logs
         if: failure()
-        run: sudo docker compose logs --no-color | tail -n 200
+        run: |
+          sudo docker compose logs --no-color | tail -n 200
+          docker logs rwweb 2>&1 | tail -n 100 || true

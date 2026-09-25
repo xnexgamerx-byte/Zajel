@@ -26,4 +26,13 @@ return [
     | الطرد.
     */
     'stale_shipment_days' => 5,
+
+    /*
+    | أوّل مدير منصّة على خادمٍ بلا طرفية (zajel:bootstrap). يُقرأ مرّةً واحدة
+    | حين لا مدير، ثم تُحذف كلمة المرور من الإعدادات.
+    */
+    'bootstrap_admin' => [
+        'phone'    => env('ZAJEL_ADMIN_PHONE'),
+        'password' => env('ZAJEL_ADMIN_PASSWORD'),
+    ],
 ];

@@ -122,7 +122,7 @@
                                 @endif
                             </span>
                             <span class="shrink-0 text-xs text-ink-400" dir="ltr">
-                                {{ $entry->created_at->format('Y-m-d H:i') }}
+                                {{ $entry->created_at->format('Y-m-d H:i') }}@if ($entry->ip) · {{ $entry->ip }}@endif
                             </span>
                         </div>
                     @endforeach
