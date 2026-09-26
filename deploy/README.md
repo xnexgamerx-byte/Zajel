@@ -16,6 +16,10 @@ deploy/
 ├─ railway.md    التشغيل على Railway
 ├─ compose.yaml  الحاويات الأربع
 ├─ Caddyfile     خادم الويب والشهادات
+├─ Caddyfile.cloudflare  خادم الويب خلف Cloudflare، بشهادتها للمصدر في certs/
+├─ cloudflare-mode.sh    خادمٌ ثُبّت مباشراً ينتقل خلف Cloudflare
+├─ cloudflare-ranges.sh  عناوين Cloudflare في .env (يشغّله setup.sh وupdate.sh)
+├─ origin-cert.sh        التحقّق من شهادة المصدر ومفتاحها
 └─ .env          الإعداد والأسرار — يكتبه setup.sh، ولا يُرفع إلى GitHub أبداً
 ```
 
@@ -123,11 +127,21 @@ Cloudflare أمام الخادم يصدّ هجمات DDoS والهجمات ال�
 
 ### ٣. التثبيت
 
-`sudo ./setup.sh` كما في الخطوة ٣ أعلاه، وأجب **نعم** عن «هل النطاق خلف Cloudflare؟».
+`sudo ./setup.sh` كما في الخطوة ٣ أعلاه، وأجب **نعم** (أو `y`) عن «هل النطاق خلف Cloudflare؟».
 يتأكّد قبل أن يبدأ أنّ الشهادة شهادة، وأنّ المفتاح مفتاحها، وأنها تشمل `*.wahaj.iq` —
 ويجلب عناوين Cloudflare من [cloudflare.com/ips](https://www.cloudflare.com/ips/): منها وحدها
 يُصدَّق عنوان الزائر، فحدّ محاولات الدخول يحسب كل زائرٍ وحده، ولا يزوّر أحدٌ عنوانه من
-خارجها. (`update.sh` يجدّدها في كل تحديث.)
+خارجها. (`update.sh` يجدّدها في كل تحديث.) وفي آخره يقول الوضع: **خلف Cloudflare**.
+
+**خادمٌ ثُبّت بدونها** — آخر `setup.sh` قال «الوضع: مباشر» — يُنقل إليها والبيانات كما هي:
+الشهادة في `certs/` كما في الخطوة ٢، ثم
+
+```bash
+cd /opt/zajel && sudo git pull && cd deploy && sudo ./cloudflare-mode.sh
+```
+
+يتأكّد من الشهادة قبل أن يغيّر شيئاً، ويعيد تشغيل الويب والتطبيق (ثوانٍ)، ويتأكّد أنّ
+الخادم يقدّم الشهادة وأنّ الموقع يصل عبر Cloudflare، ثم يطبع قواعد جدار الحماية.
 
 ### ٤. جدار الحماية — فلا يتخطّى أحدٌ Cloudflare
 
@@ -138,14 +152,19 @@ Cloudflare أمام الخادم يصدّ هجمات DDoS والهجمات ال�
 
 | Inbound | المنفذ | المصدر |
 |---|---|---|
-| SSH | TCP 22 | عنوانك، أو Any إن كان عنوانك يتغيّر |
-| HTTP وHTTPS | TCP 80 و443 | عناوين Cloudflare: `grep CLOUDFLARE_RANGES .env` يطبعها |
+| SSH | TCP 22 | Any IPv4 وAny IPv6 (أو عنوانك إن كان ثابتاً) |
+| HTTPS | TCP 443 | عناوين Cloudflare وحدها — تُحذف منها Any IPv4 وAny IPv6 |
+
+و**لا ٨٠**: مع Always Use HTTPS (الخطوة ٥) يحوّل Cloudflare زائر `http` عنده، ولا يأتي
+الخادمَ إلا على ٤٤٣. والعناوين يطبعها `setup.sh` و`cloudflare-mode.sh` في آخرهما، أو
+`sudo ./cloudflare-ranges.sh --firewall`. وإن غيّرتها Cloudflare يوماً قال ذلك `update.sh`،
+فتُحدَّث هنا.
 
 ### ٥. إعدادات Cloudflare — المجانية كلّها
 
 | أين | الإعداد |
 |---|---|
-| **SSL/TLS ← Edge Certificates** | Always Use HTTPS: تشغيل · Minimum TLS: 1.2 · TLS 1.3: تشغيل · **HSTS: اتركه** — التطبيق يرسله بنفسه |
+| **SSL/TLS ← Edge Certificates** | **Always Use HTTPS: تشغيل** (جدار الحماية لا يفتح ٨٠) · Minimum TLS: 1.2 · TLS 1.3: تشغيل · **HSTS: اتركه** — التطبيق يرسله بنفسه |
 | **Security ← WAF ← Managed rules** | **Cloudflare Free Managed Ruleset** مفعّل (افتراضياً — تأكّد) |
 | **Security ← DDoS** | لا شيء: الحماية تلقائية ودائمة في كل الخطط |
 | **Security ← Bots** | Bot Fight Mode **مطفأ**: لا يُستثنى منه شيءٌ في الخطة المجانية، وقد يعترض تطبيقاً أو أداة مراقبة |

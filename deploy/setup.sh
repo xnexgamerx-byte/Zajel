@@ -13,7 +13,8 @@
 # (روابط QR المطبوعة تعمل)، والحسابات نفسها، والجلسات نفسها.
 #
 # وخلف Cloudflare (README: «خلف Cloudflare»): شهادة المصدر منها في
-# certs/origin.pem ومفتاحها في certs/origin.key قبل التشغيل.
+# certs/origin.pem ومفتاحها في certs/origin.key قبل التشغيل. وخادمٌ ثُبّت
+# بدونها يُنقل إليها بـ cloudflare-mode.sh.
 
 set -euo pipefail
 
@@ -37,21 +38,6 @@ buffer_pool() {
     mem_mb=$(awk '/MemTotal/ {print int($2 / 1024)}' /proc/meminfo)
     pool_mb=$(( mem_mb / 4 )); (( pool_mb < 256 )) && pool_mb=256; (( pool_mb > 8192 )) && pool_mb=8192
     echo "${pool_mb}M"
-}
-
-# شهادة Cloudflare للمصدر: موجودة، ومفتاحها لها، وتشمل كل النطاقات الفرعية.
-# خطأٌ هنا يظهر الآن برسالة، لا لاحقاً خطأ 526 في كل صفحة
-check_origin_cert() {
-    local domain=$1
-    [ -s certs/origin.pem ] && [ -s certs/origin.key ] \
-        || die "ضع شهادة Cloudflare للمصدر في deploy/certs/origin.pem ومفتاحها في deploy/certs/origin.key (README: «خلف Cloudflare»)، ثم أعد."
-    openssl x509 -in certs/origin.pem -noout 2>/dev/null \
-        || die "certs/origin.pem ليست شهادة. الصق نصّ «Origin Certificate» كاملاً من BEGIN إلى END."
-    [ "$(openssl x509 -in certs/origin.pem -noout -pubkey | sha256sum)" = "$(openssl pkey -in certs/origin.key -pubout 2>/dev/null | sha256sum)" ] \
-        || die "certs/origin.key ليس مفتاح هذه الشهادة. الصق «Private Key» الذي ظهر معها."
-    openssl x509 -in certs/origin.pem -noout -ext subjectAltName | grep -qF "DNS:*.$domain" \
-        || die "الشهادة لا تشمل *.$domain: أنشئها في Cloudflare لـ $domain و*.$domain معاً."
-    chmod 600 certs/origin.key
 }
 
 # ── ١. Docker ──
@@ -94,11 +80,20 @@ elif [ ! -f .env ]; then
     read -rp "بريدٌ لتنبيهات شهادات HTTPS: " email
     [[ "$email" == *@*.* ]] || die "بريدٌ غير صحيح: $email"
 
+    # جوابٌ لا يُفهم يُسأل من جديد، لا يُحسب «لا» فيُثبَّت الخادم بغير ما أُريد
     cloudflare=""
-    read -rp "هل النطاق خلف Cloudflare (السحابة البرتقالية)؟ [نعم/لا]: " behind
-    case "${behind,,}" in
-        نعم|ن|y|yes) cloudflare=1; check_origin_cert "$domain" ;;
-    esac
+    while :; do
+        read -rp "هل النطاق خلف Cloudflare (السحابة البرتقالية)؟ نعم/لا (y/n): " behind || die "لا جواب."
+        case "${behind,,}" in
+            نعم|ن|اي|إي|أي|ايه|إيه|ايوه|y|yes) cloudflare=1; break ;;
+            لا|ل|كلا|n|no) break ;;
+        esac
+        echo "  اكتب نعم أو لا (أو y أو n)."
+    done
+    # شهادةٌ خاطئة توقفه الآن، قبل أن يُكتب شيء
+    if [ -n "$cloudflare" ]; then
+        ./origin-cert.sh "$domain" || exit 1
+    fi
 
     umask 077
     cat > .env <<ENV
@@ -115,8 +110,8 @@ ENV
     umask 022
 
     if [ -n "$cloudflare" ]; then
-        echo "CADDYFILE=Caddyfile.cloudflare" >> .env
         ./cloudflare-ranges.sh || die "تعذّر جلب عناوين Cloudflare من cloudflare.com/ips. تأكّد من اتصال الخادم ثم أعد: rm .env && sudo ./setup.sh"
+        echo "CADDYFILE=Caddyfile.cloudflare" >> .env
     fi
     say "كُتب deploy/.env. احفظ نسخةً منه خارج الخادم: فيه مفتاح التطبيق الذي تُوقَّع به روابط التتبّع المطبوعة على الوصولات."
 fi
@@ -164,12 +159,15 @@ domain=$(grep -E '^DOMAIN=' .env | cut -d= -f2-)
 ip=$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
 
 if grep -q '^CADDYFILE=Caddyfile.cloudflare' .env; then
+    mode="خلف Cloudflare — شهادة المصدر منها، والزائر الحقيقيّ من عناوينها."
     dns_records="  في Cloudflare ← DNS، والسحابة برتقالية (Proxied) للسجلّين:
     A   @   →  $ip
     A   *   →  $ip
   وفي SSL/TLS ← Overview: Full (strict).
-  وجدار الحماية عند المزوّد: ٨٠ و٤٤٣ من عناوين Cloudflare وحدها (README)."
+
+$(./cloudflare-ranges.sh --firewall)"
 else
+    mode="مباشر — شهادات Let's Encrypt، بلا Cloudflare. وإن كان النطاق خلفها: sudo ./cloudflare-mode.sh"
     dns_records="  عند مزوّد النطاق:
     A   $domain      →  $ip
     A   *.$domain    →  $ip"
@@ -178,6 +176,8 @@ fi
 if [ -n "$restore" ]; then
     say "تمّ النقل."
     cat <<DONE
+
+  الوضع: $mode
 
   الآن غيّر سجلّي DNS إلى هذا الخادم:
 $dns_records
@@ -196,6 +196,8 @@ fi
 
 say "تمّ."
 cat <<DONE
+
+  الوضع: $mode
 
   سجلّات DNS المطلوبة (إن لم تُضَف بعد):
 $dns_records

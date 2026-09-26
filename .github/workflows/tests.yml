@@ -160,21 +160,28 @@ jobs:
             'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e "SELECT COUNT(*) FROM zajel.governorates"')
           test "$count" -gt 0
 
-      # خلف Cloudflare: شهادة مصدرٍ ذاتية التوقيع مكان شهادتها، وشبكة Docker مكان
-      # عناوينها. Caddy يقدّم الشهادة بلا Let's Encrypt، والتطبيق يعرف الزائر من
-      # آخر عنوانٍ أضافه الوكيل لا من أوّل ما كتبه الزائر، والنقل يحمل الشهادة
+      # خلف Cloudflare كما يُنقل إليها خادمٌ ثُبّت مباشراً (cloudflare-mode.sh): شهادة
+      # مصدرٍ ذاتية التوقيع مكان شهادتها، ثم شبكة Docker مكان عناوينها. Caddy يقدّم
+      # الشهادة بلا Let's Encrypt، والتطبيق يعرف الزائر من آخر عنوانٍ أضافه الوكيل
+      # لا من أوّل ما كتبه الزائر، والنقل يحمل الشهادة
       - name: Behind Cloudflare
         run: |
           sudo mkdir -p certs
           sudo openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=zajel.test" \
             -addext "subjectAltName=DNS:zajel.test,DNS:*.zajel.test" \
             -keyout certs/origin.key -out certs/origin.pem
-          sudo chmod 644 certs/origin.pem
-          sudo tee -a .env > /dev/null <<'ENV'
-          CADDYFILE=Caddyfile.cloudflare
-          CLOUDFLARE_RANGES="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.1/32"
-          TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32"
-          ENV
+
+          # شهادةٌ لا تشمل النطاق تُرفض
+          if sudo ./origin-cert.sh other.test; then exit 1; fi
+
+          sudo ./cloudflare-mode.sh
+          sudo grep -q '^CADDYFILE=Caddyfile.cloudflare$' .env
+          sudo grep -q '^CLOUDFLARE_RANGES=".*/' .env
+
+          # الوكيل في التجربة شبكة Docker، لا Cloudflare
+          sudo sed -i \
+            -e 's#^CLOUDFLARE_RANGES=.*#CLOUDFLARE_RANGES="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.1/32"#' \
+            -e 's#^TRUSTED_PROXIES=.*#TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32"#' .env
           sudo docker compose up -d --wait
 
           check() {
