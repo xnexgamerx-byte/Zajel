@@ -1,38 +1,40 @@
-@extends('layouts.app')
+@extends('layouts.auth')
 @section('title', 'تسجيل الدخول')
+@section('brand', $company->name)
 
 @section('content')
-<div class="mx-auto mt-6 w-full max-w-md sm:mt-14">
-    <div class="mb-8 text-center">
-        <div class="brand-tile mx-auto mb-5 size-16 rounded-xl text-2xl">{{ $company->initial() }}</div>
-        <h1 class="page-title">{{ $company->name }}</h1>
-        <p class="mt-1 text-sm text-ink-500">نظام إدارة الشحنات</p>
+<header class="brand">
+    {{-- اسم الشركة وشعارها بلونها: من يدخل يعرف أنه في نظام شركته --}}
+    <div class="brand-mark" @if ($company->primary_color) style="--mark: {{ $company->primary_color }}" @endif>{{ $company->initial() }}</div>
+    <h1>{{ $company->name }}</h1>
+    <p>نظام إدارة الشحنات</p>
+</header>
+
+<section class="card" aria-labelledby="login-title">
+    <div class="card-head">
+        <h2 id="login-title">تسجيل الدخول</h2>
+        <p>أهلاً بك، سجّل دخولك للمتابعة</p>
     </div>
 
-    <form method="POST" action="{{ route('login') }}" class="card space-y-5 p-6 sm:p-8">
+    <form method="POST" action="{{ route('login') }}">
         @csrf
+        @include('auth.partials.fields')
 
-        <div>
-            <label class="field-label" for="phone">رقم الهاتف</label>
-            <input id="phone" name="phone" type="tel" inputmode="numeric" dir="ltr"
-                   value="{{ old('phone') }}" placeholder="07xxxxxxxxx"
-                   class="field-input text-left" required autofocus>
-            @error('phone') <p class="field-error">{{ $message }}</p> @enderror
+        <div class="options">
+            <label class="remember">
+                <input type="checkbox" name="remember" value="1" @checked(old('remember'))>
+                <span>تذكّرني</span>
+            </label>
+            <a class="forgot" href="#forgot">نسيت كلمة المرور؟</a>
         </div>
 
-        <div>
-            <label class="field-label" for="password">كلمة المرور</label>
-            <input id="password" name="password" type="password" class="field-input" required>
-            @error('password') <p class="field-error">{{ $message }}</p> @enderror
-        </div>
-
-        <label class="flex items-center gap-2 text-sm text-ink-600">
-            <input type="checkbox" name="remember" value="1"
-                   class="rounded">
-            تذكّرني
-        </label>
-
-        <button type="submit" class="btn-primary w-full py-2.5 text-base">دخول</button>
+        <button class="submit" type="submit">دخول <span aria-hidden="true">←</span></button>
     </form>
-</div>
+
+    <p class="forgot-note" id="forgot">
+        لا تُستعاد كلمة المرور من هنا: اطلب من إدارة الشركة أن تضع لك كلمةً جديدة من حسابك في النظام.
+    </p>
+
+    <p class="foot">دخول آمن إلى <span>نظام إدارة الشحنات</span></p>
+</section>
 @endsection

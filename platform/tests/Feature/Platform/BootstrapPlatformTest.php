@@ -33,7 +33,7 @@ class BootstrapPlatformTest extends TestCase
         $this->assertCount(1, $this->admins());
         $this->assertSame('07701234567', $this->admins()->first()->phone);
 
-        $this->post('/admin/login', ['phone' => '07701234567', 'password' => 'a-long-secret'])
+        $this->post('/admin/login', ['username' => '07701234567', 'password' => 'a-long-secret'])
             ->assertRedirect('/admin');
     }
 

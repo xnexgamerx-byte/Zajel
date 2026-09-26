@@ -89,6 +89,7 @@ class RegisterCompany
 
                 User::create([
                     'name'      => $data['owner_name'],
+                    'username'  => $data['owner_username'] ?? null,
                     'phone'     => $data['owner_phone'],
                     'email'     => $data['owner_email'] ?? null,
                     'password'  => $data['owner_password'],

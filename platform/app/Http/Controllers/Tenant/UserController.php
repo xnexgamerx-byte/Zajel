@@ -6,6 +6,8 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\User;
+use App\Support\Phone;
+use App\Support\Username;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -37,6 +39,7 @@ class UserController extends Controller
                 ->with('branch:id,name')
                 ->when($request->query('q'), fn ($q, $term) => $q->where(
                     fn ($w) => $w->where('name', 'like', "%{$term}%")->orWhere('phone', $term)
+                        ->orWhere('username', Username::canonical($term))
                 ))
                 ->orderBy('name')
                 ->paginate(config('zajel.per_page'))
@@ -90,8 +93,19 @@ class UserController extends Controller
 
     protected function validated(Request $request, ?User $user = null): array
     {
+        // اسمٌ فارغ: الحالي عند التعديل، ورقم الهاتف عند الإنشاء — ويُتحقَّق من
+        // تفرّده كأيّ اسم، فلا يصطدم برقمٍ اختاره موظّفٌ آخر اسماً له
+        $typed = Username::canonical($request->input('username'));
+        $request->merge([
+            'username' => $typed !== '' ? $typed : ($user?->username ?? Phone::normalise($request->input('phone'))),
+        ]);
+
         return $request->validate([
             'name'      => ['required', 'string', 'max:160'],
+            'username'  => ['nullable', 'string', 'regex:'.Username::PATTERN,
+                            Rule::unique('users', 'username')
+                                ->where('company_id', $request->user()->company_id)
+                                ->ignore($user?->id)],
             'phone'     => ['required', 'string', 'regex:/^07[0-9]{9}$/',
                             Rule::unique('users', 'phone')
                                 ->where('company_id', $request->user()->company_id)
@@ -101,8 +115,11 @@ class UserController extends Controller
             'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')
                                 ->where('company_id', $request->user()->company_id)],
             'password'  => [$user ? 'nullable' : 'required', 'string', 'min:6', 'max:72'],
-        ], [], [
-            'name' => 'الاسم', 'phone' => 'الهاتف', 'role' => 'الدور',
+        ], [
+            'username.regex'  => Username::RULE_MESSAGE,
+            'username.unique' => 'اسم المستخدم هذا لحسابٍ آخر في شركتك.',
+        ], [
+            'name' => 'الاسم', 'username' => 'اسم المستخدم', 'phone' => 'الهاتف', 'role' => 'الدور',
             'branch_id' => 'الفرع', 'password' => 'كلمة المرور',
         ]);
     }

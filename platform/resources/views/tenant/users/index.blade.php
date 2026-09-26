@@ -27,6 +27,7 @@
             <thead>
                 <tr>
                     <th >الاسم</th>
+                    <th >اسم المستخدم</th>
                     <th >الهاتف</th>
                     <th >الدور</th>
                     <th >الفرع</th>
@@ -39,6 +40,7 @@
                 @forelse ($users as $staff)
                     <tr class="hover:bg-ink-50">
                         <td class="px-4 py-3 font-semibold">{{ $staff->name }}</td>
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $staff->username }}</td>
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $staff->phone }}</td>
                         <td class="px-4 py-3">{{ $roles[$staff->role->value] ?? $staff->role->label() }}</td>
                         <td class="px-4 py-3 text-ink-600">{{ $staff->branch?->name ?? 'كل الفروع' }}</td>
@@ -59,7 +61,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-4 py-16 text-center text-ink-500">لا مستخدمين.</td></tr>
+                    <tr><td colspan="8" class="px-4 py-16 text-center text-ink-500">لا مستخدمين.</td></tr>
                 @endforelse
             </tbody>
         </table>

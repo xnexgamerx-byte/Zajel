@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Models\Courier;
+use App\Models\User;
+use App\Support\Username;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,6 +37,7 @@ class CourierRequest extends FormRequest
             'zones.*'                 => ['integer'],
 
             'create_login'            => ['nullable', 'boolean'],
+            'username'                => ['nullable', 'string', 'max:64'],
             'password'                => ['nullable', 'string', 'min:6', 'max:72'],
         ];
     }
@@ -55,6 +58,17 @@ class CourierRequest extends FormRequest
             if ($this->boolean('create_login') && ! $courier && ! $this->password) {
                 $validator->errors()->add('password', 'أدخل كلمة مرور لحساب دخول المندوب.');
             }
+
+            // اسمٌ مختار للحساب: صالحٌ وغير مأخوذ. وفارغاً يُدخَل برقم الهاتف
+            if ($this->boolean('create_login') && ! $courier && filled($this->username)) {
+                $username = Username::normalise($this->username);
+
+                if ($username === null) {
+                    $validator->errors()->add('username', Username::RULE_MESSAGE);
+                } elseif (User::where('username', $username)->exists()) {
+                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
+                }
+            }
         });
     }
 
@@ -70,6 +84,7 @@ class CourierRequest extends FormRequest
             'commission_per_return'   => 'عمولة الإرجاع',
             'cash_limit'              => 'سقف النقد',
             'status'                  => 'الحالة',
+            'username'                => 'اسم المستخدم',
             'password'                => 'كلمة المرور',
         ];
     }

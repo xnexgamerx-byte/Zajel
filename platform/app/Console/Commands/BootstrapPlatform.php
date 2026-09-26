@@ -54,7 +54,7 @@ class BootstrapPlatform extends Command
             'password' => $password, 'role' => UserRole::PlatformAdmin, 'is_active' => true,
         ]));
 
-        $this->info("أُنشئ مدير المنصّة {$phone}. احذف ZAJEL_ADMIN_PASSWORD من الإعدادات الآن.");
+        $this->info("أُنشئ مدير المنصّة {$phone}، واسم دخوله رقمه نفسه. احذف ZAJEL_ADMIN_PASSWORD من الإعدادات الآن.");
 
         return self::SUCCESS;
     }

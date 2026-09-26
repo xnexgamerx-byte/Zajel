@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\Permissions\Ability;
+use App\Support\Username;
 use App\Models\Scopes\UserScope;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -41,6 +42,20 @@ class User extends Authenticatable
     protected static function companyScope(): Scope
     {
         return new UserScope;
+    }
+
+    /**
+     * كل حسابٍ له اسم مستخدم يُدخَل به: المختار بصيغته المحفوظة، وإلّا رقم
+     * هاتفه — فحسابٌ يُنشأ من أيّ مكان (مندوب، تاجر، أمر مدير المنصّة) يُدخَل
+     * به فوراً. انظر App\Support\Username.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (User $user) {
+            $user->username = filled($user->username)
+                ? Username::canonical($user->username)
+                : Username::canonical($user->phone);
+        });
     }
 
     public function branch(): BelongsTo

@@ -156,14 +156,23 @@
                            data-toggle="courier-login-fields">
                     <span>
                         أنشئ حساباً له على تطبيق المندوبين
-                        <span class="mt-0.5 block text-xs text-ink-500">يدخل برقم هاتفه ويرى شحناته فقط.</span>
+                        <span class="mt-0.5 block text-xs text-ink-500">يدخل باسم مستخدمه — أو برقم هاتفه إن تُرك فارغاً — ويرى شحناته فقط.</span>
                     </span>
                 </label>
 
-                <div class="mt-4" id="courier-login-fields" hidden>
-                    <label class="field-label" for="password">كلمة المرور</label>
-                    <input id="password" name="password" type="text" class="field-input text-left" dir="ltr">
-                    @error('password') <p class="field-error">{{ $message }}</p> @enderror
+                <div class="mt-4 space-y-4" id="courier-login-fields" hidden>
+                    <div>
+                        <label class="field-label" for="username">اسم المستخدم</label>
+                        <input id="username" name="username" class="field-input text-left" dir="ltr"
+                               value="{{ old('username') }}" autocomplete="off" autocapitalize="none"
+                               spellcheck="false" placeholder="فارغاً: رقم هاتفه">
+                        @error('username') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="field-label" for="password">كلمة المرور</label>
+                        <input id="password" name="password" type="text" class="field-input text-left" dir="ltr">
+                        @error('password') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
                 </div>
             </section>
         @endunless

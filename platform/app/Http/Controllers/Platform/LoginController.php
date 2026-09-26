@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Platform;
 
 use App\Http\Controllers\Concerns\RedirectsWithinArea;
 use App\Http\Controllers\Controller;
-use App\Support\Phone;
+use App\Support\Username;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,33 +24,33 @@ class LoginController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'phone'    => ['required', 'string', 'max:20'],
+            'username' => ['required', 'string', 'max:64'],
             'password' => ['required', 'string'],
-        ], [], ['phone' => 'رقم الهاتف', 'password' => 'كلمة المرور']);
+        ], [], ['username' => 'اسم المستخدم', 'password' => 'كلمة المرور']);
 
         $key = 'admin-login:'.$request->ip();
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
             throw ValidationException::withMessages([
-                'phone' => 'محاولات كثيرة. انتظر '.RateLimiter::availableIn($key).' ثانية.',
+                'username' => 'محاولات كثيرة. انتظر '.RateLimiter::availableIn($key).' ثانية.',
             ]);
         }
 
-        // الرقم يُوحَّد كما في دخول الشركات (Auth\LoginController)، والسياق
+        // الاسم يُوحَّد كما في دخول الشركات (Auth\LoginController)، والسياق
         // هنا سياق نواة، فالاستعلام يرى مستخدمي company_id = null
-        $phone = Phone::normalise($data['phone']);
-        $credentials = ['phone' => $phone, 'password' => $data['password'], 'company_id' => null];
+        $username = Username::normalise($data['username']);
+        $credentials = ['username' => $username, 'password' => $data['password'], 'company_id' => null];
 
-        if ($phone === null || ! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if ($username === null || ! Auth::attempt($credentials, $request->boolean('remember'))) {
             RateLimiter::hit($key, 300);
 
-            throw ValidationException::withMessages(['phone' => 'بيانات الدخول غير صحيحة.']);
+            throw ValidationException::withMessages(['username' => 'بيانات الدخول غير صحيحة.']);
         }
 
         if (! Auth::user()->isPlatformUser()) {
             Auth::logout();
 
-            throw ValidationException::withMessages(['phone' => 'هذا الحساب ليس حساب منصّة.']);
+            throw ValidationException::withMessages(['username' => 'هذا الحساب ليس حساب منصّة.']);
         }
 
         RateLimiter::clear($key);

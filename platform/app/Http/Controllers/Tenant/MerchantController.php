@@ -14,6 +14,7 @@ use App\Models\PriceList;
 use App\Models\Shipment;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\Username;
 use App\Services\SequenceGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,16 +59,16 @@ class MerchantController extends Controller
         $merchant = DB::transaction(function () use ($request, $sequences) {
             $data = $request->validated();
 
-            // create_login و password ليسا عمودين — يُستبعدان قبل الحفظ
+            // create_login واسم المستخدم وكلمة المرور ليست أعمدةً للتاجر — تُستبعد قبل الحفظ
             $merchant = Merchant::create(
-                collect($data)->except(['create_login', 'password'])->all() + [
+                collect($data)->except(['create_login', 'username', 'password'])->all() + [
                     'code'               => $sequences->next('merchant'),
                     'created_by_user_id' => $request->user()->id,
                 ]
             );
 
             if ($request->boolean('create_login')) {
-                $this->createLogin($merchant, $request->validated('password'));
+                $this->createLogin($merchant, $request->validated('password'), $request->validated('username'));
             }
 
             return $merchant;
@@ -108,7 +109,7 @@ class MerchantController extends Controller
     public function update(MerchantRequest $request, Merchant $merchant): RedirectResponse
     {
         $merchant->update(
-            collect($request->validated())->except(['create_login', 'password'])->all()
+            collect($request->validated())->except(['create_login', 'username', 'password'])->all()
         );
 
         return redirect()
@@ -116,15 +117,19 @@ class MerchantController extends Controller
             ->with('success', 'حُفظت بيانات التاجر.');
     }
 
-    /** حساب دخول للتاجر على تطبيقه — بالهاتف نفسه المسجَّل. */
-    protected function createLogin(Merchant $merchant, ?string $password): void
+    /** حساب دخول للتاجر على تطبيقه — باسمٍ مختار، وإلّا بهاتفه المسجَّل. */
+    protected function createLogin(Merchant $merchant, ?string $password, ?string $username = null): void
     {
-        if (User::where('phone', $merchant->phone)->exists()) {
+        $username = Username::normalise($username) ?? Username::canonical($merchant->phone);
+
+        // مجموعةً واحدة: «أو» لا تفلت من نطاق الشركة الذي يُضاف إلى الاستعلام
+        if (User::where(fn ($q) => $q->where('phone', $merchant->phone)->orWhere('username', $username))->exists()) {
             return;
         }
 
         User::create([
             'name'        => $merchant->owner_name ?: $merchant->business_name,
+            'username'    => $username,
             'phone'       => $merchant->phone,
             'email'       => $merchant->email,
             'password'    => $password,

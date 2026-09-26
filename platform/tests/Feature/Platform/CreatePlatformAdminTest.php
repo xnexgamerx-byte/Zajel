@@ -34,7 +34,7 @@ class CreatePlatformAdminTest extends TestCase
         $this->assertSame(UserRole::PlatformAdmin, $admin->role);
         $this->assertSame('أحمد', $admin->name);
 
-        $this->post('/admin/login', ['phone' => '07701234567', 'password' => 'a-long-secret'])
+        $this->post('/admin/login', ['username' => '07701234567', 'password' => 'a-long-secret'])
             ->assertRedirect('/admin');
     }
 

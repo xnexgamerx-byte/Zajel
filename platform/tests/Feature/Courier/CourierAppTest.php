@@ -96,7 +96,7 @@ class CourierAppTest extends TestCase
     public function test_a_courier_logging_in_lands_on_their_tasks(): void
     {
         $this->post($this->host().'/login', [
-            'phone' => $this->ahmedUser->phone, 'password' => 'password',
+            'username' => $this->ahmedUser->username, 'password' => 'password',
         ])->assertRedirect($this->host().'/courier');
     }
 

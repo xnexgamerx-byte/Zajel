@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Concerns\RedirectsWithinArea;
 use App\Http\Controllers\Controller;
 use App\Enums\UserRole;
-use App\Support\Phone;
+use App\Support\Username;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,11 +14,11 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
- * تسجيل الدخول بالهاتف — لا بالبريد. هذا عُرف السوق العراقي،
- * وكثير من المندوبين والتجّار بلا بريد إلكتروني أصلاً.
+ * تسجيل الدخول باسم المستخدم — ولحسابٍ بلا اسمٍ مختار رقمُ هاتفه اسماً
+ * (User::booted)، فالمندوب والتاجر يدخلان برقمهما إن لم يُختر لهما اسم.
  *
  * الاستعلام عن المستخدم مفلتر أصلاً بـ company_id عبر CompanyScope،
- * فلا يستطيع مستخدم شركة الدخول إلى نظام شركة أخرى برقمه نفسه.
+ * فلا يستطيع مستخدم شركة الدخول إلى نظام شركة أخرى باسمه نفسه.
  */
 class LoginController extends Controller
 {
@@ -32,36 +32,34 @@ class LoginController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'phone'    => ['required', 'string', 'max:20'],
+            'username' => ['required', 'string', 'max:64'],
             'password' => ['required', 'string'],
-        ], [], ['phone' => 'رقم الهاتف', 'password' => 'كلمة المرور']);
+        ], [], ['username' => 'اسم المستخدم', 'password' => 'كلمة المرور']);
 
         /*
-        | الرقم يُوحَّد قبل كل شيء: قبل مفتاح المحاولات وقبل الاستعلام.
+        | الاسم يُوحَّد قبل كل شيء: قبل مفتاح المحاولات وقبل الاستعلام.
         |
-        | MySQL (utf8mb4_unicode_ci) ترى «٠٧٧٠…» و«۰۷۷۰…» و«０７７０…»
-        | رقماً واحداً مع «0770…»، وكان مفتاح المحاولات النصَّ كما كُتب:
-        | فلكل صيغةٍ خمسُ محاولاتٍ جديدة، وأحد عشر خانةً في عشرات
-        | الأبجديات تخمينٌ بلا سقف لكلمة سرّ أي حساب. الآن للحساب مفتاحٌ
-        | واحد، والاستعلام لا يرى إلا 07 وتسعة أرقام لاتينية — وما لا
-        | يُوحَّد لا يصل القاعدة أصلاً، إذ لا حساب إلا بهذه الصيغة.
+        | MySQL (utf8mb4_unicode_ci) ترى «ALI» و«ａｌｉ» و«٠٧٧٠…» اسماً واحداً
+        | مع «ali» و«0770…»: لو كان مفتاح المحاولات النصَّ كما كُتب لكان لكل
+        | صيغةٍ خمسُ محاولاتٍ جديدة على الحساب نفسه. الآن للحساب مفتاحٌ واحد،
+        | والاستعلام لا يرى إلا الصيغة المحفوظة — وما لا يُوحَّد لا يصل القاعدة.
         */
-        $phone = Phone::normalise($data['phone']);
-        $key = 'login:'.$request->ip().':'.($phone ?? '?');
+        $username = Username::normalise($data['username']);
+        $key = 'login:'.$request->ip().':'.($username ?? '?');
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
             throw ValidationException::withMessages([
-                'phone' => 'محاولات كثيرة. انتظر '.RateLimiter::availableIn($key).' ثانية.',
+                'username' => 'محاولات كثيرة. انتظر '.RateLimiter::availableIn($key).' ثانية.',
             ]);
         }
 
-        $credentials = ['phone' => $phone, 'password' => $data['password']];
+        $credentials = ['username' => $username, 'password' => $data['password']];
 
-        if ($phone === null || ! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if ($username === null || ! Auth::attempt($credentials, $request->boolean('remember'))) {
             RateLimiter::hit($key, 300);
 
             throw ValidationException::withMessages([
-                'phone' => 'رقم الهاتف أو كلمة المرور غير صحيحة.',
+                'username' => 'اسم المستخدم أو كلمة المرور غير صحيحة.',
             ]);
         }
 

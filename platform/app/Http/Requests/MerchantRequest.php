@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use App\Models\Merchant;
 use App\Models\PriceList;
+use App\Models\User;
+use App\Support\Username;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -39,6 +41,7 @@ class MerchantRequest extends FormRequest
             'notes'            => ['nullable', 'string', 'max:500'],
 
             'create_login'     => ['nullable', 'boolean'],
+            'username'         => ['nullable', 'string', 'max:64'],
             'password'         => ['nullable', 'string', 'min:6', 'max:72'],
         ];
     }
@@ -74,6 +77,17 @@ class MerchantRequest extends FormRequest
             if ($this->boolean('create_login') && ! $merchant && ! $this->password) {
                 $validator->errors()->add('password', 'أدخل كلمة مرور لحساب دخول التاجر.');
             }
+
+            // اسمٌ مختار للحساب: صالحٌ وغير مأخوذ. وفارغاً يُدخَل برقم الهاتف
+            if ($this->boolean('create_login') && ! $merchant && filled($this->username)) {
+                $username = Username::normalise($this->username);
+
+                if ($username === null) {
+                    $validator->errors()->add('username', Username::RULE_MESSAGE);
+                } elseif (User::where('username', $username)->exists()) {
+                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
+                }
+            }
         });
     }
 
@@ -90,6 +104,7 @@ class MerchantRequest extends FormRequest
             'settlement_cycle' => 'دورة التسوية',
             'payout_method'    => 'طريقة الدفع',
             'status'           => 'الحالة',
+            'username'         => 'اسم المستخدم',
             'password'         => 'كلمة المرور',
         ];
     }

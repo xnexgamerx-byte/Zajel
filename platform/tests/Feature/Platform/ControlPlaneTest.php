@@ -74,15 +74,15 @@ class ControlPlaneTest extends TestCase
         $company = $this->makeCompany();
         $owner = $this->makeUser($company);
 
-        $this->post('/admin/login', ['phone' => $owner->phone, 'password' => 'password'])
-            ->assertSessionHasErrors('phone');
+        $this->post('/admin/login', ['username' => $owner->username, 'password' => 'password'])
+            ->assertSessionHasErrors('username');
 
         $this->assertGuest();
     }
 
     public function test_the_platform_admin_logs_in_and_sees_the_dashboard(): void
     {
-        $this->post('/admin/login', ['phone' => '07700000000', 'password' => 'password'])
+        $this->post('/admin/login', ['username' => '07700000000', 'password' => 'password'])
             ->assertRedirect('/admin');
 
         $this->actingAs($this->admin)->get('/admin')->assertOk()->assertSee('نظرة عامة');
@@ -127,7 +127,7 @@ class ControlPlaneTest extends TestCase
         $this->flushSession();
 
         // الموظّف يدخل على لوحة اليوم
-        $this->post($host.'/login', ['phone' => '07711112222', 'password' => 'secret123'])
+        $this->post($host.'/login', ['username' => '07711112222', 'password' => 'secret123'])
             ->assertRedirect($host);
 
         $owner = Tenancy::runFor($company, fn () => User::where('phone', '07711112222')->firstOrFail());

@@ -120,7 +120,7 @@ class DefaultCompanyTest extends TestCase
         // الجلسة واحدة على العنوان: الزائر يُعاد إلى دخول الشركة، والصفحة التي قصدها محفوظة
         $this->get($this->free('/shipments'))->assertRedirect($this->free('/login'));
 
-        $this->post($this->free('/admin/login'), ['phone' => '07700000000', 'password' => 'password'])
+        $this->post($this->free('/admin/login'), ['username' => '07700000000', 'password' => 'password'])
             ->assertRedirect($this->free('/admin'));
     }
 
@@ -130,7 +130,7 @@ class DefaultCompanyTest extends TestCase
 
         $this->get($this->free('/admin/companies'))->assertRedirect($this->free('/admin/login'));
 
-        $this->post($this->free('/login'), ['phone' => $owner->phone, 'password' => 'password'])
+        $this->post($this->free('/login'), ['username' => $owner->username, 'password' => 'password'])
             ->assertRedirect($this->free());
     }
 
@@ -138,7 +138,7 @@ class DefaultCompanyTest extends TestCase
     {
         $this->get($this->free('/admin/companies'))->assertRedirect($this->free('/admin/login'));
 
-        $this->post($this->free('/admin/login'), ['phone' => '07700000000', 'password' => 'password'])
+        $this->post($this->free('/admin/login'), ['username' => '07700000000', 'password' => 'password'])
             ->assertRedirect($this->free('/admin/companies'));
     }
 

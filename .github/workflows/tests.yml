@@ -195,7 +195,7 @@ jobs:
               https://admin.zajel.test/admin/login | grep -o 'name="_token" value="[^"]*"' | head -n 1 | cut -d'"' -f4)
             curl -s --cacert certs/origin.pem --resolve admin.zajel.test:443:127.0.0.1 -c "$jar" -b "$jar" -o /dev/null \
               -H "X-Forwarded-For: 6.6.6.6, $1" --data-urlencode "_token=$token" \
-              -d 'phone=07700000000&password=wrong-password' https://admin.zajel.test/admin/login
+              -d 'username=07700000000&password=wrong-password' https://admin.zajel.test/admin/login
             seen=$(sudo docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e \
               "SELECT COUNT(*) FROM zajel.cache WHERE \`key\` LIKE \"%admin-login:'"$1"'\""')
             test "$seen" = 1

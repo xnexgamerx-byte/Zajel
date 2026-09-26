@@ -89,6 +89,13 @@
                     @error('owner_name') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
+                    <label class="field-label" for="owner_username">اسم المستخدم</label>
+                    <input id="owner_username" name="owner_username" class="field-input text-left" dir="ltr"
+                           autocomplete="off" autocapitalize="none" spellcheck="false"
+                           placeholder="فارغاً: رقم هاتفه" value="{{ old('owner_username') }}">
+                    @error('owner_username') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
                     <label class="field-label" for="owner_phone">الهاتف <span class="text-red-500">*</span></label>
                     <input id="owner_phone" name="owner_phone" class="field-input text-left" dir="ltr" required
                            placeholder="07xxxxxxxxx" value="{{ old('owner_phone') }}">

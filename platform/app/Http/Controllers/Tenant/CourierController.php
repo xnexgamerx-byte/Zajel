@@ -13,6 +13,7 @@ use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\Username;
 use App\Services\SequenceGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,14 +51,14 @@ class CourierController extends Controller
         $courier = DB::transaction(function () use ($request, $sequences) {
             $data = $request->validated();
 
-            $courier = Courier::create(collect($data)->except(['zones', 'create_login', 'password'])->all() + [
+            $courier = Courier::create(collect($data)->except(['zones', 'create_login', 'username', 'password'])->all() + [
                 'code' => $sequences->next('courier'),
             ]);
 
             $this->syncZones($courier, $data['zones'] ?? []);
 
             if ($request->boolean('create_login')) {
-                $this->createLogin($courier, $data['password'] ?? null);
+                $this->createLogin($courier, $data['password'] ?? null, $data['username'] ?? null);
             }
 
             return $courier;
@@ -95,7 +96,7 @@ class CourierController extends Controller
     {
         $data = $request->validated();
 
-        $courier->update(collect($data)->except(['zones', 'create_login', 'password'])->all());
+        $courier->update(collect($data)->except(['zones', 'create_login', 'username', 'password'])->all());
         $this->syncZones($courier, $data['zones'] ?? []);
 
         return redirect()
@@ -116,14 +117,19 @@ class CourierController extends Controller
         }
     }
 
-    protected function createLogin(Courier $courier, ?string $password): void
+    /** يدخل باسمٍ مختار، وإلّا برقم هاتفه (User::booted). */
+    protected function createLogin(Courier $courier, ?string $password, ?string $username = null): void
     {
-        if (User::where('phone', $courier->phone)->exists()) {
+        $username = Username::normalise($username) ?? Username::canonical($courier->phone);
+
+        // مجموعةً واحدة: «أو» لا تفلت من نطاق الشركة الذي يُضاف إلى الاستعلام
+        if (User::where(fn ($q) => $q->where('phone', $courier->phone)->orWhere('username', $username))->exists()) {
             return;
         }
 
         $user = User::create([
             'name'       => $courier->name,
+            'username'   => $username,
             'phone'      => $courier->phone,
             'password'   => $password,
             'role'       => UserRole::Courier,

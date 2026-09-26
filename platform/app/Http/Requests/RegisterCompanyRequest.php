@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Company;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
+use App\Support\Username;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,6 +14,14 @@ class RegisterCompanyRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()?->isPlatformUser() ?? false;
+    }
+
+    /** الاسم بصيغته المحفوظة قبل التحقّق — «Ali.Salam» هو ali.salam. */
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('owner_username')) {
+            $this->merge(['owner_username' => Username::canonical($this->input('owner_username'))]);
+        }
     }
 
     public function rules(): array
@@ -37,6 +46,8 @@ class RegisterCompanyRequest extends FormRequest
             'default_return_fee'   => ['nullable', 'integer', 'min:0', 'max:10000000'],
 
             'owner_name'           => ['required', 'string', 'max:160'],
+            // شركةٌ جديدة لا مستخدمين لها بعد: الاسم لا يصطدم بغيره. وفارغاً: رقم الهاتف
+            'owner_username'       => ['nullable', 'string', 'regex:'.Username::PATTERN],
             'owner_phone'          => ['required', 'string', 'regex:/^07[0-9]{9}$/'],
             'owner_email'          => ['nullable', 'email', 'max:160'],
             'owner_password'       => ['required', 'string', 'min:6', 'max:72'],
@@ -52,6 +63,7 @@ class RegisterCompanyRequest extends FormRequest
             'name'           => 'اسم الشركة',
             'slug'           => 'النطاق الفرعي',
             'owner_name'     => 'اسم صاحب الشركة',
+            'owner_username' => 'اسم المستخدم',
             'owner_phone'    => 'هاتف صاحب الشركة',
             'owner_password' => 'كلمة المرور',
             'plan_id'        => 'الباقة',
@@ -67,6 +79,7 @@ class RegisterCompanyRequest extends FormRequest
             'slug.not_in'       => 'هذا النطاق محجوز للمنصّة.',
             'phone.regex'       => 'الهاتف يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
             'owner_phone.regex' => 'هاتف صاحب الشركة يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
+            'owner_username.regex' => Username::RULE_MESSAGE,
         ];
     }
 }

@@ -19,10 +19,17 @@
             @error('name') <p class="field-error">{{ $message }}</p> @enderror
         </div>
         <div>
+            <label class="field-label" for="username">اسم المستخدم</label>
+            <input id="username" name="username" class="field-input text-left" dir="ltr"
+                   autocomplete="off" autocapitalize="none" spellcheck="false"
+                   placeholder="مثل ali.salam" value="{{ old('username', $staff->username) }}">
+            <p class="mt-1 text-xs text-ink-500">به يدخل النظام: حروفٌ إنجليزية وأرقام و<span dir="ltr">. _ -</span>. فارغاً: رقم هاتفه.</p>
+            @error('username') <p class="field-error">{{ $message }}</p> @enderror
+        </div>
+        <div>
             <label class="field-label" for="phone">الهاتف <span class="text-red-500">*</span></label>
             <input id="phone" name="phone" class="field-input text-left" dir="ltr" required
                    placeholder="07xxxxxxxxx" value="{{ old('phone', $staff->phone) }}">
-            <p class="mt-1 text-xs text-ink-500">هو اسم الدخول.</p>
             @error('phone') <p class="field-error">{{ $message }}</p> @enderror
         </div>
         <div>

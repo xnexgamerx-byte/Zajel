@@ -66,11 +66,12 @@ class CompanyController extends Controller
     public function store(RegisterCompanyRequest $request, RegisterCompany $register): RedirectResponse
     {
         $company = $register->handle($request->validated(), $request->user());
+        $username = $request->validated('owner_username') ?: $request->validated('owner_phone');
 
         return redirect()
             ->route('admin.companies.show', $company)
             ->with('success', "سُجّلت {$company->name}. نظامها جاهز على {$company->slug}.".
-                ' صاحب الشركة يدخل برقم هاتفه.');
+                " صاحب الشركة يدخل باسم المستخدم {$username}.");
     }
 
     public function show(Company $company): View

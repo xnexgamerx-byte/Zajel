@@ -92,14 +92,14 @@ class MerchantPortalTest extends TestCase
     public function test_a_merchant_logging_in_lands_on_their_portal(): void
     {
         $this->post($this->host().'/login', [
-            'phone' => $this->alphaUser->phone, 'password' => 'password',
+            'username' => $this->alphaUser->username, 'password' => 'password',
         ])->assertRedirect($this->host().'/portal');
     }
 
     public function test_staff_still_land_on_the_operations_panel(): void
     {
         $this->post($this->host().'/login', [
-            'phone' => $this->staff->phone, 'password' => 'password',
+            'username' => $this->staff->username, 'password' => 'password',
         ])->assertRedirect($this->host());   // لوحة اليوم
     }
 
