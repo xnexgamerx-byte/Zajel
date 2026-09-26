@@ -61,7 +61,10 @@ class LoginTest extends TestCase
             ->assertOk()
             ->assertSee('name="username"', false)
             ->assertDontSee('name="phone"', false)
-            ->assertSee('الزاجل');
+            ->assertSee('نظام إدارة الشحنات')
+            // عنوان النظام وحده كما في التصميم: لا شعار الشركة ولا اسمها
+            ->assertDontSee('الزاجل')
+            ->assertDontSee('brand-mark', false);
     }
 
     public function test_a_chosen_username_logs_in_however_its_letters_are_cased(): void

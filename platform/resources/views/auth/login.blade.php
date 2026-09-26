@@ -1,13 +1,11 @@
 @extends('layouts.auth')
 @section('title', 'تسجيل الدخول')
-@section('brand', $company->name)
+@section('brand', 'نظام إدارة الشحنات')
 
 @section('content')
 <header class="brand">
-    {{-- اسم الشركة وشعارها بلونها: من يدخل يعرف أنه في نظام شركته --}}
-    <div class="brand-mark" @if ($company->primary_color) style="--mark: {{ $company->primary_color }}" @endif>{{ $company->initial() }}</div>
-    <h1>{{ $company->name }}</h1>
-    <p>نظام إدارة الشحنات</p>
+    <h1>نظام إدارة الشحنات</h1>
+    <p>يرجى تسجيل الدخول للمتابعة</p>
 </header>
 
 <section class="card" aria-labelledby="login-title">

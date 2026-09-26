@@ -62,14 +62,38 @@ class DefaultCompanyTest extends TestCase
         return "http://{$slug}.".config('zajel.tenant_domain').$path;
     }
 
+    /*
+    | صفحة الدخول بعنوان النظام وحده، لا باسم الشركة: الدليل على الشركة التي
+    | يخدمها العنوان مَن يدخل منه — صاحبها يدخل، وصاحب الأخرى لا يُعرَف أصلاً.
+    */
     public function test_the_free_address_serves_the_default_company(): void
     {
-        $this->get($this->free('/login'))->assertOk()->assertSee('البرق')->assertDontSee('الزاجل');
+        $this->get($this->free('/login'))->assertOk();
+
+        $barq = $this->makeUser($this->barq);
+        $zajel = $this->makeUser($this->zajel);
+
+        $this->post($this->free('/login'), ['username' => $zajel->username, 'password' => 'password'])
+            ->assertSessionHasErrors('username');
+        $this->assertGuest();
+
+        $this->post($this->free('/login'), ['username' => $barq->username, 'password' => 'password']);
+        $this->assertAuthenticatedAs($barq);
     }
 
     public function test_a_company_subdomain_still_serves_its_own_company(): void
     {
-        $this->get($this->subdomain('zajel', '/login'))->assertOk()->assertSee('الزاجل')->assertDontSee('البرق');
+        $this->get($this->subdomain('zajel', '/login'))->assertOk();
+
+        $barq = $this->makeUser($this->barq);
+        $zajel = $this->makeUser($this->zajel);
+
+        $this->post($this->subdomain('zajel', '/login'), ['username' => $barq->username, 'password' => 'password'])
+            ->assertSessionHasErrors('username');
+        $this->assertGuest();
+
+        $this->post($this->subdomain('zajel', '/login'), ['username' => $zajel->username, 'password' => 'password']);
+        $this->assertAuthenticatedAs($zajel);
     }
 
     public function test_a_mistyped_subdomain_does_not_fall_back_to_the_default(): void
