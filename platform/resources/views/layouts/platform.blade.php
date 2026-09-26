@@ -10,8 +10,8 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
-    {{-- هوية المنصّة بالأزرق التقنيّ، ولوحات الشركات بألوانها — لا لبس بينهما --}}
-    <style>:root { --brand: var(--color-techblue-600); }</style>
+    {{-- شعار المنصّة بمرجانيّ «وهج»، وشعارات الشركات بألوانها --}}
+    <style>:root { --company: var(--color-primary-600); }</style>
 </head>
 <body class="min-h-screen antialiased">
 
@@ -27,7 +27,7 @@
         </a>
 
         <div class="ms-auto flex items-center gap-2.5">
-            <span class="grid size-10 shrink-0 place-items-center rounded-full bg-techblue-50 font-heading text-sm font-bold text-techblue-700"
+            <span class="grid size-10 shrink-0 place-items-center rounded-full bg-white font-heading text-sm font-bold text-primary-700"
                   aria-hidden="true">{{ mb_substr(auth()->user()->name, 0, 1) }}</span>
             <span class="hidden min-w-0 sm:block">
                 <span class="block max-w-40 truncate text-sm font-semibold text-aeblack-900">{{ auth()->user()->name }}</span>
@@ -35,7 +35,7 @@
             </span>
             <form method="POST" action="{{ route('admin.logout') }}">
                 @csrf
-                <button type="submit" class="icon-btn" aria-label="تسجيل الخروج" title="تسجيل الخروج">
+                <button type="submit" class="icon-btn bg-white" aria-label="تسجيل الخروج" title="تسجيل الخروج">
                     <x-icon name="logout" class="size-5 rtl:-scale-x-100"/>
                 </button>
             </form>

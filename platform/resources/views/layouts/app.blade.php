@@ -11,7 +11,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     @isset($company)
-        <style>:root { --brand: {{ $company->primary_color }}; }</style>
+        <style>:root { --company: {{ $company->primary_color }}; }</style>
     @endisset
 </head>
 <body class="min-h-screen antialiased">
@@ -43,15 +43,15 @@
 @endif
 
 {{--
-  رأس نظام تصميم الإمارات: الشريط الذهبيّ، ثم الشعار والبحث والحساب، ثم
-  شريط القوائم. القوائم بترتيب النظام الذي اعتاده الموظّفون (StaffNavigation):
+  رأس «وهج»: الشعار والبحث والحساب على خلفية الصفحة، ثم شريط القوائم حبّاتٍ
+  في شريطٍ أبيض. القوائم بترتيب النظام الذي اعتاده الموظّفون (StaffNavigation):
   البحث أوّلاً، ثم الصفحة الرئيسية … حتى الدفعات. من ١٠٢٤ بكسل صفٌّ (أو صفّان)
   تنسدل منه القوائم، وعلى الهاتف قائمةٌ عمودية يفتحها زرّ القائمة.
 --}}
 <header class="ds-header">
     <div class="shell flex flex-wrap items-center gap-x-3 gap-y-2.5 py-3">
         @if ($staff)
-            <button type="button" class="icon-btn lg:hidden" data-drawer-toggle aria-controls="main-nav" aria-expanded="false"
+            <button type="button" class="icon-btn bg-white lg:hidden" data-drawer-toggle aria-controls="main-nav" aria-expanded="false"
                     aria-label="القائمة">
                 <x-icon name="menu" class="size-6"/>
             </button>
@@ -78,15 +78,15 @@
         @endif
 
         <div class="ms-auto flex items-center gap-2 md:ms-0">
-            @if ($staff)
+            @if ($staff && $user->can('shipments.create'))
                 <a href="{{ route('shipments.create') }}" class="btn-primary max-sm:hidden">
                     <x-icon name="plus" class="size-5"/>
                     شحنة جديدة
                 </a>
             @endif
 
-            <div class="flex items-center gap-2.5 border-s border-ink-200 ps-3">
-                <span class="grid size-10 shrink-0 place-items-center rounded-full bg-primary-50 font-heading text-sm font-bold text-primary-800"
+            <div class="flex items-center gap-2.5 border-s border-aeblack-200 ps-3">
+                <span class="grid size-10 shrink-0 place-items-center rounded-full bg-white font-heading text-sm font-bold text-primary-700"
                       aria-hidden="true">{{ mb_substr($user->name, 0, 1) }}</span>
                 <span class="hidden min-w-0 lg:block">
                     <span class="block max-w-40 truncate text-sm font-semibold text-aeblack-900">{{ $user->name }}</span>
@@ -94,7 +94,7 @@
                 </span>
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="icon-btn" aria-label="تسجيل الخروج" title="تسجيل الخروج">
+                    <button type="submit" class="icon-btn bg-white" aria-label="تسجيل الخروج" title="تسجيل الخروج">
                         <x-icon name="logout" class="size-5 rtl:-scale-x-100"/>
                     </button>
                 </form>

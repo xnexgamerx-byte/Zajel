@@ -2,34 +2,148 @@
 @section('title', 'لوحة اليوم')
 
 @section('content')
+@php
+    // التحية بساعة بغداد، والتوقيت المخزَّن UTC
+    $hour = now('Asia/Baghdad')->hour;
+    $greeting = $hour >= 4 && $hour < 12 ? 'صباح الخير' : 'مساء الخير';
+@endphp
 <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
     <div>
+        <p class="mb-1 text-sm text-ink-500">{{ $greeting }}، {{ \Illuminate\Support\Str::before(auth()->user()->name, ' ') }}</p>
         <h1 class="page-title">لوحة اليوم</h1>
         <p class="page-sub">{{ now()->translatedFormat('l j F Y') }}</p>
     </div>
     <a href="{{ route('shipments.index') }}" class="btn-ghost">كل الشحنات</a>
 </div>
 
-{{-- ستّ بطاقات: أسئلة الصباح كلّها في نظرة — بطاقات مؤشّر، والأولى بارزة بالذهبيّ --}}
-<div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+@php
+    $daily = collect($week);
+    $canCreate = auth()->user()->can('shipments.create');
+@endphp
+
+{{--
+  الصفّ الأوّل كبطاقات الصورة المرجعية: رقم اليوم الأهمّ في بطاقةٍ مرجانية
+  بخطّ أيامه السبعة، وحركة الشحنات الجديدة «مصّاصاتٍ»، ودعوةٌ إلى شحنةٍ جديدة
+  بحدٍّ متقطّع. الأيام من اليمين: أقدمها أوّلاً واليوم آخرها، مع اتجاه القراءة.
+--}}
+<div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12">
+    <a href="{{ route('shipments.index', ['status' => 'delivered']) }}"
+       class="glow-card rise flex flex-col gap-4 transition hover:-translate-y-0.5 lg:col-span-5" style="--i: 0">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <div class="text-[15px] font-medium text-white/90">سُلّمت اليوم</div>
+                <div class="display-num num mt-3 text-[64px]">{{ number_format($cards['delivered_today']) }}</div>
+            </div>
+            <span class="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
+                خلال ٧ أيام: <span class="num">{{ number_format($daily->sum('delivered')) }}</span>
+            </span>
+        </div>
+
+        @php
+            // نقطة كل يومٍ في وسط عموده من سبعة، فتقع تحتها تسميته تماماً
+            $peak = max(1, (int) $daily->max('delivered'));
+            $points = $daily->values()->map(fn ($day, $i) => [
+                (6 - $i + 0.5) * 40,
+                round(54 - $day['delivered'] / $peak * 44, 1),
+            ]);
+            $line = $points->map(fn ($p) => implode(',', $p))->implode(' ');
+        @endphp
+        <div class="mt-auto">
+            <svg viewBox="0 0 280 64" class="h-auto w-full overflow-visible" role="img"
+                 aria-label="التسليم في الأيام السبعة الأخيرة: {{ $daily->map(fn ($d) => \App\Support\Arabic::weekday($d['date']).' '.$d['delivered'])->implode('، ') }}">
+                <polygon points="{{ $line }} 20,64 260,64" fill="white" fill-opacity="0.12"/>
+                <polyline points="{{ $line }}" fill="none" stroke="white" stroke-width="2.25"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+                @foreach ($points as [$x, $y])
+                    @if ($loop->last)
+                        <circle cx="{{ $x }}" cy="{{ $y }}" r="7" fill="white" fill-opacity="0.3"/>
+                        <circle cx="{{ $x }}" cy="{{ $y }}" r="4" fill="white"/>
+                    @else
+                        <circle cx="{{ $x }}" cy="{{ $y }}" r="2.5" fill="white"/>
+                    @endif
+                @endforeach
+            </svg>
+            <div class="mt-2 grid grid-cols-7 text-center text-[11px] text-white/75">
+                @foreach ($daily as $day)
+                    <span class="{{ $loop->last ? 'font-semibold text-white' : '' }}">{{ $loop->last ? 'اليوم' : \App\Support\Arabic::weekday($day['date']) }}</span>
+                @endforeach
+            </div>
+        </div>
+    </a>
+
+    <section class="card rise flex flex-col gap-4 p-6 {{ $canCreate ? 'lg:col-span-4' : 'lg:col-span-7' }}" style="--i: 1">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="card-title">شحنات جديدة</h2>
+                <p class="card-hint">خلال ٧ أيام: <span class="num">{{ number_format($daily->sum('created')) }}</span></p>
+            </div>
+            <a href="{{ route('shipments.index') }}" class="icon-btn bg-primary-50 text-primary-700" aria-label="كل الشحنات" title="كل الشحنات">
+                <x-icon name="arrow" class="size-4 rtl:-scale-x-100"/>
+            </a>
+        </div>
+
+        <div class="flex items-baseline gap-2">
+            <span class="display-num num text-[44px] text-primary-600">{{ number_format($cards['today']) }}</span>
+            <span class="text-sm text-ink-500">أُنشئت اليوم</span>
+        </div>
+
+        @php
+            $most = (int) $daily->max('created');
+            $busiest = $most > 0 ? $daily->search(fn ($d) => $d['created'] === $most) : null;
+        @endphp
+        {{-- «مصّاصة» لكل يوم: عودٌ ورأس، وأكثر الأيام مرجانيٌّ بعدده --}}
+        <div class="mt-auto">
+            <div class="grid h-32 grid-cols-7 items-end border-b border-dashed border-aeblack-200">
+                @foreach ($daily as $i => $day)
+                    <div class="flex h-full flex-col items-center justify-end"
+                         title="{{ $day['date']->translatedFormat('l j F') }}: {{ \App\Support\Arabic::shipments($day['created']) }}">
+                        @if ($i === $busiest)
+                            <span class="num mb-1.5 rounded-full bg-primary-600 px-2 py-0.5 text-[11px] font-medium text-white">{{ number_format($most) }}</span>
+                        @endif
+                        <span class="size-2.5 shrink-0 rounded-full {{ $i === $busiest ? 'bg-primary-600 ring-4 ring-primary-100' : 'bg-aeblack-700' }}"></span>
+                        <span class="w-px {{ $i === $busiest ? 'bg-primary-500' : 'bg-aeblack-300' }}"
+                              style="height: {{ max(4, (int) round($day['created'] / max(1, $most) * 72)) }}px"></span>
+                    </div>
+                @endforeach
+            </div>
+            <div class="mt-2 grid grid-cols-7 text-center text-[11px] text-ink-500">
+                @foreach ($daily as $day)
+                    <span class="{{ $loop->last ? 'font-semibold text-aeblack-800' : '' }}">{{ $loop->last ? 'اليوم' : \App\Support\Arabic::weekday($day['date']) }}</span>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
+    @if ($canCreate)
+        <div class="dash-card rise md:col-span-2 lg:col-span-3" style="--i: 2">
+            <a href="{{ route('shipments.create') }}" class="grid justify-items-center gap-3">
+                <span class="dash-card-plus"><x-icon name="plus" class="size-6"/></span>
+                <span class="font-heading text-base">شحنة جديدة</span>
+            </a>
+            <a href="{{ route('shipments.import') }}" class="text-xs font-normal text-primary-700 hover:underline">
+                أو ارفع دفعةً من ملف
+            </a>
+        </div>
+    @endif
+</div>
+
+{{-- ما بقي من أسئلة الصباح: أين الشحنات المفتوحة الآن --}}
+<div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
     @foreach ([
-        ['أُنشئت اليوم', $cards['today'], null, 'plus'],
-        ['سُلّمت اليوم', $cards['delivered_today'], null, 'check'],
         ['مع المندوبين', $cards['with_couriers'], ['status' => 'out_for_delivery'], 'truck'],
         ['في المخزن والنقل', $cards['at_hub'], ['status' => 'at_hub'], 'building'],
         ['متعثّرة', $cards['stuck'], ['status' => 'failed_attempt'], 'alert'],
         ['قيد التنفيذ', $cards['open'], null, 'clock'],
     ] as $i => [$label, $value, $filter, $icon])
         @php $tag = $filter ? 'a' : 'div'; @endphp
-        <{{ $tag }} @if ($filter) href="{{ route('shipments.index', $filter) }}" @endif
-            class="kpi {{ $i === 0 ? 'kpi-accent' : '' }}">
+        <{{ $tag }} @if ($filter) href="{{ route('shipments.index', $filter) }}" @endif class="kpi rise" style="--i: {{ 3 + $i }}">
             <span class="kpi-icon"><x-icon :name="$icon" class="size-6"/></span>
             <div class="min-w-0">
                 <div class="kpi-value num">{{ number_format($value) }}</div>
                 <div class="kpi-label">{{ $label }}</div>
             </div>
             @if ($filter)
-                <x-icon name="arrow" class="ms-auto size-4 shrink-0 text-ink-500 rtl:-scale-x-100"/>
+                <x-icon name="arrow" class="ms-auto size-4 shrink-0 text-ink-400 rtl:-scale-x-100"/>
             @endif
         </{{ $tag }}>
     @endforeach
@@ -50,21 +164,21 @@
     };
 @endphp
 
-<div class="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+<div class="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
     @foreach ([
         ['مبالغ لم تُحصَّل', $cards['cod_open'], 'text-warn-700', 'على شحنات قيد التنفيذ', null, 'wallet'],
         ['نقد بيد المندوبين', $cards['cash_in_hand'], 'text-bad-700', 'لم يُسلَّم للشركة', $aging['cod_oldest_days'], 'cash'],
         ['مستحقّ للتجّار', $cards['owed_merchants'], 'text-ink-900', 'لم يُدفَع بعد', $aging['merchant_oldest_days'], 'store'],
-    ] as [$label, $value, $tone, $hint, $days, $icon])
+    ] as $i => [$label, $value, $tone, $hint, $days, $icon])
         @php [$ageLabel, $ageTone] = $age($days); @endphp
-        <div class="card flex flex-col gap-3 px-5 py-4">
+        <div class="card rise flex flex-col gap-3 px-6 py-5" style="--i: {{ 7 + $i }}">
             <div class="flex items-center justify-between gap-3">
                 <span class="text-[15px] font-medium">{{ $label }}</span>
-                <span class="grid size-10 place-items-center rounded-lg bg-primary-50 text-primary-700"><x-icon :name="$icon" class="size-5"/></span>
+                <span class="grid size-10 place-items-center rounded-full bg-primary-50 text-primary-600"><x-icon :name="$icon" class="size-5"/></span>
             </div>
-            <div class="text-[32px] leading-none font-bold {{ $tone }}">
-                <span class="num">{{ number_format($value) }}</span>
-                <span class="text-sm font-normal text-ink-500">د.ع</span>
+            <div class="{{ $tone }}">
+                <span class="display-num num text-[34px]">{{ number_format($value) }}</span>
+                <span class="text-sm text-ink-500">د.ع</span>
             </div>
             <div class="flex flex-wrap items-center gap-2 text-xs">
                 <span class="text-ink-500">{{ $hint }}</span>
@@ -77,15 +191,15 @@
 </div>
 
 @if ($aging['stale_shipments'] > 0)
-    {{-- تنبيه النظام التحذيريّ: جملة الفعل، ثم زرّ دائريّ ذهبيّ يفتحها --}}
+    {{-- تنبيهٌ تحذيريّ: جملة الفعل، ثم زرّ دائريّ مرجانيّ يفتحها --}}
     <a href="{{ route('shipments.index', ['status' => 'failed_attempt']) }}"
-       class="mb-5 flex items-center gap-4 rounded-lg border-s-4 border-camel-500 bg-camel-50 px-5 py-4 transition-colors hover:bg-camel-100">
-        <span class="grid size-11 shrink-0 place-items-center rounded-lg bg-camel-100 text-camel-700">
+       class="mb-5 flex items-center gap-4 rounded-3xl bg-camel-50 px-5 py-4 ring-1 ring-camel-200 transition hover:-translate-y-0.5 hover:bg-camel-100">
+        <span class="grid size-11 shrink-0 place-items-center rounded-full bg-camel-100 text-camel-700">
             <x-icon name="clock" class="size-6"/>
         </span>
         <div class="min-w-0 flex-1">
             {{-- الصيغة تحمل عددها: «شحنتان» و«٧ شحنات» و«١٢ شحنة» --}}
-            <div class="font-heading text-[20px] font-bold text-aeblack-900">{{ \App\Support\Arabic::shipments($aging['stale_shipments']) }}</div>
+            <div class="font-heading text-[20px] font-medium text-aeblack-950">{{ \App\Support\Arabic::shipments($aging['stale_shipments']) }}</div>
             <div class="mt-0.5 text-[15px] text-aeblack-700">
                 لم تتغيّر حالتها منذ أكثر من {{ \App\Support\Arabic::days($aging['stale_after']) }}
                 — كل يوم تأخير يزيد احتمال الراجع.
@@ -154,9 +268,9 @@
                              title="{{ $row->name }}: {{ \App\Support\Arabic::shipments((int) $row->c) }} قيد التنفيذ">
                             <span class="w-24 shrink-0 truncate text-sm text-ink-700">{{ $row->name }}</span>
 
-                            {{-- عمودٌ ذهبيّ على مسارٍ ذهبيٍّ باهت: الطول وحده يحمل المقدار --}}
-                            <div class="h-3 flex-1 rounded-full bg-primary-50">
-                                <div class="h-full rounded-full bg-primary-600 transition-colors group-hover:bg-primary-700"
+                            {{-- عمودٌ مرجانيّ على مسارٍ باهت: الطول وحده يحمل المقدار --}}
+                            <div class="h-2 flex-1 rounded-full bg-primary-50">
+                                <div class="h-full rounded-full bg-linear-to-l from-primary-600 to-primary-400 transition-opacity group-hover:opacity-80"
                                      style="width: {{ max(2, round($row->c / $max * 100)) }}%"></div>
                             </div>
 
@@ -178,7 +292,7 @@
                 <div class="min-w-0">
                     <div class="text-sm font-medium">طلبات استلام تنتظر</div>
                     <div class="kpi-value num mt-1.5">{{ $cards['pending_pickups'] }}</div>
-                    <div class="mt-1.5 text-xs text-ink-700">تجّار جهّزوا طرودهم ولم يُسنَد لهم مندوب.</div>
+                    <div class="mt-1.5 text-xs text-white/85">تجّار جهّزوا طرودهم ولم يُسنَد لهم مندوب.</div>
                 </div>
             </a>
         @endif

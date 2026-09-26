@@ -10,11 +10,11 @@
     @include('partials.fonts')
 
     @vite(['resources/css/app.css'])
-    <style>:root { --brand: {{ $company->primary_color }}; }</style>
+    <style>:root { --company: {{ $company->primary_color }}; }</style>
 </head>
-<body class="min-h-screen bg-ink-50 antialiased">
+<body class="min-h-screen antialiased">
 
-<header class="ds-header border-b border-ink-200">
+<header class="ds-header">
     <div class="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
         <span class="brand-tile">{{ $company->initial() }}</span>
         <div class="min-w-0">

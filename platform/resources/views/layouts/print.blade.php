@@ -10,7 +10,7 @@
     @vite(['resources/css/app.css'])
 
     @isset($company)
-        <style>:root { --brand: {{ $company->primary_color }}; }</style>
+        <style>:root { --company: {{ $company->primary_color }}; }</style>
     @endisset
 </head>
 <body class="bg-ink-100 antialiased print:bg-white">

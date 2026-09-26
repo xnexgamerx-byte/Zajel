@@ -12,11 +12,11 @@
 
     {{-- البوابة تحمل علامة شركة التوصيل لا علامة المنصّة: التاجر
          يتعامل مع "الزاجل" لا مع "وهج" المنصّة. --}}
-    <style>:root { --brand: {{ $company->primary_color }}; }</style>
+    <style>:root { --company: {{ $company->primary_color }}; }</style>
 </head>
 <body class="min-h-screen antialiased">
 
-{{-- رأس نظام التصميم: الشريط الذهبيّ، ثم الشعار والجرس والحساب، ثم تبويبات البوابة --}}
+{{-- رأس «وهج»: الشعار والجرس والحساب على خلفية الصفحة، ثم تبويبات البوابة حبّاتٍ --}}
 @php
     $portalNav = [
         ['portal.dashboard', 'الرئيسية', 'portal.dashboard', 'home', 'الرئيسية'],
@@ -41,7 +41,7 @@
 
         <div class="ms-auto flex items-center gap-2">
             @php $unread = \App\Models\Announcement::for(auth()->user())->unreadBy(auth()->user())->count(); @endphp
-            <a href="{{ route('portal.inbox') }}" class="icon-btn"
+            <a href="{{ route('portal.inbox') }}" class="icon-btn bg-white"
                aria-label="الإشعارات{{ $unread ? '، غير المقروء '.$unread : '' }}">
                 <x-icon name="bell" class="size-5"/>
                 @if ($unread)
@@ -54,7 +54,7 @@
             </div>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button type="submit" class="icon-btn" aria-label="خروج" title="خروج">
+                <button type="submit" class="icon-btn bg-white" aria-label="خروج" title="خروج">
                     <x-icon name="logout" class="size-5 rtl:-scale-x-100"/>
                 </button>
             </form>

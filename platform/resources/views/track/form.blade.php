@@ -5,7 +5,7 @@
 <h1 class="page-title">تتبّع شحنتك</h1>
 <p class="page-sub">اكتب رقم الوصل وآخر أربعة أرقام من هاتفك — أو امسح رمز QR على الوصل.</p>
 
-<form method="GET" action="{{ route('track') }}" class="card mt-5 space-y-4 border-t-4 border-t-primary-600 p-5 sm:p-6">
+<form method="GET" action="{{ route('track') }}" class="card mt-5 space-y-4 p-5 sm:p-6">
     <div>
         <label class="field-label" for="number">رقم الوصل</label>
         <input id="number" name="number" value="{{ old('number', request('number')) }}" required

@@ -10,11 +10,11 @@
     @include('partials.fonts')
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <style>:root { --brand: {{ $company->primary_color }}; }</style>
+    <style>:root { --company: {{ $company->primary_color }}; }</style>
 </head>
-<body class="min-h-screen bg-ink-50 pb-24 antialiased">
+<body class="min-h-screen pb-24 antialiased">
 
-<header class="ds-header sticky top-0 z-30 border-b border-ink-200">
+<header class="ds-header sticky top-0 z-30 border-b border-aeblack-100 bg-white/85 backdrop-blur-md">
     <div class="flex h-16 items-center gap-3 px-4">
         <span class="brand-tile size-10 text-base">{{ $company->initial() }}</span>
         <div class="min-w-0 flex-1">
@@ -59,8 +59,8 @@
     @yield('content')
 </main>
 
-{{-- شريط سفلي: الإبهام يصله بلا مدّ اليد. والتبويب الحاليّ يعلوه خطّ النظام الذهبيّ --}}
-<nav class="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white"
+{{-- شريط سفلي: الإبهام يصله بلا مدّ اليد. والتبويب الحاليّ أيقونته في حبّةٍ مرجانية --}}
+<nav class="fixed inset-x-0 bottom-0 z-30 border-t border-aeblack-100 bg-white/90 backdrop-blur-md"
      style="padding-bottom: env(safe-area-inset-bottom, 0px)">
     @php
         /*
@@ -82,10 +82,12 @@
         @foreach ($tabs as [$route, $label, $pattern, $shown, $icon])
             @php $active = request()->routeIs($pattern); @endphp
             <a href="{{ route($route) }}"
-               class="flex flex-col items-center gap-1 border-t-[3px] pt-2 pb-2.5 text-xs font-bold transition-colors
-                      {{ $active ? 'border-primary-600 text-primary-700' : 'border-transparent text-aeblack-600 hover:text-primary-700' }}"
+               class="flex flex-col items-center gap-1 pt-2 pb-2.5 text-xs font-medium transition-colors
+                      {{ $active ? 'text-primary-700' : 'text-aeblack-600 hover:text-primary-700' }}"
                @if ($active) aria-current="page" @endif>
-                <x-icon :name="$icon" class="size-6"/>
+                <span class="grid h-8 w-14 place-items-center rounded-full transition-colors {{ $active ? 'bg-primary-600 text-white' : '' }}">
+                    <x-icon :name="$icon" class="size-5"/>
+                </span>
                 {{ $label }}
             </a>
         @endforeach

@@ -46,7 +46,7 @@
 @endphp
 
 <main class="w-full max-w-md text-center">
-    <div class="card border-t-4 border-t-primary-600 px-6 py-10 sm:px-10">
+    <div class="card px-6 py-10 sm:px-10">
         <div class="mx-auto mb-6 grid size-16 place-items-center rounded-xl bg-primary-50 text-primary-700">
             <x-icon :name="trim($__env->yieldContent('icon')) ?: 'alert'" class="size-8"/>
         </div>

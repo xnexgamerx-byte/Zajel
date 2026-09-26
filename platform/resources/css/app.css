@@ -1,29 +1,25 @@
 @import 'tailwindcss';
 
 /*
-| نظام تصميم زاجل — لغة «نظام تصميم الإمارات» البصرية (UAE Design System).
+| نظام تصميم «وهج» — منصّة وهج العراق.
 |
-| المصدر: @aegov/design-system (TDRA، رخصة MIT). لوحته تأتي من الحزمة نفسها
-| عبر aegov-palette.js، والمكوّنات هنا مكتوبة على مواصفاته لا منسوخة منه:
-| قاعدته كُتبت لمواقع المحتوى (عنوانٌ بحجم ٦٢ بكسل، وهامش ٣٢ تحت كل فقرة،
-| وخطّ تحت كل رابط) وتقلب شاشات البيانات الكثيفة لو دخلت كما هي.
+| روحه من الصورة التي اختارها صاحب المنصّة: لوحة عملٍ هادئة — خلفيةٌ رماديةٌ
+| دافئة، وبطاقاتٌ بيضاء واسعة الزوايا بلا حدودٍ ظاهرة، ولمسةٌ مرجانية واحدة
+| للفعل والعنصر الحاليّ، وأرقامٌ كبيرة بوزنٍ خفيف. واسمه منه: توهّجٌ مرجانيّ
+| خافت في أعلى الصفحة، وظلٌّ مرجانيّ تحت الزرّ الأساسيّ والقائمة الحالية.
 |
-| ما أُخذ منه:
-|  1) الذهبيّ (primary) للفعل والعنصر الحاليّ، والبرتقاليّ المساند
-|     (primary-support) لحلقة التركيز، والأسود المزرقّ (aeblack) للنصّ
-|     والمحايدات. وشريطٌ ذهبيّ متدرّج أعلى الرأس توقيعُه.
-|  2) خطّاه في الصفحة اليمينية: Alexandria للعناوين وNoto Kufi Arabic للنصّ،
-|     وRoboto — خطّه اللاتيني — للأرقام بعرضٍ ثابت.
-|  3) حقولٌ بحلقة ذهبية عرضها ٢ بكسل وزواياها ٨، وأزرارٌ ممتلئة بالذهبيّ،
-|     وشاراتٌ بخلفيةٍ فاتحة ونصٍّ داكن من اللون نفسه ونقطة مؤشّر.
-|  4) شريط تنقّل رماديّ فاتح بعناوين عريضة، والحاليّ مسطّرٌ بالذهبيّ الداكن،
-|     وقوائم منسدلة بيضاء يتقدّمها اسمها بالذهبيّ.
+|  1) الألوان في palette.js: المرجانيّ (primary) للفعل، ورماديٌّ دافئ (aeblack)
+|     للنصّ والمحايدات، وألوان الحالة من «نظام تصميم الإمارات» كما هي.
+|  2) الخطوط: Alexandria للعناوين وللأرقام الكبيرة بوزنها الخفيف، وNoto Kufi
+|     Arabic للنصّ، وRoboto بعرضٍ ثابت لأرقام الجداول فتصطفّ.
+|  3) الأشكال: أزرارٌ وشاراتٌ وحقولٌ كالحبّة، وبطاقاتٌ بزوايا ٢٤، والقوائم حبّاتٌ
+|     في شريطٍ أبيض — الحاليّة ممتلئةٌ بالمرجانيّ.
 |
 | وألوان الحالة محجوزة للمعنى: كل شارة تحمل نصّها ونقطتها، فاللون تعزيزٌ
 | لا قناةٌ وحيدة.
 */
 
-@plugin './aegov-palette.js';
+@plugin './palette.js';
 
 @theme {
     --font-sans: 'Noto Kufi Arabic', 'Alexandria', ui-sans-serif, system-ui, sans-serif;
@@ -31,8 +27,11 @@
     /* الأرقام بخطّ النظام اللاتيني، بعرضٍ ثابت (tnum) فتصطفّ في الأعمدة */
     --font-mono: 'Roboto', ui-monospace, SFMono-Regular, monospace;
 
-    /* شاشة ١٩٢٠: فيها وحدها تتّسع أيقونات القوائم الاثنتي عشرة في صفٍّ واحد */
+    /* شاشة ١٩٢٠: فيها تتّسع القوائم الاثنتا عشرة بأيقوناتها في صفٍّ واحد */
     --breakpoint-3xl: 112rem;
+
+    /* خلفية الصفحة: رماديٌّ دافئ تقوم عليه البطاقات البيضاء */
+    --color-canvas: oklch(0.955 0.003 85);
 
     /*
     | المحايدات بأسماء الشاشات القديمة (ink) وقيم نظام التصميم، فتتبعه كل
@@ -60,14 +59,14 @@
     --color-lilac:      var(--color-seablue-100);
     --color-lilac-soft: var(--color-seablue-50);
 
-    /* علامة المنصّة — لوحة النواة وحدها: الأزرق التقنيّ من لوحة النظام */
-    --color-plat-50:  var(--color-techblue-50);
-    --color-plat-100: var(--color-techblue-100);
-    --color-plat-400: var(--color-techblue-400);
-    --color-plat-500: var(--color-techblue-500);
-    --color-plat-600: var(--color-techblue-600);
-    --color-plat-700: var(--color-techblue-700);
-    --color-plat-900: var(--color-techblue-900);
+    /* علامة المنصّة — لوحة النواة وحدها: مرجانيّ «وهج» نفسه */
+    --color-plat-50:  var(--color-primary-50);
+    --color-plat-100: var(--color-primary-100);
+    --color-plat-400: var(--color-primary-400);
+    --color-plat-500: var(--color-primary-500);
+    --color-plat-600: var(--color-primary-600);
+    --color-plat-700: var(--color-primary-700);
+    --color-plat-900: var(--color-primary-900);
 
     /* ألوان الحالة كما في شارات النظام: أخضر، أزرق تقنيّ، جمليّ، أحمر */
     --color-ok-50:    var(--color-aegreen-50);
@@ -84,8 +83,8 @@
     --color-bad-700:  var(--color-aered-700);
 
     /*
-    | لون الشركة كأداة Tailwind (border-brand، text-brand…). القيمة تبقى
-    | متغيّراً يُبدَّل وقت التشغيل، فلا تُجمَّد لون شركة واحدة في البناء.
+    | لون التمييز كأداة Tailwind (border-brand، text-brand…): المرجانيّ في
+    | كل الشاشات، متغيّراً على :root لا لوناً مجمَّداً في البناء.
     */
     --color-brand:      var(--brand);
     --color-brand-soft: var(--brand-soft);
@@ -94,27 +93,38 @@
 }
 
 /*
-| لون الشركة يصل من الخادم كمتغيّر واحد، ومنه تُشتقّ الدرجات. يبقى
-| هويّةَ الشركة: مربّع شعارها، وعدّاداتها، ورأس تطبيق مندوبها.
+| --brand لون التمييز في الشاشات — الروابط والأرقام الملوّنة وحلقات الاختيار:
+| مرجانيّ «وهج» في كل نظام، فلا يجتمع لونان في شاشة. ومنه تُشتقّ الدرجات.
+|
+| --company لون الشركة نفسها، يصل من الخادم: مربّع شعارها وحده. هويّتها
+| ظاهرةٌ في أعلى كل صفحة، ولغة النظام واحدة.
 */
 :root {
-    --brand: #0f766e;
+    --company: #0f766e;
+    --brand: var(--color-primary-700);
     --brand-soft: color-mix(in oklab, var(--brand) 10%, white);
     --brand-line: color-mix(in oklab, var(--brand) 22%, white);
     --brand-deep: color-mix(in oklab, var(--brand) 82%, black);
 }
 
-body {
-    font-feature-settings: 'tnum' 1;          /* أرقام بعرض ثابت: الأعمدة تصطفّ */
-    background-color: var(--color-whitely-50);
-    color: var(--color-aeblack-800);
+@layer base {
+    /* في طبقة القاعدة لا خارجها، فتغلبها أداةٌ على <body> حين تريد صفحةٌ غيرها */
+    body {
+        font-feature-settings: 'tnum' 1;          /* أرقام بعرض ثابت: الأعمدة تصطفّ */
+        color: var(--color-aeblack-800);
+        background-color: var(--color-canvas);
+        /* «وهج»: توهّجٌ مرجانيّ خافت أعلى الصفحة من جهة الشعار */
+        background-image: radial-gradient(64rem 26rem at 92% -9rem,
+            color-mix(in oklab, var(--color-primary-300) 26%, transparent), transparent 72%);
+        background-repeat: no-repeat;
+    }
+
+    h1, h2, h3 {
+        font-family: var(--font-heading);
+    }
 }
 
-h1, h2, h3 {
-    font-family: var(--font-heading);
-}
-
-/* مربّعات الاختيار والأزرار الدائرية بذهبيّ النظام */
+/* مربّعات الاختيار والأزرار الدائرية بالمرجانيّ */
 input[type='checkbox'],
 input[type='radio'] {
     accent-color: var(--color-primary-600);
@@ -122,20 +132,20 @@ input[type='radio'] {
     height: 1.125rem;
 }
 
-/* حلقة التركيز الموحّدة للنظام: برتقاليّ مساند، ٢ بكسل، بإزاحة */
+/* حلقة التركيز الموحّدة: مرجانيّة، ٢ بكسل، بإزاحة */
 a:focus-visible,
 button:focus-visible,
 summary:focus-visible,
 [tabindex]:focus-visible {
-    outline: 2px solid var(--color-primary-support-600);
+    outline: 2px solid var(--color-primary-500);
     outline-offset: 2px;
 }
 
 @layer components {
     /* ------------------------------------------------------- عنوان الصفحة
-       مقاسا h5/h4 في النظام (٢٦/٣٢ بكسل) بخطّ العناوين. */
+       كبيرٌ بوزنٍ متوسّط لا عريض، كعنوان الصورة المرجعية. */
     .page-title {
-        @apply font-heading text-[1.625rem] leading-tight font-bold text-aeblack-900 md:text-[2rem];
+        @apply font-heading text-[1.75rem] leading-tight font-medium tracking-tight text-aeblack-950 md:text-[2.125rem];
     }
 
     .page-sub {
@@ -147,16 +157,17 @@ summary:focus-visible,
     | Esc وطبقة التعتيم بلا مكتبة، ويبقى علينا المظهر وحده.
     */
     .modal {
-        @apply m-auto w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-xl border-0 border-t-4 border-primary-600
-               bg-white p-0 text-aeblack-900 shadow-2xl;
+        @apply m-auto w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border-0 bg-white p-0 text-aeblack-900
+               shadow-2xl;
     }
 
     .modal::backdrop {
-        background-color: color-mix(in oklab, var(--color-aeblack-900) 50%, transparent);
+        background-color: color-mix(in oklab, var(--color-aeblack-950) 40%, transparent);
+        backdrop-filter: blur(3px);
     }
 
     .modal-head {
-        @apply border-b border-ink-200 px-6 py-5;
+        @apply border-b border-aeblack-100 px-6 py-5;
     }
 
     .modal-body {
@@ -164,26 +175,29 @@ summary:focus-visible,
     }
 
     .modal-foot {
-        @apply flex flex-wrap items-center justify-end gap-3 border-t border-ink-200 bg-ink-50 px-6 py-4;
+        @apply flex flex-wrap items-center justify-end gap-3 bg-ink-50 px-6 py-4;
     }
 
     /* ------------------------------------------------------------ نماذج
-       حقل النظام الصغير (control-sm): حلقةٌ ذهبية داخلية بعرض ٢، ونصٌّ بذهبيّ
-       داكن، وتركيزٌ يبدّل الحلقة إلى البرتقاليّ المساند. */
+       حقلٌ أبيض كالحبّة بحلقةٍ رمادية رفيعة، يتوهّج بالمرجانيّ عند التركيز. */
     .field-label {
-        @apply mb-1 block text-sm leading-6 font-medium text-aeblack-800;
+        @apply mb-1.5 block text-sm leading-6 font-medium text-aeblack-800;
     }
 
     .field-input {
-        @apply w-full rounded-lg border-0 bg-white px-4 py-2.5 text-sm leading-5 text-primary-900 outline-none
-               transition-shadow placeholder:text-aeblack-500
+        @apply w-full rounded-full border-0 bg-white px-5 py-2.5 text-sm leading-5 text-aeblack-900 outline-none
+               transition-shadow placeholder:text-aeblack-400
                disabled:cursor-not-allowed disabled:opacity-40;
-        box-shadow: inset 0 0 0 2px var(--color-primary-600);
+        box-shadow: inset 0 0 0 1.5px var(--color-aeblack-200);
+    }
+
+    .field-input:hover:not(:focus):not(:disabled) {
+        box-shadow: inset 0 0 0 1.5px var(--color-aeblack-300);
     }
 
     .field-input:focus {
-        box-shadow: inset 0 0 0 2px var(--color-primary-support-600),
-                    0 0 0 4px color-mix(in oklab, var(--color-primary-support-600) 18%, transparent);
+        box-shadow: inset 0 0 0 2px var(--color-primary-500),
+                    0 0 0 4px color-mix(in oklab, var(--color-primary-500) 16%, transparent);
     }
 
     .field-input[aria-invalid='true'] {
@@ -191,22 +205,25 @@ summary:focus-visible,
         box-shadow: inset 0 0 0 2px var(--color-aered-600);
     }
 
-    textarea.field-input {
-        @apply leading-6;
+    /* ما يطول من الحقول لا يكون حبّة: زوايا ٢٠ */
+    textarea.field-input,
+    select.field-input[multiple],
+    select.field-input[size] {
+        @apply rounded-[1.25rem] leading-6;
     }
 
-    /* سهم القائمة المنسدلة بلون النظام، في جهة النهاية (اليسار في الصفحة اليمينية) */
+    /* سهم القائمة المنسدلة رماديٌّ داكن، في جهة النهاية (اليسار في الصفحة اليمينية) */
     select.field-input:not([multiple]):not([size]) {
         appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C5E24' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2344423F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-size: 1.25rem;
-        background-position: left 0.625rem center;
-        padding-inline-end: 2.5rem;
+        background-position: left 0.875rem center;
+        padding-inline-end: 2.75rem;
     }
 
     [dir='ltr'] select.field-input:not([multiple]):not([size]) {
-        background-position: right 0.625rem center;
+        background-position: right 0.875rem center;
     }
 
     .field-error {
@@ -218,86 +235,88 @@ summary:focus-visible,
     }
 
     /* ------------------------------------------------------------ أزرار
-       زرّ النظام الصغير (btn-sm): ذهبيٌّ ممتلئ للفعل، ومُحاطٌ بالذهبيّ
-       للثانويّ. الحدّ بعرض ٢ في الجميع فتتساوى الارتفاعات. */
+       حبّات: مرجانيٌّ ممتلئ للفعل يتوهّج تحته ظلٌّ من لونه ويرتفع قليلاً عند
+       المرور، ومُحاطٌ بالمرجانيّ للثانويّ. الحدّ واحدٌ في الجميع فتتساوى الارتفاعات. */
     .btn-primary,
     .btn-accent,
     .btn-ghost,
     .btn-danger {
-        @apply inline-flex shrink-0 items-center justify-center gap-2 rounded-md border-2 px-5 py-1.5 text-sm leading-6
-               font-medium whitespace-nowrap transition-colors select-none
+        @apply inline-flex shrink-0 items-center justify-center gap-2 rounded-full border-[1.5px] px-5 py-1.5 text-sm
+               leading-6 font-medium whitespace-nowrap transition select-none
                disabled:pointer-events-none disabled:opacity-40;
     }
 
     .btn-primary,
     .btn-accent {
-        @apply border-transparent bg-primary-600 text-white hover:bg-primary-500;
-        box-shadow: inset 0 1px color-mix(in oklab, var(--color-whitely-50) 20%, transparent);
+        @apply border-transparent bg-primary-600 text-white hover:-translate-y-px hover:bg-primary-700 active:translate-y-0;
+        box-shadow: 0 10px 22px -12px var(--color-primary-600);
     }
 
     .btn-ghost {
-        @apply border-primary-600 bg-transparent text-primary-700 hover:bg-primary-50;
+        @apply border-primary-500 bg-white/70 text-primary-700 hover:bg-primary-50;
     }
 
     .btn-danger {
-        @apply border-aered-600 bg-transparent text-aered-700 hover:bg-aered-50;
+        @apply border-aered-600 bg-white/70 text-aered-700 hover:bg-aered-50;
     }
 
-    /* زرّ أيقونة (btn-icon): الخروج وفتح القائمة وجرس الإشعارات */
+    /* زرّ أيقونة: دائرةٌ — الخروج وفتح القائمة وجرس الإشعارات */
     .icon-btn {
-        @apply relative grid size-10 shrink-0 place-items-center rounded-md text-aeblack-700 transition-colors
+        @apply relative grid size-10 shrink-0 place-items-center rounded-full text-aeblack-700 transition-colors
                hover:bg-primary-50 hover:text-primary-700;
     }
 
-    /* ------------------------------------------------------------ أسطح */
+    /* ------------------------------------------------------------ أسطح
+       بيضاءُ بزوايا ٢٤ على الرماديّ الدافئ؛ والخيط الشفيف حولها يبقيها بطاقةً
+       حين تقع على أبيض. */
     .card {
-        @apply rounded-xl border border-ink-200 bg-white;
+        @apply rounded-3xl border border-aeblack-100/80 bg-white;
     }
 
     .card-title {
-        @apply font-heading text-lg font-bold text-aeblack-900;
+        @apply font-heading text-lg font-medium text-aeblack-950;
     }
 
     .card-hint {
         @apply mt-1 text-[13px] text-ink-500;
     }
 
-    /* رأس قسم: أيقونةٌ في مربّع ذهبيّ فاتح، ثم العنوان بخطّ العناوين */
+    /* رأس قسم: أيقونةٌ في دائرةٍ مرجانية فاتحة، ثم العنوان بخطّ العناوين */
     .panel-head {
-        @apply flex items-center gap-2.5 border-b-2 border-primary-200 pb-2.5;
+        @apply flex items-center gap-2.5 pb-1;
     }
 
     .panel-head-icon {
-        @apply grid size-9 shrink-0 place-items-center rounded-lg bg-primary-50 text-primary-700;
+        @apply grid size-9 shrink-0 place-items-center rounded-full bg-primary-50 text-primary-600;
     }
 
     .panel-head-title {
-        @apply font-heading text-lg font-bold text-aeblack-900;
+        @apply font-heading text-lg font-medium text-aeblack-950;
     }
 
-    /* صفٌّ يفتح شيئاً: سطر في قائمة اللوحة */
+    /* صفٌّ يفتح شيئاً: سطرٌ أبيض يرتفع قليلاً عند المرور */
     .row-link {
-        @apply flex items-center gap-3 rounded-lg border border-ink-200 bg-white py-3 ps-4 pe-3 text-sm
-               transition-colors hover:border-primary-300 hover:bg-primary-50;
+        @apply flex items-center gap-3 rounded-2xl border border-aeblack-100/80 bg-white py-3 ps-4 pe-3 text-sm
+               transition hover:-translate-y-px hover:border-primary-200
+               hover:shadow-[0_14px_26px_-20px_var(--color-primary-600)];
     }
 
     /* ------------------------------------------------------------ جداول
-       لا جدول في النظام نفسه؛ هذا على لغته: رأسٌ رماديّ فاتح يسطّره الذهبيّ،
-       وصفوفٌ بفواصل خفيفة يُضيئها المرور بذهبيٍّ باهت. */
+       رأسٌ هادئ بنصٍّ رماديّ صغير، وصفوفٌ بفواصل شفيفة يُضيئها المرور بمرجانيٍّ باهت. */
     .tbl {
         @apply w-full text-sm;
     }
 
     .tbl thead {
-        @apply bg-ink-50 text-[13px] text-aeblack-700;
+        @apply text-xs text-aeblack-500;
     }
 
     .tbl th {
-        @apply border-b-2 border-primary-500 px-4 py-3 text-start font-semibold whitespace-nowrap;
+        @apply border-b border-aeblack-100 px-4 py-3.5 text-start font-medium whitespace-nowrap;
     }
 
     .tbl tbody tr {
-        @apply border-t border-ink-200 transition-colors hover:bg-primary-50/60;
+        @apply border-t border-aeblack-100/70 transition-colors hover:bg-primary-50/50;
     }
 
     .tbl tbody tr:first-child {
@@ -309,7 +328,7 @@ summary:focus-visible,
     }
 
     .tbl tfoot {
-        @apply border-t-2 border-ink-200 bg-ink-50 font-semibold;
+        @apply border-t border-aeblack-200 bg-ink-50 font-semibold;
     }
 
     /* رقم أو مبلغ: لاتيني، ثابت العرض، غير قابل للالتباس */
@@ -333,9 +352,9 @@ summary:focus-visible,
     }
 
     /* ------------------------------------------------------------ شارات
-       شارة النظام (aegov-badge): زاويةٌ صغيرة، ووزنٌ نصف ثقيل، ونقطة مؤشّر. */
+       حبّةٌ بخلفيةٍ فاتحة ونصٍّ داكن من اللون نفسه، ونقطة مؤشّر. */
     .chip {
-        @apply inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs leading-5 font-semibold whitespace-nowrap;
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs leading-5 font-medium whitespace-nowrap;
     }
 
     .chip-ok   { @apply bg-aegreen-50  text-aegreen-700; }
@@ -352,7 +371,7 @@ summary:focus-visible,
 
     /* ------------------------------------------------------------ تنبيهات */
     .alert {
-        @apply flex items-start gap-3 rounded px-5 py-3.5 text-sm;
+        @apply flex items-start gap-3 rounded-2xl px-5 py-3.5 text-sm;
     }
 
     .alert-ok  { @apply bg-aegreen-50 text-aegreen-800; }
@@ -366,75 +385,88 @@ summary:focus-visible,
     }
 
     /* ------------------------------------------------------------ الرأس
-       شريطٌ ذهبيّ متدرّج بارتفاع ٨ بكسل فوق كل شيء (aegov-header). */
+       شفّافٌ على خلفية الصفحة كرأس الصورة المرجعية: الشعار والبحث والحساب
+       قائمةٌ على الرماديّ، والقوائم في شريطٍ أبيض تحتها. */
     .ds-header {
-        @apply relative bg-white pt-2;
+        @apply relative;
     }
 
-    .ds-header::before {
-        content: '';
-        @apply absolute inset-x-0 top-0 h-2;
-        background-image: linear-gradient(to bottom, var(--color-primary-400), var(--color-primary-600));
-    }
-
-    /* مربّع شعار الشركة: لونها، وحرفها */
+    /* مربّع شعار الشركة: لونها، وحرفها، وظلٌّ من لونها */
     .brand-tile {
-        @apply grid size-11 shrink-0 place-items-center rounded-lg font-heading text-lg font-bold text-white;
-        background: var(--brand);
+        @apply grid size-11 shrink-0 place-items-center rounded-2xl font-heading text-lg font-bold text-white;
+        background: var(--company);
+        box-shadow: 0 10px 20px -12px var(--company);
     }
 
     /* ------------------------------------------------------- شريط التنقّل
-       main-navigation في النظام: رماديٌّ فاتح، وعناوين عريضة، والعنصر
-       الحاليّ مسطّرٌ بالذهبيّ الداكن. من ١٠٢٤ بكسل صفٌّ أفقيّ بأيقوناته، يلتفّ
-       إلى صفٍّ ثانٍ حين لا يتّسع كشريط النظام القديم — فشاشةٌ مكبَّرة ١٥٠٪
+       حبّاتٌ في شريطٍ أبيض على الرماديّ، والقائمة الحالية ممتلئةٌ بالمرجانيّ
+       كعنصر «Dashboard» في الصورة المرجعية. من ١٠٢٤ بكسل صفٌّ أفقيّ بأيقوناته
+       يلتفّ إلى صفٍّ ثانٍ حين لا يتّسع كشريط النظام القديم — فشاشةٌ مكبَّرة ١٥٠٪
        (١٩٢٠ ÷ ١٫٥ = ١٢٨٠ إلا قليلاً) لا تنقلب قائمةً عمودية. وعلى الهاتف عمودية. */
     .nav-strip {
-        @apply border-y border-ink-200 bg-aeblack-50;
+        @apply pb-2;
     }
 
     .nav-menu {
-        @apply flex flex-col py-2 lg:flex-row lg:flex-wrap lg:py-0;
+        @apply flex flex-col gap-0.5 rounded-3xl border border-aeblack-100/80 bg-white p-2
+               lg:flex-row lg:flex-wrap lg:items-center lg:gap-1 lg:rounded-[1.75rem] lg:p-1.5;
     }
 
     .nav-item {
-        @apply flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-start text-sm font-bold whitespace-nowrap
-               text-aeblack-800 transition-colors hover:text-primary-700
-               lg:h-12 lg:w-auto lg:gap-1.5 lg:rounded-none lg:border-b-[3px] lg:border-transparent lg:px-3 lg:py-0;
+        @apply flex w-full items-center gap-2 rounded-full px-4 py-2.5 text-start text-sm font-medium whitespace-nowrap
+               text-aeblack-700 transition-colors hover:bg-primary-50 hover:text-primary-700
+               lg:h-10 lg:w-auto lg:py-0 lg:ps-3 lg:pe-4;
     }
 
     .nav-item[aria-expanded='true'] {
-        @apply bg-white text-primary-700 lg:border-primary-400 lg:bg-transparent;
+        @apply bg-primary-50 text-primary-700;
     }
 
     .nav-item-active,
-    .nav-item-active:hover {
-        @apply text-primary-900 lg:border-primary-900;
+    .nav-item-active:hover,
+    .nav-item-active[aria-expanded='true'] {
+        @apply bg-primary-600 text-white;
+        box-shadow: 0 10px 20px -12px var(--color-primary-600);
     }
 
     .nav-item-icon {
         @apply size-5 shrink-0 text-primary-600;
     }
 
+    .nav-item-active .nav-item-icon {
+        @apply text-white;
+    }
+
     /* سهم القائمة على الهاتف وحده: في الصفّ تنسدل القائمة تحت عنوانها */
     .nav-item-caret {
-        @apply ms-auto size-3.5 shrink-0 text-ink-400 transition-transform lg:hidden;
+        @apply ms-auto size-3.5 shrink-0 text-aeblack-400 transition-transform lg:hidden;
+    }
+
+    .nav-item-active .nav-item-caret {
+        @apply text-white/80;
     }
 
     .nav-item[aria-expanded='true'] .nav-item-caret {
         @apply rotate-180;
     }
 
-    /* عدّادٌ على القائمة: ما ينتظر ردّنا */
+    /* عدّادٌ على القائمة: ما ينتظر ردّنا — مرجانيّ، وأبيضُ على الحبّة الممتلئة */
     .nav-badge {
-        @apply grid h-5 min-w-5 place-items-center rounded-full bg-aered-600 px-1.5 font-mono text-[11px] leading-none
+        @apply grid h-5 min-w-5 place-items-center rounded-full bg-primary-600 px-1.5 font-mono text-[11px] leading-none
                font-semibold text-white;
     }
 
-    /* القائمة المنسدلة (submenu): بيضاء، يسطّرها الذهبيّ من أعلى، ويتقدّمها اسمها */
+    .nav-item-active .nav-badge,
+    .tab-link-active .nav-badge {
+        @apply bg-white text-primary-700;
+    }
+
+    /* القائمة المنسدلة: بطاقةٌ بيضاء عائمة تحت الحبّة، يتقدّمها اسمها بالمرجانيّ */
     .submenu {
-        @apply mb-2 ms-5 border-s-2 border-primary-200 ps-2
-               lg:absolute lg:start-0 lg:top-full lg:z-40 lg:m-0 lg:w-max lg:min-w-60 lg:max-w-[36rem]
-               lg:rounded-b-lg lg:border-s-0 lg:border-t-[3px] lg:border-primary-600 lg:bg-white lg:p-3 lg:shadow-xl;
+        @apply mb-2 ms-6 border-s-2 border-primary-100 ps-2
+               lg:absolute lg:start-0 lg:top-full lg:z-40 lg:m-0 lg:mt-2 lg:w-max lg:min-w-60 lg:max-w-[36rem]
+               lg:rounded-3xl lg:border-0 lg:bg-white lg:p-2.5 lg:ring-1 lg:ring-aeblack-100
+               lg:shadow-[0_28px_48px_-20px_rgb(0_0_0/0.22)];
     }
 
     /* قائمةٌ طويلة تنفتح عمودين كقوائم النظام الكبيرة */
@@ -448,37 +480,40 @@ summary:focus-visible,
     }
 
     .submenu-title {
-        @apply hidden px-3 pb-2 font-heading text-sm font-bold text-primary-600 lg:block;
+        @apply hidden px-3.5 pt-1 pb-2 text-xs font-medium text-primary-600 lg:block;
     }
 
     .submenu-link {
-        @apply flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-aeblack-900 transition-colors
-               break-inside-avoid hover:bg-primary-50 hover:text-primary-700 hover:underline;
+        @apply flex items-center justify-between gap-3 rounded-full px-3.5 py-2 text-sm text-aeblack-800 transition-colors
+               break-inside-avoid hover:bg-primary-50 hover:text-primary-700;
     }
 
     .submenu-link-active,
     .submenu-link-active:hover {
-        @apply bg-primary-50 font-semibold text-primary-800;
+        @apply bg-primary-50 font-medium text-primary-700;
     }
 
-    /* تبويبات أفقية (aegov-tab): بوابة التاجر ولوحة المنصّة */
+    /* تبويبات بوابة التاجر ولوحة المنصّة: حبّاتٌ على الرماديّ، والحاليّ ممتلئ */
     .tab-nav {
-        @apply flex gap-1 overflow-x-auto;
+        @apply flex gap-1.5 overflow-x-auto py-2;
     }
 
     .tab-link {
-        @apply inline-flex h-14 shrink-0 items-center gap-2 border-b-[3px] border-transparent px-3 text-sm font-bold
-               whitespace-nowrap text-aeblack-700 transition-colors hover:border-primary-500 hover:text-aeblack-950;
+        @apply inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-medium whitespace-nowrap
+               text-aeblack-700 transition-colors hover:bg-white hover:text-primary-700;
     }
 
     .tab-link-active,
     .tab-link-active:hover {
-        @apply border-primary-500 text-primary-600;
+        @apply bg-primary-600 text-white;
+        box-shadow: 0 10px 20px -12px var(--color-primary-600);
     }
 
-    /* ---------------------------------------------- بطاقة رقم في اللوحة */
+    /* ---------------------------------------------- أرقام اللوحة
+       الرقم الكبير بوزنٍ خفيف (Alexandria 300) كأرقام الصورة المرجعية، والبطاقة
+       التي تفتح شيئاً ترتفع قليلاً عند المرور. */
     .stat {
-        @apply rounded-xl border border-ink-200 bg-white px-5 py-4 transition-colors;
+        @apply rounded-3xl border border-aeblack-100/80 bg-white px-5 py-4 transition;
     }
 
     .stat-label {
@@ -486,41 +521,101 @@ summary:focus-visible,
     }
 
     .stat-value {
-        @apply mt-1.5 text-[26px] leading-none font-bold text-aeblack-900;
+        @apply mt-2 font-heading text-[28px] leading-none font-light tracking-tight text-aeblack-950;
     }
 
-    a.stat:hover {
-        @apply border-primary-300 bg-primary-50;
-    }
-
-    /* بطاقة المؤشّر: أيقونةٌ في مربّع ذهبيّ فاتح، ثم الرقم والاسم */
-    .kpi {
-        @apply flex items-center gap-4 rounded-xl border border-ink-200 bg-white px-4 py-4 transition-colors;
-    }
-
+    a.stat:hover,
     a.kpi:hover {
-        @apply border-primary-300 bg-primary-50;
+        @apply -translate-y-0.5 border-primary-200 shadow-[0_16px_30px_-22px_var(--color-primary-600)];
+    }
+
+    .kpi {
+        @apply flex items-center gap-4 rounded-3xl border border-aeblack-100/80 bg-white px-5 py-4 transition;
     }
 
     .kpi-accent,
     a.kpi-accent:hover {
-        @apply border-primary-300 bg-primary-50;
+        @apply border-transparent bg-primary-600 text-white;
     }
 
     .kpi-icon {
-        @apply grid size-12 shrink-0 place-items-center rounded-lg bg-primary-50 text-primary-700;
+        @apply grid size-12 shrink-0 place-items-center rounded-full bg-primary-50 text-primary-600;
     }
 
     .kpi-accent .kpi-icon {
-        @apply bg-primary-600 text-white;
+        @apply bg-white/15 text-white;
     }
 
     .kpi-value {
-        @apply text-[28px] leading-none font-bold text-aeblack-900;
+        @apply font-heading text-[30px] leading-none font-light tracking-tight text-aeblack-950;
     }
 
     .kpi-label {
-        @apply mt-1.5 text-sm text-aeblack-600;
+        @apply mt-2 text-sm text-aeblack-600;
+    }
+
+    .kpi-accent .kpi-value,
+    .kpi-accent .kpi-label {
+        @apply text-white;
+    }
+
+    /* ------------------------------------------------------------ الوهج
+       بطاقةٌ مرجانية ممتلئة لرقم اليوم الأهمّ، بنقاطٍ بيضاء خافتة تذوب نحو
+       النصّ — كبطاقتَي «Recent trips» و«Route efficiency» في الصورة المرجعية. */
+    .glow-card {
+        @apply relative isolate overflow-hidden rounded-3xl p-6 text-white;
+        background: linear-gradient(140deg, var(--color-primary-500), var(--color-primary-700));
+        box-shadow: 0 26px 44px -26px var(--color-primary-600);
+    }
+
+    .glow-card::after {
+        content: '';
+        @apply pointer-events-none absolute inset-y-0 end-0 -z-10 w-3/5;
+        background-image: radial-gradient(color-mix(in oklab, white 34%, transparent) 1.4px, transparent 1.6px);
+        background-size: 15px 15px;
+        mask-image: linear-gradient(to right, #000, transparent);
+    }
+
+    /* رقمٌ كبير خفيف: عدد اليوم على البطاقات البارزة */
+    .display-num {
+        @apply font-heading leading-none font-light tracking-tight;
+        font-feature-settings: 'tnum' 1;
+    }
+
+    /* بطاقةٌ تدعو إلى فعل: حدٌّ متقطّع ودائرةٌ مرجانية في وسطها («Create new Request») */
+    .dash-card {
+        @apply grid place-content-center justify-items-center gap-3 rounded-3xl border-2 border-dashed border-primary-300
+               bg-white/40 p-6 text-center text-sm font-medium text-aeblack-800 transition
+               hover:border-primary-500 hover:bg-white;
+    }
+
+    .dash-card-plus {
+        @apply grid size-12 place-items-center rounded-full bg-primary-600 text-white transition;
+        box-shadow: 0 12px 22px -12px var(--color-primary-600);
+    }
+
+    .dash-card:hover .dash-card-plus {
+        @apply scale-110;
+    }
+
+    /* صعودٌ خفيف للبطاقات عند فتح الصفحة، متتابعٌ بترتيبها (--i). ومن طلب من
+       جهازه حركةً أقلّ لا يراه */
+    .rise {
+        animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+        animation-delay: calc(var(--i, 0) * 55ms);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .rise {
+            animation: none;
+        }
+    }
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
     }
 }
 
@@ -569,8 +664,13 @@ summary:focus-visible,
     .card,
     .stat,
     .kpi {
-        border-color: #000 !important;
+        border: 1px solid #000 !important;
         border-radius: 6pt !important;
         box-shadow: none !important;
+    }
+
+    /* الورقة بيضاء: لا توهّج ولا رماديّ خلف الكشف */
+    body {
+        background-image: none !important;
     }
 }

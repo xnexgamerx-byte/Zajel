@@ -12,6 +12,17 @@ use PHPUnit\Framework\TestCase;
  */
 class ArabicTest extends TestCase
 {
+    public function test_weekday_names_are_whole_words_not_letters(): void
+    {
+        // صيغة Carbon القصيرة للعربية حرفٌ واحد («س»)؛ هذه كلمات تُقرأ تحت الرسم
+        $names = array_map(
+            fn (int $day) => Arabic::weekday(new \DateTimeImmutable("2026-09-{$day}")),
+            range(20, 26),
+        );
+
+        $this->assertSame(['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'], $names);
+    }
+
     #[DataProvider('dayCases')]
     public function test_it_agrees_the_counted_noun(int $n, string $expected): void
     {

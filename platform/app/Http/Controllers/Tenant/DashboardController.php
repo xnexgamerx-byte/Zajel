@@ -65,6 +65,8 @@ class DashboardController extends Controller
         $staleAfter = (int) config('zajel.stale_shipment_days', 5);
 
         return view('tenant.dashboard', [
+            'week' => $this->lastSevenDays($user),
+
             'cards' => [
                 'today'          => $today,
                 'delivered_today' => $deliveredToday,
@@ -127,5 +129,37 @@ class DashboardController extends Controller
                 ->toBase()
                 ->get(),
         ]);
+    }
+
+    /**
+     * الأيام السبعة الأخيرة، أقدمها أوّلاً واليوم آخرها: ما أُنشئ وما سُلّم في
+     * كلٍّ منها، لرسمَي اللوحة. استعلامان مجمَّعان على فهرسَي التاريخ لا
+     * أربعة عشر، ويومٌ بلا شحنات صفرٌ لا ثغرة في الرسم.
+     *
+     * @return list<array{date: Carbon, created: int, delivered: int}>
+     */
+    private function lastSevenDays($user): array
+    {
+        $from = today()->subDays(6);
+
+        $perDay = fn (string $column) => Shipment::query()
+            ->visibleTo($user)
+            ->where("shipments.$column", '>=', $from)
+            ->selectRaw("date(shipments.$column) as day, count(*) as c")
+            ->groupBy('day')
+            ->toBase()
+            ->pluck('c', 'day');
+
+        $created = $perDay('created_at');
+        $delivered = $perDay('delivered_at');
+
+        return collect(range(6, 0))
+            ->map(fn (int $ago) => today()->subDays($ago))
+            ->map(fn (Carbon $day) => [
+                'date'      => $day,
+                'created'   => (int) ($created[$day->toDateString()] ?? 0),
+                'delivered' => (int) ($delivered[$day->toDateString()] ?? 0),
+            ])
+            ->all();
     }
 }

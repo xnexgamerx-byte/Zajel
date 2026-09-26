@@ -9,7 +9,7 @@
         <p class="mt-1 text-sm text-ink-500">نظام إدارة الشحنات</p>
     </div>
 
-    <form method="POST" action="{{ route('login') }}" class="card space-y-5 border-t-4 border-t-primary-600 p-6 sm:p-8">
+    <form method="POST" action="{{ route('login') }}" class="card space-y-5 p-6 sm:p-8">
         @csrf
 
         <div>
