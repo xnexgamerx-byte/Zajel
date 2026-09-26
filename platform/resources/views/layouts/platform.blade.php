@@ -47,6 +47,7 @@
             @foreach ([
                 ['admin.dashboard', 'نظرة عامة', 'admin.dashboard', 'grid'],
                 ['admin.companies.index', 'الشركات', 'admin.companies.*', 'building'],
+                ['admin.subscriptions.index', 'الاشتراكات', 'admin.subscriptions.*', 'wallet'],
                 ['admin.invoices.index', 'الفواتير', 'admin.invoices.*', 'invoice'],
                 ['admin.plans.index', 'الباقات', 'admin.plans.*', 'tag'],
             ] as [$route, $label, $pattern, $icon])

@@ -40,6 +40,7 @@
                     <th >الإجمالي</th>
                     <th >مستخدمون</th>
                     <th >الحالة</th>
+                    <th ></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-ink-100">
@@ -60,7 +61,12 @@
                         <td class="px-4 py-3 font-mono text-xs text-ink-500" dir="ltr">
                             {{ $company->slug }}.{{ config('zajel.tenant_domain') }}
                         </td>
-                        <td class="px-4 py-3 text-ink-600">{{ $subscription?->plan->name ?? '—' }}</td>
+                        <td class="px-4 py-3">
+                            <a href="{{ route('admin.subscriptions.show', $company) }}"
+                               class="{{ $subscription ? 'text-ink-700' : 'text-ink-400' }} hover:text-[var(--brand)] hover:underline">
+                                {{ $subscription?->plan->name ?? 'بلا اشتراك' }}
+                            </a>
+                        </td>
                         <td class="px-4 py-3 font-semibold" dir="ltr">
                             {{ number_format((int) ($counts->this_month ?? 0)) }}
                         </td>
@@ -69,10 +75,14 @@
                         </td>
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $company->users_count }}</td>
                         <td class="px-4 py-3"><x-company-status :status="$company->status" /></td>
+                        <td class="px-4 py-3 text-end">
+                            <a href="{{ route('admin.companies.edit', $company) }}"
+                               class="text-sm font-semibold text-[var(--brand)] hover:underline">تعديل</a>
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-4 py-16 text-center">
+                        <td colspan="8" class="px-4 py-16 text-center">
                             <div class="text-ink-500">لا شركات بعد.</div>
                             <a href="{{ route('admin.companies.create') }}" class="btn-primary mt-4">سجّل أول شركة</a>
                         </td>

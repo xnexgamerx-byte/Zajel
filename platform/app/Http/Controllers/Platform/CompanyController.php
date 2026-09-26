@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Platform;
 
+use App\Actions\Billing\ChangeSubscription;
 use App\Actions\Platform\RegisterCompany;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
@@ -16,10 +17,12 @@ use App\Models\Plan;
 use App\Models\Shipment;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\Phone;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class CompanyController extends Controller
@@ -45,10 +48,12 @@ class CompanyController extends Controller
             ->get()
             ->keyBy('company_id');
 
+        // القائم لكلّ شركة كما في «الاشتراكات»: الأحدث يغلب في keyBy
         $subscriptions = Subscription::query()
             ->acrossCompanies()
-            ->whereIn('status', ['trialing', 'active'])
+            ->whereIn('status', ChangeSubscription::LIVE)
             ->with('plan:id,name')
+            ->orderBy('id')
             ->get()
             ->keyBy('company_id');
 
@@ -58,6 +63,7 @@ class CompanyController extends Controller
     public function create(): View
     {
         return view('platform.companies.form', [
+            'company'      => new Company,
             'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
             'plans'        => Plan::where('is_active', true)->orderBy('sort_order')->get(),
         ]);
@@ -88,10 +94,12 @@ class CompanyController extends Controller
         ]);
 
         return view('platform.companies.show', [
-            'company'      => $company,
+            'company'      => $company->loadMissing('governorate:id,name_ar'),
             'stats'        => $stats,
+            // القائم وحده: الملغى في سجلّ «الاشتراكات» لا هنا
             'subscription' => Subscription::acrossCompanies()
                 ->where('company_id', $company->id)
+                ->whereIn('status', ChangeSubscription::LIVE)
                 ->with('plan')
                 ->latest('id')
                 ->first(),
@@ -99,6 +107,82 @@ class CompanyController extends Controller
             'audit'        => AuditLog::where('company_id', $company->id)->latest('id')->limit(20)->get(),
             'invoices'     => Invoice::where('company_id', $company->id)->latest('id')->limit(6)->get(),
         ]);
+    }
+
+    public function edit(Company $company): View
+    {
+        return view('platform.companies.edit', [
+            'company'      => $company,
+            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+        ]);
+    }
+
+    /**
+     * بيانات الشركة من المنصّة: اسمها وطرق الوصول إليها ولونها.
+     *
+     * النطاق الفرعي لا يُعدَّل: هو عنوان نظامها، عليه تتصل تطبيقاتها ويُطبع
+     * رابط التتبّع على ملصقاتها، وبه يُعرَف العنوان المجاني (ZAJEL_DEFAULT_COMPANY).
+     * وما تغيّر وحده يُسجَّل، بقيمته قبل وبعد.
+     */
+    public function update(Request $request, Company $company): RedirectResponse
+    {
+        // ما لا يُفهم رقماً عراقياً يُرَدّ، والمفهوم يُحفظ بصيغةٍ واحدة
+        $iraqi = function (string $attribute, mixed $value, \Closure $fail) {
+            if (Phone::normalise((string) $value) === null) {
+                $fail('الهاتف رقمٌ عراقي بصيغة 07xxxxxxxxx.');
+            }
+        };
+
+        $data = $request->validate([
+            'name'           => ['required', 'string', 'max:160'],
+            'name_en'        => ['nullable', 'string', 'max:160'],
+            'phone'          => ['nullable', 'string', 'max:30', $iraqi],
+            'email'          => ['nullable', 'email', 'max:160'],
+            'governorate_id' => ['nullable', 'integer', Rule::exists('governorates', 'id')],
+            'address'        => ['nullable', 'string', 'max:255'],
+            'primary_color'  => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+        ], [
+            'primary_color.regex' => 'اللون بصيغة #RRGGBB.',
+        ], [
+            'name' => 'اسم الشركة', 'name_en' => 'الاسم بالإنجليزي', 'phone' => 'الهاتف', 'email' => 'البريد',
+            'governorate_id' => 'المحافظة', 'address' => 'العنوان', 'primary_color' => 'اللون',
+        ]);
+
+        $company->fill([
+            'name'           => $data['name'],
+            'name_en'        => $data['name_en'] ?? null,
+            'phone'          => Phone::normalise($data['phone'] ?? null),
+            'email'          => $data['email'] ?? null,
+            'governorate_id' => isset($data['governorate_id']) ? (int) $data['governorate_id'] : null,
+            'address'        => $data['address'] ?? null,
+            // منتقي الألوان يرسل الحروف صغيرة: اللون نفسه بحروفٍ أخرى ليس تعديلاً
+            'primary_color'  => strcasecmp($data['primary_color'], (string) $company->primary_color) === 0
+                ? $company->primary_color
+                : strtoupper($data['primary_color']),
+        ]);
+
+        $changed = $company->getDirty();
+
+        if (! $changed) {
+            return redirect()->route('admin.companies.show', $company)->with('success', 'لم يتغيّر شيء.');
+        }
+
+        $old = array_intersect_key($company->getOriginal(), $changed);
+        $company->save();
+
+        AuditLog::create([
+            'company_id'     => $company->id,
+            'user_id'        => $request->user()->id,
+            'user_name'      => $request->user()->name,
+            'action'         => 'company_updated',
+            'auditable_type' => Company::class,
+            'auditable_id'   => $company->id,
+            'old_values'     => $old,
+            'new_values'     => $changed,
+            'ip'             => $request->ip(),
+        ]);
+
+        return redirect()->route('admin.companies.show', $company)->with('success', "حُفظت بيانات {$company->name}.");
     }
 
     /** إيقاف فوري: الشركة تُمنع من الدخول في الطلب التالي مباشرة. */

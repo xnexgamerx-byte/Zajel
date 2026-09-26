@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Support\Arabic;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -48,6 +49,23 @@ class Subscription extends Model
     public function daysUntilEnd(): int
     {
         return (int) now()->startOfDay()->diffInDays($this->ends_at->copy()->startOfDay(), false);
+    }
+
+    /** المتبقّي كما يُقرأ: «١٢ يوماً»، «ينتهي اليوم»، «انتهى منذ ٣ أيام». */
+    public function remainingLabel(): string
+    {
+        $days = $this->daysUntilEnd();
+
+        return match (true) {
+            $days < 0   => 'انتهى منذ '.Arabic::days(-$days),
+            $days === 0 => 'ينتهي اليوم',
+            default     => Arabic::days($days),
+        };
+    }
+
+    public function cycleLabel(): string
+    {
+        return $this->billing_cycle === 'yearly' ? 'سنوياً' : 'شهرياً';
     }
 
     /** موضعه على خطّ الانتهاء: lapsed (انتهى ولم يُجدَّد)، today، soon. */

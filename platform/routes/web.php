@@ -20,6 +20,7 @@ use App\Http\Controllers\Platform\ImpersonationController;
 use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
+use App\Http\Controllers\Platform\SubscriptionController as PlatformSubscriptionController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\Portal\SupportController as PortalSupportController;
 use App\Http\Controllers\Tenant\AnnouncementController;
@@ -365,9 +366,18 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
         Route::get('/companies/create', [PlatformCompanyController::class, 'create'])->name('companies.create');
         Route::post('/companies', [PlatformCompanyController::class, 'store'])->name('companies.store');
         Route::get('/companies/{company}', [PlatformCompanyController::class, 'show'])->name('companies.show');
+        Route::get('/companies/{company}/edit', [PlatformCompanyController::class, 'edit'])->name('companies.edit');
+        Route::put('/companies/{company}', [PlatformCompanyController::class, 'update'])->name('companies.update');
         Route::post('/companies/{company}/suspend', [PlatformCompanyController::class, 'suspend'])->name('companies.suspend');
         Route::post('/companies/{company}/activate', [PlatformCompanyController::class, 'activate'])->name('companies.activate');
         Route::post('/companies/{company}/impersonate', [ImpersonationController::class, 'start'])->name('companies.impersonate');
+
+        // مال المنصّة مع الشركات: اشتراك كلٍّ منها وما عليها. أسعار التوصيل ليست هنا —
+        // تلك بين الشركة وتجّارها، في «التسعيرات» من نظامها
+        Route::get('/subscriptions', [PlatformSubscriptionController::class, 'index'])->name('subscriptions.index');
+        Route::get('/subscriptions/{company}', [PlatformSubscriptionController::class, 'show'])->name('subscriptions.show');
+        Route::post('/subscriptions/{company}', [PlatformSubscriptionController::class, 'store'])->name('subscriptions.store');
+        Route::post('/subscriptions/{company}/cancel', [PlatformSubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
 
         Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
         Route::post('/invoices/generate', [InvoiceController::class, 'generate'])->name('invoices.generate');

@@ -25,6 +25,8 @@
     </div>
 
     <div class="flex flex-wrap gap-2">
+        <a href="{{ route('admin.companies.edit', $company) }}" class="btn-ghost">تعديل البيانات</a>
+
         <form method="POST" action="{{ route('admin.companies.impersonate', $company) }}">
             @csrf
             <button class="btn-ghost" @disabled(! $company->isOperational())>ادخل نظامها</button>
@@ -121,11 +123,14 @@
                         <div class="flex items-center justify-between gap-3 py-2 text-sm">
                             <span>
                                 {{ [
-                                    'company_registered'    => 'تسجيل الشركة',
-                                    'company_suspended'     => 'إيقاف',
-                                    'company_activated'     => 'تفعيل',
-                                    'impersonation_started' => 'دخول من المنصّة',
-                                    'impersonation_ended'   => 'خروج من المنصّة',
+                                    'company_registered'     => 'تسجيل الشركة',
+                                    'company_suspended'      => 'إيقاف',
+                                    'company_activated'      => 'تفعيل',
+                                    'company_updated'        => 'تعديل البيانات',
+                                    'subscription_started'   => 'اشتراك جديد',
+                                    'subscription_cancelled' => 'إلغاء الاشتراك',
+                                    'impersonation_started'  => 'دخول من المنصّة',
+                                    'impersonation_ended'    => 'خروج من المنصّة',
                                 ][$entry->action] ?? $entry->actionLabel() }}
                                 @if ($entry->user_name)
                                     <span class="text-ink-500">— {{ $entry->user_name }}</span>
@@ -143,13 +148,44 @@
 
     <div class="space-y-5">
         <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold">الاشتراك</h2>
+            <div class="mb-4 flex items-center justify-between gap-2">
+                <h2 class="text-sm font-bold">بيانات الشركة</h2>
+                <a href="{{ route('admin.companies.edit', $company) }}"
+                   class="text-xs font-semibold text-[var(--brand)] hover:underline">تعديل</a>
+            </div>
+            <dl class="space-y-2.5 text-sm">
+                @foreach ([
+                    ['الاسم بالإنجليزي', $company->name_en, true],
+                    ['الهاتف', $company->phone, true],
+                    ['البريد', $company->email, true],
+                    ['المحافظة', $company->governorate?->name_ar, false],
+                    ['العنوان', $company->address, false],
+                ] as [$label, $value, $ltr])
+                    <div class="flex justify-between gap-3">
+                        <dt class="shrink-0 text-ink-500">{{ $label }}</dt>
+                        <dd class="min-w-0 break-words text-end {{ filled($value) ? '' : 'text-ink-400' }}"
+                            @if ($ltr && filled($value)) dir="ltr" @endif>{{ filled($value) ? $value : '—' }}</dd>
+                    </div>
+                @endforeach
+            </dl>
+        </section>
+
+        <section class="card p-5">
+            <div class="mb-4 flex items-center justify-between gap-2">
+                <h2 class="text-sm font-bold">الاشتراك</h2>
+                <a href="{{ route('admin.subscriptions.show', $company) }}"
+                   class="text-xs font-semibold text-[var(--brand)] hover:underline">إدارة الاشتراك</a>
+            </div>
 
             @if ($subscription)
                 <dl class="space-y-2.5 text-sm">
                     <div class="flex justify-between">
                         <dt class="text-ink-500">الباقة</dt>
                         <dd class="font-semibold">{{ $subscription->plan->name }}</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-ink-500">الحالة</dt>
+                        <dd><x-subscription-status :status="$subscription->status" /></dd>
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-ink-500">السعر المجمَّد</dt>
@@ -165,14 +201,14 @@
                     </div>
                     <div class="flex justify-between">
                         <dt class="text-ink-500">المتبقّي</dt>
-                        @php $days = $subscription->daysUntilEnd(); @endphp
-                        <dd class="font-bold {{ $days <= 7 ? 'text-bad-700' : 'text-[var(--brand)]' }}">
-                            {{ $days < 0 ? 'انتهى منذ '.\App\Support\Arabic::days(-$days) : ($days === 0 ? 'ينتهي اليوم' : \App\Support\Arabic::days($days)) }}
+                        <dd class="font-bold {{ $subscription->daysUntilEnd() <= 7 ? 'text-bad-700' : 'text-[var(--brand)]' }}">
+                            {{ $subscription->remainingLabel() }}
                         </dd>
                     </div>
                 </dl>
             @else
                 <p class="text-sm text-ink-500">لا اشتراك فعّال.</p>
+                <a href="{{ route('admin.subscriptions.show', $company) }}" class="btn-primary mt-3 w-full">أضف اشتراكاً</a>
             @endif
         </section>
 
@@ -189,7 +225,7 @@
                            placeholder="مثال: تأخّر السداد عن 30 يوماً">
                     @error('reason') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
-                <button type="submit" class="btn-ghost w-full text-bad-700 ring-bad-200 hover:bg-bad-50">أوقف الاشتراك</button>
+                <button type="submit" class="btn-ghost w-full text-bad-700 ring-bad-200 hover:bg-bad-50">أوقف الشركة</button>
             </form>
         @endif
     </div>
