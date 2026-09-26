@@ -385,39 +385,39 @@ summary:focus-visible,
 
     /* ------------------------------------------------------- شريط التنقّل
        main-navigation في النظام: رماديٌّ فاتح، وعناوين عريضة، والعنصر
-       الحاليّ مسطّرٌ بالذهبيّ الداكن. على الهاتف يصير قائمةً عمودية. */
+       الحاليّ مسطّرٌ بالذهبيّ الداكن. من ١٠٢٤ بكسل صفٌّ أفقيّ بأيقوناته، يلتفّ
+       إلى صفٍّ ثانٍ حين لا يتّسع كشريط النظام القديم — فشاشةٌ مكبَّرة ١٥٠٪
+       (١٩٢٠ ÷ ١٫٥ = ١٢٨٠ إلا قليلاً) لا تنقلب قائمةً عمودية. وعلى الهاتف عمودية. */
     .nav-strip {
         @apply border-y border-ink-200 bg-aeblack-50;
     }
 
     .nav-menu {
-        @apply flex flex-col py-2 xl:flex-row xl:flex-wrap xl:py-0;
+        @apply flex flex-col py-2 lg:flex-row lg:flex-wrap lg:py-0;
     }
 
     .nav-item {
         @apply flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-start text-sm font-bold whitespace-nowrap
                text-aeblack-800 transition-colors hover:text-primary-700
-               xl:h-14 xl:w-auto xl:gap-1.5 xl:rounded-none xl:border-b-[3px] xl:border-transparent xl:px-2 xl:py-0
-               xl:text-[13px] 2xl:px-2.5 2xl:text-sm 3xl:px-3;
+               lg:h-12 lg:w-auto lg:gap-1.5 lg:rounded-none lg:border-b-[3px] lg:border-transparent lg:px-3 lg:py-0;
     }
 
     .nav-item[aria-expanded='true'] {
-        @apply bg-white text-primary-700 xl:border-primary-400 xl:bg-transparent;
+        @apply bg-white text-primary-700 lg:border-primary-400 lg:bg-transparent;
     }
 
     .nav-item-active,
     .nav-item-active:hover {
-        @apply text-primary-900 xl:border-primary-900;
+        @apply text-primary-900 lg:border-primary-900;
     }
 
-    /* الأيقونات على الهاتف وعلى الشاشة الواسعة؛ وتُخفى بينهما ليتّسع الصفّ */
     .nav-item-icon {
-        @apply size-5 shrink-0 text-primary-600 xl:max-3xl:hidden;
+        @apply size-5 shrink-0 text-primary-600;
     }
 
-    /* سهم القائمة على الهاتف وحده: على الشاشة الواسعة يأكل من الصفّ ما لا يُحتمل */
+    /* سهم القائمة على الهاتف وحده: في الصفّ تنسدل القائمة تحت عنوانها */
     .nav-item-caret {
-        @apply ms-auto size-3.5 shrink-0 text-ink-400 transition-transform xl:hidden;
+        @apply ms-auto size-3.5 shrink-0 text-ink-400 transition-transform lg:hidden;
     }
 
     .nav-item[aria-expanded='true'] .nav-item-caret {
@@ -433,22 +433,22 @@ summary:focus-visible,
     /* القائمة المنسدلة (submenu): بيضاء، يسطّرها الذهبيّ من أعلى، ويتقدّمها اسمها */
     .submenu {
         @apply mb-2 ms-5 border-s-2 border-primary-200 ps-2
-               xl:absolute xl:start-0 xl:top-full xl:z-40 xl:m-0 xl:w-max xl:min-w-60 xl:max-w-[36rem]
-               xl:rounded-b-lg xl:border-s-0 xl:border-t-[3px] xl:border-primary-600 xl:bg-white xl:p-3 xl:shadow-xl;
+               lg:absolute lg:start-0 lg:top-full lg:z-40 lg:m-0 lg:w-max lg:min-w-60 lg:max-w-[36rem]
+               lg:rounded-b-lg lg:border-s-0 lg:border-t-[3px] lg:border-primary-600 lg:bg-white lg:p-3 lg:shadow-xl;
     }
 
     /* قائمةٌ طويلة تنفتح عمودين كقوائم النظام الكبيرة */
     .submenu-wide .submenu-list {
-        @apply xl:columns-2 xl:gap-2;
+        @apply lg:columns-2 lg:gap-2;
     }
 
     /* قائمةٌ قرب حافّة الشاشة تنفتح نحو الداخل (يضعها السكربت) */
     .submenu-flip {
-        @apply xl:start-auto xl:end-0;
+        @apply lg:start-auto lg:end-0;
     }
 
     .submenu-title {
-        @apply hidden px-3 pb-2 font-heading text-sm font-bold text-primary-600 xl:block;
+        @apply hidden px-3 pb-2 font-heading text-sm font-bold text-primary-600 lg:block;
     }
 
     .submenu-link {

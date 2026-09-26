@@ -45,13 +45,13 @@
 {{--
   رأس نظام تصميم الإمارات: الشريط الذهبيّ، ثم الشعار والبحث والحساب، ثم
   شريط القوائم. القوائم بترتيب النظام الذي اعتاده الموظّفون (StaffNavigation):
-  البحث أوّلاً، ثم الصفحة الرئيسية … حتى الدفعات. على الشاشة الواسعة صفٌّ
+  البحث أوّلاً، ثم الصفحة الرئيسية … حتى الدفعات. من ١٠٢٤ بكسل صفٌّ (أو صفّان)
   تنسدل منه القوائم، وعلى الهاتف قائمةٌ عمودية يفتحها زرّ القائمة.
 --}}
 <header class="ds-header">
     <div class="shell flex flex-wrap items-center gap-x-3 gap-y-2.5 py-3">
         @if ($staff)
-            <button type="button" class="icon-btn xl:hidden" data-drawer-toggle aria-controls="main-nav" aria-expanded="false"
+            <button type="button" class="icon-btn lg:hidden" data-drawer-toggle aria-controls="main-nav" aria-expanded="false"
                     aria-label="القائمة">
                 <x-icon name="menu" class="size-6"/>
             </button>
@@ -103,11 +103,11 @@
     </div>
 
     <nav id="main-nav" aria-label="القائمة الرئيسية"
-         class="nav-strip {{ $staff ? 'max-xl:hidden max-xl:data-open:block' : '' }}" data-drawer>
+         class="nav-strip {{ $staff ? 'max-lg:hidden max-lg:data-open:block' : '' }}" data-drawer>
         <div class="shell">
             <ul class="nav-menu">
                 @if ($staff)
-                    <li class="max-xl:hidden">
+                    <li class="max-lg:hidden">
                         <button type="button" class="nav-item" data-focus="global-search"
                                 aria-label="البحث عن شحنة" title="البحث عن شحنة">
                             <x-icon name="search" class="size-5 text-primary-600"/>

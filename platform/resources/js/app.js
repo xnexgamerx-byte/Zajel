@@ -292,8 +292,8 @@ if (menus.length) {
 /**
  * درج القوائم على الشاشات الصغيرة.
  *
- * زرّ القائمة يقلب data-open، والظهور يقرّره CSS (max-xl:hidden
- * max-xl:data-open:block). على الشاشة الواسعة الشريط ظاهرٌ دائماً فلا شيء
+ * زرّ القائمة يقلب data-open، والظهور يقرّره CSS (max-lg:hidden
+ * max-lg:data-open:block). على الشاشة الواسعة الشريط ظاهرٌ دائماً فلا شيء
  * ينتظر السكربت ليظهر.
  */
 const drawer = document.querySelector('[data-drawer]');
