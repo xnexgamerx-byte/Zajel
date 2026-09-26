@@ -35,8 +35,15 @@ cp .env "$work/.env"
 cp "$dump" "$work/database.sql.gz"
 git -C .. rev-parse HEAD > "$work/version" 2>/dev/null || true
 
+# خلف Cloudflare: شهادة المصدر ومفتاحها ينتقلان معها، فلا يُصدَر غيرهما
+extra=()
+if [ -f certs/origin.pem ]; then
+    cp -r certs "$work/certs"
+    extra=(certs)
+fi
+
 bundle="$dir/zajel-move-$(date -u +%Y%m%d-%H%M%S).tar.gz"
-tar -czf "$bundle" -C "$work" .env database.sql.gz version
+tar -czf "$bundle" -C "$work" .env database.sql.gz version "${extra[@]}"
 
 ip=$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
 
@@ -52,7 +59,8 @@ cat <<DONE
        cd /opt/zajel/deploy
        sudo ./setup.sh --restore /root/$(basename "$bundle")
 
-  ٣. غيّر سجلّي DNS (النطاق و*.النطاق) إلى عنوان الخادم الجديد.
+  ٣. غيّر سجلّي DNS (النطاق و*.النطاق) إلى عنوان الخادم الجديد —
+     في Cloudflare إن كان النطاق خلفها، والسحابة برتقالية كما كانت.
 
   الموقع هنا متوقّفٌ الآن كي لا يُكتب فيه شيءٌ يضيع.
   إن تراجعت عن النقل:  docker compose start web scheduler

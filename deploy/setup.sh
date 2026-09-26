@@ -11,6 +11,9 @@
 #
 # وفي النقل: .env والقاعدة من الحزمة بدل الأسرار الجديدة والزرع — فالمفتاح نفسه
 # (روابط QR المطبوعة تعمل)، والحسابات نفسها، والجلسات نفسها.
+#
+# وخلف Cloudflare (README: «خلف Cloudflare»): شهادة المصدر منها في
+# certs/origin.pem ومفتاحها في certs/origin.key قبل التشغيل.
 
 set -euo pipefail
 
@@ -36,6 +39,21 @@ buffer_pool() {
     echo "${pool_mb}M"
 }
 
+# شهادة Cloudflare للمصدر: موجودة، ومفتاحها لها، وتشمل كل النطاقات الفرعية.
+# خطأٌ هنا يظهر الآن برسالة، لا لاحقاً خطأ 526 في كل صفحة
+check_origin_cert() {
+    local domain=$1
+    [ -s certs/origin.pem ] && [ -s certs/origin.key ] \
+        || die "ضع شهادة Cloudflare للمصدر في deploy/certs/origin.pem ومفتاحها في deploy/certs/origin.key (README: «خلف Cloudflare»)، ثم أعد."
+    openssl x509 -in certs/origin.pem -noout 2>/dev/null \
+        || die "certs/origin.pem ليست شهادة. الصق نصّ «Origin Certificate» كاملاً من BEGIN إلى END."
+    [ "$(openssl x509 -in certs/origin.pem -noout -pubkey | sha256sum)" = "$(openssl pkey -in certs/origin.key -pubout 2>/dev/null | sha256sum)" ] \
+        || die "certs/origin.key ليس مفتاح هذه الشهادة. الصق «Private Key» الذي ظهر معها."
+    openssl x509 -in certs/origin.pem -noout -ext subjectAltName | grep -qF "DNS:*.$domain" \
+        || die "الشهادة لا تشمل *.$domain: أنشئها في Cloudflare لـ $domain و*.$domain معاً."
+    chmod 600 certs/origin.key
+}
+
 # ── ١. Docker ──
 if ! command -v docker > /dev/null || ! docker compose version > /dev/null 2>&1; then
     say "تثبيت Docker…"
@@ -58,6 +76,13 @@ if [ -n "$restore" ]; then
 
     install -m 600 "$work/.env" .env
     sed -i "s/^DB_BUFFER_POOL=.*/DB_BUFFER_POOL=$(buffer_pool)/" .env
+
+    # خلف Cloudflare: شهادة المصدر في الحزمة، فالخادم الجديد خلفها بلا إصدارٍ جديد
+    if [ -d "$work/certs" ]; then
+        mkdir -p certs
+        cp -r "$work/certs/." certs/
+        chmod 600 certs/origin.key 2>/dev/null || true
+    fi
     say "الإعداد من الحزمة: $(grep -E '^DOMAIN=' .env | cut -d= -f2-)"
 elif [ ! -f .env ]; then
     read -rp "النطاق الأساسي (مثل wahaj.iq): " domain
@@ -66,6 +91,12 @@ elif [ ! -f .env ]; then
 
     read -rp "بريدٌ لتنبيهات شهادات HTTPS: " email
     [[ "$email" == *@*.* ]] || die "بريدٌ غير صحيح: $email"
+
+    cloudflare=""
+    read -rp "هل النطاق خلف Cloudflare (السحابة البرتقالية)؟ [نعم/لا]: " behind
+    case "${behind,,}" in
+        نعم|ن|y|yes) cloudflare=1; check_origin_cert "$domain" ;;
+    esac
 
     umask 077
     cat > .env <<ENV
@@ -80,6 +111,11 @@ BACKUP_KEEP_DAYS=14
 BACKUP_REMOTE=
 ENV
     umask 022
+
+    if [ -n "$cloudflare" ]; then
+        echo "CADDYFILE=Caddyfile.cloudflare" >> .env
+        ./cloudflare-ranges.sh || die "تعذّر جلب عناوين Cloudflare من cloudflare.com/ips. تأكّد من اتصال الخادم ثم أعد: rm .env && sudo ./setup.sh"
+    fi
     say "كُتب deploy/.env. احفظ نسخةً منه خارج الخادم: فيه مفتاح التطبيق الذي تُوقَّع به روابط التتبّع المطبوعة على الوصولات."
 fi
 
@@ -125,13 +161,24 @@ chmod 644 /etc/cron.d/zajel-backup
 domain=$(grep -E '^DOMAIN=' .env | cut -d= -f2-)
 ip=$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
 
+if grep -q '^CADDYFILE=Caddyfile.cloudflare' .env; then
+    dns_records="  في Cloudflare ← DNS، والسحابة برتقالية (Proxied) للسجلّين:
+    A   @   →  $ip
+    A   *   →  $ip
+  وفي SSL/TLS ← Overview: Full (strict).
+  وجدار الحماية عند المزوّد: ٨٠ و٤٤٣ من عناوين Cloudflare وحدها (README)."
+else
+    dns_records="  عند مزوّد النطاق:
+    A   $domain      →  $ip
+    A   *.$domain    →  $ip"
+fi
+
 if [ -n "$restore" ]; then
     say "تمّ النقل."
     cat <<DONE
 
-  الآن غيّر سجلّي DNS عند مزوّد النطاق إلى هذا الخادم:
-    A   $domain      →  $ip
-    A   *.$domain    →  $ip
+  الآن غيّر سجلّي DNS إلى هذا الخادم:
+$dns_records
 
   بعد دقائق يفتح النظام من هنا بكل بياناته وحساباته، وتُصدَر الشهادات وحدها.
   تأكّد: ادخل https://admin.$domain/admin/login وافتح آخر شحنةٍ في شركة.
@@ -148,9 +195,8 @@ fi
 say "تمّ."
 cat <<DONE
 
-  سجلّات DNS المطلوبة عند مزوّد النطاق (إن لم تُضَف بعد):
-    A   $domain      →  $ip
-    A   *.$domain    →  $ip
+  سجلّات DNS المطلوبة (إن لم تُضَف بعد):
+$dns_records
 
   لوحة المنصّة:  https://admin.$domain/admin/login
   ومنها «تسجيل شركة»؛ فيعمل نظامها على  https://<نطاقها>.$domain

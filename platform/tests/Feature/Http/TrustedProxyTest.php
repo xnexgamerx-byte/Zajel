@@ -24,11 +24,11 @@ class TrustedProxyTest extends TestCase
         ]));
     }
 
-    private function probe(): string
+    private function probe(string $from = '10.0.0.7', string $forwardedFor = '203.0.113.9'): string
     {
-        return $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.7'])
+        return $this->withServerVariables(['REMOTE_ADDR' => $from])
             ->withHeaders([
-                'X-Forwarded-For'   => '203.0.113.9',
+                'X-Forwarded-For'   => $forwardedFor,
                 'X-Forwarded-Proto' => 'https',
                 'X-Forwarded-Host'  => 'other.zajel.iq',
             ])
@@ -48,5 +48,25 @@ class TrustedProxyTest extends TestCase
         config(['trustedproxy.proxies' => '*']);
 
         $this->assertSame('203.0.113.9|https|barq.zajel.iq', $this->probe());
+    }
+
+    public function test_an_empty_setting_trusts_no_proxy(): void
+    {
+        // compose يمرّره فارغاً على الخادم المكشوف
+        config(['trustedproxy.proxies' => '']);
+
+        $this->assertSame('10.0.0.7|http|barq.zajel.iq', $this->probe());
+    }
+
+    public function test_behind_cloudflare_only_its_ranges_are_trusted(): void
+    {
+        // deploy/cloudflare-ranges.sh: عناوين Cloudflare بفواصل
+        config(['trustedproxy.proxies' => '173.245.48.0/20,162.158.0.0/15,2400:cb00::/32']);
+
+        // من Cloudflare: الزائر آخر ما أضافته، لا أوّل ما كتبه هو في الرأس
+        $this->assertSame('203.0.113.9|https|barq.zajel.iq', $this->probe('162.158.1.1', '6.6.6.6, 203.0.113.9'));
+
+        // من غيرها — من وصل عنوان الخادم مباشرةً — الرأس لا يُصدَّق
+        $this->assertSame('198.51.100.4|http|barq.zajel.iq', $this->probe('198.51.100.4', '203.0.113.9'));
     }
 }

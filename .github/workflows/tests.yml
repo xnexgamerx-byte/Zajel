@@ -160,6 +160,49 @@ jobs:
             'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e "SELECT COUNT(*) FROM zajel.governorates"')
           test "$count" -gt 0
 
+      # خلف Cloudflare: شهادة مصدرٍ ذاتية التوقيع مكان شهادتها، وشبكة Docker مكان
+      # عناوينها. Caddy يقدّم الشهادة بلا Let's Encrypt، والتطبيق يعرف الزائر من
+      # آخر عنوانٍ أضافه الوكيل لا من أوّل ما كتبه الزائر، والنقل يحمل الشهادة
+      - name: Behind Cloudflare
+        run: |
+          sudo mkdir -p certs
+          sudo openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=zajel.test" \
+            -addext "subjectAltName=DNS:zajel.test,DNS:*.zajel.test" \
+            -keyout certs/origin.key -out certs/origin.pem
+          sudo chmod 644 certs/origin.pem
+          sudo tee -a .env > /dev/null <<'ENV'
+          CADDYFILE=Caddyfile.cloudflare
+          CLOUDFLARE_RANGES="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.1/32"
+          TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32"
+          ENV
+          sudo docker compose up -d --wait
+
+          check() {
+            at() { curl -s --cacert certs/origin.pem --resolve "$1:443:127.0.0.1" -o /dev/null -w '%{http_code}' "https://$1$2"; }
+            test "$(at admin.zajel.test /admin/login)" = 200
+            test "$(at zajel.test /admin/login)" = 404
+
+            # محاولة دخولٍ فاشلة بعنوانٍ مزوَّر في أوّل الرأس: الحدّ يُحسب على الحقيقيّ
+            jar=$(mktemp)
+            token=$(curl -s --cacert certs/origin.pem --resolve admin.zajel.test:443:127.0.0.1 -c "$jar" -b "$jar" \
+              https://admin.zajel.test/admin/login | grep -o 'name="_token" value="[^"]*"' | head -n 1 | cut -d'"' -f4)
+            curl -s --cacert certs/origin.pem --resolve admin.zajel.test:443:127.0.0.1 -c "$jar" -b "$jar" -o /dev/null \
+              -H "X-Forwarded-For: 6.6.6.6, $1" --data-urlencode "_token=$token" \
+              -d 'phone=07700000000&password=wrong-password' https://admin.zajel.test/admin/login
+            seen=$(sudo docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e \
+              "SELECT COUNT(*) FROM zajel.cache WHERE \`key\` LIKE \"%admin-login:'"$1"'\""')
+            test "$seen" = 1
+          }
+          check 203.0.113.9
+
+          sudo ./export.sh
+          bundle=$(sudo sh -c 'ls -t /var/backups/zajel/zajel-move-*.tar.gz | head -n 1')
+          sudo tar -tzf "$bundle" | grep -q 'certs/origin.key'
+          sudo docker compose down -v
+          sudo rm -rf .env .installed certs
+          sudo ./setup.sh --restore "$bundle" < /dev/null
+          check 203.0.113.10
+
       # صورة Railway (آخر مرحلةٍ في Dockerfile) كما يشغّلها: قاعدةٌ اسمها
       # railway، والمتغيّرات الأربعة وحدها من deploy/railway.md
       - name: Railway image

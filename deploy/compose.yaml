@@ -20,6 +20,8 @@ x-app-env: &app-env
   DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD مفقود في .env}
   SESSION_DRIVER: database
   SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+  # خلف Cloudflare وحده: عناوينها (cloudflare-ranges.sh). فارغٌ = لا وكيل يُصدَّق
+  TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
   CACHE_STORE: database
   # لا مهامّ مؤجَّلة في النظام: ما يُرسَل يُرسَل في الطلب نفسه، فلا عامل طابور يُنسى
   QUEUE_CONNECTION: sync
@@ -80,8 +82,11 @@ services:
       DOMAIN: ${DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL مفقود في .env}
       CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
+      CLOUDFLARE_RANGES: ${CLOUDFLARE_RANGES:-}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Caddyfile للخادم المكشوف، وCaddyfile.cloudflare خلف Cloudflare بشهادتها في certs/
+      - ./${CADDYFILE:-Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
