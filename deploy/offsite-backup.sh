@@ -30,10 +30,25 @@ err=$(mktemp)
 trap 'rm -f "$trial" "$err"' EXIT
 export RCLONE_CONFIG=$trial
 
-if ! command -v rclone > /dev/null; then
-    say "تثبيت rclone…"
-    { apt-get update -q && apt-get install -y -q rclone; } > /dev/null \
-        || die "تعذّر تثبيت rclone. جرّب: apt-get install rclone"
+# rclone من rclone.org لا من Ubuntu: نسخة Ubuntu (1.60، من ٢٠٢٢) ترسل مع كل رفعٍ
+# رأس x-amz-acl، وR2 بلا ACL فيردّه بـ 501 NotImplemented. و1.75 لا ترسله لـ R2.
+# الحزمة تحلّ محلّ نسخة Ubuntu في /usr/bin، حيث يجدها cron كل ليلة
+rclone_ok() {
+    local v
+    v=$(rclone version 2>/dev/null | head -n 1 | grep -oE 'v[0-9]+\.[0-9]+' | tr -d v)
+    [ -n "$v" ] && { [ "${v%%.*}" -gt 1 ] || [ "${v#*.}" -ge 75 ]; }
+}
+if ! rclone_ok; then
+    say "تثبيت rclone من rclone.org…"
+    deb=$(mktemp --suffix=.deb)
+    if ! curl -fsSL --max-time 300 -o "$deb" \
+            "https://downloads.rclone.org/rclone-current-linux-$(dpkg --print-architecture).deb" \
+        || ! dpkg -i "$deb" > /dev/null; then
+        rm -f "$deb"
+        die "تعذّر تثبيت rclone من rclone.org. تأكّد من اتصال الخادم ثم أعد."
+    fi
+    rm -f "$deb"
+    rclone_ok || die "rclone بعد التثبيت: $(rclone version 2>/dev/null | head -n 1). المطلوب 1.75 أو أحدث."
 fi
 
 # ── ما يُلصق من Cloudflare ──
@@ -91,8 +106,13 @@ file=$(find "$dir" -maxdepth 1 -name 'zajel-*.sql.gz' -printf '%T@ %p\n' | sort 
 [ -n "$file" ] || die "لم تُصنع نسخة في $dir."
 
 say "رفع $(basename "$file") ($(du -h "$file" | cut -f1))…"
-rclone copy "$file" "$remote:$bucket" "${quick[@]}" 2> "$err" \
-    || { tail -n 2 "$err" >&2; die "تعذّر الرفع إلى R2 ($(rclone version | head -n 1))."; }
+if ! rclone copy "$file" "$remote:$bucket" "${quick[@]}" 2> "$err"; then
+    tail -n 2 "$err" >&2
+    # ما ردّه R2 بالضبط، فيُعرف السبب من صورةٍ واحدة (rclone يحجب المفتاح من الطلب)
+    rclone copy "$file" "$remote:$bucket" "${quick[@]}" --dump responses 2>&1 \
+        | sed -E 's#^[0-9/ :]+DEBUG : ##' | grep -E '^(PUT|HEAD|GET) |^HTTP/|<Code>|<Message>' | head -n 12 >&2 || true
+    die "تعذّر الرفع إلى R2 ($(rclone version | head -n 1))."
+fi
 rclone check "$dir" "$remote:$bucket" --one-way --include "$(basename "$file")" "${quick[@]}" 2> "$err" \
     || { tail -n 2 "$err" >&2; die "النسخة في R2 لا تطابق التي هنا."; }
 
