@@ -64,12 +64,13 @@ if [ -z "$bucket" ]; then
 fi
 [[ "$bucket" =~ ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$ ]] || die "اسم مخزنٍ غير صحيح: $bucket"
 
-# no_check_bucket: المفتاح لمخزنٍ واحد لا يرى قائمة المخازن ولا يُنشئها
+# no_check_bucket: المفتاح لمخزنٍ واحد لا يرى قائمة المخازن ولا يُنشئها. ولا acl:
+# R2 بلا ACL (مخازنه خاصّةٌ دائماً)، ورأس x-amz-acl يردّ الرفعَ بـ 501 NotImplemented
 configure() {
     rclone config delete "$remote" > /dev/null 2>&1 || true
     rclone config create "$remote" s3 provider=Cloudflare \
         access_key_id="$key_id" secret_access_key="$secret" endpoint="$endpoint" \
-        region=auto acl=private no_check_bucket=true --non-interactive > /dev/null \
+        region=auto no_check_bucket=true --non-interactive > /dev/null \
         || die "تعذّر ضبط rclone."
 }
 configure
@@ -91,7 +92,7 @@ file=$(find "$dir" -maxdepth 1 -name 'zajel-*.sql.gz' -printf '%T@ %p\n' | sort 
 
 say "رفع $(basename "$file") ($(du -h "$file" | cut -f1))…"
 rclone copy "$file" "$remote:$bucket" "${quick[@]}" 2> "$err" \
-    || { tail -n 2 "$err" >&2; die "تعذّر الرفع إلى R2."; }
+    || { tail -n 2 "$err" >&2; die "تعذّر الرفع إلى R2 ($(rclone version | head -n 1))."; }
 rclone check "$dir" "$remote:$bucket" --one-way --include "$(basename "$file")" "${quick[@]}" 2> "$err" \
     || { tail -n 2 "$err" >&2; die "النسخة في R2 لا تطابق التي هنا."; }
 
