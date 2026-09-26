@@ -3,9 +3,12 @@
 return [
     /*
      | النطاق الأساسي الذي تتفرّع منه أنظمة الشركات:
-     | zajel.zajel.iq · barq.zajel.iq · admin.zajel.iq
+     | zajel.wahaj.iq · barq.wahaj.iq · admin.wahaj.iq
+     |
+     | بأحرفٍ صغيرة وبلا مسافاتٍ أو علامات تنصيص: يُكتب في متغيّرات
+     | الاستضافة باليد، والمضيف يُقارَن به حرفاً بحرف.
      */
-    'tenant_domain' => env('ZAJEL_TENANT_DOMAIN', 'zajel.iq'),
+    'tenant_domain' => strtolower(trim((string) env('ZAJEL_TENANT_DOMAIN', 'wahaj.iq'), " \t\n\r\"'")),
 
     /*
      | نظامٌ بلا نطاق: عنوان Railway المجاني (xxx.up.railway.app) عنوانٌ
@@ -13,7 +16,7 @@ return [
      | فرعياً لـ tenant_domain — هذه الشركة وحدها، ولوحة المنصّة تحت /admin.
      | فارغٌ (الافتراضي): لا شركة إلا بنطاقها الفرعي.
      */
-    'default_company' => env('ZAJEL_DEFAULT_COMPANY'),
+    'default_company' => strtolower(trim((string) env('ZAJEL_DEFAULT_COMPANY'), " \t\n\r\"'")),
 
     /*
      | العملة — دينار عراقي بلا كسور. كل المبالغ BIGINT بالدينار الصحيح.

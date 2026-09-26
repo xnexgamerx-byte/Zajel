@@ -252,6 +252,8 @@ class MerchantPortalTest extends TestCase
             ->get($this->host().'/portal')
             ->assertOk()
             ->assertSee('الزاجل')              // علامة الناقل لا علامة المنصّة
+            ->assertSee('<span class="brand-tile">ز</span>', false)
+            ->assertDontSee('وهج')
             ->assertSee('متجر M0001')
             ->assertSee('زبون ألفا');
     }

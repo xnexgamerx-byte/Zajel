@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# تثبيت زاجل على خادمٍ جديد (Ubuntu أو Debian). من مجلّد deploy:
+# تثبيت وهج العراق على خادمٍ جديد (Ubuntu أو Debian). من مجلّد deploy:
 #
 #   sudo ./setup.sh                            تثبيتٌ جديد
 #   sudo ./setup.sh --restore zajel-move-….tar.gz   نقلٌ من خادمٍ آخر (export.sh)
@@ -45,7 +45,7 @@ fi
 # ── ٢. الإعداد والأسرار ──
 if [ -n "$restore" ]; then
     # نظامٌ يعمل هنا لا يُمحى بخطأ في اسم ملف
-    [ -f .installed ] && die "هذا الخادم يعمل عليه زاجل بالفعل، والاسترجاع يمحو قاعدته. الاسترجاع لخادمٍ جديد فقط."
+    [ -f .installed ] && die "هذا الخادم يعمل عليه النظام بالفعل، والاسترجاع يمحو قاعدته. الاسترجاع لخادمٍ جديد فقط."
 
     work=$(mktemp -d)
     trap 'rm -rf "$work"' EXIT
@@ -60,7 +60,7 @@ if [ -n "$restore" ]; then
     sed -i "s/^DB_BUFFER_POOL=.*/DB_BUFFER_POOL=$(buffer_pool)/" .env
     say "الإعداد من الحزمة: $(grep -E '^DOMAIN=' .env | cut -d= -f2-)"
 elif [ ! -f .env ]; then
-    read -rp "النطاق الأساسي (مثل zajel.iq): " domain
+    read -rp "النطاق الأساسي (مثل wahaj.iq): " domain
     domain=$(printf '%s' "$domain" | tr '[:upper:]' '[:lower:]' | sed 's#^https\?://##; s#/.*##; s#^www\.##')
     [[ "$domain" =~ ^[a-z0-9-]+(\.[a-z0-9-]+)+$ ]] || die "نطاقٌ غير صحيح: $domain"
 

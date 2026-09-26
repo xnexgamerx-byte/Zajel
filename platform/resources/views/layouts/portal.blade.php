@@ -11,7 +11,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     {{-- البوابة تحمل علامة شركة التوصيل لا علامة المنصّة: التاجر
-         يتعامل مع "الزاجل" لا مع "زاجل المنصّة". --}}
+         يتعامل مع "الزاجل" لا مع "وهج" المنصّة. --}}
     <style>:root { --brand: {{ $company->primary_color }}; }</style>
 </head>
 <body class="min-h-screen antialiased">
@@ -32,7 +32,7 @@
 <header class="ds-header">
     <div class="mx-auto flex max-w-screen-xl items-center gap-3 px-4 py-3">
         <a href="{{ route('portal.dashboard') }}" class="flex min-w-0 items-center gap-3">
-            <span class="brand-tile">ز</span>
+            <span class="brand-tile">{{ $company->initial() }}</span>
             <span class="min-w-0">
                 <span class="block truncate font-heading text-lg leading-tight font-bold text-aeblack-900">{{ $company->name }}</span>
                 <span class="block text-xs text-ink-500">بوابة التاجر</span>

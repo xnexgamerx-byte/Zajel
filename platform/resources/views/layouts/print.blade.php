@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'طباعة') — {{ $company->name ?? 'زاجل' }}</title>
+    <title>@yield('title', 'طباعة') — {{ $company->name ?? 'وهج العراق' }}</title>
 
     @include('partials.fonts')
 
@@ -30,7 +30,7 @@
 <main class="mx-auto my-6 max-w-[210mm] bg-white p-8 shadow-sm print:my-0 print:max-w-none print:p-0 print:shadow-none">
     <header class="mb-6 flex items-start justify-between gap-4 border-b-2 border-ink-900 pb-4">
         <div>
-            <h1 class="text-2xl font-black">{{ $company->name ?? 'زاجل' }}</h1>
+            <h1 class="text-2xl font-black">{{ $company->name ?? 'وهج العراق' }}</h1>
             <p class="mt-0.5 text-sm text-ink-600">@yield('subtitle')</p>
         </div>
         <div class="text-end text-xs text-ink-600">

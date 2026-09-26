@@ -12,6 +12,16 @@
         <p class="mt-1 font-mono text-sm text-ink-500" dir="ltr">
             {{ $company->slug }}.{{ config('zajel.tenant_domain') }}
         </p>
+        {{-- بلا نطاق: نطاقها الفرعي لا يعمل بعد، ونظامها على هذا العنوان --}}
+        @if ($company->slug === \App\Support\Tenancy\DefaultCompany::slug()
+            && \App\Support\Tenancy\DefaultCompany::covers(request()->getHost()))
+            <p class="mt-1 text-sm text-ink-700">
+                نظامها الآن على
+                <a href="{{ request()->getSchemeAndHttpHost() }}" target="_blank" rel="noopener"
+                   class="num font-semibold text-[var(--brand)] hover:underline">{{ request()->getHost() }}</a>
+                حتى يُربط النطاق.
+            </p>
+        @endif
     </div>
 
     <div class="flex flex-wrap gap-2">

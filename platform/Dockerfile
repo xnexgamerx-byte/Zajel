@@ -65,7 +65,7 @@ COPY docker/php-fpm.railway.conf /etc/php/8.5/fpm/pool.d/zzz-railway.conf
 COPY docker/railway-start.sh /usr/local/bin/zajel-railway
 
 # خلف وكيل Railway: عنوان الزائر من X-Forwarded-For (config/trustedproxy.php)
-ENV APP_NAME=زاجل \
+ENV APP_NAME="وهج العراق" \
     APP_ENV=production \
     APP_DEBUG=false \
     APP_LOCALE=ar \

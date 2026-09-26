@@ -16,7 +16,7 @@
 
 <header class="ds-header border-b border-ink-200">
     <div class="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
-        <span class="brand-tile">ز</span>
+        <span class="brand-tile">{{ $company->initial() }}</span>
         <div class="min-w-0">
             <div class="truncate font-heading text-lg leading-tight font-bold text-aeblack-900">{{ $company->name }}</div>
             <div class="text-xs text-ink-500">تتبّع الشحنات</div>

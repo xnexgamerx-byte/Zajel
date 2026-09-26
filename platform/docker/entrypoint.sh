@@ -35,6 +35,13 @@ if ! php -r '$k = (string) getenv("APP_KEY"); if (str_starts_with($k, "base64:")
     exit 1
 fi
 
+# والنطاق يُكتب في Variables باليد: « Wahaj.iq » هو wahaj.iq. ومسافةٌ فيه تجعل
+# APP_URL عنواناً مكسوراً يُسقط كل أمرٍ بـ «Host is malformed» — وكذا في config/zajel.php
+if [ -n "${ZAJEL_TENANT_DOMAIN:-}" ]; then
+    ZAJEL_TENANT_DOMAIN=$(printf '%s' "$ZAJEL_TENANT_DOMAIN" | tr -d "\"' \r\n\t" | tr '[:upper:]' '[:lower:]')
+    export ZAJEL_TENANT_DOMAIN
+fi
+
 # Railway: الموقع بلا APP_URL يُبنى من النطاق
 if [ -z "${APP_URL:-}" ] && [ -n "${ZAJEL_TENANT_DOMAIN:-}" ]; then
     export APP_URL="https://admin.${ZAJEL_TENANT_DOMAIN}"
@@ -50,7 +57,7 @@ case "$1" in
         if [ "$1" = "zajel-railway" ] && [ -z "${DB_URL:-}" ] && [ -z "${DB_HOST:-}" ]; then
             if [ -n "${DB_URL+set}" ]; then
                 echo "DB_URL وصل فارغاً: مرجعه لم يجد خدمة قاعدة البيانات." >&2
-                echo "في المشروع خدمة MySQL باسم MySQL تماماً، وفي متغيّرات زاجل:" >&2
+                echo "في المشروع خدمة MySQL باسم MySQL تماماً، وفي متغيّرات ${RAILWAY_SERVICE_NAME:-هذه الخدمة}:" >&2
                 echo 'DB_URL=${{MySQL.MYSQL_URL}}' >&2
                 echo "وإن كان اسم خدمة القاعدة غير ذلك فضعه مكان MySQL." >&2
             else

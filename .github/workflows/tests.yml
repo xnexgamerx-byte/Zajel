@@ -167,8 +167,9 @@ jobs:
           docker build -t zajel-railway ../platform
           docker network create rw
           docker run -d --name rwdb --network rw -e MYSQL_DATABASE=railway -e MYSQL_ROOT_PASSWORD=ci mysql:8.4
+          # والنطاق كما قد يُلصَق في Variables: بمسافاتٍ وأحرفٍ كبيرة
           docker run -d --name rwweb --network rw --restart on-failure -p 8080:8080 -e PORT=8080 \
-            -e APP_KEY="base64:$(openssl rand -base64 32)" -e ZAJEL_TENANT_DOMAIN=zajel.test \
+            -e APP_KEY="base64:$(openssl rand -base64 32)" -e "ZAJEL_TENANT_DOMAIN= Zajel.TEST " \
             -e DB_URL=mysql://root:ci@rwdb:3306/railway \
             -e ZAJEL_ADMIN_PHONE=07701234567 -e ZAJEL_ADMIN_PASSWORD=ci-admin-secret zajel-railway
           for _ in $(seq 1 90); do curl -sf -o /dev/null http://127.0.0.1:8080/up && break; sleep 2; done

@@ -59,6 +59,12 @@ class Company extends Model
         return $this->subscriptions()->whereIn('status', ['trialing', 'active']);
     }
 
+    /** حرف الشعار: أوّل حرفٍ من الاسم بعد «ال» — «ز» للزاجل، و«ب» للبرق. */
+    public function initial(): string
+    {
+        return mb_substr((string) preg_replace('/^ال(?=\S)/u', '', trim((string) $this->name)), 0, 1);
+    }
+
     public function isOperational(): bool
     {
         return in_array($this->status, ['trial', 'active'], true);

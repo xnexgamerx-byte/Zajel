@@ -4,13 +4,14 @@ namespace App\Http\Middleware;
 
 use App\Models\Company;
 use App\Models\Scopes\CurrentCompanyScope;
+use App\Support\Tenancy\DefaultCompany;
 use App\Support\Tenancy\Tenancy;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * يحدّد الشركة الحالية من النطاق الفرعي: zajel.zajel.iq -> الزاجل.
+ * يحدّد الشركة الحالية من النطاق الفرعي: zajel.wahaj.iq -> الزاجل.
  *
  * وفي التطوير المحلي حيث لا نطاقات فرعية، يُقبل ?company=slug مرّة واحدة
  * ثم يُحفَظ في الجلسة — هذا مسار تطوير فقط ولا يعمل في الإنتاج.
@@ -81,15 +82,14 @@ class IdentifyTenant
 
     /**
      * الشركة الافتراضية لعنوانٍ ليس من نطاقاتنا الفرعية — عنوان Railway
-     * المجاني مثلاً. ونطاقٌ فرعيّ لشركةٍ غير موجودة (barqq.zajel.iq
+     * المجاني مثلاً. ونطاقٌ فرعيّ لشركةٍ غير موجودة (barqq.wahaj.iq
      * مكتوباً خطأً) لا يقع عليها: يبقى ٤٠٤، لا نظامَ شركةٍ أخرى.
      */
     protected function fromDefault(Request $request): ?Company
     {
-        $slug = (string) config('zajel.default_company');
-        $base = (string) config('zajel.tenant_domain');
+        $slug = DefaultCompany::slug();
 
-        if ($slug === '' || ($base !== '' && str_ends_with($request->getHost(), '.'.$base))) {
+        if ($slug === '' || ! DefaultCompany::covers($request->getHost())) {
             return null;
         }
 

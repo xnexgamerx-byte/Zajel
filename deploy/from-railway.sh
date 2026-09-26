@@ -5,7 +5,7 @@
 #   sudo ./from-railway.sh
 #
 # يسأل أربعة: رابط قاعدة Railway العامّ (MYSQL_PUBLIC_URL من متغيّرات خدمة
-# MySQL)، وAPP_KEY (من متغيّرات خدمة زاجل)، والنطاق، والبريد. ثم ينسخ القاعدة
+# MySQL)، وAPP_KEY (من متغيّرات خدمة التطبيق)، والنطاق، والبريد. ثم ينسخ القاعدة
 # ويصنع حزمة نقلٍ كالتي يصنعها export.sh، ويكمل بـ setup.sh --restore.
 #
 # المفتاح نفسه لا مفتاحٌ جديد: رموز QR على الوصولات المطبوعة تبقى تعمل.
@@ -18,7 +18,7 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 die() { printf '\n\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" = "0" ] || die "شغّله بصلاحية المدير: sudo ./from-railway.sh"
-[ -f .installed ] && die "هذا الخادم يعمل عليه زاجل بالفعل. النقل لخادمٍ جديد فقط."
+[ -f .installed ] && die "هذا الخادم يعمل عليه النظام بالفعل. النقل لخادمٍ جديد فقط."
 
 if ! command -v docker > /dev/null || ! docker compose version > /dev/null 2>&1; then
     say "تثبيت Docker…"
@@ -32,11 +32,11 @@ read -rp "الرابط: " url
 db_user=${BASH_REMATCH[1]} db_pass=${BASH_REMATCH[2]} db_host=${BASH_REMATCH[3]}
 db_port=${BASH_REMATCH[4]} db_name=${BASH_REMATCH[5]}
 
-say "من Railway: خدمة زاجل ← Variables ← APP_KEY"
+say "من Railway: خدمة التطبيق ← Variables ← APP_KEY"
 read -rp "APP_KEY: " app_key
 [[ "$app_key" == base64:* ]] || die "APP_KEY يبدأ بـ base64:"
 
-read -rp "النطاق الأساسي (مثل zajel.iq): " domain
+read -rp "النطاق الأساسي (مثل wahaj.iq): " domain
 domain=$(printf '%s' "$domain" | tr '[:upper:]' '[:lower:]' | sed 's#^https\?://##; s#/.*##; s#^www\.##')
 [[ "$domain" =~ ^[a-z0-9-]+(\.[a-z0-9-]+)+$ ]] || die "نطاقٌ غير صحيح: $domain"
 

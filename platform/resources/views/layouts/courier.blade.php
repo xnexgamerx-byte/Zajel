@@ -16,7 +16,7 @@
 
 <header class="ds-header sticky top-0 z-30 border-b border-ink-200">
     <div class="flex h-16 items-center gap-3 px-4">
-        <span class="brand-tile size-10 text-base">ز</span>
+        <span class="brand-tile size-10 text-base">{{ $company->initial() }}</span>
         <div class="min-w-0 flex-1">
             <div class="truncate font-heading text-[15px] leading-tight font-bold text-aeblack-900">{{ $courier->name }}</div>
             <div class="truncate text-xs text-ink-500">{{ $company->name }}</div>

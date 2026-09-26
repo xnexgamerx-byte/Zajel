@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'لوحة زاجل') — إدارة المنصّة</title>
+    <title>@yield('title', 'إدارة المنصّة') — وهج العراق</title>
 
     @include('partials.fonts')
 
@@ -19,9 +19,9 @@
 <header class="ds-header">
     <div class="shell flex items-center gap-3 py-3">
         <a href="{{ route('admin.dashboard') }}" class="flex min-w-0 items-center gap-3">
-            <span class="brand-tile">ز</span>
+            <span class="brand-tile">و</span>
             <span class="min-w-0">
-                <span class="block font-heading text-lg leading-tight font-bold text-aeblack-900">زاجل</span>
+                <span class="block font-heading text-lg leading-tight font-bold text-aeblack-900">وهج العراق</span>
                 <span class="block text-xs text-ink-500">إدارة المنصّة</span>
             </span>
         </a>
@@ -66,6 +66,35 @@
         <div class="alert alert-ok mb-5" role="status">
             <x-icon name="check" class="size-5 shrink-0"/>
             <span class="font-medium">{{ session('success') }}</span>
+        </div>
+    @endif
+
+    {{-- بلا نطاق: هذا العنوان يفتح الشركة الافتراضية. وإن لم تُضبَط أو لم تُسجَّل
+         يرى زوّاره «الصفحة غير موجودة» ولا يعرف أحدٌ لماذا — فالسبب هنا.
+         (وفي التطوير تُختار الشركة بـ ?company= فلا معنى له) --}}
+    @php
+        $defaultSlug = \App\Support\Tenancy\DefaultCompany::slug();
+        $freeAddressIdle = ! app()->environment('local', 'testing')
+            && \App\Support\Tenancy\DefaultCompany::covers(request()->getHost())
+            && ($defaultSlug === '' || ! \App\Models\Company::where('slug', $defaultSlug)->exists());
+    @endphp
+    @if ($freeAddressIdle)
+        <div class="alert alert-bad mb-5" role="alert">
+            <x-icon name="alert" class="size-5 shrink-0"/>
+            <div>
+                <div class="font-semibold">
+                    العنوان <span class="num">{{ request()->getHost() }}</span> لا يفتح نظام أيّ شركة: يرى زوّاره «الصفحة غير موجودة».
+                </div>
+                <p class="mt-1">
+                    @if ($defaultSlug === '')
+                        المتغيّر <span class="num">ZAJEL_DEFAULT_COMPANY</span> لم يصل إلى الخدمة.
+                        أضفه في متغيّراتها بالنطاق الفرعي للشركة، ثم Deploy.
+                    @else
+                        <span class="num">ZAJEL_DEFAULT_COMPANY={{ $defaultSlug }}</span> ولا شركة بهذا النطاق الفرعي.
+                        سجّلها به، أو اجعل المتغيّر نطاق شركةٍ مسجّلة ثم Deploy.
+                    @endif
+                </p>
+            </div>
         </div>
     @endif
 

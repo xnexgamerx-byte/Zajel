@@ -4,8 +4,8 @@
 @section('content')
 <div class="mx-auto mt-6 w-full max-w-md sm:mt-14">
     <div class="mb-8 text-center">
-        <div class="brand-tile mx-auto mb-5 size-16 rounded-xl text-2xl">ز</div>
-        <h1 class="page-title">إدارة منصّة زاجل</h1>
+        <div class="brand-tile mx-auto mb-5 size-16 rounded-xl text-2xl">و</div>
+        <h1 class="page-title">إدارة منصّة وهج العراق</h1>
         <p class="mt-1 text-sm text-ink-500">دخول مدراء المنصّة فقط</p>
     </div>
 

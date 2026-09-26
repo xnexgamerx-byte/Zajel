@@ -19,7 +19,7 @@ trait ImportsShipments
     public function template(ShipmentSheet $sheet): BinaryFileResponse
     {
         return response()
-            ->download($sheet->template(), 'قالب-شحنات-زاجل.xlsx')
+            ->download($sheet->template(), 'قالب-الشحنات.xlsx')
             ->deleteFileAfterSend();
     }
 

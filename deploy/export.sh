@@ -19,7 +19,7 @@ cd "$(dirname "$0")"
 die() { printf '\n\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" = "0" ] || die "شغّله بصلاحية المدير: sudo ./export.sh"
-[ -f .env ] || die "لا .env هنا: هذا ليس خادم زاجل مثبَّتاً."
+[ -f .env ] || die "لا .env هنا: هذا ليس خادماً مثبَّتاً عليه النظام."
 
 # الموقع يتوقّف، وقاعدة البيانات تبقى لتُنسَخ
 docker compose stop web scheduler

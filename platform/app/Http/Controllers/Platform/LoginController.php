@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Platform;
 
+use App\Http\Controllers\Concerns\RedirectsWithinArea;
 use App\Http\Controllers\Controller;
 use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
@@ -13,6 +14,8 @@ use Illuminate\View\View;
 
 class LoginController extends Controller
 {
+    use RedirectsWithinArea;
+
     public function show(): View
     {
         return view('platform.login');
@@ -55,7 +58,7 @@ class LoginController extends Controller
 
         Auth::user()->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
 
-        return redirect()->intended(route('admin.dashboard'));
+        return $this->intendedWithin($request, platform: true, home: route('admin.dashboard'));
     }
 
     public function destroy(Request $request): RedirectResponse

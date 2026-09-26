@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Http\Controllers\Concerns\RedirectsWithinArea;
 use App\Http\Controllers\Controller;
 use App\Enums\UserRole;
 use App\Support\Phone;
@@ -21,6 +22,8 @@ use Illuminate\View\View;
  */
 class LoginController extends Controller
 {
+    use RedirectsWithinArea;
+
     public function show(): View
     {
         return view('auth.login');
@@ -70,7 +73,7 @@ class LoginController extends Controller
             'last_login_ip' => $request->ip(),
         ])->save();
 
-        return redirect()->intended($this->homeFor(Auth::user()));
+        return $this->intendedWithin($request, platform: false, home: $this->homeFor(Auth::user()));
     }
 
     /** لكل دور بيته: التاجر بوابته، والموظّف لوحة العمليات. */

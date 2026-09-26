@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'زاجل') — {{ $company->name ?? 'زاجل' }}</title>
+    <title>@yield('title', 'وهج العراق') — {{ $company->name ?? 'وهج العراق' }}</title>
 
     @include('partials.fonts')
 
@@ -58,7 +58,7 @@
         @endif
 
         <a href="{{ route($staff ? 'dashboard' : 'shipments.index') }}" class="flex min-w-0 items-center gap-3">
-            <span class="brand-tile">ز</span>
+            <span class="brand-tile">{{ $company->initial() }}</span>
             <span class="min-w-0">
                 <span class="block truncate font-heading text-lg leading-tight font-bold text-aeblack-900">{{ $company->name }}</span>
                 <span class="block text-xs text-ink-500">نظام إدارة الشحنات</span>
