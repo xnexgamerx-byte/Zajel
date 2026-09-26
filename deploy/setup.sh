@@ -81,6 +81,8 @@ if [ -n "$restore" ]; then
     if [ -d "$work/certs" ]; then
         mkdir -p certs
         cp -r "$work/certs/." certs/
+        # الحزمة تُصنَع بـ umask 077: الشهادة علنية تعود مقروءة، والمفتاح سرّه وحده
+        chmod 644 certs/origin.pem 2>/dev/null || true
         chmod 600 certs/origin.key 2>/dev/null || true
     fi
     say "الإعداد من الحزمة: $(grep -E '^DOMAIN=' .env | cut -d= -f2-)"
