@@ -187,6 +187,10 @@ $dns_records
 
   ثم أوقف الخادم القديم بعد يومٍ أو يومين من العمل هنا بلا مشكلة.
 DONE
+    # مفتاح النسخة الخارجية في إعداد rclone على الخادم القديم، لا في الحزمة
+    if grep -qE '^BACKUP_REMOTE=.+' .env; then
+        echo "  والنسخة خارج الخادم تحتاج مفتاح R2 هنا:  sudo ./offsite-backup.sh"
+    fi
     # حزمةٌ صنعها from-railway.sh تُحذف وحدها؛ وما نُسخ باليد يُحذف باليد
     if [ -z "${ZAJEL_BUNDLE_IS_TEMP:-}" ]; then
         echo "  واحذف الحزمة، ففيها كل الأسرار:  rm $restore"

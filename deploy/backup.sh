@@ -18,7 +18,8 @@ envget() { grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- || true; }
 
 dir=$(envget BACKUP_DIR);       dir=${dir:-/var/backups/zajel}
 keep=$(envget BACKUP_KEEP_DAYS); keep=${keep:-14}
-remote=$(envget BACKUP_REMOTE)
+# BACKUP_REMOTE فارغاً في البيئة: نسخةٌ هنا وحدها (offsite-backup.sh يرفعها بنفسه)
+remote=${BACKUP_REMOTE-$(envget BACKUP_REMOTE)}
 
 mkdir -p "$dir"
 chmod 700 "$dir"

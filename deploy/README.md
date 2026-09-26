@@ -11,6 +11,7 @@ deploy/
 ├─ setup.sh      التثبيت الأول — مرّةً واحدة
 ├─ update.sh     التحديث لآخر نسخة (بنسخةٍ احتياطية قبله)
 ├─ backup.sh     النسخة الاحتياطية (كل ليلة تلقائياً)
+├─ offsite-backup.sh  نسخةٌ خارج الخادم، على Cloudflare R2
 ├─ export.sh     النقل إلى خادمٍ آخر — حزمةٌ واحدة بكل شيء
 ├─ from-railway.sh  من Railway إلى خادمٍ عادي
 ├─ railway.md    التشغيل على Railway
@@ -216,6 +217,8 @@ sudo docker compose up -d
 | ٥ | مزوّد النطاق | سجلّا DNS (النطاق و`*.`النطاق) ← عنوان الخادم الجديد |
 | ٦ | المتصفّح | ادخل لوحة المنصّة، وافتح آخر شحنةٍ في شركة. ثم احذف الحزمة من الجهازين (فيها كل الأسرار)، وأوقف القديم بعد يومٍ أو يومين بلا مشكلة |
 
+**ومفتاح R2 لا ينتقل** مع الحزمة: على الخادم الجديد `sudo ./offsite-backup.sh` به من مدير كلمات السرّ.
+
 **ينتقل كلّ شيء:** الشركات، والحسابات بكلمات مرورها، والجلسات (لا يُطلب من أحدٍ الدخول
 من جديد)، والشحنات، والمال، والإعدادات. **ورموز QR على الوصولات المطبوعة تبقى تعمل**:
 مفتاح التطبيق في الحزمة. والشهادات تُصدَر على الجديد وحدها.
@@ -255,15 +258,31 @@ tar -czf ../zajel-move.tar.gz .env database.sql.gz
 كل ليلة في `/var/backups/zajel`، ويُحفظ أربعة عشر يوماً (`BACKUP_KEEP_DAYS`).
 والسجلّ في `/var/log/zajel-backup.log`. ونسخةٌ يدوية في أيّ وقت: `sudo ./backup.sh`.
 
-**نسخةٌ على الخادم نفسه لا تنفع يوم يضيع الخادم.** لنسخةٍ خارجه (Google Drive،
-أو Backblaze، أو خادمٍ آخر) عبر [rclone](https://rclone.org):
+**نسخةٌ على الخادم نفسه لا تنفع يوم يضيع الخادم.** وخارجه على Cloudflare R2:
+١٠ غيغابايت مجاناً، في الحساب نفسه الذي فيه النطاق.
+
+**في Cloudflare:**
+
+1. **R2 Object Storage ← Create bucket**: الاسم `wahaj-backups`، والموقع Automatic.
+2. **R2 ← Manage API tokens ← Create API token**: الصلاحية **Object Read & Write**، و**Apply to
+   specific buckets only** ← `wahaj-backups`، والمدّة Forever ← **Create**.
+3. تظهر مرّةً واحدة: **Access Key ID** و**Secret Access Key** ورابط S3 (`https://….r2.cloudflarestorage.com`).
+   احفظ الثلاثة في مدير كلمات السرّ.
+4. **wahaj-backups ← Settings ← Object lifecycle rules ← Add rule**: حذف ما مضى عليه ٣٠ يوماً،
+   فلا يمتلئ المخزن.
+
+**على الخادم:**
 
 ```bash
-sudo apt install rclone
-sudo rclone config                   # أنشئ وجهةً باسم gdrive مثلاً
-# ثم في deploy/.env:
-BACKUP_REMOTE=gdrive:zajel-backups
+cd /opt/zajel && sudo git pull && cd deploy && sudo ./offsite-backup.sh
 ```
+
+يسأل عن الثلاثة — والسرّ لا يظهر وهو يُلصق — ثم يأخذ نسخةً ويرفعها ويتأكّد أنها وصلت
+كاملة، وبعدها وحدها يكتب `BACKUP_REMOTE` في `.env`: فكل نسخةٍ ليلية تُرفع أيضاً. ومفتاحٌ
+جديد يوماً ما: الأمر نفسه، والقديم يبقى يعمل حتى يصحّ الجديد.
+
+وجهةٌ أخرى (Google Drive أو Backblaze أو خادمٌ آخر): `sudo rclone config`، ثم
+`BACKUP_REMOTE=اسمها:مجلّد` في `.env`.
 
 ### الاسترجاع — جرّبه مرّةً قبل أن تحتاجه
 
