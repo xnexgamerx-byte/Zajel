@@ -112,7 +112,7 @@ cat <<DONE
 
   لترى النسخ: Cloudflare ← R2 ← $bucket
   وكي لا يمتلئ المخزن: $bucket ← Settings ← Object lifecycle rules ←
-  Add rule، واحذف ما مضى عليه ٣٠ يوماً.
+  Add rule، واحذف ما مضى عليه ٩٠ يوماً: كل نسخةٍ كاملة، فالأحدث فيها كل شيء.
 
   والمفتاح يبقى في Bitwarden: على خادمٍ جديد يُعاد هذا الأمر به.
 DONE

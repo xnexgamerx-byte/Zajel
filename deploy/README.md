@@ -268,8 +268,9 @@ tar -czf ../zajel-move.tar.gz .env database.sql.gz
    specific buckets only** ← `wahaj-backups`، والمدّة Forever ← **Create**.
 3. تظهر مرّةً واحدة: **Access Key ID** و**Secret Access Key** ورابط S3 (`https://….r2.cloudflarestorage.com`).
    احفظ الثلاثة في مدير كلمات السرّ.
-4. **wahaj-backups ← Settings ← Object lifecycle rules ← Add rule**: حذف ما مضى عليه ٣٠ يوماً،
-   فلا يمتلئ المخزن.
+4. **wahaj-backups ← Settings ← Object lifecycle rules ← Add rule**: حذف ما مضى عليه ٩٠ يوماً،
+   فلا يمتلئ المخزن. لا يُحذف شيءٌ من بيانات النظام: كل نسخةٍ كاملة، والأحدث فيها كل شيء؛
+   والمدّة هي كم يُرجَع إلى الوراء (خطأٌ لم يُنتبه له إلا بعد شهرين مثلاً).
 
 **على الخادم:**
 
