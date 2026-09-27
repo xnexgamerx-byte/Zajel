@@ -77,7 +77,7 @@ class ShipmentSheet
         );
 
         $map = $this->mapHeader($header);
-        $governorates = Governorate::where('is_active', true)->get();
+        $governorates = Governorate::offered()->get();
         $cities = City::where('is_active', true)->get();
 
         // حلقة صريحة لا map: الدالّة السهمية تلتقط $seenReferences بالقيمة،

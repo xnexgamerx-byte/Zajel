@@ -89,6 +89,28 @@ class Courier extends Model
         };
     }
 
+    /**
+     * أجرته عن تسليم هذه الشحنة: ما في بطاقته إن كُتب، وإلّا «أجرة المندوب»
+     * لمحافظة وجهتها — لأقضيتها وأطرافها إن كانت منطقتها طرفية.
+     */
+    public function payForDelivery(Shipment $shipment): int
+    {
+        if ($this->commission_per_delivery !== null) {
+            return (int) $this->commission_per_delivery;
+        }
+
+        $setting = GovernorateSetting::where('governorate_id', $shipment->governorate_id)->first();
+
+        if (! $setting) {
+            return 0;
+        }
+
+        $peripheral = $shipment->city_id !== null
+            && CitySetting::where('city_id', $shipment->city_id)->where('is_peripheral', true)->exists();
+
+        return (int) (($peripheral ? $setting->courier_fee_peripheral : null) ?? $setting->courier_fee ?? 0);
+    }
+
     public function zones(): HasMany
     {
         return $this->hasMany(CourierZone::class);

@@ -155,7 +155,7 @@ class ChangeShipmentStatus
                     : $shipment->cod_amount;
 
                 $courier = $shipment->deliveryCourier;
-                $attributes['courier_commission'] = $courier?->commission_per_delivery ?? 0;
+                $attributes['courier_commission'] = $courier?->payForDelivery($shipment) ?? 0;
 
                 $attributes['merchant_due'] = $shipment->fees_paid_by === 'customer'
                     ? $attributes['collected_amount'] - $shipment->cod_fee + $shipment->discount

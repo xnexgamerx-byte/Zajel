@@ -161,7 +161,7 @@ class CourierController extends Controller
     {
         return [
             'branches'     => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             // الأب مندوب توصيلٍ ليس فرعيّاً
             'parents'      => Courier::delivering()->whereNull('parent_id')->orderBy('name')->get(['id', 'name', 'code']),
         ];

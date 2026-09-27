@@ -108,6 +108,8 @@ final class StaffNavigation
                 ['branches.index', 'الفروع', ['branches.*'], 'settings.branches'],
                 ['zones.index', 'المناطق', ['zones.*'], 'settings.zones'],
                 ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit'], 'settings.pricing'],
+                ['governorate-settings.index', 'إعدادات المحافظات', ['governorate-settings.*'], 'settings.pricing'],
+                ['areas.index', 'أجور المناطق والأطراف', ['areas.*'], 'settings.pricing'],
                 ['settings.company', 'بيانات الشركة', ['settings.company*'], 'settings.company'],
             ]],
             ['الدفعات', 'card', [

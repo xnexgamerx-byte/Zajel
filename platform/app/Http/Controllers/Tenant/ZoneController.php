@@ -24,7 +24,7 @@ class ZoneController extends Controller
 {
     public function index(Request $request): View
     {
-        $governorates = Governorate::where('is_active', true)->orderBy('name_ar')->get();
+        $governorates = Governorate::offered()->get();
         $couriers = Courier::delivering()->orderBy('name')->get();
 
         $zones = CourierZone::query()

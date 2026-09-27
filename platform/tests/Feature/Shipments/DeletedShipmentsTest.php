@@ -74,7 +74,8 @@ class DeletedShipmentsTest extends TestCase
 
         // اختفت من القائمة ومن صفحتها
         $this->actingAs($this->owner)->get($this->host()."/shipments/{$shipment->id}")->assertNotFound();
-        $this->actingAs($this->owner)->get($this->host().'/shipments')->assertDontSee('>'.$shipment->number.'<', false);
+        $this->assertFalse($this->actingAs($this->owner)->get($this->host().'/shipments')
+            ->viewData('shipments')->getCollection()->contains('id', $shipment->id));
 
         $this->actingAs($this->owner)->get($this->host().'/shipments/trash')
             ->assertOk()->assertSee($shipment->number)->assertSee('أُدخلت مرّتين')->assertSee($this->owner->name);

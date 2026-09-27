@@ -69,7 +69,7 @@ class PriceListController extends Controller
 
         return view('tenant.pricing.edit', [
             'list'         => $pricing,
-            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(),
+            'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(),
             'rules'        => $rules,
         ]);
     }
@@ -88,6 +88,7 @@ class PriceListController extends Controller
             'is_active'                => ['nullable', 'boolean'],
             'rows'                     => ['required', 'array'],
             'rows.*.delivery_fee'      => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'rows.*.peripheral_fee'    => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.return_fee'        => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.replacement_fee'   => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.extra_kg_fee'      => ['nullable', 'integer', 'min:0', 'max:100000000'],
@@ -97,6 +98,7 @@ class PriceListController extends Controller
         ], [], [
             'name' => 'الاسم', 'weight_to_grams' => 'حد الوزن',
             'rows.*.delivery_fee' => 'أجرة التوصيل',
+            'rows.*.peripheral_fee' => 'أجرة الأقضية والأطراف',
         ]);
 
         $governorateIds = Governorate::pluck('id')->all();
@@ -135,6 +137,8 @@ class PriceListController extends Controller
                 PriceListRule::updateOrCreate($match, [
                     'weight_to_grams'  => (int) $data['weight_to_grams'],
                     'delivery_fee'     => (int) $row['delivery_fee'],
+                    // فارغاً: الأطراف كالمركز — لا صفرٌ يعني «مجاناً»
+                    'peripheral_fee'   => filled($row['peripheral_fee'] ?? null) ? (int) $row['peripheral_fee'] : null,
                     'return_fee'       => (int) ($row['return_fee'] ?? 0),
                     'replacement_fee'  => (int) ($row['replacement_fee'] ?? 0),
                     'extra_kg_fee'     => (int) ($row['extra_kg_fee'] ?? 0),

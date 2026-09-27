@@ -40,7 +40,7 @@ class QuickEntryController extends Controller
         return view('tenant.shipments.quick', [
             'mode'         => $mode,
             'merchants'    => Merchant::where('status', 'active')->orderBy('business_name')->get(['id', 'business_name', 'phone']),
-            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            'governorates' => Governorate::offered()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
             'couriers'     => Courier::delivering()->active()->orderBy('name')->get(['id', 'name']),
             'baghdad'      => Governorate::where('code', 'BGD')->value('id'),
@@ -77,7 +77,7 @@ class QuickEntryController extends Controller
 
         $merchants = Merchant::where('status', 'active')->pluck('id')->flip();
         $cities = City::where('is_active', true)->get(['id', 'governorate_id'])->keyBy('id');
-        $governorates = Governorate::where('is_active', true)->pluck('id')->flip();
+        $governorates = Governorate::offered()->pluck('id')->flip();
 
         if ($header['mode'] === 'merchant' && ! $merchants->has((int) $header['merchant_id'])) {
             return back()->withInput()->withErrors(['merchant_id' => 'التاجر غير موجود أو موقوف.']);

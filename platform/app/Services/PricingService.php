@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\CitySetting;
 use App\Models\Merchant;
 use App\Models\PriceListRule;
+use App\Support\Tenancy\Tenancy;
 
 /**
  * تسعير شحنة واحدة.
@@ -11,13 +13,16 @@ use App\Models\PriceListRule;
  * تُختار القاعدة الأكثر تحديداً: منطقة > محافظة > قاعدة عامة،
  * ضمن مدى وزن مطابق. وإن لم توجد قاعدة، تُعاد أصفار ويُنبَّه المستخدم
  * بدل أن يُخترَع سعر من العدم.
+ *
+ * وفوق قاعدة المحافظة ما تعنيه المنطقة للشركة (city_settings): أجرتها
+ * الخاصّة في التسعيرة الافتراضية، وإلّا «مبلغ الأطراف» إن كانت طرفية.
  */
 class PricingService
 {
     /**
      * @return array{
      *   delivery_fee:int, return_fee:int, extra_fee:int, cod_fee:int,
-     *   total_fees:int, merchant_due:int, rule_id:?int, matched:bool
+     *   total_fees:int, merchant_due:int, rule_id:?int, matched:bool, zone:?string
      * }
      */
     public function quote(
@@ -37,6 +42,21 @@ class PricingService
             : null;
 
         $deliveryFee = $rule?->delivery_fee ?? 0;
+        $zone = null;
+
+        // قاعدةٌ للمنطقة نفسها أخصّ من كل شيء؛ وإلّا فما تعنيه المنطقة للشركة
+        if ($rule && $rule->to_city_id === null && $toCityId && Tenancy::id() !== null) {
+            $area = CitySetting::where('city_id', $toCityId)->first();
+
+            if ($area?->delivery_fee !== null && $priceList->is_default) {
+                // أجرة المنطقة جزءٌ من التسعيرة العامّة؛ ومن له تسعيرةٌ خاصّة فهي له
+                $deliveryFee = (int) $area->delivery_fee;
+                $zone = 'area';
+            } elseif ($area?->is_peripheral && $rule->peripheral_fee !== null) {
+                $deliveryFee = (int) $rule->peripheral_fee;
+                $zone = 'peripheral';
+            }
+        }
 
         // كل كغم فوق الحد الأعلى للقاعدة يُحتسب إضافياً
         if ($rule && $rule->extra_kg_fee > 0 && $weightGrams > $rule->weight_to_grams) {
@@ -57,6 +77,7 @@ class PricingService
             ...self::totals($codAmount, $feesPaidBy, $deliveryFee, $extraFee, $codFee, $discount),
             'rule_id'      => $rule?->id,
             'matched'      => $rule !== null,
+            'zone'         => $zone,
         ];
     }
 

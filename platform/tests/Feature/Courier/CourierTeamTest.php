@@ -130,10 +130,11 @@ class CourierTeamTest extends TestCase
         $subs = $this->outFor($this->sub);
         $own = $this->outFor($this->parent);
 
-        $this->actingAs($this->staff)->get($this->host().'/shipments?courier_id='.$this->parent->id)
-            ->assertSee($subs->number)->assertSee($own->number);
-        $this->actingAs($this->staff)->get($this->host().'/shipments?courier_id='.$this->sub->id)
-            ->assertSee($subs->number)->assertDontSee('>'.$own->number.'<', false);
+        $listed = fn (int $courierId) => $this->actingAs($this->staff)->get($this->host().'/shipments?courier_id='.$courierId)
+            ->assertOk()->viewData('shipments')->getCollection()->pluck('id')->sort()->values()->all();
+
+        $this->assertSame(collect([$subs->id, $own->id])->sort()->values()->all(), $listed($this->parent->id));
+        $this->assertSame([$subs->id], $listed($this->sub->id));
 
         $this->actingAs($this->staff)->get($this->host().'/shipments/'.$subs->id)->assertSee('فرعيّ تحت حسن الأب');
     }

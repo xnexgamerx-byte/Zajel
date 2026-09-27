@@ -138,6 +138,9 @@
                                    value="{{ old($field, $courier->$field) }}">
                             <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                         </div>
+                        @if ($field === 'commission_per_delivery')
+                            <p class="mt-1 text-xs text-ink-500">فارغاً: أجرة المندوب لمحافظة الوجهة من «إعدادات المحافظات».</p>
+                        @endif
                         @error($field) <p class="field-error">{{ $message }}</p> @enderror
                     </div>
                 @endforeach

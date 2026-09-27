@@ -62,6 +62,8 @@ use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\ZoneController;
+use App\Http\Controllers\Tenant\AreaController;
+use App\Http\Controllers\Tenant\GovernorateSettingController;
 use App\Http\Controllers\Tenant\MerchantRequestController;
 use App\Http\Controllers\Tenant\ReturnBatchController;
 use App\Http\Controllers\Portal\RequestController as PortalRequestController;
@@ -341,6 +343,13 @@ Route::middleware('tenant')->group(function () {
                 ->middleware('can:settings.branches');
 
             Route::middleware('can:settings.pricing')->group(function () {
+                // أجور المناطق والأطراف، وإعدادات المحافظات: التسعير كما تراه الشركة
+                Route::get('/areas', [AreaController::class, 'index'])->name('areas.index');
+                Route::post('/areas', [AreaController::class, 'update'])->name('areas.update');
+                Route::post('/areas/peripheral', [AreaController::class, 'peripheral'])->name('areas.peripheral');
+                Route::get('/governorate-settings', [GovernorateSettingController::class, 'index'])->name('governorate-settings.index');
+                Route::post('/governorate-settings', [GovernorateSettingController::class, 'update'])->name('governorate-settings.update');
+
                 Route::get('/pricing', [PriceListController::class, 'index'])->name('pricing.index');
                 Route::post('/pricing', [PriceListController::class, 'store'])->name('pricing.store');
                 Route::get('/pricing/{pricing}', [PriceListController::class, 'edit'])->name('pricing.edit');

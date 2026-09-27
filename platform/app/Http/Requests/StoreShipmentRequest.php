@@ -54,6 +54,15 @@ class StoreShipmentRequest extends FormRequest
                 $validator->errors()->add('merchant_id', 'التاجر غير موجود.');
             }
 
+            // محافظةٌ أطفأتها الشركة في «إعدادات المحافظات» لا يُشحَن إليها — وشحنةٌ
+            // قائمةٌ إليها تبقى تُصحَّح بياناتها ما دامت وجهتها لم تتغيّر
+            $unchanged = ($current = $this->route('shipment')) instanceof \App\Models\Shipment
+                && (int) $current->governorate_id === (int) $this->governorate_id;
+
+            if ($this->governorate_id && ! $unchanged && ! \App\Models\Governorate::offered()->whereKey($this->governorate_id)->exists()) {
+                $validator->errors()->add('governorate_id', 'شركتك لا تشحن إلى هذه المحافظة الآن.');
+            }
+
             if ($this->city_id && $this->governorate_id) {
                 $belongs = \App\Models\City::where('id', $this->city_id)
                     ->where('governorate_id', $this->governorate_id)

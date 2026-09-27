@@ -46,7 +46,7 @@ class ShipmentController extends Controller
             'statuses'     => ShipmentStatus::cases(),
             'stage'        => ShipmentStages::find($request->query('stage')),
             'merchants'    => Merchant::orderBy('business_name')->get(['id', 'business_name']),
-            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
             'couriers'     => Courier::delivering()->active()->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
@@ -91,7 +91,7 @@ class ShipmentController extends Controller
     {
         return view('tenant.shipments.create', [
             'merchants'    => Merchant::where('status', 'active')->orderBy('business_name')->get(['id', 'business_name', 'phone']),
-            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            'governorates' => Governorate::offered()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
         ]);
     }
@@ -118,7 +118,7 @@ class ShipmentController extends Controller
         return view('tenant.shipments.edit', [
             'shipment'     => $shipment->load('merchant:id,business_name'),
             'reroutable'   => UpdateShipment::reroutable($shipment),
-            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            'governorates' => Governorate::offered()->orWhere('id', $shipment->governorate_id)->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
         ]);
     }

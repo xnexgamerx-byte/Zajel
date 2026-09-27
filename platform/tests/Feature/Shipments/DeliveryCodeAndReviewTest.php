@@ -143,7 +143,9 @@ class DeliveryCodeAndReviewTest extends TestCase
         // المندوب يُسأل عنه ولا يُعطاه
         $this->outForDelivery($shipment);
         $this->actingAs($this->courierUser)->get($this->host().'/courier/shipments/'.$shipment->id)
-            ->assertOk()->assertSee('كود التسليم من الزبون')->assertDontSee('>'.$shipment->delivery_code.'<', false);
+            ->assertOk()->assertSee('كود التسليم من الزبون')
+            ->assertDontSee('>'.$shipment->delivery_code.'<', false)
+            ->assertDontSee('value="'.$shipment->delivery_code.'"', false);
     }
 
     public function test_the_courier_delivers_only_with_the_right_code(): void

@@ -89,7 +89,7 @@ class BranchController extends Controller
     protected function formData(): array
     {
         return [
-            'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
         ];
     }
