@@ -22,6 +22,8 @@
         ['reports.debtors', 'أرصدة مدينة', 'مالٌ لنا عند التجّار ديناً وعند المندوبين نقداً.'],
         ['reports.changes', 'تتبّع التغييرات', 'مَن غيّر ماذا ومتى — سجلٌّ لا يُعدَّل.'],
     ] as [$route, $title, $blurb])
+        {{-- المالية منها لمن يرى أرباح الشركة وحده --}}
+        @continue(in_array($route, ['reports.profit', 'reports.returns-money'], true) && ! auth()->user()->can('reports.financial'))
         <a href="{{ route($route, $period->query()) }}"
            class="card p-5 transition hover:border-brand">
             <h2 class="font-bold text-ink-900">{{ $title }}</h2>

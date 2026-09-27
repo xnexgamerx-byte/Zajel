@@ -34,6 +34,8 @@ class StaffNavigationTest extends TestCase
     private const OPENED_FROM_ELSEWHERE = [
         'branches.create', 'couriers.create', 'merchants.create', 'users.create',
         'shipments.import.template', 'branch-accounts.statement.print', 'shipments.labels',
+        // خانتان في شاشة «الصلاحيات والمراتب»
+        'permissions.ranks.index', 'permissions.ranks.create',
     ];
 
     private Company $company;
@@ -101,14 +103,18 @@ class StaffNavigationTest extends TestCase
         $menus = Tenancy::runFor($this->company, fn () => StaffNavigation::for($agent, Request::create('/')));
         $labels = array_column($menus, 'label');
 
-        $this->assertSame(['الصفحة الرئيسية', 'شحنات العميل', 'تقارير', 'تقارير مالية', 'المراجعة'], $labels);
+        // والتقارير المالية لمن يرى أرباح الشركة وحده
+        $this->assertSame(['الصفحة الرئيسية', 'شحنات العميل', 'تقارير', 'المراجعة'], $labels);
 
         // والقائمة الباقية لا تحمل من روابطها إلا ما يُفتح
         $home = $menus[array_search('الصفحة الرئيسية', $labels, true)];
         $this->assertSame(['لوحة اليوم'], array_column($home['links'], 'label'));
 
-        $finance = $menus[array_search('تقارير مالية', $labels, true)];
-        $this->assertNotContains('كشف حساب الفرع', array_column($finance['links'], 'label'));
+        // مدير الفرع يرى الأرباح، ولا يرى كشف الحساب إلا بصلاحية المال
+        $manager = $this->makeUser($this->company, UserRole::BranchManager);
+        $menus = Tenancy::runFor($this->company, fn () => StaffNavigation::for($manager, Request::create('/')));
+        $finance = collect($menus)->firstWhere('label', 'تقارير مالية');
+        $this->assertContains('أرباح الشحنات', array_column($finance['links'], 'label'));
     }
 
     public function test_the_owner_sees_the_twelve_menus_in_order(): void

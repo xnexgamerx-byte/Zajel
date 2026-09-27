@@ -5,6 +5,7 @@ namespace Tests\Feature\Permissions;
 use App\Enums\UserRole;
 use App\Models\Company;
 use App\Models\Merchant;
+use App\Models\Rank;
 use App\Models\User;
 use App\Support\Permissions\Ability;
 use App\Support\Tenancy\Tenancy;
@@ -67,7 +68,8 @@ class PermissionTest extends TestCase
         $this->assertTrue($user->hasAbility(Ability::SHIPMENTS_CREATE));
 
         foreach ([Ability::MONEY_SETTLE, Ability::MONEY_PAY, Ability::MONEY_CASH,
-                  Ability::MONEY_EXPENSES, Ability::CONTROL_FORCE, Ability::SETTINGS_PEOPLE] as $denied) {
+                  Ability::MONEY_EXPENSES, Ability::CONTROL_FORCE, Ability::SETTINGS_USERS,
+                  Ability::REPORTS_FINANCIAL] as $denied) {
             $this->assertFalse($user->hasAbility($denied), $denied.' يجب أن تكون ممنوعة');
         }
     }
@@ -148,37 +150,55 @@ class PermissionTest extends TestCase
         $this->assertSame([Ability::SHIPMENTS_VIEW], $user->abilities());
     }
 
-    public function test_the_owner_grants_and_revokes_from_the_screen(): void
+    public function test_the_owner_gives_a_rank_from_the_screen_and_takes_it_back(): void
     {
         $user = $this->staff(UserRole::CustomerService);
+        $rank = Tenancy::runFor($this->company, fn () => Rank::create([
+            'name' => 'أمين صندوق', 'abilities' => [Ability::SHIPMENTS_VIEW, Ability::MONEY_CASH],
+        ]));
+
+        $this->actingAs($user)->get($this->host().'/cash')->assertForbidden();
 
         $this->actingAs($this->owner)
-            ->post($this->host()."/permissions/{$user->id}", [
-                'mode' => 'custom',
-                'abilities' => [Ability::SHIPMENTS_VIEW, Ability::MONEY_CASH],
-            ])
+            ->post($this->host()."/permissions/{$user->id}", ['mode' => 'rank', 'rank_id' => $rank->id])
             ->assertRedirect()
             ->assertSessionHas('success');
 
         Tenancy::runFor($this->company, function () use ($user) {
             $fresh = $user->refresh();
             $this->assertTrue($fresh->hasAbility(Ability::MONEY_CASH));
+            // المرتبة تحلّ محلّ افتراضي الدور لا تُضاف إليه
             $this->assertFalse($fresh->hasAbility(Ability::SHIPMENTS_CREATE));
         });
 
-        $this->actingAs($this->owner)
-            ->get($this->host().'/cash')
-            ->assertOk();
-
         $this->actingAs($user->refresh())->get($this->host().'/cash')->assertOk();
+
+        $this->actingAs($this->owner)
+            ->post($this->host()."/permissions/{$user->id}", ['mode' => 'rank', 'rank_id' => '']);
+
+        Tenancy::runFor($this->company, fn () => $this->assertSame(
+            Ability::defaultsFor(UserRole::CustomerService), $user->refresh()->abilities(),
+        ));
     }
 
-    public function test_returning_to_the_role_default_clears_the_override(): void
+    public function test_the_owner_takes_no_rank(): void
+    {
+        $rank = Tenancy::runFor($this->company, fn () => Rank::create(['name' => 'ضيّقة', 'abilities' => [Ability::SHIPMENTS_VIEW]]));
+
+        $this->actingAs($this->owner)
+            ->post($this->host()."/permissions/{$this->owner->id}", ['mode' => 'rank', 'rank_id' => $rank->id])
+            ->assertSessionHasErrors('rank_id');
+
+        Tenancy::runFor($this->company, fn () => $this->assertSame(Ability::all(), $this->owner->refresh()->abilities()));
+    }
+
+    public function test_resetting_clears_the_old_override(): void
     {
         $user = $this->staff(UserRole::Operations, [Ability::SHIPMENTS_VIEW]);
 
         $this->actingAs($this->owner)
-            ->post($this->host()."/permissions/{$user->id}", ['mode' => 'role']);
+            ->post($this->host()."/permissions/{$user->id}", ['mode' => 'reset'])
+            ->assertSessionHas('success');
 
         Tenancy::runFor($this->company, function () use ($user) {
             $fresh = $user->refresh();
@@ -187,33 +207,62 @@ class PermissionTest extends TestCase
         });
     }
 
+    public function test_an_old_override_is_saved_as_a_rank_without_changing_what_he_can_do(): void
+    {
+        $user = $this->staff(UserRole::Operations, [Ability::MONEY_CASH, Ability::SHIPMENTS_VIEW]);
+
+        $this->actingAs($this->owner)
+            ->post($this->host()."/permissions/{$user->id}", ['mode' => 'save_as_rank', 'name' => 'صندوق الفرع'])
+            ->assertSessionHas('success');
+
+        Tenancy::runFor($this->company, function () use ($user) {
+            $fresh = $user->refresh();
+            $this->assertFalse($fresh->hasCustomPermissions());
+            $this->assertSame('صندوق الفرع', $fresh->rank->name);
+            $this->assertSame([Ability::SHIPMENTS_VIEW, Ability::MONEY_CASH], $fresh->abilities());
+        });
+    }
+
+    /**
+     * صاحب الشركة وحده يملك كل شيء دائماً؛ فالإقفال يأتي من تخصيصٍ قديم
+     * نزع عنه «الصلاحيات»، ومرتبةٍ هي آخر من يحملها.
+     */
     public function test_the_last_permissions_holder_cannot_lock_everyone_out(): void
     {
-        $this->actingAs($this->owner)
-            ->post($this->host()."/permissions/{$this->owner->id}", [
-                'mode' => 'custom', 'abilities' => [Ability::SHIPMENTS_VIEW],
-            ])
+        Tenancy::runFor($this->company, fn () => $this->owner->forceFill(['permissions' => [Ability::SHIPMENTS_VIEW]])->save());
+
+        $rank = Tenancy::runFor($this->company, fn () => Rank::create([
+            'name' => 'إدارة', 'abilities' => [Ability::SETTINGS_PERMISSIONS, Ability::SHIPMENTS_VIEW],
+        ]));
+        $admin = $this->staff(UserRole::Operations);
+        Tenancy::runFor($this->company, fn () => $admin->forceFill(['rank_id' => $rank->id])->save());
+
+        // المرتبة لا تُنزَع منها «الصلاحيات» وهي آخر من يحملها
+        $this->actingAs($admin)
+            ->put($this->host()."/permissions/ranks/{$rank->id}", ['name' => 'إدارة', 'abilities' => [Ability::SHIPMENTS_VIEW]])
             ->assertSessionHasErrors('abilities');
 
+        // ولا يُنقل حاملها الوحيد عنها
+        $this->actingAs($admin)
+            ->post($this->host()."/permissions/{$admin->id}", ['mode' => 'rank', 'rank_id' => ''])
+            ->assertSessionHasErrors('rank_id');
+
         Tenancy::runFor($this->company, fn () => $this->assertTrue(
-            $this->owner->refresh()->hasAbility(Ability::SETTINGS_PERMISSIONS),
+            $admin->refresh()->hasAbility(Ability::SETTINGS_PERMISSIONS),
         ));
     }
 
-    public function test_he_may_drop_it_once_someone_else_holds_it(): void
+    public function test_the_rank_may_drop_it_once_someone_else_holds_it(): void
     {
-        $admin = $this->staff(UserRole::CompanyAdmin);
+        $rank = Tenancy::runFor($this->company, fn () => Rank::create([
+            'name' => 'إدارة', 'abilities' => [Ability::SETTINGS_PERMISSIONS],
+        ]));
 
         $this->actingAs($this->owner)
-            ->post($this->host()."/permissions/{$this->owner->id}", [
-                'mode' => 'custom', 'abilities' => [Ability::SHIPMENTS_VIEW],
-            ])
+            ->put($this->host()."/permissions/ranks/{$rank->id}", ['name' => 'إدارة', 'abilities' => [Ability::SHIPMENTS_VIEW]])
             ->assertSessionHasNoErrors();
 
-        Tenancy::runFor($this->company, function () use ($admin) {
-            $this->assertFalse($this->owner->refresh()->hasAbility(Ability::SETTINGS_PERMISSIONS));
-            $this->assertTrue($admin->refresh()->hasAbility(Ability::SETTINGS_PERMISSIONS));
-        });
+        Tenancy::runFor($this->company, fn () => $this->assertSame([Ability::SHIPMENTS_VIEW], $rank->refresh()->abilities));
     }
 
     // ── الشاشة تتبع الصلاحية ────────────────────────────────────────
@@ -239,9 +288,7 @@ class PermissionTest extends TestCase
         ]));
 
         $this->actingAs($this->owner)
-            ->post($this->host()."/permissions/{$merchantUser->id}", [
-                'mode' => 'custom', 'abilities' => [Ability::MONEY_CASH],
-            ])
+            ->post($this->host()."/permissions/{$merchantUser->id}", ['mode' => 'reset'])
             ->assertSessionHasErrors('abilities');
     }
 }

@@ -48,6 +48,21 @@
             @error('role') <p class="field-error">{{ $message }}</p> @enderror
         </div>
         <div>
+            <label class="field-label" for="rank_id">المرتبة</label>
+            <select id="rank_id" name="rank_id" class="field-input">
+                <option value="">افتراضي الدور</option>
+                @foreach ($ranks as $rank)
+                    <option value="{{ $rank->id }}"
+                            @selected((int) old('rank_id', $staff->rank_id) === $rank->id)>{{ $rank->name }}</option>
+                @endforeach
+            </select>
+            <p class="mt-1 text-xs text-ink-500">
+                ما يفتحه من شاشات. صاحب الشركة يملك كل شيء بلا مرتبة.
+                @can('settings.permissions')<a href="{{ route('permissions.ranks.index') }}" class="font-semibold text-[var(--brand)] hover:underline">المراتب</a>@endcan
+            </p>
+            @error('rank_id') <p class="field-error">{{ $message }}</p> @enderror
+        </div>
+        <div>
             <label class="field-label" for="branch_id">الفرع</label>
             <select id="branch_id" name="branch_id" class="field-input">
                 <option value="">كل الفروع</option>

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Tenant;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Rank;
 use App\Models\User;
+use App\Support\Permissions\PermissionChange;
 use App\Support\Phone;
 use App\Support\Username;
 use Illuminate\Http\RedirectResponse;
@@ -36,7 +38,7 @@ class UserController extends Controller
         return view('tenant.users.index', [
             'users' => User::query()
                 ->whereIn('role', array_keys(self::ROLES))
-                ->with('branch:id,name')
+                ->with(['branch:id,name', 'rank:id,name'])
                 ->when($request->query('q'), fn ($q, $term) => $q->where(
                     fn ($w) => $w->where('name', 'like', "%{$term}%")->orWhere('phone', $term)
                         ->orWhere('username', Username::canonical($term))
@@ -86,7 +88,8 @@ class UserController extends Controller
             unset($data['password']);
         }
 
-        $user->update($data + ['is_active' => $request->boolean('is_active')]);
+        // مرتبته أو إيقافه قد يُخرج آخر من يدير الصلاحيات
+        PermissionChange::apply(fn () => $user->update($data + ['is_active' => $request->boolean('is_active')]), 'rank_id');
 
         return redirect()->route('users.index')->with('success', 'حُفظت البيانات.');
     }
@@ -100,7 +103,7 @@ class UserController extends Controller
             'username' => $typed !== '' ? $typed : ($user?->username ?? Phone::normalise($request->input('phone'))),
         ]);
 
-        return $request->validate([
+        $data = $request->validate([
             'name'      => ['required', 'string', 'max:160'],
             'username'  => ['nullable', 'string', 'regex:'.Username::PATTERN,
                             Rule::unique('users', 'username')
@@ -112,6 +115,8 @@ class UserController extends Controller
                                 ->ignore($user?->id)],
             'email'     => ['nullable', 'email', 'max:160'],
             'role'      => ['required', Rule::in(array_keys(self::ROLES))],
+            'rank_id'   => ['nullable', 'integer', Rule::exists('ranks', 'id')
+                                ->where('company_id', $request->user()->company_id)],
             'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')
                                 ->where('company_id', $request->user()->company_id)],
             'password'  => [$user ? 'nullable' : 'required', 'string', 'min:6', 'max:72'],
@@ -120,8 +125,15 @@ class UserController extends Controller
             'username.unique' => 'اسم المستخدم هذا لحسابٍ آخر في شركتك.',
         ], [
             'name' => 'الاسم', 'username' => 'اسم المستخدم', 'phone' => 'الهاتف', 'role' => 'الدور',
-            'branch_id' => 'الفرع', 'password' => 'كلمة المرور',
+            'rank_id' => 'المرتبة', 'branch_id' => 'الفرع', 'password' => 'كلمة المرور',
         ]);
+
+        // صاحب الشركة يملك كل شيء: لا مرتبة تقيّده
+        if ($data['role'] === UserRole::CompanyOwner->value) {
+            $data['rank_id'] = null;
+        }
+
+        return $data;
     }
 
     /** لا تُدار حسابات المندوبين والتجّار من هنا. */
@@ -152,6 +164,7 @@ class UserController extends Controller
     {
         return [
             'roles'    => self::ROLES,
+            'ranks'    => Rank::orderBy('name')->get(['id', 'name']),
             'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ];
     }

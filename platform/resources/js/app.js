@@ -329,3 +329,28 @@ for (const button of document.querySelectorAll('[data-focus]')) {
         field?.select();
     });
 }
+
+/**
+ * «الكلّ» في مجموعة مربّعات (قائمةٌ في شاشة المرتبة): يحدّد ما تحته أو يمحوه،
+ * ويبدو نصف محدَّد حين يُحدَّد بعضها.
+ */
+for (const scope of document.querySelectorAll('[data-check-scope]')) {
+    const all = scope.querySelector('[data-check-all]');
+    const boxes = [...scope.querySelectorAll('input[type="checkbox"]:not([data-check-all])')];
+
+    if (!all || boxes.length === 0) continue;
+
+    const sync = () => {
+        const on = boxes.filter((box) => box.checked).length;
+        all.checked = on === boxes.length;
+        all.indeterminate = on > 0 && on < boxes.length;
+    };
+
+    all.addEventListener('change', () => {
+        for (const box of boxes) box.checked = all.checked;
+        sync();
+    });
+
+    for (const box of boxes) box.addEventListener('change', sync);
+    sync();
+}

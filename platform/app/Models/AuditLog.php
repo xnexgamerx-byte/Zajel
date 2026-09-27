@@ -37,6 +37,13 @@ class AuditLog extends Model
         'impersonation_ended'      => 'خروج من نظام شركة',
         'payment_recorded'         => 'سُجِّلت دفعة',
         'subscription_renewed'     => 'جُدِّد الاشتراك',
+        'rank_created'             => 'أُنشئت مرتبة',
+        'rank_updated'             => 'عُدِّلت مرتبة',
+        'rank_deleted'             => 'حُذفت مرتبة',
+        'user_rank_changed'        => 'تغيّرت مرتبة موظّف',
+        'permissions_reset'        => 'أُزيل تخصيص الصلاحيات',
+        'permission_granted'       => 'مُنحت صلاحية استثنائية',
+        'permission_revoked'       => 'سُحبت صلاحية استثنائية',
     ];
 
     public function actionLabel(): string

@@ -28,6 +28,8 @@ use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\ReconcileController;
+use App\Http\Controllers\Tenant\RankController;
+use App\Http\Controllers\Tenant\UserGrantController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
 use App\Http\Controllers\Tenant\CashBoxController;
@@ -121,9 +123,22 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
             });
 
+            // الصلاحيات: من يحمل أيّ مرتبة، والمراتب نفسها، والاستثنائية فوقها
             Route::middleware('can:settings.permissions')->group(function () {
                 Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
-                Route::post('/permissions/{user}', [PermissionController::class, 'update'])->name('permissions.update');
+                Route::post('/permissions/{user}', [PermissionController::class, 'update'])
+                    ->whereNumber('user')->name('permissions.update');
+
+                Route::get('/permissions/ranks', [RankController::class, 'index'])->name('permissions.ranks.index');
+                Route::get('/permissions/ranks/create', [RankController::class, 'create'])->name('permissions.ranks.create');
+                Route::post('/permissions/ranks', [RankController::class, 'store'])->name('permissions.ranks.store');
+                Route::get('/permissions/ranks/{rank}/edit', [RankController::class, 'edit'])->name('permissions.ranks.edit');
+                Route::put('/permissions/ranks/{rank}', [RankController::class, 'update'])->name('permissions.ranks.update');
+                Route::delete('/permissions/ranks/{rank}', [RankController::class, 'destroy'])->name('permissions.ranks.destroy');
+
+                Route::get('/permissions/exceptions', [UserGrantController::class, 'index'])->name('permissions.grants.index');
+                Route::post('/permissions/exceptions', [UserGrantController::class, 'store'])->name('permissions.grants.store');
+                Route::delete('/permissions/exceptions/{grant}', [UserGrantController::class, 'destroy'])->name('permissions.grants.destroy');
             });
 
             Route::middleware('can:settings.zones')->group(function () {
@@ -152,6 +167,12 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/pickup-agents/{courier}/pay', [PickupAgentController::class, 'pay'])->name('pickup-agents.pay');
             });
 
+            // المالية منها لمن يرى أرباح الشركة وحده
+            Route::middleware('can:reports.financial')->group(function () {
+                Route::get('/reports/profit', [ReportController::class, 'profit'])->name('reports.profit');
+                Route::get('/reports/returns-money', [ReportController::class, 'returnsMoney'])->name('reports.returns-money');
+            });
+
             // عشرة تقارير لا واحد وثلاثون
             Route::middleware('can:reports.view')->group(function () {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
@@ -160,11 +181,9 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/merchants', [ReportController::class, 'merchants'])->name('reports.merchants');
             Route::get('/reports/governorates', [ReportController::class, 'governorates'])->name('reports.governorates');
             Route::get('/reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
-            Route::get('/reports/profit', [ReportController::class, 'profit'])->name('reports.profit');
             Route::get('/reports/dormant', [ReportController::class, 'dormant'])->name('reports.dormant');
             Route::get('/reports/debtors', [ReportController::class, 'debtors'])->name('reports.debtors');
             Route::get('/reports/changes', [ReportController::class, 'changes'])->name('reports.changes');
-            Route::get('/reports/returns-money', [ReportController::class, 'returnsMoney'])->name('reports.returns-money');
             });
 
             // المحادثات مع التجّار: للشركة لا لموظّفٍ بعينه
@@ -253,10 +272,10 @@ Route::middleware('tenant')->group(function () {
 
         // إدارة التجّار والمندوبين والنقد: لموظّفي الشركة فقط.
         Route::middleware('staff')->group(function () {
-            Route::resource('merchants', MerchantController::class)->except(['destroy'])->middleware('can:settings.people');
-            Route::resource('couriers', CourierController::class)->except(['destroy'])->middleware('can:settings.people');
+            Route::resource('merchants', MerchantController::class)->except(['destroy'])->middleware('can:settings.merchants');
+            Route::resource('couriers', CourierController::class)->except(['destroy'])->middleware('can:settings.couriers');
             Route::resource('users', UserController::class)->except(['destroy', 'show'])
-                ->middleware('can:settings.people');
+                ->middleware('can:settings.users');
             Route::resource('branches', BranchController::class)->except(['destroy', 'show'])
                 ->middleware('can:settings.branches');
 

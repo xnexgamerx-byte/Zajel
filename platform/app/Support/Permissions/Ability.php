@@ -3,6 +3,7 @@
 namespace App\Support\Permissions;
 
 use App\Enums\UserRole;
+use App\Support\StaffNavigation;
 
 /**
  * الصلاحيات.
@@ -12,11 +13,17 @@ use App\Enums\UserRole;
  * كشف تاجر وتعديل جرد القاصة. الدور بلا صلاحيات لافتةٌ على الباب.
  *
  * والقائمة مغلقة عمداً: صلاحية تُضاف بالكود لا من الشاشة، حتى لا يصير
- * الجدول مفتوحاً على أسماء لا يحرسها شيء.
+ * الجدول مفتوحاً على أسماء لا يحرسها شيء. وتُعرض مجمّعةً بالقوائم الاثنتي
+ * عشرة كما يعرفها الموظّف — «اسم القائمة» ثم ما تفتحه منها — فالمرتبة
+ * تُبنى كما كانت تُبنى في النظام الذي تعمل عليه الشركات (docs/plan/17 §٥).
  */
 class Ability
 {
-    // العمليات
+    // الصفحة الرئيسية
+    /** إعلانٌ واحد يبلغ كل المناديب أو كل التجّار */
+    public const NOTIFY_SEND = 'notify.send';
+
+    // شحنات العميل
     public const SHIPMENTS_VIEW = 'shipments.view';
 
     public const SHIPMENTS_CREATE = 'shipments.create';
@@ -28,88 +35,122 @@ class Ability
 
     public const SHIPMENTS_ASSIGN = 'shipments.assign';
 
+    // عمليات التوصيل · طلبات شحن · تصفيات الراجع
+    public const TRANSPORT_MANAGE = 'transport.manage';
+
     public const PICKUPS_MANAGE = 'pickups.manage';
 
     public const RETURNS_MANAGE = 'returns.manage';
 
-    public const TRANSPORT_MANAGE = 'transport.manage';
+    // النظام المصرفي · إيرادات ومصروفات · الدفعات
+    public const MONEY_CASH = 'money.cash';
 
-    /** إعلانٌ واحد يبلغ كل المناديب أو كل التجّار */
-    public const NOTIFY_SEND = 'notify.send';
-
-    /** الردّ على محادثات التجّار */
-    public const SUPPORT_REPLY = 'support.reply';
-
-    // المال
     public const MONEY_VIEW = 'money.view';
+
+    public const MONEY_EXPENSES = 'money.expenses';
 
     public const MONEY_SETTLE = 'money.settle';
 
     public const MONEY_PAY = 'money.pay';
 
-    public const MONEY_CASH = 'money.cash';
-
-    public const MONEY_EXPENSES = 'money.expenses';
-
     public const MONEY_CONFIRM_AMOUNT = 'money.confirm_amount';
 
-    // الرقابة
-    public const CONTROL_FORCE = 'control.force';
+    // تقارير · تقارير مالية
+    public const REPORTS_VIEW = 'reports.view';
+
+    /** أرباح الشركة ومال رواجعها: للمدير والمحاسب، لا لكل من يقرأ تقريراً */
+    public const REPORTS_FINANCIAL = 'reports.financial';
+
+    // المراجعة
+    /** الردّ على محادثات التجّار */
+    public const SUPPORT_REPLY = 'support.reply';
 
     public const CONTROL_DUPLICATES = 'control.duplicates';
 
-    // الإعدادات
-    public const SETTINGS_PEOPLE = 'settings.people';
+    public const CONTROL_FORCE = 'control.force';
+
+    // إعدادات الفروع
+    public const SETTINGS_MERCHANTS = 'settings.merchants';
+
+    public const SETTINGS_COURIERS = 'settings.couriers';
+
+    /** موظّفو الشركة وحساباتهم */
+    public const SETTINGS_USERS = 'settings.users';
+
+    public const SETTINGS_PERMISSIONS = 'settings.permissions';
 
     public const SETTINGS_BRANCHES = 'settings.branches';
 
-    public const SETTINGS_PRICING = 'settings.pricing';
-
     public const SETTINGS_ZONES = 'settings.zones';
 
-    public const SETTINGS_PERMISSIONS = 'settings.permissions';
+    public const SETTINGS_PRICING = 'settings.pricing';
 
     /** هاتف الشركة وواتساب الدعم ولونها */
     public const SETTINGS_COMPANY = 'settings.company';
 
-    public const REPORTS_VIEW = 'reports.view';
+    /** @var array<int, string>|null */
+    private static ?array $all = null;
 
-    /** @return array<string, array{label: string, abilities: array<string, string>}> */
+    /**
+     * الصلاحيات بقوائمها، بترتيب الشريط. والقائمة هنا اسمها في الشريط نفسه
+     * (StaffNavigation)، فتُقرأ «المرتبة» كما يُقرأ الشريط.
+     *
+     * @return array<string, array{label: string, abilities: array<string, string>}>
+     */
     public static function groups(): array
     {
         return [
-            'operations' => ['label' => 'العمليات', 'abilities' => [
+            'home' => ['label' => 'الصفحة الرئيسية', 'abilities' => [
+                self::NOTIFY_SEND => 'الإشعارات الجماعية',
+            ]],
+            'shipments' => ['label' => 'شحنات العميل', 'abilities' => [
                 self::SHIPMENTS_VIEW   => 'عرض الشحنات',
                 self::SHIPMENTS_CREATE => 'إنشاء شحنة ورفع ملف',
                 self::SHIPMENTS_EDIT   => 'تعديل بيانات الشحنة',
                 self::SHIPMENTS_STATUS => 'تغيير حالة شحنة',
                 self::SHIPMENTS_ASSIGN => 'إسناد للمندوبين',
-                self::PICKUPS_MANAGE   => 'طلبات الاستلام',
-                self::RETURNS_MANAGE   => 'الراجع: استلاماً وتسليماً',
-                self::TRANSPORT_MANAGE => 'الأكياس وكشوف النقل',
-                self::NOTIFY_SEND      => 'الإشعارات الجماعية',
-                self::SUPPORT_REPLY    => 'محادثات التجّار',
             ]],
-            'money' => ['label' => 'المال', 'abilities' => [
-                self::MONEY_VIEW           => 'عرض الحسابات والأرصدة',
-                self::MONEY_SETTLE         => 'تسوية المندوبين',
-                self::MONEY_PAY            => 'دفع كشوف التجّار',
-                self::MONEY_CASH           => 'القاصة والجرد والمناقلة',
-                self::MONEY_EXPENSES       => 'المصروفات',
-                self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
+            'delivery' => ['label' => 'عمليات التوصيل', 'abilities' => [
+                self::TRANSPORT_MANAGE => 'الأكياس وكشوف النقل والمناديب',
             ]],
-            'control' => ['label' => 'الرقابة', 'abilities' => [
-                self::CONTROL_FORCE      => 'التغيير الإجباري خارج المسار',
+            'requests' => ['label' => 'طلبات شحن', 'abilities' => [
+                self::PICKUPS_MANAGE => 'طلبات الاستلام',
+            ]],
+            'returns' => ['label' => 'تصفيات الراجع', 'abilities' => [
+                self::RETURNS_MANAGE => 'الراجع: استلاماً وفرزاً وتسليماً',
+            ]],
+            'banking' => ['label' => 'النظام المصرفي', 'abilities' => [
+                self::MONEY_CASH => 'القاصة والجرد والمناقلة',
+            ]],
+            'accounts' => ['label' => 'إيرادات ومصروفات', 'abilities' => [
+                self::MONEY_VIEW     => 'عرض الحسابات والأرصدة',
+                self::MONEY_EXPENSES => 'المصروفات',
+            ]],
+            'reports' => ['label' => 'تقارير', 'abilities' => [
+                self::REPORTS_VIEW => 'التقارير',
+            ]],
+            'financial' => ['label' => 'تقارير مالية', 'abilities' => [
+                self::REPORTS_FINANCIAL => 'أرباح الشحنات ومال الرواجع',
+            ]],
+            'review' => ['label' => 'المراجعة', 'abilities' => [
+                self::SUPPORT_REPLY      => 'محادثات التجّار',
                 self::CONTROL_DUPLICATES => 'حسم الشحنات المكرّرة',
+                self::CONTROL_FORCE      => 'التغيير الإجباري خارج المسار',
             ]],
-            'settings' => ['label' => 'الإعدادات والتقارير', 'abilities' => [
-                self::REPORTS_VIEW          => 'التقارير',
-                self::SETTINGS_PEOPLE       => 'المستخدمون والتجّار والمندوبون',
-                self::SETTINGS_BRANCHES     => 'الفروع والمراكز',
-                self::SETTINGS_PRICING      => 'التسعيرات',
-                self::SETTINGS_ZONES        => 'المناطق',
-                self::SETTINGS_PERMISSIONS  => 'الصلاحيات',
-                self::SETTINGS_COMPANY      => 'بيانات الشركة وواتساب الدعم',
+            'settings' => ['label' => 'إعدادات الفروع', 'abilities' => [
+                self::SETTINGS_MERCHANTS   => 'التجّار',
+                self::SETTINGS_COURIERS    => 'المندوبون',
+                self::SETTINGS_USERS       => 'المستخدمون',
+                self::SETTINGS_PERMISSIONS => 'الصلاحيات والمراتب',
+                self::SETTINGS_BRANCHES    => 'الفروع والمراكز',
+                self::SETTINGS_ZONES       => 'المناطق',
+                self::SETTINGS_PRICING     => 'التسعيرات',
+                self::SETTINGS_COMPANY     => 'بيانات الشركة وواتساب الدعم',
+            ]],
+            'payments' => ['label' => 'الدفعات', 'abilities' => [
+                self::MONEY_SETTLE         => 'تسوية المندوبين ومندوبي الاستلام',
+                self::MONEY_PAY            => 'دفع كشوف التجّار',
+                self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
             ]],
         ];
     }
@@ -117,7 +158,8 @@ class Ability
     /** @return array<int, string> */
     public static function all(): array
     {
-        return collect(static::groups())
+        // يُسأل عنها في كل فحص صلاحية، وكل رابطٍ في الشريط فحص
+        return self::$all ??= collect(static::groups())
             ->flatMap(fn (array $group) => array_keys($group['abilities']))
             ->values()
             ->all();
@@ -134,8 +176,42 @@ class Ability
         return $ability;
     }
 
+    /** اسم القائمة التي تقع فيها الصلاحية. */
+    public static function menuOf(string $ability): ?string
+    {
+        foreach (static::groups() as $group) {
+            if (isset($group['abilities'][$ability])) {
+                return $group['label'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ما تفتحه كل صلاحية من شاشات الشريط — «القوائم الفرعية» تحت كل صلاحية
+     * في شاشة المرتبة. من الشريط نفسه لا من قائمةٍ ثانية تُنسى.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function screens(): array
+    {
+        $screens = [];
+
+        foreach (StaffNavigation::menus() as [, , $links]) {
+            foreach ($links as $link) {
+                if ($link[3] !== null) {
+                    $screens[$link[3]][] = $link[1];
+                }
+            }
+        }
+
+        return array_map(fn (array $labels) => array_values(array_unique($labels)), $screens);
+    }
+
     /**
      * الافتراضي لكل دور — ما يفعله صاحب الدور عادةً، لا ما قد يحتاجه يوماً.
+     * والمرتبة إن أُسندت تحلّ محلّه.
      *
      * @return array<int, string>
      */
@@ -152,12 +228,12 @@ class Ability
             self::MONEY_CASH, self::MONEY_EXPENSES, self::MONEY_CONFIRM_AMOUNT,
         ];
 
-        return match ($role) {
+        $abilities = match ($role) {
             UserRole::CompanyOwner, UserRole::CompanyAdmin => static::all(),
 
-            // مدير الفرع يُدير العمليات ويرى المال ولا يُحرّكه
+            // مدير الفرع يُدير العمليات ويرى المال ولا يُحرّكه؛ وله التقارير المالية كما في المعتاد
             UserRole::BranchManager => [
-                ...$operations, self::MONEY_VIEW, self::REPORTS_VIEW,
+                ...$operations, self::MONEY_VIEW, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
                 self::CONTROL_DUPLICATES, self::SETTINGS_ZONES, self::NOTIFY_SEND,
                 self::SUPPORT_REPLY,
             ],
@@ -172,11 +248,27 @@ class Ability
             ],
 
             UserRole::Accountant => [
-                self::SHIPMENTS_VIEW, ...$money, self::REPORTS_VIEW,
-                self::CONTROL_DUPLICATES, self::MONEY_CONFIRM_AMOUNT,
+                self::SHIPMENTS_VIEW, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
+                self::CONTROL_DUPLICATES,
             ],
 
             default => [],
         };
+
+        return static::ordered($abilities);
+    }
+
+    /**
+     * بترتيب القائمة وبلا تكرار، وما ليس صلاحيةً يسقط — العمود JSON قد يحمل
+     * اسماً حُذف أو كُتب خطأً.
+     *
+     * @param  iterable<string>  $abilities
+     * @return array<int, string>
+     */
+    public static function ordered(iterable $abilities): array
+    {
+        $given = is_array($abilities) ? $abilities : iterator_to_array($abilities, false);
+
+        return array_values(array_intersect(static::all(), $given));
     }
 }

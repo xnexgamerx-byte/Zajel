@@ -80,9 +80,9 @@ final class StaffNavigation
                 ['reports.changes', 'تتبّع التغييرات', ['reports.changes'], 'reports.view'],
             ]],
             ['تقارير مالية', 'trend', [
-                ['reports.profit', 'أرباح الشحنات', ['reports.profit'], 'reports.view'],
+                ['reports.profit', 'أرباح الشحنات', ['reports.profit'], 'reports.financial'],
                 ['branch-accounts.statement', 'كشف حساب الفرع', ['branch-accounts.statement*'], 'money.view'],
-                ['reports.returns-money', 'مال الرواجع', ['reports.returns-money'], 'reports.view'],
+                ['reports.returns-money', 'مال الرواجع', ['reports.returns-money'], 'reports.financial'],
             ]],
             ['المراجعة', 'review', [
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
@@ -90,10 +90,11 @@ final class StaffNavigation
                 ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
             ]],
             ['إعدادات الفروع', 'building', [
-                ['merchants.index', 'التجّار', ['merchants.*'], 'settings.people'],
-                ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit'], 'settings.people'],
-                ['users.index', 'المستخدمون', ['users.*'], 'settings.people'],
-                ['permissions.index', 'الصلاحيات', ['permissions.*'], 'settings.permissions'],
+                ['merchants.index', 'التجّار', ['merchants.*'], 'settings.merchants'],
+                ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit'], 'settings.couriers'],
+                ['users.index', 'المستخدمون', ['users.*'], 'settings.users'],
+                ['permissions.index', 'الصلاحيات والمراتب', ['permissions.index', 'permissions.ranks.*'], 'settings.permissions'],
+                ['permissions.grants.index', 'صلاحيات استثنائية', ['permissions.grants.*'], 'settings.permissions'],
                 ['branches.index', 'الفروع', ['branches.*'], 'settings.branches'],
                 ['zones.index', 'المناطق', ['zones.*'], 'settings.zones'],
                 ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit'], 'settings.pricing'],

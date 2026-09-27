@@ -6,10 +6,12 @@ use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\Permissions\Ability;
 use App\Support\Username;
+use App\Models\Scopes\CompanyScope;
 use App\Models\Scopes\UserScope;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -63,11 +65,26 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    public function rank(): BelongsTo
+    {
+        // بمعرّفها من صفّه لا بالبحث: تُقرأ ولو خارج سياق شركته (أمرٌ في الطرفية)
+        return $this->belongsTo(Rank::class)->withoutGlobalScope(CompanyScope::class);
+    }
+
+    public function grants(): HasMany
+    {
+        return $this->hasMany(UserGrant::class)->withoutGlobalScope(CompanyScope::class);
+    }
+
     /**
      * صلاحيات هذا المستخدم فعلاً.
      *
-     * التجاوز إن وُجد، وإلّا افتراضي دوره. فتغيير سياسة الدور يسري على
-     * كل من لم يُخصَّص له شيء، ولا يُنسَخ الجدول في كل صفّ ليتقادم.
+     * أساسها بالترتيب: تخصيصه القديم إن وُجد (قبل المراتب، ويبقى حتى يُزال)،
+     * ثم صاحب الشركة كل شيء — لا مرتبة تقيّده، فلا تُقفَل الشركة عن نفسها —
+     * ثم مرتبته، ثم افتراضي دوره. وفوق الأساس صلاحياته الاستثنائية.
+     *
+     * فتغيير المرتبة أو سياسة الدور يسري على كل من يحملها، ولا يُنسَخ الجدول
+     * في كل صفّ ليتقادم.
      *
      * @return array<int, string>
      */
@@ -77,9 +94,29 @@ class User extends Authenticatable
             return Ability::all();
         }
 
-        return is_array($this->permissions)
-            ? array_values(array_intersect($this->permissions, Ability::all()))
-            : Ability::defaultsFor($this->role);
+        if (! $this->isStaff()) {
+            return [];
+        }
+
+        $base = match (true) {
+            is_array($this->permissions)            => $this->permissions,
+            $this->role === UserRole::CompanyOwner  => Ability::all(),
+            $this->rank_id !== null && $this->rank !== null => $this->rank->abilities ?? [],
+            default                                 => Ability::defaultsFor($this->role),
+        };
+
+        return Ability::ordered([...$base, ...$this->grants->pluck('ability')]);
+    }
+
+    /** مصدر صلاحياته، للعرض: «مخصّصة»، أو اسم مرتبته، أو دوره. */
+    public function abilitySource(): string
+    {
+        return match (true) {
+            is_array($this->permissions)                    => 'تخصيصٌ قديم',
+            $this->role === UserRole::CompanyOwner          => 'صاحب الشركة: كل شيء',
+            $this->rank_id !== null && $this->rank !== null => $this->rank->name,
+            default                                         => 'افتراضي «'.$this->role->label().'»',
+        };
     }
 
     public function hasAbility(string $ability): bool

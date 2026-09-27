@@ -30,6 +30,7 @@
                     <th >اسم المستخدم</th>
                     <th >الهاتف</th>
                     <th >الدور</th>
+                    <th >المرتبة</th>
                     <th >الفرع</th>
                     <th >آخر دخول</th>
                     <th >الحالة</th>
@@ -43,6 +44,7 @@
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $staff->username }}</td>
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $staff->phone }}</td>
                         <td class="px-4 py-3">{{ $roles[$staff->role->value] ?? $staff->role->label() }}</td>
+                        <td class="px-4 py-3 {{ $staff->rank ? '' : 'text-ink-400' }}">{{ $staff->rank?->name ?? '—' }}</td>
                         <td class="px-4 py-3 text-ink-600">{{ $staff->branch?->name ?? 'كل الفروع' }}</td>
                         <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
                             {{ $staff->last_login_at?->format('Y-m-d H:i') ?? '—' }}
@@ -61,7 +63,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-16 text-center text-ink-500">لا مستخدمين.</td></tr>
+                    <tr><td colspan="9" class="px-4 py-16 text-center text-ink-500">لا مستخدمين.</td></tr>
                 @endforelse
             </tbody>
         </table>
