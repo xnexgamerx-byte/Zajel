@@ -211,6 +211,65 @@
     </a>
 @endif
 
+@if ($alerts)
+    {{-- البطاقات السبع كما في رئيسية المعتاد: كلٌّ سؤالٌ يُسأل كل صباح، والفارغة تنطوي --}}
+    <section class="mb-5" aria-labelledby="alerts-title">
+        <div class="panel-head">
+            <span class="panel-head-icon"><x-icon name="alert" class="size-5"/></span>
+            <h2 id="alerts-title" class="panel-head-title">تنبيهات</h2>
+            @php $flagged = collect($alerts)->where('total', '>', 0)->count(); @endphp
+            <span class="ms-2 text-xs text-ink-500">
+                {{ $flagged ? "{$flagged} من ".count($alerts).' تستحقّ النظر' : 'لا شيء يستحقّ النظر' }}
+            </span>
+        </div>
+        <div class="mt-3 grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+            @foreach (collect($alerts)->sortByDesc(fn ($a) => $a['total'] > 0) as $alert)
+                @if ($alert['total'] === 0)
+                    <div class="flex items-center gap-2 rounded-2xl border border-aeblack-100/80 bg-white/60 px-4 py-3 text-sm text-ink-500">
+                        <x-icon name="check" class="size-4 shrink-0 text-ok-700"/>
+                        <span class="min-w-0 flex-1 truncate">{{ $alert['title'] }}</span>
+                        <span class="text-xs">لا شيء</span>
+                    </div>
+                @else
+                    <section class="card flex flex-col p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <h3 class="font-medium text-aeblack-950">{{ $alert['title'] }}</h3>
+                                <p class="text-xs text-ink-500">{{ $alert['hint'] }}</p>
+                            </div>
+                            <span class="num grid h-7 min-w-7 shrink-0 place-items-center rounded-full bg-camel-50 px-2 text-sm font-semibold text-camel-700">
+                                {{ number_format($alert['total']) }}
+                            </span>
+                        </div>
+                        <ul class="mt-3 divide-y divide-ink-100 text-sm">
+                            @foreach ($alert['rows'] as $row)
+                                <li>
+                                    <{{ $row['href'] ? 'a' : 'div' }} @if ($row['href']) href="{{ $row['href'] }}" @endif
+                                        class="flex items-center gap-2 py-1.5 {{ $row['href'] ? 'hover:text-primary-700' : '' }}">
+                                        @foreach ($row['cells'] as $i => $cell)
+                                            <span @class([
+                                                'min-w-0 truncate',
+                                                'flex-1 font-medium' => $i === 0,
+                                                'shrink-0 text-xs text-ink-500' => $i > 0,
+                                                'font-semibold text-bad-700' => $row['late'] && $loop->last,
+                                            ])>{{ $cell ?? '—' }}</span>
+                                        @endforeach
+                                    </{{ $row['href'] ? 'a' : 'div' }}>
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if ($alert['link'])
+                            <a href="{{ $alert['link'] }}" class="mt-auto pt-2 text-xs font-semibold text-primary-600 hover:underline">
+                                {{ $alert['total'] > $alert['rows']->count() ? 'الكل ('.number_format($alert['total']).')' : 'افتح' }}
+                            </a>
+                        @endif
+                    </section>
+                @endif
+            @endforeach
+        </div>
+    </section>
+@endif
+
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <div class="space-y-5 lg:col-span-2">
         <section>

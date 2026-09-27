@@ -8,6 +8,7 @@ use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\PickupRequest;
 use App\Models\Shipment;
+use App\Services\Dashboard\HomeAlerts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -66,6 +67,9 @@ class DashboardController extends Controller
 
         return view('tenant.dashboard', [
             'week' => $this->lastSevenDays($user),
+
+            // البطاقات السبع كما في رئيسية المعتاد، لمن يفتح ما خلفها
+            'alerts' => app(HomeAlerts::class)->for($user),
 
             'cards' => [
                 'today'          => $today,
