@@ -12,7 +12,11 @@
         @php $isMine = $message->author === $mine; @endphp
         <li class="flex {{ $isMine ? 'justify-end' : 'justify-start' }}">
             <div class="max-w-[85%] rounded-2xl px-4 py-2.5 {{ $isMine ? 'bg-[var(--brand)] text-white' : 'border border-ink-200 bg-white' }}">
-                @if ($message->hasAttachment())
+                @if ($message->hasAttachment() && ! $message->attachmentAvailable())
+                    <p class="mb-1.5 text-xs {{ $isMine ? 'text-white/75' : 'text-ink-500' }}">
+                        أُرفق «{{ $message->attachment_name }}» ولم يعد متوفّراً.
+                    </p>
+                @elseif ($message->hasAttachment())
                     @php $file = route($fileRoute, [$message->conversation_id, $message->id]); @endphp
                     @if ($message->attachmentIsImage())
                         <a href="{{ $file }}" target="_blank" rel="noopener" class="mb-1.5 block">

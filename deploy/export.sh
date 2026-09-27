@@ -10,7 +10,8 @@
 #   sudo ./setup.sh --restore zajel-move-….tar.gz
 #
 # والملف فيه كل شيء: مفتاح التطبيق (فتبقى روابط QR المطبوعة تعمل)، وكلمات
-# السرّ، وقاعدة البيانات كاملة. انقله كما تنقل مفاتيح الخزنة، واحذفه بعد النقل.
+# السرّ، وقاعدة البيانات كاملة، والملفّات المرفوعة. انقله كما تنقل مفاتيح
+# الخزنة، واحذفه بعد النقل.
 
 set -euo pipefail
 umask 077
@@ -39,7 +40,13 @@ git -C .. rev-parse HEAD > "$work/version" 2>/dev/null || true
 extra=()
 if [ -f certs/origin.pem ]; then
     cp -r certs "$work/certs"
-    extra=(certs)
+    extra+=(certs)
+fi
+
+# صور الإعلانات ومرفقات المحادثات: المرآة التي حدّثها backup.sh للتوّ
+if [ -d "$dir/files" ]; then
+    cp -a "$dir/files" "$work/files"
+    extra+=(files)
 fi
 
 bundle="$dir/zajel-move-$(date -u +%Y%m%d-%H%M%S).tar.gz"

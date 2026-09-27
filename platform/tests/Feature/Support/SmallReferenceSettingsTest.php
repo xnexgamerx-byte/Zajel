@@ -208,6 +208,16 @@ class SmallReferenceSettingsTest extends TestCase
         $this->actingAs($this->courierUser)->get($this->host().$image)->assertNotFound();
     }
 
+    /** صورةٌ ضاعت من التخزين لا تظهر مكسورةً أعلى البوابة */
+    public function test_an_ad_whose_image_is_gone_is_skipped(): void
+    {
+        $ad = $this->upload('merchants');
+        Storage::disk('local')->delete($ad->image_path);
+
+        $this->actingAs($this->alphaUser)->get($this->host().'/portal')
+            ->assertOk()->assertDontSee(route('app-ads.image', $ad, false), false);
+    }
+
     public function test_an_ad_for_everyone_shows_in_the_courier_app_too(): void
     {
         $ad = $this->upload('all');
@@ -349,6 +359,17 @@ class SmallReferenceSettingsTest extends TestCase
         // الصورة في المحادثة نفسها للطرفين
         $this->actingAs($this->owner)->get($this->host().'/conversations/'.$conversation->id)->assertSee($staffFile, false);
         $this->actingAs($this->alphaUser)->get($this->host().'/portal/support/'.$conversation->id)->assertSee($portalFile, false);
+    }
+
+    public function test_a_lost_attachment_is_named_not_linked(): void
+    {
+        $conversation = $this->ask($this->alphaUser, ['body' => 'انظر', 'attachment' => UploadedFile::fake()->image('تلف.jpg')]);
+        $message = $this->lastMessage();
+        Storage::disk('local')->delete($message->attachment_path);
+
+        $this->actingAs($this->owner)->get($this->host().'/conversations/'.$conversation->id)->assertOk()
+            ->assertSee('أُرفق «تلف.jpg» ولم يعد متوفّراً.')
+            ->assertDontSee('/files/'.$message->id, false);
     }
 
     public function test_a_pdf_reply_is_downloaded_not_opened_in_the_page(): void

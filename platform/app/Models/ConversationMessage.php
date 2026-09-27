@@ -31,6 +31,12 @@ class ConversationMessage extends Model
         return $this->attachment_path !== null;
     }
 
+    /** الملفّ ما زال في التخزين — لا رابطَ مكسوراً لملفٍّ ضاع مع قرصٍ استُبدل */
+    public function attachmentAvailable(): bool
+    {
+        return $this->hasAttachment() && Storage::disk('local')->exists($this->attachment_path);
+    }
+
     /** صورةٌ تُعرض مصغّرةً في المحادثة؛ وغيرها رابطٌ باسمه */
     public function attachmentIsImage(): bool
     {

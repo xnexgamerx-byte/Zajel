@@ -136,6 +136,14 @@ if [ -n "$restore" ] && [ ! -f .installed ]; then
 
     # نسخةٌ من شيفرةٍ أقدم من هذه: ما جدّ من ترحيلاتٍ يجري الآن
     docker compose exec -T -u www-data app php artisan migrate --force
+
+    # صور الإعلانات ومرفقات المحادثات إلى حجم storage، لمستخدم التطبيق
+    if [ -d "$work/files" ]; then
+        say "استرجاع الملفّات المرفوعة…"
+        tar -C "$work/files" -cf - . \
+            | docker compose exec -T app tar -C /var/www/html/storage/app/private -xf -
+        docker compose exec -T app chown -R www-data:www-data /var/www/html/storage/app/private
+    fi
     docker compose up -d --wait
 
     date -u +%FT%TZ > .installed

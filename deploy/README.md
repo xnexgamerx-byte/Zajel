@@ -211,7 +211,7 @@ sudo docker compose up -d
 | # | أين | ماذا |
 |---|---|---|
 | ١ | — | خادمٌ جديد فارغ (Ubuntu أو Debian)، ومنافذه ٢٢ و٨٠ و٤٤٣ مفتوحة |
-| ٢ | القديم | `sudo ./export.sh` — **يوقف الموقع** (فلا يُكتب شيءٌ يضيع)، ويأخذ نسخةً أخيرة، ويحزمها مع `.env`، ويطبع الأوامر التالية بأسمائها |
+| ٢ | القديم | `sudo ./export.sh` — **يوقف الموقع** (فلا يُكتب شيءٌ يضيع)، ويأخذ نسخةً أخيرة، ويحزمها مع `.env` والملفّات المرفوعة، ويطبع الأوامر التالية بأسمائها |
 | ٣ | جهازك | `scp root@القديم:/var/backups/zajel/zajel-move-….tar.gz root@الجديد:/root/` |
 | ٤ | الجديد | `git clone https://github.com/xnexgamerx-byte/Zajel.git /opt/zajel && cd /opt/zajel/deploy` ثم `sudo ./setup.sh --restore /root/zajel-move-….tar.gz` |
 | ٥ | مزوّد النطاق | سجلّا DNS (النطاق و`*.`النطاق) ← عنوان الخادم الجديد |
@@ -220,7 +220,7 @@ sudo docker compose up -d
 **ومفتاح R2 لا ينتقل** مع الحزمة: على الخادم الجديد `sudo ./offsite-backup.sh` به من مدير كلمات السرّ.
 
 **ينتقل كلّ شيء:** الشركات، والحسابات بكلمات مرورها، والجلسات (لا يُطلب من أحدٍ الدخول
-من جديد)، والشحنات، والمال، والإعدادات. **ورموز QR على الوصولات المطبوعة تبقى تعمل**:
+من جديد)، والشحنات، والمال، والإعدادات، وصور الإعلانات ومرفقات المحادثات. **ورموز QR على الوصولات المطبوعة تبقى تعمل**:
 مفتاح التطبيق في الحزمة. والشهادات تُصدَر على الجديد وحدها.
 
 **الانقطاع** من الخطوة ٢ إلى أن يصل DNS: ربع ساعةٍ عادةً مع TTL قصير. اختر وقتاً هادئاً،
@@ -236,7 +236,8 @@ sudo docker compose up -d
 mkdir move && cd move
 cp /path/to/saved/.env .env
 cp /path/to/zajel-20260925-003000.sql.gz database.sql.gz
-tar -czf ../zajel-move.tar.gz .env database.sql.gz
+cp -a /path/to/files files          # مرآة الملفّات المرفوعة، إن كانت عندك (files/ في المخزن)
+tar -czf ../zajel-move.tar.gz .env database.sql.gz $([ -d files ] && echo files)
 ```
 
 ---
@@ -257,6 +258,11 @@ tar -czf ../zajel-move.tar.gz .env database.sql.gz
 
 كل ليلة في `/var/backups/zajel`، ويُحفظ أربعة عشر يوماً (`BACKUP_KEEP_DAYS`).
 والسجلّ في `/var/log/zajel-backup.log`. ونسخةٌ يدوية في أيّ وقت: `sudo ./backup.sh`.
+
+**والملفّات المرفوعة** (صور إعلانات التطبيق ومرفقات المحادثات) ليست في القاعدة: مرآتها في
+`/var/backups/zajel/files`، تُزاد كل ليلة بما رُفع جديداً ولا يُمسح منها شيء — فالملفّ لا
+يتغيّر بعد رفعه، ونسخةٌ كاملة كل ليلة تملأ القرص بلا فائدة. وتُرفع إلى `files/` في المخزن
+الخارجي بالطريقة نفسها.
 
 **نسخةٌ على الخادم نفسه لا تنفع يوم يضيع الخادم.** وخارجه على Cloudflare R2:
 ١٠ غيغابايت مجاناً، في الحساب نفسه الذي فيه النطاق.
@@ -292,6 +298,11 @@ cd /opt/zajel && sudo git pull && cd deploy && sudo ./offsite-backup.sh
 gunzip -c /var/backups/zajel/zajel-20260925-003000.sql.gz \
   | docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot zajel'
 docker compose restart app scheduler
+
+# والملفّات المرفوعة: تُضاف إلى ما هناك، ولا يُمسح شيء
+tar -C /var/backups/zajel/files -cf - . \
+  | docker compose exec -T app tar -C /var/www/html/storage/app/private -xf -
+docker compose exec -T app chown -R www-data:www-data /var/www/html/storage/app/private
 ```
 
 وللتجربة بلا مساسٍ بالقاعدة الحيّة: استرجع إلى قاعدةٍ أخرى وقارن الأعداد:
