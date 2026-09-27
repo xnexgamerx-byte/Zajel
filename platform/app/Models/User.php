@@ -36,6 +36,7 @@ class User extends Authenticatable
             'last_login_at'     => 'datetime',
             'password'          => 'hashed',
             'is_active'         => 'boolean',
+            'is_sales'          => 'boolean',
             'role'              => UserRole::class,
         ];
     }

@@ -40,7 +40,10 @@
             <tbody class="divide-y divide-ink-100">
                 @forelse ($users as $staff)
                     <tr class="hover:bg-ink-50">
-                        <td class="px-4 py-3 font-semibold">{{ $staff->name }}</td>
+                        <td class="px-4 py-3 font-semibold">
+                            {{ $staff->name }}
+                            @if ($staff->is_sales)<span class="chip chip-info ms-1">مبيعات</span>@endif
+                        </td>
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $staff->username }}</td>
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $staff->phone }}</td>
                         <td class="px-4 py-3">{{ $roles[$staff->role->value] ?? $staff->role->label() }}</td>

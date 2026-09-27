@@ -38,6 +38,11 @@ class MerchantRequest extends FormRequest
             'payout_method'    => ['required', Rule::in(['cash', 'zaincash', 'asiahawala', 'fastpay', 'qi', 'fib', 'bank_transfer'])],
             'payout_account'   => ['nullable', 'string', 'max:120'],
             'status'           => ['required', Rule::in(['active', 'suspended', 'pending'])],
+            'goods_type'       => ['nullable', Rule::in(array_keys(Merchant::GOODS_TYPES))],
+            'is_vip'           => ['sometimes', 'boolean'],
+            'portal_access'    => ['sometimes', 'boolean'],
+            'pickup_courier_id' => ['nullable', 'integer'],
+            'sales_user_id'    => ['nullable', 'integer'],
             'notes'            => ['nullable', 'string', 'max:500'],
             'fixed_note'       => ['nullable', 'string', 'max:255'],
 
@@ -59,6 +64,15 @@ class MerchantRequest extends FormRequest
 
             if ($duplicate) {
                 $validator->errors()->add('phone', 'يوجد تاجر بهذا الرقم في شركتك.');
+            }
+
+            // CompanyScope مفعّل: مندوبٌ أو موظّفٌ من شركةٍ أخرى لا يُعثر عليه أصلاً
+            if ($this->pickup_courier_id && ! \App\Models\Courier::picking()->whereKey($this->pickup_courier_id)->exists()) {
+                $validator->errors()->add('pickup_courier_id', 'اختر مندوب استلامٍ من مندوبي شركتك.');
+            }
+
+            if ($this->sales_user_id && ! User::whereKey($this->sales_user_id)->where('is_sales', true)->exists()) {
+                $validator->errors()->add('sales_user_id', 'اختر موظّف مبيعاتٍ من موظّفي شركتك.');
             }
 
             if ($this->price_list_id && ! PriceList::whereKey($this->price_list_id)->exists()) {

@@ -59,7 +59,7 @@ class UserController extends Controller
     {
         $data = $this->validated($request);
 
-        User::create($data + ['is_active' => $request->boolean('is_active', true)]);
+        User::create($data + ['is_active' => $request->boolean('is_active', true), 'is_sales' => $request->boolean('is_sales')]);
 
         return redirect()->route('users.index')->with('success', "أُضيف {$data['name']}.");
     }
@@ -89,7 +89,10 @@ class UserController extends Controller
         }
 
         // مرتبته أو إيقافه قد يُخرج آخر من يدير الصلاحيات
-        PermissionChange::apply(fn () => $user->update($data + ['is_active' => $request->boolean('is_active')]), 'rank_id');
+        PermissionChange::apply(fn () => $user->update($data + [
+            'is_active' => $request->boolean('is_active'),
+            'is_sales'  => $request->boolean('is_sales'),
+        ]), 'rank_id');
 
         return redirect()->route('users.index')->with('success', 'حُفظت البيانات.');
     }

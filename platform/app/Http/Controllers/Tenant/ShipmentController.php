@@ -33,7 +33,7 @@ class ShipmentController extends Controller
     public function index(Request $request): View
     {
         $query = Shipment::query()
-            ->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar',
+            ->with(['merchant:id,business_name,is_vip', 'governorate:id,name_ar', 'city:id,name_ar',
                     'deliveryCourier:id,name'])
             ->visibleTo($request->user());
 

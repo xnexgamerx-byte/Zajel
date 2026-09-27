@@ -34,6 +34,12 @@ class MerchantController extends Controller
                     ->orWhere('code', $term));
             })
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when($request->query('goods_type'), fn ($q, $t) => $q->where('goods_type', $t))
+            ->when($request->query('vip') === '1', fn ($q) => $q->where('is_vip', true))
+            ->when($request->integer('pickup_courier_id'), fn ($q, $id) => $q->where('pickup_courier_id', $id))
+            ->when($request->integer('sales_user_id'), fn ($q, $id) => $q->where('sales_user_id', $id))
+            ->when($request->query('portal') === '0', fn ($q) => $q->where('portal_access', false))
+            ->with(['pickupCourier:id,name'])
             ->withCount('shipments')
             ->orderBy('business_name')
             ->paginate(config('zajel.per_page'))
@@ -41,6 +47,8 @@ class MerchantController extends Controller
 
         return view('tenant.merchants.index', [
             'merchants' => $merchants,
+            'pickupCouriers' => \App\Models\Courier::picking()->orderBy('name')->get(['id', 'name']),
+            'salesUsers' => User::where('is_sales', true)->orderBy('name')->get(['id', 'name']),
             'owed'      => (int) DB::table('merchants')
                 ->where('company_id', $request->user()->company_id)
                 ->whereNull('deleted_at')
@@ -81,7 +89,7 @@ class MerchantController extends Controller
 
     public function show(Merchant $merchant): View
     {
-        $merchant->load(['governorate', 'city', 'branch', 'priceList']);
+        $merchant->load(['governorate', 'city', 'branch', 'priceList', 'pickupCourier:id,name', 'salesUser:id,name']);
 
         $byStatus = Shipment::query()
             ->where('merchant_id', $merchant->id)
@@ -147,6 +155,8 @@ class MerchantController extends Controller
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
             'branches'     => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'priceLists'   => PriceList::where('is_active', true)->orderBy('name')->get(['id', 'name', 'is_default']),
+            'pickupCouriers' => \App\Models\Courier::picking()->active()->orderBy('name')->get(['id', 'name']),
+            'salesUsers'   => User::where('is_sales', true)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
         ];
     }
 }

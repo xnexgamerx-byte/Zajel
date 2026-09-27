@@ -87,6 +87,12 @@
     </div>
 
     <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="is_sales" value="1" @checked(old('is_sales', $staff->is_sales))
+               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
+        موظّف مبيعات <span class="text-xs text-ink-500">— يُنسب إليه التجّار الذين جاء بهم</span>
+    </label>
+
+    <label class="flex items-center gap-2 text-sm">
         <input type="checkbox" name="is_active" value="1"
                @checked(old('is_active', $staff->exists ? $staff->is_active : true))
                class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">

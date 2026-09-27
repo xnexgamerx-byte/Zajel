@@ -70,6 +70,58 @@
         </section>
 
         <section class="card p-5">
+            <h2 class="mb-4 text-sm font-bold">التصنيف والخدمة</h2>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="field-label" for="goods_type">نوع البضاعة</label>
+                    <select id="goods_type" name="goods_type" class="field-input">
+                        <option value="">—</option>
+                        @foreach (\App\Models\Merchant::GOODS_TYPES as $value => $label)
+                            <option value="{{ $value }}" @selected(old('goods_type', $merchant->goods_type) === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    @error('goods_type') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="field-label" for="pickup_courier_id">مندوب الاستلام</label>
+                    <select id="pickup_courier_id" name="pickup_courier_id" class="field-input">
+                        <option value="">—</option>
+                        @foreach ($pickupCouriers as $courier)
+                            <option value="{{ $courier->id }}" @selected((int) old('pickup_courier_id', $merchant->pickup_courier_id) === $courier->id)>{{ $courier->name }}</option>
+                        @endforeach
+                    </select>
+                    <p class="field-hint">يُقترح أوّلاً حين يطلب التاجر استلاماً.</p>
+                    @error('pickup_courier_id') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="field-label" for="sales_user_id">موظّف المبيعات</label>
+                    <select id="sales_user_id" name="sales_user_id" class="field-input">
+                        <option value="">—</option>
+                        @foreach ($salesUsers as $user)
+                            <option value="{{ $user->id }}" @selected((int) old('sales_user_id', $merchant->sales_user_id) === $user->id)>{{ $user->name }}</option>
+                        @endforeach
+                    </select>
+                    <p class="field-hint">من جاء به. الموظّف يُعلَّم «موظّف مبيعات» من صفحته.</p>
+                    @error('sales_user_id') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div class="space-y-2.5 sm:pt-7">
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="hidden" name="is_vip" value="0">
+                        <input type="checkbox" name="is_vip" value="1" class="size-4 accent-[var(--brand)]"
+                               @checked(old('is_vip', $merchant->is_vip))>
+                        عميل مميّز <span class="text-xs text-ink-500">— تُعلَّم شحناته في القوائم</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="hidden" name="portal_access" value="0">
+                        <input type="checkbox" name="portal_access" value="1" class="size-4 accent-[var(--brand)]"
+                               @checked(old('portal_access', $merchant->exists ? $merchant->portal_access : true))>
+                        يُسمح له بالدخول لبوابته
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">عنوان الاستلام</h2>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>

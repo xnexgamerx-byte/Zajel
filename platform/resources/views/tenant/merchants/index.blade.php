@@ -23,6 +23,42 @@
                placeholder="اسم المتجر · صاحبه · الهاتف · الرمز">
     </div>
     <div>
+        <label class="field-label" for="goods_type">نوع البضاعة</label>
+        <select id="goods_type" name="goods_type" class="field-input">
+            <option value="">الكل</option>
+            @foreach (\App\Models\Merchant::GOODS_TYPES as $value => $label)
+                <option value="{{ $value }}" @selected(request('goods_type') === $value)>{{ $label }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label class="field-label" for="pickup_courier_id">مندوب الاستلام</label>
+        <select id="pickup_courier_id" name="pickup_courier_id" class="field-input">
+            <option value="">الكل</option>
+            @foreach ($pickupCouriers as $courier)
+                <option value="{{ $courier->id }}" @selected((int) request('pickup_courier_id') === $courier->id)>{{ $courier->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    @if ($salesUsers->isNotEmpty())
+        <div>
+            <label class="field-label" for="sales_user_id">موظّف المبيعات</label>
+            <select id="sales_user_id" name="sales_user_id" class="field-input">
+                <option value="">الكل</option>
+                @foreach ($salesUsers as $user)
+                    <option value="{{ $user->id }}" @selected((int) request('sales_user_id') === $user->id)>{{ $user->name }}</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
+    <div>
+        <label class="field-label" for="vip">مميّز؟</label>
+        <select id="vip" name="vip" class="field-input">
+            <option value="">الكل</option>
+            <option value="1" @selected(request('vip') === '1')>المميّزون</option>
+        </select>
+    </div>
+    <div>
         <label class="field-label" for="status">الحالة</label>
         <select id="status" name="status" class="field-input">
             <option value="">الكل</option>
@@ -59,8 +95,11 @@
                                class="font-semibold text-[var(--brand)] hover:underline">
                                 {{ $merchant->business_name }}
                             </a>
-                            @if ($merchant->owner_name)
-                                <div class="text-xs text-ink-500">{{ $merchant->owner_name }}</div>
+                            @if ($merchant->is_vip)<span class="chip chip-info ms-1">مميّز</span>@endif
+                            @if ($merchant->owner_name || $merchant->goods_type || $merchant->pickupCourier)
+                                <div class="text-xs text-ink-500">
+                                    {{ collect([$merchant->owner_name, $merchant->goodsTypeLabel(), $merchant->pickupCourier ? 'مندوبه: '.$merchant->pickupCourier->name : null])->filter()->implode(' · ') }}
+                                </div>
                             @endif
                         </td>
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $merchant->phone }}</td>

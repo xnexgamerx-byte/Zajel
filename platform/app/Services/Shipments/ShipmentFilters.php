@@ -21,13 +21,13 @@ final class ShipmentFilters
     public const KEYS = [
         'q', 'stage', 'status', 'merchant_id', 'governorate_id', 'city_id', 'courier_id', 'pickup_courier_id',
         'from', 'to', 'stage_from', 'stage_to', 'settled', 'reason_id', 'type', 'branch_id', 'current_branch_id',
-        'amount',
+        'amount', 'vip',
     ];
 
     /** ما يُطوى تحت «بحث متقدّم»: إن وُجد أحدها يُفتح. */
     public const ADVANCED = [
         'city_id', 'pickup_courier_id', 'stage_from', 'stage_to', 'settled', 'reason_id', 'type', 'branch_id',
-        'current_branch_id', 'amount',
+        'current_branch_id', 'amount', 'vip',
     ];
 
     public static function apply(Builder $query, Request $request): Builder
@@ -86,6 +86,11 @@ final class ShipmentFilters
             'no'    => $query->whereNull('shipments.merchant_settled_at'),
             default => null,
         };
+
+        // شحنات العملاء المميّزين
+        if ($value('vip') === '1') {
+            $query->whereIn('shipments.merchant_id', \App\Models\Merchant::query()->select('id')->where('is_vip', true));
+        }
 
         // المبلغ كما يُكتب: «٢٥٬٠٠٠» أو «25,000»
         if (($amount = $value('amount')) !== null) {

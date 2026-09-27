@@ -152,6 +152,13 @@
                 </select>
             </div>
             <div>
+                <label class="field-label" for="vip">عميل مميّز؟</label>
+                <select id="vip" name="vip" class="field-input">
+                    <option value="">الكل</option>
+                    <option value="1" @selected(request('vip') === '1')>شحنات المميّزين</option>
+                </select>
+            </div>
+            <div>
                 <label class="field-label" for="amount">مبلغ الوصل</label>
                 <input id="amount" name="amount" value="{{ request('amount') }}" class="field-input" inputmode="numeric" dir="ltr">
             </div>
@@ -243,7 +250,10 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-ink-700">{{ $shipment->merchant->business_name }}</td>
+                        <td class="px-4 py-3 text-ink-700">
+                            {{ $shipment->merchant->business_name }}
+                            @if ($shipment->merchant->is_vip)<span class="chip chip-info ms-1">مميّز</span>@endif
+                        </td>
                         <td class="px-4 py-3">
                             <div class="font-medium">{{ $shipment->recipient_name }}</div>
                             <div class="text-xs text-ink-500">

@@ -4,7 +4,11 @@
 @section('content')
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div>
-        <h1 class="page-title">{{ $merchant->business_name }}</h1>
+        <div class="flex flex-wrap items-center gap-2">
+            <h1 class="page-title">{{ $merchant->business_name }}</h1>
+            @if ($merchant->is_vip)<span class="chip chip-info">عميل مميّز</span>@endif
+            @unless ($merchant->portal_access)<span class="chip chip-mute">بلا دخول للبوابة</span>@endunless
+        </div>
         <p class="mt-1 text-sm text-ink-500">
             <span class="font-mono" dir="ltr">{{ $merchant->code }}</span>
             @if ($merchant->owner_name) · {{ $merchant->owner_name }} @endif
@@ -118,6 +122,16 @@
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">البيانات</h2>
             <dl class="space-y-2.5 text-sm">
+                @foreach ([
+                    ['نوع البضاعة', $merchant->goodsTypeLabel()],
+                    ['مندوب الاستلام', $merchant->pickupCourier?->name],
+                    ['موظّف المبيعات', $merchant->salesUser?->name],
+                ] as [$label, $value])
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-ink-500">{{ $label }}</dt>
+                        <dd class="text-end font-medium">{{ $value ?? '—' }}</dd>
+                    </div>
+                @endforeach
                 <div class="flex justify-between gap-3">
                     <dt class="text-ink-500">المحافظة</dt>
                     <dd class="text-end font-medium">{{ $merchant->governorate?->name_ar ?? '—' }}</dd>

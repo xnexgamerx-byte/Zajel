@@ -84,8 +84,10 @@
                             <select id="courier-{{ $pickup->id }}" name="courier_id" class="field-input" required>
                                 <option value="">اختر</option>
                                 @foreach ($couriers as $courier)
-                                    <option value="{{ $courier->id }}" @selected($pickup->courier_id === $courier->id)>
-                                        {{ $courier->name }}
+                                    {{-- بلا مندوبٍ بعد: مندوب التاجر المعتاد أوّلاً --}}
+                                    <option value="{{ $courier->id }}"
+                                            @selected($pickup->courier_id ? $pickup->courier_id === $courier->id : $pickup->merchant?->pickup_courier_id === $courier->id)>
+                                        {{ $courier->name }}{{ $pickup->merchant?->pickup_courier_id === $courier->id ? ' — مندوبه' : '' }}
                                     </option>
                                 @endforeach
                             </select>

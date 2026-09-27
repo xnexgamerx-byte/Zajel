@@ -63,6 +63,17 @@ class LoginController extends Controller
             ]);
         }
 
+        // «يُسمح له بالدخول للنظام»: يُقال له عند الباب لا بعد أن يدخل
+        $user = Auth::user();
+        if ($user->role === UserRole::Merchant
+            && ($shop = \App\Models\Merchant::find($user->merchant_id)) && ! $shop->portal_access) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'username' => 'لم يُفتح لمتجرك الدخول إلى البوابة. راجع شركة التوصيل.',
+            ]);
+        }
+
         RateLimiter::clear($key);
         $request->session()->regenerate();
 

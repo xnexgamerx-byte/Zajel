@@ -29,6 +29,11 @@ class EnsureMerchant
             abort(403, 'حساب متجرك موقوف لدى شركة التوصيل.');
         }
 
+        // «يُسمح له بالدخول للنظام»: تاجرٌ تُدخَل شحناته عنه ولا يدخل بوابته
+        if (! $merchant->portal_access) {
+            abort(403, 'لم يُفتح لمتجرك الدخول إلى البوابة. راجع شركة التوصيل.');
+        }
+
         $request->attributes->set('merchant', $merchant);
         view()->share('merchant', $merchant);
 

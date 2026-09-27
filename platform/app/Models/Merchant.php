@@ -14,6 +14,43 @@ class Merchant extends Model
 
     protected $guarded = ['id'];
 
+    /** أنواع البضاعة كما في «متاجر الفرع» في المعتاد — تصنيفٌ يُفلتر به ويُقرأ في التقارير */
+    public const GOODS_TYPES = [
+        'general'     => 'عامّة',
+        'clothing'    => 'ملابس',
+        'supplies'    => 'مستلزمات',
+        'dental'      => 'مستلزمات أسنان',
+        'dental_tools' => 'أدوات طلاب أسنان',
+        'hardware'    => 'عدد وإنشائية',
+        'household'   => 'منزلية',
+        'electronics' => 'إلكترونيات',
+        'cosmetics'   => 'تجميل وعطور',
+        'food'        => 'أغذية',
+        'other'       => 'أخرى',
+    ];
+
+    protected function casts(): array
+    {
+        return ['is_vip' => 'boolean', 'portal_access' => 'boolean'];
+    }
+
+    public function goodsTypeLabel(): ?string
+    {
+        return self::GOODS_TYPES[$this->goods_type] ?? null;
+    }
+
+    /** مندوب الاستلام الذي يخدمه عادةً: يُقترح أوّلاً حين يطلب استلاماً */
+    public function pickupCourier(): BelongsTo
+    {
+        return $this->belongsTo(Courier::class, 'pickup_courier_id');
+    }
+
+    /** موظّف المبيعات الذي جاء به */
+    public function salesUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sales_user_id');
+    }
+
     public function governorate(): BelongsTo
     {
         return $this->belongsTo(Governorate::class);

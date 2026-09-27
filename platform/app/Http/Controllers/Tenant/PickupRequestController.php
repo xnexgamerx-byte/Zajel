@@ -20,7 +20,7 @@ class PickupRequestController extends Controller
     public function index(Request $request): View
     {
         $pickups = PickupRequest::query()
-            ->with(['merchant:id,business_name,phone,address,landmark', 'courier:id,name'])
+            ->with(['merchant:id,business_name,phone,address,landmark,pickup_courier_id', 'courier:id,name'])
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when(! $request->query('status'), fn ($q) => $q->whereIn('status', ['pending', 'assigned', 'in_progress']))
             ->orderByRaw("case when status = 'pending' then 0 else 1 end")
