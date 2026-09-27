@@ -38,6 +38,8 @@ class StaffNavigationTest extends TestCase
         'permissions.ranks.index', 'permissions.ranks.create',
         // زرّا Excel وPDF في قائمة الشحنات
         'shipments.export', 'shipments.export.print',
+        // يسأله جدول المسح عن كل وصل
+        'shipments.scan.lookup',
     ];
 
     private Company $company;

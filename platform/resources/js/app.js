@@ -5,6 +5,7 @@
  */
 
 import { initSearchableSelects } from './searchable-select';
+import { initScanTable } from './scan-table';
 
 const form = document.getElementById('shipment-form');
 
@@ -15,6 +16,9 @@ if (document.getElementById('cities-data')) {
 
 // بعد ربط المناطق: الحقل يقرأ خياراتها الأولى
 initSearchableSelects();
+
+const scanTable = document.querySelector('[data-scan-table]');
+if (scanTable) initScanTable(scanTable);
 
 if (form) {
     initLiveQuote();

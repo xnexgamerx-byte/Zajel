@@ -30,6 +30,7 @@ use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\ReconcileController;
 use App\Http\Controllers\Tenant\RankController;
 use App\Http\Controllers\Tenant\ShipmentExportController;
+use App\Http\Controllers\Tenant\ShipmentScanController;
 use App\Http\Controllers\Tenant\UserGrantController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
@@ -103,6 +104,12 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.labels');
         Route::get('/shipments/stages', [ShipmentController::class, 'stages'])
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.stages');
+        Route::middleware(['staff', 'can:shipments.view'])->group(function () {
+            Route::get('/shipments/scan', [ShipmentScanController::class, 'index'])->name('shipments.scan');
+            Route::get('/shipments/scan/lookup', [ShipmentScanController::class, 'lookup'])->name('shipments.scan.lookup');
+        });
+        Route::post('/shipments/scan/receive', [ShipmentScanController::class, 'receive'])
+            ->middleware(['staff', 'can:shipments.status'])->name('shipments.scan.receive');
         Route::middleware(['staff', 'can:shipments.export'])->group(function () {
             Route::get('/shipments/export', [ShipmentExportController::class, 'excel'])->name('shipments.export');
             Route::get('/shipments/export/print', [ShipmentExportController::class, 'print'])->name('shipments.export.print');

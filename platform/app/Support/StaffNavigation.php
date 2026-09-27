@@ -43,6 +43,7 @@ final class StaffNavigation
             ]],
             ['عمليات التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],
+                ['shipments.scan', 'استلام وصولات في كل المراحل وإسنادها', ['shipments.scan'], 'shipments.status'],
                 ['courier-manifests.index', 'كشوف المناديب', ['courier-manifests.*'], 'transport.manage'],
                 ['manifests.index', 'كشوف النقل', ['manifests.index', 'manifests.show'], 'transport.manage'],
                 ['manifests.inbound', 'وارد المراكز', ['manifests.inbound'], 'transport.manage'],
