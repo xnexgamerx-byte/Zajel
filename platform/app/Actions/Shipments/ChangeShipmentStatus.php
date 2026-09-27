@@ -81,6 +81,13 @@ class ChangeShipmentStatus
             ]);
         }
 
+        // المعلَّقة للمراجعة لا تخرج مع مندوبٍ حتى تُجاز (والإجباريّ يمرّ بسببه المكتوب)
+        if ($to === ShipmentStatus::OutForDelivery && empty($options['force']) && $shipment->isHeldForReview()) {
+            throw ValidationException::withMessages([
+                'status' => "الشحنة {$shipment->number} تحت المراجعة: تُجاز أوّلاً من «تحت المراجعة».",
+            ]);
+        }
+
         // «راجعة للتاجر» تعني أن التاجر استلمها، وعندها تُقيَّد أجرة الراجع
         // عليه. تسليم طرد ما زال في حقيبة المندوب هو الخلاف نفسه الذي
         // يُبنى هذا المسار لمنعه.

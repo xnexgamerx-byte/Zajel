@@ -48,6 +48,7 @@ class ShipmentEvent extends Model
         'deleted'          => 'مسح',
         'restored'         => 'استرجاع من الممسوحة',
         'processed'        => 'معالجة',
+        'reviewed'         => 'إجازة بعد المراجعة',
     ];
 
     /** @var array<string, string> */

@@ -78,6 +78,9 @@ class Ability
 
     public const CONTROL_FORCE = 'control.force';
 
+    /** إجازة شحنات التاجر المعلَّق للمراجعة لتخرج مع المندوب */
+    public const CONTROL_REVIEW = 'control.review';
+
     // إعدادات الفروع
     public const SETTINGS_MERCHANTS = 'settings.merchants';
 
@@ -147,6 +150,7 @@ class Ability
                 self::SUPPORT_REPLY      => 'محادثات التجّار',
                 self::CONTROL_DUPLICATES => 'حسم الشحنات المكرّرة',
                 self::CONTROL_FORCE      => 'التغيير الإجباري خارج المسار',
+                self::CONTROL_REVIEW     => 'إجازة الشحنات المعلّقة للمراجعة',
             ]],
             'settings' => ['label' => 'إعدادات الفروع', 'abilities' => [
                 self::SETTINGS_MERCHANTS   => 'التجّار',
@@ -245,7 +249,7 @@ class Ability
             // مدير الفرع يُدير العمليات ويرى المال ولا يُحرّكه؛ وله التقارير المالية كما في المعتاد
             UserRole::BranchManager => [
                 ...$operations, self::SHIPMENTS_EXPORT, self::MONEY_VIEW, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
-                self::CONTROL_DUPLICATES, self::SETTINGS_ZONES, self::NOTIFY_SEND,
+                self::CONTROL_DUPLICATES, self::CONTROL_REVIEW, self::SETTINGS_ZONES, self::NOTIFY_SEND,
                 self::SUPPORT_REPLY,
             ],
 

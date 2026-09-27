@@ -24,6 +24,15 @@
     </div>
 </div>
 
+@if ($shipment->delivery_code && $shipment->status->isOpen())
+    {{-- للتاجر وحده: يرسله لزبونه، والمندوب لا يسجّل التسليم بدونه --}}
+    <div class="mb-5 flex flex-wrap items-center gap-3 rounded-lg bg-info-50 px-4 py-3 text-sm text-info-700 ring-1 ring-info-200">
+        <span class="font-semibold">كود التسليم:</span>
+        <span class="num text-lg font-bold tracking-[0.3em]" dir="ltr">{{ $shipment->delivery_code }}</span>
+        <span>أرسله لزبونك؛ لا يُسلَّم الطرد إلّا به، ولا يُطبع على الوصل.</span>
+    </div>
+@endif
+
 @if ($shipment->lastFailureReason && $shipment->status->isOpen())
     <div class="mb-5 rounded-lg bg-warn-50 px-4 py-3 text-sm text-warn-700 ring-1 ring-warn-200">
         <span class="font-semibold">آخر محاولة لم تنجح:</span>

@@ -19,6 +19,9 @@ class Shipment extends Model
 
     protected $guarded = ['id'];
 
+    /** كود التسليم لا يُسلسَل إلى أيّ ردٍّ عن غير قصد: يُقرأ باسمه حيث يُعرض عمداً */
+    protected $hidden = ['delivery_code'];
+
     protected function casts(): array
     {
         return [
@@ -35,6 +38,8 @@ class Shipment extends Model
             'cancelled_at'      => 'datetime',
             'courier_settled_at' => 'datetime',
             'merchant_settled_at' => 'datetime',
+            'review_hold_at'    => 'datetime',
+            'reviewed_at'       => 'datetime',
             'is_fragile'        => 'boolean',
             'allow_open'        => 'boolean',
             'is_invoiced'       => 'boolean',
@@ -112,6 +117,17 @@ class Shipment extends Model
     }
 
     // ---------------------------------------------------------------- نطاقات
+
+    /** شحنة تاجرٍ قيد المراجعة لم تُجز بعد: لا تخرج مع مندوب */
+    public function isHeldForReview(): bool
+    {
+        return $this->review_hold_at !== null && $this->reviewed_at === null;
+    }
+
+    public function scopeHeldForReview(Builder $q): Builder
+    {
+        return $q->whereNotNull('shipments.review_hold_at')->whereNull('shipments.reviewed_at');
+    }
 
     public function scopeOpen(Builder $q): Builder
     {

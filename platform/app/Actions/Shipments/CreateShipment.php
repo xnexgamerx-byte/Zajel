@@ -116,6 +116,13 @@ class CreateShipment
 
                 'created_by_user_id'  => $actor?->id,
                 'source'              => $data['source'] ?? 'web',
+
+                // كود التسليم يعرفه التاجر وزبونه وحدهما؛ لا يُطبع ولا يظهر في التتبّع
+                'delivery_code'       => $merchant->requires_delivery_code
+                    ? str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT)
+                    : null,
+                // تاجرٌ قيد المراجعة: شحنته لا تخرج حتى تُجاز
+                'review_hold_at'      => $merchant->hold_for_review ? now() : null,
             ]);
 
             /*

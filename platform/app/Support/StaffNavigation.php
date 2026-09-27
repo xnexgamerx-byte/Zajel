@@ -94,6 +94,7 @@ final class StaffNavigation
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
                 ['control.duplicates', 'مشتبه بتكرارها', ['control.duplicates'], 'control.duplicates'],
                 ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
+                ['control.review', 'تحت المراجعة', ['control.review*'], 'control.review'],
             ]],
             ['إعدادات الفروع', 'building', [
                 ['merchants.index', 'التجّار', ['merchants.*'], 'settings.merchants'],

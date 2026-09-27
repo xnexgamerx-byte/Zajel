@@ -41,6 +41,8 @@ class MerchantRequest extends FormRequest
             'goods_type'       => ['nullable', Rule::in(array_keys(Merchant::GOODS_TYPES))],
             'is_vip'           => ['sometimes', 'boolean'],
             'portal_access'    => ['sometimes', 'boolean'],
+            'requires_delivery_code' => ['sometimes', 'boolean'],
+            'hold_for_review'  => ['sometimes', 'boolean'],
             'pickup_courier_id' => ['nullable', 'integer'],
             'sales_user_id'    => ['nullable', 'integer'],
             'notes'            => ['nullable', 'string', 'max:500'],

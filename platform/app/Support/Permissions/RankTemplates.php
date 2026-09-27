@@ -57,7 +57,7 @@ final class RankTemplates
             'follow_up' => [
                 'name' => 'متابعة',
                 'hint' => 'يتابع الشحنات المتعثّرة ويغيّر حالتها ويجيب التجّار.',
-                'abilities' => [A::SHIPMENTS_VIEW, A::SHIPMENTS_STATUS, A::SUPPORT_REPLY, A::CONTROL_DUPLICATES],
+                'abilities' => [A::SHIPMENTS_VIEW, A::SHIPMENTS_STATUS, A::SUPPORT_REPLY, A::CONTROL_DUPLICATES, A::CONTROL_REVIEW],
             ],
             'returns_clerk' => [
                 'name' => 'موظّف رواجع',

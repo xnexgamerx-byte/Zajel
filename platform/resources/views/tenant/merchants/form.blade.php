@@ -117,6 +117,18 @@
                                @checked(old('portal_access', $merchant->exists ? $merchant->portal_access : true))>
                         يُسمح له بالدخول لبوابته
                     </label>
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="hidden" name="requires_delivery_code" value="0">
+                        <input type="checkbox" name="requires_delivery_code" value="1" class="mt-1 size-4 accent-[var(--brand)]"
+                               @checked(old('requires_delivery_code', $merchant->requires_delivery_code))>
+                        <span>كود لتسليم الشحنة <span class="block text-xs text-ink-500">لكل شحنةٍ كودٌ يعطيه التاجر لزبونه، ولا يُسجَّل التسليم إلّا به</span></span>
+                    </label>
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="hidden" name="hold_for_review" value="0">
+                        <input type="checkbox" name="hold_for_review" value="1" class="mt-1 size-4 accent-[var(--brand)]"
+                               @checked(old('hold_for_review', $merchant->hold_for_review))>
+                        <span>شحناته تحت المراجعة <span class="block text-xs text-ink-500">لا تخرج مع مندوبٍ حتى يجيزها موظّف</span></span>
+                    </label>
                 </div>
             </div>
         </section>

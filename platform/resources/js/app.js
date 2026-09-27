@@ -169,6 +169,14 @@ if (statusForm) {
 /** شريط الإجراء الجماعي في قائمة الشحنات. */
 const bulkBar = document.querySelector('[data-bulk-bar]');
 
+// «الكلّ» في جدولٍ بلا شريط إجراء (تحت المراجعة): يحدّد صفوف نموذجه
+if (!bulkBar) {
+    for (const all of document.querySelectorAll('[data-select-all]')) {
+        const rows = [...(all.closest('form') ?? document).querySelectorAll('[data-row-select]')];
+        all.addEventListener('change', () => rows.forEach((row) => { row.checked = all.checked; }));
+    }
+}
+
 if (bulkBar) {
     const rows = [...document.querySelectorAll('[data-row-select]')];
     const selectAll = document.querySelector('[data-select-all]');

@@ -162,8 +162,8 @@ class QuickEntryController extends Controller
             foreach ($shipments as $data) {
                 $shipment = $create->handle($data, $request->user());
 
-                // سلّمها التاجر في المكتب وتخرج مع المندوب مباشرة
-                if ($courier) {
+                // سلّمها التاجر في المكتب وتخرج مع المندوب مباشرة — إلّا المعلَّقة للمراجعة
+                if ($courier && ! $shipment->isHeldForReview()) {
                     $change->handle($shipment, ShipmentStatus::PickedUp, $request->user(), ['note' => 'إدخال سريع']);
                     $change->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, $request->user(), [
                         'courier_id' => $courier->id, 'note' => 'إدخال سريع',

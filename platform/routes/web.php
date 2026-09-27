@@ -32,6 +32,7 @@ use App\Http\Controllers\Tenant\PassedThroughController;
 use App\Http\Controllers\Tenant\ProcessingController;
 use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
+use App\Http\Controllers\Tenant\ReviewHoldController;
 use App\Http\Controllers\Tenant\ShipmentExportController;
 use App\Http\Controllers\Tenant\ShipmentScanController;
 use App\Http\Controllers\Tenant\ShipmentTrashController;
@@ -180,6 +181,11 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:shipments.status')->group(function () {
                 Route::get('/processing', [ProcessingController::class, 'index'])->name('processing.index');
                 Route::post('/processing/{shipment}', [ProcessingController::class, 'store'])->name('processing.store');
+            });
+
+            Route::middleware('can:control.review')->group(function () {
+                Route::get('/control/review', [ReviewHoldController::class, 'index'])->name('control.review');
+                Route::post('/control/review', [ReviewHoldController::class, 'approve'])->name('control.review.approve');
             });
 
             // الرقابة: قوائم تُحسَم لا تقارير تُقرأ

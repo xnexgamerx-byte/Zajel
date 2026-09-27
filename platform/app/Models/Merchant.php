@@ -31,7 +31,8 @@ class Merchant extends Model
 
     protected function casts(): array
     {
-        return ['is_vip' => 'boolean', 'portal_access' => 'boolean'];
+        return ['is_vip' => 'boolean', 'portal_access' => 'boolean',
+                'requires_delivery_code' => 'boolean', 'hold_for_review' => 'boolean'];
     }
 
     public function goodsTypeLabel(): ?string

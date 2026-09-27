@@ -107,6 +107,14 @@
                 إن استلمت أقل، عدّل الرقم واختر "تسليم جزئي". الرقم لا يُعدَّل بعد الحفظ.
             </p>
 
+            {{-- تاجرٌ يطلب كود التسليم: الزبون يعطيه للمندوب عند الباب، ولا تسليم بدونه --}}
+            @if ($shipment->delivery_code)
+                <label class="field-label mt-3" for="delivery_code">كود التسليم من الزبون</label>
+                <input id="delivery_code" name="delivery_code" class="field-input text-center text-lg tracking-[0.4em]" dir="ltr"
+                       inputmode="numeric" autocomplete="off" maxlength="6" placeholder="••••">
+                @error('delivery_code') <p class="field-error">{{ $message }}</p> @enderror
+            @endif
+
             <button type="submit" name="action" value="delivered"
                     class="mt-3 w-full rounded-xl bg-ok-700 px-4 py-4 text-lg font-bold text-white active:brightness-110">
                 تم التسليم

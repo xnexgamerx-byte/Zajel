@@ -64,8 +64,9 @@ class ShipmentStatusController extends Controller
         $skipped = [];
 
         foreach ($shipments as $shipment) {
-            if (! $shipment->status->canMoveTo(ShipmentStatus::OutForDelivery)) {
-                $skipped[] = $shipment->number;
+            // والمعلَّقة للمراجعة لا تخرج حتى تُجاز
+            if (! $shipment->status->canMoveTo(ShipmentStatus::OutForDelivery) || $shipment->isHeldForReview()) {
+                $skipped[] = $shipment->number.($shipment->isHeldForReview() ? ' (تحت المراجعة)' : '');
 
                 continue;
             }
@@ -81,7 +82,7 @@ class ShipmentStatusController extends Controller
         $message = 'أُسندت '.\App\Support\Arabic::shipments($moved)." إلى {$courier->name}.";
 
         if ($skipped) {
-            $message .= ' تُخطّيت '.count($skipped).' شحنة لأن حالتها لا تسمح: '
+            $message .= ' تُخطّيت '.\App\Support\Arabic::shipments(count($skipped)).' لا تسمح حالتها بالخروج: '
                 .implode('، ', array_slice($skipped, 0, 5))
                 .(count($skipped) > 5 ? ' وغيرها' : '').'.';
         }

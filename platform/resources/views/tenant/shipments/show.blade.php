@@ -32,6 +32,26 @@
     </div>
 </div>
 
+@if ($shipment->isHeldForReview())
+    <div class="card mb-5 flex flex-wrap items-center gap-3 border-warn-200 bg-warn-50 p-4 text-sm text-warn-700">
+        <span class="font-semibold">تحت المراجعة:</span> تاجرها معلَّقٌ للتدقيق، فلا تخرج مع مندوبٍ حتى تُجاز.
+        @can('control.review')
+            <form method="POST" action="{{ route('control.review.approve') }}" class="ms-auto">
+                @csrf
+                <input type="hidden" name="shipment_ids[]" value="{{ $shipment->id }}">
+                <button class="btn-ghost py-1">أجِزها</button>
+            </form>
+        @endcan
+    </div>
+@endif
+
+@if ($shipment->delivery_code && $shipment->status->isOpen())
+    <p class="mb-5 text-sm text-ink-600">
+        تُسلَّم بكود: <span class="num font-semibold tracking-[0.3em]" dir="ltr">{{ $shipment->delivery_code }}</span>
+        <span class="text-xs text-ink-500">— للدعم وحده؛ الزبون يعطيه للمندوب عند الباب.</span>
+    </p>
+@endif
+
 {{-- المسح لما أُنشئ خطأً قبل أن يصلنا؛ وما وصل يُلغى أو يُرجع --}}
 @can('shipments.delete')
     @if (\App\Actions\Shipments\DeleteShipment::deletable($shipment))
