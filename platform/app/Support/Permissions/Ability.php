@@ -35,6 +35,12 @@ class Ability
 
     public const SHIPMENTS_ASSIGN = 'shipments.assign';
 
+    /**
+     * القائمة كلّها بأرقام الزبائن في ملف: الأرقام في الشاشة مخفيّة تُكشف واحداً
+     * واحداً، فالتصدير صلاحيةٌ بعينها وكل تصديرٍ في سجلّ التدقيق.
+     */
+    public const SHIPMENTS_EXPORT = 'shipments.export';
+
     // عمليات التوصيل · طلبات شحن · تصفيات الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
 
@@ -109,6 +115,7 @@ class Ability
                 self::SHIPMENTS_EDIT   => 'تعديل بيانات الشحنة',
                 self::SHIPMENTS_STATUS => 'تغيير حالة شحنة',
                 self::SHIPMENTS_ASSIGN => 'إسناد للمندوبين',
+                self::SHIPMENTS_EXPORT => 'تصدير القوائم (Excel وPDF) بأرقام الزبائن',
             ]],
             'delivery' => ['label' => 'عمليات التوصيل', 'abilities' => [
                 self::TRANSPORT_MANAGE => 'الأكياس وكشوف النقل والمناديب',
@@ -233,7 +240,7 @@ class Ability
 
             // مدير الفرع يُدير العمليات ويرى المال ولا يُحرّكه؛ وله التقارير المالية كما في المعتاد
             UserRole::BranchManager => [
-                ...$operations, self::MONEY_VIEW, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
+                ...$operations, self::SHIPMENTS_EXPORT, self::MONEY_VIEW, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
                 self::CONTROL_DUPLICATES, self::SETTINGS_ZONES, self::NOTIFY_SEND,
                 self::SUPPORT_REPLY,
             ],
@@ -248,7 +255,7 @@ class Ability
             ],
 
             UserRole::Accountant => [
-                self::SHIPMENTS_VIEW, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
+                self::SHIPMENTS_VIEW, self::SHIPMENTS_EXPORT, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
                 self::CONTROL_DUPLICATES,
             ],
 

@@ -29,6 +29,7 @@ use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\ReconcileController;
 use App\Http\Controllers\Tenant\RankController;
+use App\Http\Controllers\Tenant\ShipmentExportController;
 use App\Http\Controllers\Tenant\UserGrantController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
@@ -100,6 +101,12 @@ Route::middleware('tenant')->group(function () {
         // قبل /shipments/{shipment}: وإلا قُرئت «labels» رقمَ شحنة
         Route::get('/shipments/labels', [ShipmentLabelController::class, 'staff'])
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.labels');
+        Route::get('/shipments/stages', [ShipmentController::class, 'stages'])
+            ->middleware(['staff', 'can:shipments.view'])->name('shipments.stages');
+        Route::middleware(['staff', 'can:shipments.export'])->group(function () {
+            Route::get('/shipments/export', [ShipmentExportController::class, 'excel'])->name('shipments.export');
+            Route::get('/shipments/export/print', [ShipmentExportController::class, 'print'])->name('shipments.export.print');
+        });
         Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
         Route::middleware(['staff', 'can:shipments.edit'])->group(function () {
             Route::get('/shipments/{shipment}/edit', [ShipmentController::class, 'edit'])->name('shipments.edit');

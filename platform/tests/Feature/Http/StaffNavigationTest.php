@@ -36,6 +36,8 @@ class StaffNavigationTest extends TestCase
         'shipments.import.template', 'branch-accounts.statement.print', 'shipments.labels',
         // خانتان في شاشة «الصلاحيات والمراتب»
         'permissions.ranks.index', 'permissions.ranks.create',
+        // زرّا Excel وPDF في قائمة الشحنات
+        'shipments.export', 'shipments.export.print',
     ];
 
     private Company $company;
@@ -104,7 +106,10 @@ class StaffNavigationTest extends TestCase
         $labels = array_column($menus, 'label');
 
         // والتقارير المالية لمن يرى أرباح الشركة وحده
-        $this->assertSame(['الصفحة الرئيسية', 'شحنات العميل', 'تقارير', 'المراجعة'], $labels);
+        // ويرى «كل مراحل النقل»: عدّاداتٌ للقراءة
+        $this->assertSame(['الصفحة الرئيسية', 'شحنات العميل', 'عمليات التوصيل', 'تقارير', 'المراجعة'], $labels);
+        $delivery = $menus[array_search('عمليات التوصيل', $labels, true)];
+        $this->assertSame(['كل مراحل النقل'], array_column($delivery['links'], 'label'));
 
         // والقائمة الباقية لا تحمل من روابطها إلا ما يُفتح
         $home = $menus[array_search('الصفحة الرئيسية', $labels, true)];

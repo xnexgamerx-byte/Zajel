@@ -44,6 +44,7 @@ class AuditLog extends Model
         'permissions_reset'        => 'أُزيل تخصيص الصلاحيات',
         'permission_granted'       => 'مُنحت صلاحية استثنائية',
         'permission_revoked'       => 'سُحبت صلاحية استثنائية',
+        'shipments_exported'       => 'صُدِّرت قائمة شحنات',
     ];
 
     public function actionLabel(): string

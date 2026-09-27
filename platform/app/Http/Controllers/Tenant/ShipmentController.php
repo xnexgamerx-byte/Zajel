@@ -8,6 +8,7 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreShipmentRequest;
 use App\Http\Requests\UpdateShipmentRequest;
+use App\Models\Branch;
 use App\Models\City;
 use App\Models\Courier;
 use App\Models\FailureReason;
@@ -15,6 +16,8 @@ use App\Models\Governorate;
 use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\Shipment;
+use App\Services\Shipments\ShipmentFilters;
+use App\Services\Shipments\ShipmentStages;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -32,44 +35,56 @@ class ShipmentController extends Controller
         $query = Shipment::query()
             ->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar',
                     'deliveryCourier:id,name'])
-            ->visibleTo($request->user())
-            ->search($request->query('q'));
+            ->visibleTo($request->user());
 
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
-        }
-
-        if ($merchantId = $request->query('merchant_id')) {
-            $query->where('merchant_id', $merchantId);
-        }
-
-        if ($governorateId = $request->query('governorate_id')) {
-            $query->where('governorate_id', $governorateId);
-        }
-
-        if ($courierId = $request->query('courier_id')) {
-            $query->where('delivery_courier_id', $courierId);
-        }
-
-        if ($from = $request->query('from')) {
-            $query->whereFromDate('created_at', $from);
-        }
-
-        if ($to = $request->query('to')) {
-            $query->whereUntilDate('created_at', $to);
-        }
+        ShipmentFilters::apply($query, $request);
 
         $shipments = $query->latest('id')->paginate(config('zajel.per_page'))->withQueryString();
 
         return view('tenant.shipments.index', [
             'shipments'    => $shipments,
             'statuses'     => ShipmentStatus::cases(),
+            'stage'        => ShipmentStages::find($request->query('stage')),
             'merchants'    => Merchant::orderBy('business_name')->get(['id', 'business_name']),
             'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
             'couriers'     => Courier::delivering()->active()->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
+            'pickupCouriers' => Courier::picking()->orderBy('name')->get(['id', 'name']),
+            'branches'     => Branch::orderBy('name')->get(['id', 'name']),
+            'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(['id', 'name_ar']),
+            'advanced'     => ShipmentFilters::hasAdvanced($request),
+            'filters'      => ShipmentFilters::active($request),
             'totals'       => $this->totals($request),
         ]);
+    }
+
+    /**
+     * كل مراحل النقل: عدّادٌ لكل مرحلة، وأقدم ما فيها — والعدّاد يفتح قائمته.
+     *
+     * استعلامٌ لكل مرحلة لا استعلامٌ واحد: شروط المراحل ليست كلّها حالة
+     * (الراجع على الرفّ، والفرع البعيد، والواصل غير المحاسَب عليه)، وكلٌّ منها
+     * يقرأ فهرسه. ست عشرة عدّاداً في أجزاءٍ من الثانية.
+     */
+    public function stages(Request $request): View
+    {
+        $groups = collect(ShipmentStages::groups())->map(function (array $group) use ($request) {
+            $group['stages'] = collect($group['stages'])->map(function (array $stage) use ($request) {
+                $row = ($stage['apply'])(Shipment::query()->visibleTo($request->user()))
+                    ->toBase()
+                    ->selectRaw('count(*) as total, min(shipments.status_changed_at) as oldest')
+                    ->first();
+
+                return $stage + [
+                    'count'  => (int) ($row->total ?? 0),
+                    'oldest' => $row?->oldest ? \Illuminate\Support\Carbon::parse($row->oldest) : null,
+                ];
+            })->all();
+
+            return $group;
+        })->all();
+
+        return view('tenant.shipments.stages', ['groups' => $groups]);
     }
 
     public function create(Request $request): View
