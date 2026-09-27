@@ -44,8 +44,42 @@
             <label class="field-label" for="note">ملاحظة</label>
             <input id="note" name="note" type="text" maxlength="255" class="field-input">
         </div>
-        <button type="submit" class="btn-primary">ادفع {{ number_format($courier->commission_balance) }}</button>
+        @php $cut = $courier->centreCut((int) $courier->commission_balance); @endphp
+        <button type="submit" class="btn-primary">ادفع {{ number_format($courier->commission_balance - $cut) }}</button>
+        @if ($cut > 0)
+            <p class="w-full text-xs text-ink-500">
+                {{ $courier->partnerLabel() }}: يُقفل مستحقّه {{ number_format($courier->commission_balance) }} كلّه،
+                ويبقى للمركز {{ number_format($cut) }}.
+            </p>
+        @endif
     </form>
+@endif
+
+@if ($payouts->isNotEmpty())
+    <section class="card mb-5 overflow-hidden">
+        <h2 class="card-title border-b border-ink-100 px-5 py-4">دفعات ربح لمندوب الاستلام</h2>
+        <div class="overflow-x-auto">
+            <table class="tbl">
+                <thead>
+                    <tr><th>رقم العملية</th><th>نوع مبلغ الشراكة</th><th>استحقّ</th><th>للمركز</th><th>المدفوع للشريك</th><th>ملاحظات</th><th>تمّت من خلال</th><th>تاريخ التسديد</th></tr>
+                </thead>
+                <tbody>
+                    @foreach ($payouts as $payout)
+                        <tr>
+                            <td class="num font-semibold">{{ $payout->number }}</td>
+                            <td>{{ $payout->centreLabel() }}</td>
+                            <td class="num">{{ number_format($payout->earned) }}</td>
+                            <td class="num">{{ number_format($payout->centre_amount) }}</td>
+                            <td class="num font-semibold text-ok-700">{{ number_format($payout->paid_amount) }}</td>
+                            <td class="text-xs text-ink-600">{{ $payout->note ?? '—' }}</td>
+                            <td class="text-xs">{{ $payout->paidBy?->name ?? '—' }}</td>
+                            <td class="num text-xs text-ink-500">{{ $payout->created_at->format('Y-m-d H:i') }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
 @endif
 
 <section class="card overflow-hidden">

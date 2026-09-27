@@ -15,6 +15,13 @@ class Courier extends Model
 
     protected $guarded = ['id'];
 
+    /** حصّة المركز من أرباح مندوب الاستلام الشريك — «نسبة/مبلغ للمركز» */
+    public const PARTNER_CENTRE = [
+        'none'    => 'ليس شريكاً',
+        'percent' => 'نسبة للمركز',
+        'amount'  => 'مبلغ للمركز',
+    ];
+
     protected function casts(): array
     {
         return ['is_available' => 'boolean', 'last_seen_at' => 'datetime'];
@@ -28,6 +35,58 @@ class Courier extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /** «مندوب التوصيل الأب»: من يعمل هذا تحته، ويُسوّى معه */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Courier::class, 'parent_id');
+    }
+
+    /** «المندوبون الفرعيّون» */
+    public function subs(): HasMany
+    {
+        return $this->hasMany(Courier::class, 'parent_id');
+    }
+
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(PickupPayout::class);
+    }
+
+    public function isSub(): bool
+    {
+        return $this->parent_id !== null;
+    }
+
+    /** هو وفريقه — لفلتر «المندوب» الذي يشمل الفرعيّين */
+    public static function teamIds(int $courierId): array
+    {
+        return static::query()->where('parent_id', $courierId)->pluck('id')->prepend($courierId)->all();
+    }
+
+    public function isPartner(): bool
+    {
+        return in_array($this->partner_centre_type, ['percent', 'amount'], true);
+    }
+
+    /** حصّة المركز من مستحقٍّ قدره $due: لا تتجاوزه ولا تنقص عن صفر */
+    public function centreCut(int $due): int
+    {
+        return match ($this->partner_centre_type) {
+            'percent' => min($due, intdiv($due * min(100, (int) $this->partner_centre_value), 100)),
+            'amount'  => min($due, (int) $this->partner_centre_value),
+            default   => 0,
+        };
+    }
+
+    public function partnerLabel(): ?string
+    {
+        return match ($this->partner_centre_type) {
+            'percent' => 'شريك — للمركز '.$this->partner_centre_value.'٪',
+            'amount'  => 'شريك — للمركز '.number_format((int) $this->partner_centre_value).' د.ع',
+            default   => null,
+        };
     }
 
     public function zones(): HasMany

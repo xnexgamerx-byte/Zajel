@@ -4,9 +4,11 @@ namespace App\Actions\Pickups;
 
 use App\Models\CashBox;
 use App\Models\Courier;
+use App\Models\PickupPayout;
 use App\Models\User;
 use App\Services\CashBook;
 use App\Services\Ledger;
+use App\Services\SequenceGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,6 +24,7 @@ class PayPickupCommission
     public function __construct(
         protected Ledger $ledger,
         protected CashBook $cash,
+        protected SequenceGenerator $sequences,
     ) {}
 
     public function handle(Courier $courier, ?User $actor = null, ?CashBox $box = null, ?string $note = null): int
@@ -42,15 +45,24 @@ class PayPickupCommission
         }
 
         return DB::transaction(function () use ($courier, $actor, $box, $due, $note) {
-            $this->ledger->payCommission($courier, $due, $actor, $note);
+            /*
+            | الشريك: يُقفل استحقاقه كلّه، ويُدفع له ما بعد حصّة المركز. حصّة
+            | المركز لا تخرج من صندوق — تبقى للشركة — فالصندوق يُنقص بالمدفوع
+            | وحده، والدفتر يُقفل المستحقّ كلّه بقيدٍ واحد يذكر القسمة.
+            */
+            $cut = $courier->centreCut($due);
+            $paid = $due - $cut;
+
+            $split = $cut > 0 ? 'للمركز '.number_format($cut).' وللشريك '.number_format($paid) : null;
+            $this->ledger->payCommission($courier, $due, $actor, collect([$note, $split])->filter()->implode('، ') ?: null);
 
             $box ??= CashBox::forBranch($courier->branch_id);
 
-            if ($box) {
+            if ($box && $paid > 0) {
                 $this->cash->out(
                     box: $box,
                     category: 'commission_paid',
-                    amount: $due,
+                    amount: $paid,
                     description: "عمولة استلام — {$courier->name}".($note ? " ({$note})" : ''),
                     actor: $actor,
                     referenceType: 'courier',
@@ -58,7 +70,20 @@ class PayPickupCommission
                 );
             }
 
-            return $due;
+            PickupPayout::create([
+                'courier_id'      => $courier->id,
+                'number'          => $this->sequences->next('pickup_payout'),
+                'earned'          => $due,
+                'centre_type'     => $courier->partner_centre_type ?? 'none',
+                'centre_value'    => (int) $courier->partner_centre_value,
+                'centre_amount'   => $cut,
+                'paid_amount'     => $paid,
+                'cash_box_id'     => $box?->id,
+                'note'            => $note,
+                'paid_by_user_id' => $actor?->id,
+            ]);
+
+            return $paid;
         });
     }
 }

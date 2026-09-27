@@ -25,20 +25,26 @@ class CourierController extends Controller
     public function index(Request $request): View
     {
         $couriers = Courier::query()
-            ->with('branch:id,name')
+            ->with(['branch:id,name', 'parent:id,name', 'zones' => fn ($q) => $q->whereNull('city_id')->with('governorate:id,name_ar')])
             ->when($request->query('q'), fn ($q, $term) => $q->where(
                 fn ($w) => $w->where('name', 'like', "%{$term}%")->orWhere('phone', $term)->orWhere('code', $term)
             ))
             ->when($request->query('type'), fn ($q, $t) => $q->where('type', $t))
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            // «مندوب التوصيل الأب»: هو وفريقه
+            ->when($request->integer('parent_id'), fn ($q, $id) => $q->where(fn ($w) => $w->where('parent_id', $id)->orWhere('id', $id)))
             ->withCount([
                 'deliveries as open_count' => fn ($q) => $q->where('status', ShipmentStatus::OutForDelivery->value),
+                'subs',
             ])
             ->orderBy('name')
             ->paginate(config('zajel.per_page'))
             ->withQueryString();
 
-        return view('tenant.couriers.index', compact('couriers'));
+        return view('tenant.couriers.index', [
+            'couriers' => $couriers,
+            'parents'  => Courier::whereHas('subs')->orderBy('name')->get(['id', 'name']),
+        ]);
     }
 
     public function create(): View
@@ -71,14 +77,20 @@ class CourierController extends Controller
 
     public function show(Courier $courier): View
     {
-        $courier->load(['branch', 'user', 'zones.governorate:id,name_ar', 'zones.city:id,name_ar']);
+        $courier->load(['branch', 'user', 'parent:id,name,code', 'zones.governorate:id,name_ar', 'zones.city:id,name_ar',
+            'subs' => fn ($q) => $q->withCount(['deliveries as open_count' => fn ($d) => $d->where('status', ShipmentStatus::OutForDelivery->value)])
+                ->orderBy('name')]);
 
         return view('tenant.couriers.show', [
             'courier'      => $courier,
+            'payouts'      => $courier->picks() ? $courier->payouts()->with('paidBy:id,name')->latest('id')->limit(10)->get() : collect(),
+            // العدد من قاعدة البيانات، والقائمة أحدث خمسين — وما زاد في قائمة الشحنات
+            'openCount'    => Shipment::where('delivery_courier_id', $courier->id)
+                ->where('status', ShipmentStatus::OutForDelivery->value)->count(),
             'open'         => Shipment::where('delivery_courier_id', $courier->id)
                 ->where('status', ShipmentStatus::OutForDelivery->value)
                 ->with('governorate:id,name_ar')
-                ->latest('id')->get(),
+                ->latest('id')->limit(50)->get(),
             'transactions' => Transaction::forAccount('courier', $courier->id)
                 ->latest('id')->limit(30)->get(),
         ]);
@@ -150,6 +162,8 @@ class CourierController extends Controller
         return [
             'branches'     => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'governorates' => Governorate::where('is_active', true)->orderBy('sort_order')->get(['id', 'name_ar']),
+            // الأب مندوب توصيلٍ ليس فرعيّاً
+            'parents'      => Courier::delivering()->whereNull('parent_id')->orderBy('name')->get(['id', 'name', 'code']),
         ];
     }
 }

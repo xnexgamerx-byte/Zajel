@@ -23,7 +23,8 @@
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <div class="font-semibold">{{ $courier->name }}</div>
-                            <div class="text-xs text-ink-500" dir="ltr">{{ $courier->code }}</div>
+                            <div class="text-xs text-ink-500"><span dir="ltr">{{ $courier->code }}</span>
+                                @if ($courier->parent) · فرعيّ تحت {{ $courier->parent->name }} @endif</div>
                         </div>
                         @if ($courier->hasReachedCashLimit())
                             <span class="rounded-full bg-bad-50 px-2 py-0.5 text-xs font-semibold text-bad-700 ring-1 ring-bad-200">
@@ -49,7 +50,13 @@
                         </div>
                     </dl>
 
-                    <button type="submit" class="btn-primary mt-3 w-full">افتح كشفاً</button>
+                    <div class="mt-3 flex gap-2">
+                        <button type="submit" class="btn-primary flex-1">افتح كشفاً</button>
+                        @if ($courier->subs_count)
+                            {{-- الأب يحمل نقد فريقه: كشوفهم معاً --}}
+                            <button type="submit" formaction="{{ route('settlements.couriers.team') }}" class="btn-ghost flex-1">كشوف فريقه</button>
+                        @endif
+                    </div>
                 </form>
             @endforeach
         </div>

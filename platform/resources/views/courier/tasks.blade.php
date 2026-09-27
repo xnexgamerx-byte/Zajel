@@ -14,6 +14,25 @@
     </div>
 </div>
 
+@if ($team->isNotEmpty())
+    {{-- المندوب الأب: فريقه في سطرٍ لكلٍّ — ويُسوّى معه كشوفهم --}}
+    <details class="mb-4 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+        <summary class="cursor-pointer text-sm font-bold">
+            فريقي
+            <span class="font-normal text-ink-500">— بأيديهم {{ number_format($team->sum('open_count')) }}، ونقدهم {{ number_format($team->sum('cash_in_hand')) }} د.ع</span>
+        </summary>
+        <div class="mt-3 divide-y divide-ink-100 text-sm">
+            @foreach ($team as $sub)
+                <div class="flex items-center justify-between gap-3 py-2">
+                    <span class="font-medium">{{ $sub->name }}</span>
+                    <span class="text-ink-500">بيده <span class="num">{{ number_format($sub->open_count) }}</span>
+                        · نقد <span class="num">{{ number_format($sub->cash_in_hand) }}</span></span>
+                </div>
+            @endforeach
+        </div>
+    </details>
+@endif
+
 <form method="GET" action="{{ route('courier.search') }}" class="mb-4 flex gap-2">
     <input name="q" class="field-input flex-1 text-base" inputmode="numeric"
            placeholder="رقم الوصل أو هاتف الزبون" required>

@@ -86,6 +86,22 @@
                 </div>
             </div>
 
+            {{-- مندوبٌ يعمل تحت آخر: شحناته في تطبيقه، والأب يرى فريقه ويُسوّى معه كشوفهم --}}
+            <div class="mt-4 sm:max-w-sm">
+                <label class="field-label" for="parent_id">مندوب التوصيل الأب</label>
+                <select id="parent_id" name="parent_id" class="field-input" data-searchable>
+                    <option value="">لا — يعمل بنفسه</option>
+                    @foreach ($parents as $parent)
+                        @continue($courier->exists && $parent->id === $courier->id)
+                        <option value="{{ $parent->id }}" @selected((int) old('parent_id', $courier->parent_id) === $parent->id)>
+                            {{ $parent->name }} ({{ $parent->code }})
+                        </option>
+                    @endforeach
+                </select>
+                <p class="mt-1 text-xs text-ink-500">إن كان فرعيّاً تحت مندوب: الشحنات باسمه، ويُسوّى مع أبيه دفعةً واحدة.</p>
+                @error('parent_id') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+
             <div class="mt-5">
                 <span class="field-label">مناطق التغطية</span>
                 <p class="mb-2 text-xs text-ink-500">
@@ -125,6 +141,26 @@
                         @error($field) <p class="field-error">{{ $message }}</p> @enderror
                     </div>
                 @endforeach
+
+                {{-- مندوب الاستلام الشريك: يُدفع له ما استحقّه بعد حصّة المركز --}}
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="field-label" for="partner_centre_type">شراكة الاستلام</label>
+                        <select id="partner_centre_type" name="partner_centre_type" class="field-input">
+                            @foreach (\App\Models\Courier::PARTNER_CENTRE as $value => $label)
+                                <option value="{{ $value }}" @selected(old('partner_centre_type', $courier->partner_centre_type ?? 'none') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="partner_centre_value">حصّة المركز</label>
+                        <input id="partner_centre_value" name="partner_centre_value" type="number" min="0" step="1"
+                               class="field-input text-left" dir="ltr"
+                               value="{{ old('partner_centre_value', $courier->partner_centre_value ?? 0) }}">
+                    </div>
+                    <p class="col-span-2 -mt-2 text-xs text-ink-500">نسبةٌ من مئة أو مبلغٌ بالدينار يبقى للمركز من كل دفعة أرباح.</p>
+                    @error('partner_centre_value') <p class="field-error col-span-2">{{ $message }}</p> @enderror
+                </div>
 
                 <div>
                     <label class="field-label" for="cash_limit">سقف النقد بيده</label>

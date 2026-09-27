@@ -94,7 +94,7 @@ class HomeAlertsTest extends TestCase
         $this->assertSame(['duplicates', 'with_courier', 'forced', 'unpaid', 'in_transit', 'returns_away', 'manifests'], $alerts->keys()->all());
         $this->assertSame(1, $alerts['duplicates']['total']);
         $this->assertSame(1, $alerts['with_courier']['total']);
-        $this->assertSame(['مندوب المنصور', 'شحنة واحدة'], $alerts['with_courier']['rows'][0]['cells']);
+        $this->assertSame(['مندوب المنصور', '—', 'شحنة واحدة'], $alerts['with_courier']['rows'][0]['cells']);
         $this->assertSame(1, $alerts['forced']['total']);
         $this->assertSame('الزبون استلم ولم يُسجَّل', $alerts['forced']['rows'][0]['cells'][2]);
         // المبلغ المحصَّل وأيام تأخيره — وخمسة أيام تأخيرٌ يُلوَّن

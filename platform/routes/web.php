@@ -352,6 +352,8 @@ Route::middleware('tenant')->group(function () {
                     ->middleware('can:money.view')->name('couriers.index');
                 Route::post('couriers', [CourierSettlementController::class, 'store'])
                     ->middleware('can:money.settle')->name('couriers.store');
+                Route::post('couriers/team', [CourierSettlementController::class, 'team'])
+                    ->middleware('can:money.settle')->name('couriers.team');
                 Route::get('couriers/{settlement}', [CourierSettlementController::class, 'show'])
                     ->middleware('can:money.view')->name('couriers.show');
                 Route::post('couriers/{settlement}/confirm', [CourierSettlementController::class, 'confirm'])

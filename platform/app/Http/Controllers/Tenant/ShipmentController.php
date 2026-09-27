@@ -139,7 +139,7 @@ class ShipmentController extends Controller
         $this->ensureVisible($request, $shipment);
 
         $shipment->load([
-            'merchant', 'governorate', 'city', 'deliveryCourier', 'pickupCourier',
+            'merchant', 'governorate', 'city', 'deliveryCourier.parent:id,name', 'pickupCourier',
             'hub', 'branch', 'lastFailureReason',
             'events.courier:id,name', 'events.failureReason:id,name_ar',
         ]);

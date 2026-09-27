@@ -34,6 +34,11 @@ class TaskController extends Controller
             'tasks'   => $tasks->groupBy(fn (Shipment $s) => $s->governorate->name_ar),
             'count'   => $tasks->count(),
             'toCollect' => (int) $tasks->sum('cod_amount'),
+            // الأب يرى فريقه: كم بيد كلٍّ وكم نقد — لا عناوين زبائنهم
+            'team'    => $courier->subs()
+                ->withCount(['deliveries as open_count' => fn ($q) => $q->where('status', ShipmentStatus::OutForDelivery->value)])
+                ->orderBy('name')
+                ->get(['id', 'name', 'cash_in_hand', 'parent_id']),
         ]);
     }
 

@@ -83,15 +83,16 @@ final class HomeAlerts
         ];
     }
 
-    /** ٢ — عند المندوب منذ أكثر من ٧٢ ساعة: المندوب · عدد الشحنات */
+    /** ٢ — عند المندوب منذ أكثر من ٧٢ ساعة: المندوب · المندوب الفرعيّ · عدد الشحنات */
     private function withCourierTooLong(User $user): array
     {
         $rows = $this->shipments($user)
             ->where('shipments.status', ShipmentStatus::OutForDelivery->value)
             ->where('shipments.status_changed_at', '<', now()->subHours(72))
             ->join('couriers', 'couriers.id', '=', 'shipments.delivery_courier_id')
-            ->selectRaw('couriers.id as courier_id, couriers.name as name, count(*) as total')
-            ->groupBy('couriers.id', 'couriers.name')
+            ->leftJoin('couriers as parents', 'parents.id', '=', 'couriers.parent_id')
+            ->selectRaw('couriers.id as courier_id, couriers.name as name, parents.name as parent_name, count(*) as total')
+            ->groupBy('couriers.id', 'couriers.name', 'parents.name')
             ->orderByDesc('total')
             ->toBase()
             ->get();
@@ -102,7 +103,8 @@ final class HomeAlerts
             'hint'  => 'خرجت معه ولم تُحسم منذ ثلاثة أيام',
             'total' => (int) $rows->sum('total'),
             'rows'  => $rows->take(self::ROWS)->map(fn ($r) => $this->row(
-                [$r->name, \App\Support\Arabic::shipments((int) $r->total)],
+                // الشحنة باسم الفرعيّ، والمسؤول عنها أبوه
+                [$r->parent_name ?? $r->name, $r->parent_name ? $r->name : '—', \App\Support\Arabic::shipments((int) $r->total)],
                 route('shipments.index', ['stage' => 'out_for_delivery', 'courier_id' => $r->courier_id,
                     'stage_to' => now()->subDays(3)->toDateString()]),
             )),

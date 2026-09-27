@@ -70,6 +70,7 @@ class PickupAgentController extends Controller
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString(),
             'boxes'   => CashBox::active()->orderBy('name')->get(['id', 'name', 'balance']),
+            'payouts' => $courier->payouts()->with('paidBy:id,name')->latest('id')->limit(20)->get(),
         ]);
     }
 
@@ -84,7 +85,10 @@ class PickupAgentController extends Controller
 
         $paid = $this->payout->handle($courier, $request->user(), $box, $data['note'] ?? null);
 
-        return back()->with('success', "دُفعت عمولة {$courier->name}: ".number_format($paid).' دينار.');
+        $cut = (int) $courier->payouts()->latest('id')->value('centre_amount');
+
+        return back()->with('success', "دُفعت عمولة {$courier->name}: ".number_format($paid).' دينار'
+            .($cut > 0 ? '، وبقي للمركز '.number_format($cut).' بحصّته في الشراكة.' : '.'));
     }
 
     /** ٢ — اعتراضات حصص الاستلام. */

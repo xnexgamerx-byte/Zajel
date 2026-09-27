@@ -29,6 +29,17 @@
             @endforeach
         </select>
     </div>
+    @if ($parents->isNotEmpty())
+        <div>
+            <label class="field-label" for="parent_id">مندوب التوصيل الأب</label>
+            <select id="parent_id" name="parent_id" class="field-input">
+                <option value="">الكل</option>
+                @foreach ($parents as $parent)
+                    <option value="{{ $parent->id }}" @selected((int) request('parent_id') === $parent->id)>{{ $parent->name }} وفريقه</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
     <div>
         <label class="field-label" for="status">الحالة</label>
         <select id="status" name="status" class="field-input">
@@ -51,6 +62,8 @@
                     <th >الاسم</th>
                     <th >الهاتف</th>
                     <th >النوع</th>
+                    <th >المركبة</th>
+                    <th >إلى محافظة</th>
                     <th >بيده الآن</th>
                     <th >نقد</th>
                     <th >عمولته</th>
@@ -67,12 +80,24 @@
                             @if ($courier->branch)
                                 <div class="text-xs text-ink-500">{{ $courier->branch->name }}</div>
                             @endif
+                            @if ($courier->parent)
+                                <div class="text-xs text-ink-500">فرعيّ تحت {{ $courier->parent->name }}</div>
+                            @elseif ($courier->subs_count)
+                                <div class="text-xs text-info-700">{{ $courier->subs_count === 1 ? 'له مندوبٌ فرعيّ' : 'فرعيّون تحته: '.$courier->subs_count }}</div>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $courier->phone }}</td>
                         <td class="px-4 py-3">
                             <span class="inline-flex rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-semibold text-ink-700">
                                 {{ ['delivery' => 'توصيل', 'pickup' => 'استلام', 'both' => 'الاثنان'][$courier->type] }}
                             </span>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-ink-600">
+                            {{ ['motorcycle' => 'دراجة نارية', 'car' => 'سيارة', 'van' => 'فان', 'truck' => 'شاحنة', 'on_foot' => 'على الأقدام'][$courier->vehicle_type] ?? '—' }}
+                            @if ($courier->vehicle_number)<div class="num" dir="ltr">{{ $courier->vehicle_number }}</div>@endif
+                        </td>
+                        <td class="max-w-48 px-4 py-3 text-xs text-ink-600">
+                            {{ $courier->zones->map(fn ($z) => $z->governorate?->name_ar)->filter()->implode('، ') ?: '—' }}
                         </td>
                         <td class="px-4 py-3" dir="ltr">{{ number_format($courier->open_count) }}</td>
                         <td class="px-4 py-3 font-semibold {{ $courier->hasReachedCashLimit() ? 'text-bad-700' : '' }}"
@@ -97,7 +122,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-4 py-16 text-center">
+                        <td colspan="10" class="px-4 py-16 text-center">
                             <div class="text-ink-500">لا يوجد مندوبون بعد.</div>
                             <a href="{{ route('couriers.create') }}" class="btn-primary mt-4">أضف أول مندوب</a>
                         </td>

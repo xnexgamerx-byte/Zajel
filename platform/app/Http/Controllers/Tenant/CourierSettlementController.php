@@ -9,6 +9,7 @@ use App\Models\Courier;
 use App\Models\CourierSettlement;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CourierSettlementController extends Controller
@@ -25,10 +26,53 @@ class CourierSettlementController extends Controller
 
             // من عنده نقد أو عمولة معلّقة هو من يحتاج كشفاً
             'pending' => Courier::query()
-                ->where(fn ($q) => $q->where('cash_in_hand', '!=', 0)->orWhere('commission_balance', '!=', 0))
+                ->where(fn ($q) => $q->where('cash_in_hand', '!=', 0)->orWhere('commission_balance', '!=', 0)
+                    // والأب الذي بيد فريقه نقد، ولو لم يكن بيده شيء
+                    ->orWhereHas('subs', fn ($s) => $s->where('cash_in_hand', '!=', 0)->orWhere('commission_balance', '!=', 0)))
+                ->with('parent:id,name')
+                ->withCount('subs')
                 ->orderByDesc('cash_in_hand')
                 ->get(),
         ]);
+    }
+
+    /**
+     * «المال يُسوّى مع الأب»: كشفٌ لكلّ واحدٍ من فريقه — هو وفرعيّوه — دفعةً
+     * واحدة. كلُّ كشفٍ على حساب صاحبه في الدفتر كما هو، والأب من يحمل النقد.
+     */
+    public function team(Request $request, BuildCourierSettlement $build): RedirectResponse
+    {
+        $data = $request->validate(['courier_id' => ['required', 'integer']], [], ['courier_id' => 'المندوب']);
+
+        $parent = Courier::whereNull('parent_id')->whereHas('subs')->find($data['courier_id']);
+
+        if (! $parent) {
+            return back()->withErrors(['courier_id' => 'ليس لهذا المندوب فريقٌ تحته.']);
+        }
+
+        $built = collect();
+        $open = [];
+
+        foreach ($parent->subs()->orderBy('name')->get()->prepend($parent) as $member) {
+            if ($build->eligible($member)->isEmpty()) {
+                continue;
+            }
+
+            try {
+                $built->push($build->handle($member, $request->user()));
+            } catch (ValidationException) {
+                $open[] = $member->name; // كشفٌ مفتوح سلفاً: يُقفل أوّلاً
+            }
+        }
+
+        if ($built->isEmpty() && ! $open) {
+            return back()->withErrors(['courier_id' => "لا شحنات غير مسوّاة لفريق {$parent->name}."]);
+        }
+
+        return back()->with('success', collect([
+            $built->isNotEmpty() ? "فُتحت كشوف فريق {$parent->name}: ".$built->pluck('code')->implode('، ').'.' : null,
+            $open ? ($built->isNotEmpty() ? 'ولهؤلاء' : 'لهؤلاء').' كشفٌ مفتوح سلفاً يُقفل أوّلاً: '.implode('، ', $open).'.' : null,
+        ])->filter()->implode(' '));
     }
 
     public function store(Request $request, BuildCourierSettlement $build): RedirectResponse

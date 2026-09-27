@@ -332,6 +332,59 @@ class PickupAgentTest extends TestCase
         });
     }
 
+    public function test_a_partner_is_paid_after_the_centres_share(): void
+    {
+        Tenancy::runFor($this->company, fn () => $this->agent->update(['partner_centre_type' => 'percent', 'partner_centre_value' => 20]));
+        $this->complete($this->pickup(4), 4); // ٤ × ٥٠٠ = ٢٠٠٠
+
+        $box = Tenancy::runFor($this->company, function () {
+            $box = CashBox::create(['code' => 'MAIN', 'name' => 'القاصة', 'type' => 'main', 'balance' => 0, 'is_active' => true]);
+            app(\App\Services\CashBook::class)->in($box, 'opening', 500_000, null, $this->staff);
+
+            return $box;
+        });
+
+        $this->actingAs($this->staff)->get($this->host()."/pickup-agents/{$this->agent->id}")
+            ->assertSee('ادفع 1,600')->assertSee('ويبقى للمركز 400');
+
+        $this->actingAs($this->staff)
+            ->post($this->host()."/pickup-agents/{$this->agent->id}/pay", ['cash_box_id' => $box->id, 'note' => 'دفعة الشهر'])
+            ->assertSessionHas('success', fn ($m) => str_contains($m, '1,600') && str_contains($m, 'وبقي للمركز 400'));
+
+        Tenancy::runFor($this->company, function () use ($box) {
+            // المستحقّ كلّه أُقفل، والصندوق نقص بما دُفع وحده
+            $this->assertSame(0, (int) $this->agent->refresh()->commission_balance);
+            $this->assertSame(498_400, (int) $box->refresh()->balance);
+            $this->assertTrue(app(Ledger::class)->reconcile('courier', $this->agent->id)['matches']);
+
+            $payout = \App\Models\PickupPayout::sole();
+            $this->assertSame([2000, 'percent', 20, 400, 1600], [(int) $payout->earned, $payout->centre_type,
+                (int) $payout->centre_value, (int) $payout->centre_amount, (int) $payout->paid_amount]);
+            $this->assertMatchesRegularExpression('/^PP\d+$/', $payout->number);
+            $this->assertStringContainsString('للمركز 400 وللشريك 1,600', Transaction::where('category', 'commission_paid')->value('description'));
+        });
+
+        $this->actingAs($this->staff)->get($this->host()."/pickup-agents/{$this->agent->id}")
+            ->assertSee('دفعات ربح لمندوب الاستلام')->assertSee('20٪')->assertSee('دفعة الشهر');
+    }
+
+    public function test_a_fixed_centre_share_never_takes_more_than_was_earned(): void
+    {
+        Tenancy::runFor($this->company, fn () => $this->agent->update(['partner_centre_type' => 'amount', 'partner_centre_value' => 5000]));
+        $this->complete($this->pickup(4), 4);
+
+        $paid = Tenancy::runFor($this->company, fn () => app(PayPickupCommission::class)->handle($this->agent->refresh(), $this->staff));
+
+        $this->assertSame(0, $paid);
+
+        Tenancy::runFor($this->company, function () {
+            $this->assertSame(0, (int) $this->agent->refresh()->commission_balance);
+            $this->assertSame(0, CashMovement::where('category', 'commission_paid')->count());
+            $this->assertSame([2000, 2000, 0], [(int) \App\Models\PickupPayout::sole()->earned,
+                (int) \App\Models\PickupPayout::sole()->centre_amount, (int) \App\Models\PickupPayout::sole()->paid_amount]);
+        });
+    }
+
     public function test_an_open_objection_blocks_payment(): void
     {
         $this->complete($this->pickup(4), 4);

@@ -52,7 +52,6 @@ final class ShipmentFilters
             'merchant_id'       => 'shipments.merchant_id',
             'governorate_id'    => 'shipments.governorate_id',
             'city_id'           => 'shipments.city_id',
-            'courier_id'        => 'shipments.delivery_courier_id',
             'pickup_courier_id' => 'shipments.pickup_courier_id',
             'reason_id'         => 'shipments.last_failure_reason_id',
             'branch_id'         => 'shipments.branch_id',
@@ -60,6 +59,11 @@ final class ShipmentFilters
             if (($v = $id($key)) !== null) {
                 $query->where($column, $v);
             }
+        }
+
+        // مندوب التوصيل وفريقه: من اختار الأب رأى شحنات فرعيّيه معه
+        if (($courier = $id('courier_id')) !== null) {
+            $query->whereIn('shipments.delivery_courier_id', \App\Models\Courier::teamIds($courier));
         }
 
         // حالياً في فرع: مكانها الآن مركزٌ من مراكزه

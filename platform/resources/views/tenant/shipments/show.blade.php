@@ -424,7 +424,13 @@
             <dl class="space-y-2 text-sm">
                 <div class="flex justify-between">
                     <dt class="text-ink-600">مندوب التوصيل</dt>
-                    <dd class="font-medium">{{ $shipment->deliveryCourier?->name ?? 'لم يُسنَد' }}</dd>
+                    <dd class="text-end font-medium">
+                        {{ $shipment->deliveryCourier?->name ?? 'لم يُسنَد' }}
+                        {{-- «مندوب فرعي»: الشحنة باسمه، وأبوه من يُسوّى معه --}}
+                        @if ($shipment->deliveryCourier?->parent)
+                            <div class="text-xs font-normal text-ink-500">فرعيّ تحت {{ $shipment->deliveryCourier->parent->name }}</div>
+                        @endif
+                    </dd>
                 </div>
                 <div class="flex justify-between">
                     <dt class="text-ink-600">مندوب الاستلام</dt>

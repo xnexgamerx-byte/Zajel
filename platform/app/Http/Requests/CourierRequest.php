@@ -32,6 +32,10 @@ class CourierRequest extends FormRequest
             'commission_per_return'   => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'cash_limit'              => ['nullable', 'integer', 'min:0'],
 
+            'parent_id'               => ['nullable', 'integer'],
+            'partner_centre_type'     => ['nullable', Rule::in(array_keys(Courier::PARTNER_CENTRE))],
+            'partner_centre_value'    => ['nullable', 'integer', 'min:0', 'max:100000000'],
+
             'status'                  => ['required', Rule::in(['active', 'suspended', 'inactive'])],
             'zones'                   => ['nullable', 'array'],
             'zones.*'                 => ['integer'],
@@ -40,6 +44,20 @@ class CourierRequest extends FormRequest
             'username'                => ['nullable', 'string', 'max:64'],
             'password'                => ['nullable', 'string', 'min:6', 'max:72'],
         ];
+    }
+
+    /** الفارغ «بلا أب» و«ليس شريكاً» لا null في عمودٍ له افتراض */
+    public function validated($key = null, $default = null)
+    {
+        $data = parent::validated($key, $default);
+
+        if ($key === null) {
+            $data['parent_id'] = filled($data['parent_id'] ?? null) ? (int) $data['parent_id'] : null;
+            $data['partner_centre_type'] = $data['partner_centre_type'] ?? 'none';
+            $data['partner_centre_value'] = $data['partner_centre_type'] === 'none' ? 0 : (int) ($data['partner_centre_value'] ?? 0);
+        }
+
+        return $data;
     }
 
     public function withValidator($validator): void
@@ -53,6 +71,23 @@ class CourierRequest extends FormRequest
 
             if ($duplicate) {
                 $validator->errors()->add('phone', 'يوجد مندوب بهذا الرقم في شركتك.');
+            }
+
+            // مستوىً واحد: الأب مندوب توصيلٍ ليس فرعيّاً، ومن له فريقٌ لا يصير فرعيّاً
+            if (filled($this->parent_id)) {
+                $parent = Courier::delivering()->find($this->parent_id);
+
+                if (! $parent || ($courier && $parent->id === $courier->id)) {
+                    $validator->errors()->add('parent_id', 'اختر مندوب توصيلٍ غيره أباً له.');
+                } elseif ($parent->parent_id !== null) {
+                    $validator->errors()->add('parent_id', "{$parent->name} فرعيٌّ تحت غيره — الأب لا يكون فرعيّاً.");
+                } elseif ($courier && $courier->subs()->exists()) {
+                    $validator->errors()->add('parent_id', 'لهذا المندوب فرعيّون تحته — انقلهم أوّلاً قبل أن يصير فرعيّاً.');
+                }
+            }
+
+            if ($this->input('partner_centre_type') === 'percent' && (int) $this->input('partner_centre_value') > 100) {
+                $validator->errors()->add('partner_centre_value', 'النسبة من صفر إلى مئة.');
             }
 
             if ($this->boolean('create_login') && ! $courier && ! $this->password) {
@@ -83,6 +118,9 @@ class CourierRequest extends FormRequest
             'commission_per_pickup'   => 'عمولة الاستلام',
             'commission_per_return'   => 'عمولة الإرجاع',
             'cash_limit'              => 'سقف النقد',
+            'parent_id'               => 'مندوب التوصيل الأب',
+            'partner_centre_type'     => 'الشراكة',
+            'partner_centre_value'    => 'حصّة المركز',
             'status'                  => 'الحالة',
             'username'                => 'اسم المستخدم',
             'password'                => 'كلمة المرور',

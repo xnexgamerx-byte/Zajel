@@ -9,6 +9,10 @@
             <span class="font-mono" dir="ltr">{{ $courier->code }}</span>
             · <span dir="ltr">{{ $courier->phone }}</span>
             · {{ ['delivery' => 'مندوب توصيل', 'pickup' => 'مندوب استلام', 'both' => 'توصيل واستلام'][$courier->type] }}
+            @if ($courier->parent)
+                · فرعيّ تحت <a href="{{ route('couriers.show', $courier->parent) }}" class="font-medium text-[var(--brand)] hover:underline">{{ $courier->parent->name }}</a>
+            @endif
+            @if ($courier->partnerLabel()) · {{ $courier->partnerLabel() }} @endif
         </p>
     </div>
     <div class="flex gap-2">
@@ -20,7 +24,7 @@
 <div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
     <div class="card p-4">
         <div class="text-xs font-medium text-ink-500">شحنات بيده الآن</div>
-        <div class="mt-1 text-2xl font-bold text-info-700">{{ number_format($open->count()) }}</div>
+        <div class="mt-1 text-2xl font-bold text-info-700">{{ number_format($openCount) }}</div>
     </div>
     <div class="card p-4">
         <div class="text-xs font-medium text-ink-500">نقد بيده</div>
@@ -65,6 +69,12 @@
                         </a>
                     @endforeach
                 </div>
+                @if ($openCount > $open->count())
+                    <a href="{{ route('shipments.index', ['stage' => 'out_for_delivery', 'courier_id' => $courier->id]) }}"
+                       class="mt-3 inline-block text-xs font-semibold text-[var(--brand)] hover:underline">
+                        هذه أحدث {{ number_format($open->count()) }} من {{ number_format($openCount) }} — بقيّتها في قائمة الشحنات
+                    </a>
+                @endif
             @endif
         </section>
 
@@ -107,6 +117,65 @@
     </div>
 
     <div class="space-y-5">
+        @if ($courier->subs->isNotEmpty())
+            <section class="card p-5">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                    <h2 class="text-sm font-bold">المندوبون الفرعيّون</h2>
+                    <a href="{{ route('shipments.index', ['courier_id' => $courier->id]) }}" class="text-xs text-[var(--brand)] hover:underline">شحنات الفريق</a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="tbl">
+                        <thead><tr><th>المندوب</th><th>بيده الآن</th><th>نقد بيده</th><th>عمولته</th><th>الحالة</th></tr></thead>
+                        <tbody>
+                            @foreach ($courier->subs as $sub)
+                                <tr>
+                                    <td><a href="{{ route('couriers.show', $sub) }}" class="font-medium hover:underline">{{ $sub->name }}</a>
+                                        <span class="num text-xs text-ink-500">{{ $sub->code }}</span></td>
+                                    <td class="num">{{ number_format($sub->open_count) }}</td>
+                                    <td class="num {{ $sub->hasReachedCashLimit() ? 'text-bad-700' : '' }}">{{ number_format($sub->cash_in_hand) }}</td>
+                                    <td class="num text-ok-700">{{ number_format($sub->commission_balance) }}</td>
+                                    <td class="text-xs">{{ ['active' => 'مفعّل', 'suspended' => 'موقوف', 'inactive' => 'غير نشط'][$sub->status] ?? $sub->status }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="font-semibold">
+                                <td>الفريق مع {{ $courier->name }}</td>
+                                <td class="num">{{ number_format($courier->subs->sum('open_count') + $openCount) }}</td>
+                                <td class="num">{{ number_format($courier->subs->sum('cash_in_hand') + $courier->cash_in_hand) }}</td>
+                                <td class="num">{{ number_format($courier->subs->sum('commission_balance') + $courier->commission_balance) }}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+        @endif
+
+        @if ($payouts->isNotEmpty())
+            <section class="card p-5">
+                <h2 class="mb-4 text-sm font-bold">دفعات ربح مندوب الاستلام</h2>
+                <div class="overflow-x-auto">
+                    <table class="tbl">
+                        <thead><tr><th>رقم العملية</th><th>استحقّ</th><th>للمركز</th><th>دُفع للشريك</th><th>ملاحظة</th><th>تمّت من خلال</th><th>التاريخ</th></tr></thead>
+                        <tbody>
+                            @foreach ($payouts as $payout)
+                                <tr>
+                                    <td class="num font-semibold">{{ $payout->number }}</td>
+                                    <td class="num">{{ number_format($payout->earned) }}</td>
+                                    <td class="num">{{ number_format($payout->centre_amount) }} <span class="text-xs text-ink-500">({{ $payout->centreLabel() }})</span></td>
+                                    <td class="num font-semibold text-ok-700">{{ number_format($payout->paid_amount) }}</td>
+                                    <td class="text-xs text-ink-600">{{ $payout->note ?? '—' }}</td>
+                                    <td class="text-xs">{{ $payout->paidBy?->name ?? '—' }}</td>
+                                    <td class="num text-xs text-ink-500">{{ $payout->created_at->format('Y-m-d H:i') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endif
+
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold">مناطق التغطية</h2>
             @if ($courier->zones->isEmpty())

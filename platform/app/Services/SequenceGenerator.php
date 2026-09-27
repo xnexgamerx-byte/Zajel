@@ -63,6 +63,7 @@ class SequenceGenerator
             'merchant_settlement' => 'MS',
             'expense'             => 'EX',
             'return_batch'        => 'RB',
+            'pickup_payout'       => 'PP',
             'merchant_request'    => '',
             default               => '',
         };
