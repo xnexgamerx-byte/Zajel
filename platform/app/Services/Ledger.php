@@ -83,7 +83,7 @@ class Ledger
             direction: 'credit',
             category: 'commission',
             amount: (int) $share->amount,
-            description: "حصّة استلام {$share->shipments_count} طرداً — طلب {$share->pickupRequest?->number}",
+            description: "حصّة استلام طلب {$share->pickupRequest?->number} — الطرود: {$share->shipments_count}",
             actor: $actor,
             referenceType: 'pickup_share',
             referenceId: $share->id,

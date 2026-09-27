@@ -287,7 +287,7 @@ class CourierAppTest extends TestCase
 
         $this->actingAs($pickerUser)
             ->post($this->host()."/courier/pickups/{$pickup->id}/complete", ['actual_count' => 3])
-            ->assertSessionHas('success');
+            ->assertSessionHas('success', fn ($m) => str_starts_with($m, 'استُلم 3 طرود من'));
 
         $this->assertSame('completed', $pickup->fresh()->status);
         $this->assertSame(3, $pickup->fresh()->actual_count);

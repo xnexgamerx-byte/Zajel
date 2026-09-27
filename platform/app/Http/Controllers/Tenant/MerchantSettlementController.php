@@ -57,9 +57,14 @@ class MerchantSettlementController extends Controller
 
     public function show(MerchantSettlement $settlement): View
     {
-        $settlement->load(['merchant', 'lines.shipment.governorate:id,name_ar']);
+        $settlement->load('merchant');
 
-        return view('tenant.settlements.merchants.show', compact('settlement'));
+        return view('tenant.settlements.merchants.show', [
+            'settlement' => $settlement,
+            // كشف تاجرٍ كبير قد يحمل آلاف السطور: تُعرض صفحةً صفحة، والمجاميع من الكشف نفسه
+            'lines'      => $settlement->lines()->with('shipment.governorate:id,name_ar')
+                ->orderBy('id')->paginate(100),
+        ]);
     }
 
     public function confirm(Request $request, MerchantSettlement $settlement, PayMerchantSettlement $action): RedirectResponse

@@ -521,16 +521,19 @@ summary:focus-visible,
     /* ---------------------------------------------- أرقام اللوحة
        الرقم الكبير بوزنٍ خفيف (Alexandria 300) كأرقام الصورة المرجعية، والبطاقة
        التي تفتح شيئاً ترتفع قليلاً عند المرور. */
+    /* min-w-0: خليّةٌ في شبكة لا يوسّعها رقمٌ كبير فتفيض الصفحة على الهاتف */
     .stat {
-        @apply rounded-3xl border border-aeblack-100/80 bg-white px-5 py-4 transition;
+        @apply min-w-0 rounded-3xl border border-aeblack-100/80 bg-white px-5 py-4 transition;
     }
 
     .stat-label {
         @apply text-[13px] text-ink-500;
     }
 
+    /* يصغر مع الشاشة حتى ٢١ نقطة على الهاتف، ولا يخرج من بطاقته أبداً */
     .stat-value {
-        @apply mt-2 font-heading text-[28px] leading-none font-light tracking-tight text-aeblack-950;
+        @apply mt-2 font-heading text-[clamp(1.125rem,5.4vw,1.75rem)] leading-none font-light tracking-tight
+               text-aeblack-950 [overflow-wrap:anywhere];
     }
 
     a.stat:hover,

@@ -78,6 +78,39 @@ class ProcessingTest extends TestCase
             ->assertSee('تنتظر منذ يوم واحد');
     }
 
+    /** «الزبون اتّصل بخصوص الوصل كذا»: يُوجَد برقمه، أو بمندوبه، والشارة تعدّ الكلّ */
+    public function test_the_queue_is_searched_by_receipt_and_filtered_by_courier(): void
+    {
+        $this->failed();
+        $wanted = $this->failed();
+        $other = Tenancy::runFor($this->company, fn () => Courier::create([
+            'code' => 'C2', 'name' => 'مندوب ثانٍ', 'phone' => '07720000002', 'type' => 'delivery', 'status' => 'active',
+        ]));
+        $his = $this->failed(['delivery_courier_id' => $other->id]);
+
+        $found = fn (string $query) => $this->actingAs($this->owner)->get($this->host().'/processing?'.$query)
+            ->assertOk()->assertViewHas('pendingCount', 3)->viewData('shipments')->pluck('id')->all();
+
+        $this->assertSame([$wanted->id], $found('q='.$wanted->number));
+        $this->assertSame([$his->id], $found('courier_id='.$other->id));
+        $this->actingAs($this->owner)->get($this->host().'/processing?q=999999')->assertSee('لا شحنة للمعالجة تطابق بحثك.');
+    }
+
+    /** القرار سطرٌ واحد في سجلّ الشحنة، وصفحتها تقول بمَ يُقيَّد الراجع */
+    public function test_the_decision_shows_once_in_the_shipment_history(): void
+    {
+        $shipment = $this->failed();
+
+        $this->actingAs($this->owner)
+            ->post($this->host()."/processing/{$shipment->id}", ['action' => 'return', 'note' => 'رفض الاستلام'])
+            ->assertSessionHas('success');
+
+        $page = $this->actingAs($this->owner)->get($this->host().'/shipments/'.$shipment->id)->assertOk();
+
+        $this->assertSame(1, substr_count($page->getContent(), 'معالجة — رفض الاستلام'));
+        $page->assertSee('أجرة الراجع عند تسليمه للتاجر');
+    }
+
     public function test_redeliver_goes_back_out_with_its_courier_and_is_recorded(): void
     {
         $shipment = $this->failed();

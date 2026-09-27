@@ -27,7 +27,7 @@
     </div>
 </div>
 
-<main class="mx-auto my-6 max-w-[210mm] bg-white p-8 shadow-sm print:my-0 print:max-w-none print:p-0 print:shadow-none">
+<main class="mx-auto my-6 max-w-[210mm] overflow-x-auto bg-white p-4 shadow-sm sm:p-8 print:my-0 print:max-w-none print:overflow-visible print:p-0 print:shadow-none">
     <header class="mb-6 flex items-start justify-between gap-4 border-b-2 border-ink-900 pb-4">
         <div>
             <h1 class="text-2xl font-black">{{ $company->name ?? 'وهج العراق' }}</h1>

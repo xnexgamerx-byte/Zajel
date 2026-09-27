@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Tenant;
 use App\Actions\Shipments\ProcessFailedAttempt;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Courier;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
+use App\Services\Shipments\ShipmentFilters;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -29,11 +31,17 @@ class ProcessingController extends Controller
             ->visibleTo($request->user())
             ->where('shipments.status', ShipmentStatus::FailedAttempt->value);
 
+        // «الزبون اتّصل بخصوص الوصل كذا»: البحث برقم الوصل أو هاتفه، ومناديب
+        // الواحد بعينه — والشارة تعدّ كل ما ينتظر لا ما وافق البحث
+        $found = ShipmentFilters::apply(clone $pending, $request);
+
         return view('tenant.processing.index', [
             'tab'       => $tab,
             'pendingCount' => (clone $pending)->count(),
+            'filtered'  => $request->filled('q') || $request->filled('courier_id'),
+            'couriers'  => $tab === 'pending' ? Courier::delivering()->orderBy('name')->get(['id', 'name']) : collect(),
             'shipments' => $tab === 'pending'
-                ? $pending->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar',
+                ? $found->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar',
                         'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
                     ->orderBy('shipments.status_changed_at')
                     ->paginate(config('zajel.per_page'))

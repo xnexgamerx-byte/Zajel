@@ -37,7 +37,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-ink-100">
-                        @foreach ($settlement->lines as $line)
+                        @foreach ($lines as $line)
                             <tr>
                                 <td class="px-4 py-2.5">
                                     <a href="{{ route('shipments.show', $line->shipment) }}"
@@ -72,6 +72,10 @@
                     </tfoot>
                 </table>
             </div>
+
+            @if ($lines->hasPages())
+                <div class="border-t border-ink-100 p-4">{{ $lines->links() }}</div>
+            @endif
 
             <p class="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">
                 السطور لقطة مُجمَّدة وقت فتح الكشف — تغيير تسعيرة لاحقاً لا يمسّها.

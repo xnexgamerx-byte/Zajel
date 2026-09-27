@@ -20,8 +20,32 @@
 @error('until') <div class="card mb-4 border-bad-200 bg-bad-50 p-4 text-sm text-bad-700">{{ $message }}</div> @enderror
 
 @if ($tab === 'pending')
+    @if ($pendingCount)
+        <form method="GET" action="{{ route('processing.index') }}" class="card mb-4 flex flex-wrap items-end gap-3 p-4">
+            <div class="min-w-56 flex-1">
+                <label class="field-label" for="q">رقم الوصل أو هاتف الزبون</label>
+                <input id="q" name="q" class="field-input num" value="{{ request('q') }}" inputmode="search" autocomplete="off">
+            </div>
+            <div class="min-w-48">
+                <label class="field-label" for="courier_id">المندوب</label>
+                <select id="courier_id" name="courier_id" class="field-input" data-searchable>
+                    <option value="">الكل</option>
+                    @foreach ($couriers as $courier)
+                        <option value="{{ $courier->id }}" @selected((int) request('courier_id') === $courier->id)>{{ $courier->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <button type="submit" class="btn-primary">بحث</button>
+            @if ($filtered)
+                <a href="{{ route('processing.index') }}" class="btn-ghost">إلغاء البحث</a>
+            @endif
+        </form>
+    @endif
+
     @if ($shipments->isEmpty())
-        <p class="card py-12 text-center text-sm text-ink-500">لا شيء ينتظر المعالجة.</p>
+        <p class="card py-12 text-center text-sm text-ink-500">
+            {{ $filtered ? 'لا شحنة للمعالجة تطابق بحثك.' : 'لا شيء ينتظر المعالجة.' }}
+        </p>
     @else
         <div class="space-y-3">
             @foreach ($shipments as $shipment)

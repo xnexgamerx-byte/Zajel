@@ -137,7 +137,8 @@
             <h2 class="mb-4 text-sm font-bold">سجلّ الشحنة</h2>
 
             <ol class="relative space-y-5 border-s-2 border-ink-100 ps-5">
-                @foreach ($shipment->events as $event)
+                {{-- قرار المعالجة يُكتب مرّتين: تغيّر حالته هنا، وسجلٌّ لتقارير المتابعة لا يُعاد عرضه --}}
+                @foreach ($shipment->events->reject(fn ($e) => $e->event_type === 'processed') as $event)
                     @php $status = \App\Enums\ShipmentStatus::tryFrom($event->to_status); @endphp
                     <li class="relative">
                         <span class="absolute -start-[1.6rem] top-1 grid h-3 w-3 place-items-center rounded-full
@@ -333,6 +334,13 @@
                     <dt class="text-ink-600">مجموع الأجور</dt>
                     <dd class="font-semibold" dir="ltr">{{ number_format($shipment->total_fees) }}</dd>
                 </div>
+                @if (in_array($shipment->status, [\App\Enums\ShipmentStatus::Returning, \App\Enums\ShipmentStatus::Returned], true))
+                    {{-- الراجع يُقيَّد على التاجر بأجرته بدل أجرة التوصيل --}}
+                    <div class="flex justify-between text-bad-700">
+                        <dt>{{ $shipment->status === \App\Enums\ShipmentStatus::Returned ? 'أجرة الراجع (بدل أجرة التوصيل)' : 'أجرة الراجع عند تسليمه للتاجر' }}</dt>
+                        <dd dir="ltr">{{ number_format($shipment->return_fee) }}</dd>
+                    </div>
+                @endif
                 <div class="flex justify-between border-t-2 border-ink-300 pt-2">
                     <dt class="font-bold">مستحقّ التاجر</dt>
                     <dd class="text-base font-bold text-[var(--brand)]" dir="ltr">

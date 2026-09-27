@@ -101,9 +101,15 @@ class CourierSettlementController extends Controller
 
     public function show(CourierSettlement $settlement): View
     {
-        $settlement->load(['courier', 'lines.shipment.governorate:id,name_ar']);
+        $settlement->load('courier');
 
-        return view('tenant.settlements.couriers.show', compact('settlement'));
+        return view('tenant.settlements.couriers.show', [
+            'settlement' => $settlement,
+            // الكشف الأوّل لمندوبٍ قديم قد يحمل آلاف السطور: تُعرض صفحةً صفحة،
+            // والمجاميع أعلاه وأسفله من الكشف نفسه لا مما عُرض
+            'lines'      => $settlement->lines()->with('shipment.governorate:id,name_ar')
+                ->orderBy('id')->paginate(100),
+        ]);
     }
 
     public function confirm(Request $request, CourierSettlement $settlement, ConfirmCourierSettlement $confirm): RedirectResponse

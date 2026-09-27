@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Courier;
 use App\Actions\Shipments\CompletePickup;
 use App\Http\Controllers\Controller;
 use App\Models\PickupRequest;
+use App\Support\Arabic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -44,6 +45,6 @@ class PickupController extends Controller
 
         return redirect()
             ->route('courier.pickups')
-            ->with('success', "استُلم {$data['actual_count']} طرداً من {$pickup->merchant->business_name}.");
+            ->with('success', 'استُلم '.Arabic::parcels((int) $data['actual_count'])." من {$pickup->merchant->business_name}.");
     }
 }

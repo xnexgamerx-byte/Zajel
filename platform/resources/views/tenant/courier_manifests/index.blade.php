@@ -11,7 +11,7 @@
     </div>
 </div>
 
-<div class="mb-5 grid grid-cols-3 gap-4">
+<div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
     <div class="stat">
         <span class="stat-label">مناديب في الطريق</span>
         <span class="stat-value num">{{ number_format($totals->couriers) }}</span>
@@ -20,7 +20,7 @@
         <span class="stat-label">شحنات بأيديهم</span>
         <span class="stat-value num">{{ number_format($totals->shipments) }}</span>
     </div>
-    <div class="stat">
+    <div class="stat col-span-2 sm:col-span-1">
         <span class="stat-label">مبالغ يُتوقَّع تحصيلها</span>
         <span class="stat-value num text-warn-700">{{ number_format($totals->cod) }}</span>
     </div>

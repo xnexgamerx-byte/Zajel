@@ -24,7 +24,7 @@
         <section class="card overflow-hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-3">
                 <div class="text-sm">
-                    <span class="num font-semibold" data-scan-count>0</span> وصل
+                    الوصولات: <span class="num font-semibold" data-scan-count>0</span>
                     · المبالغ <span class="num font-semibold" data-scan-total>0</span> د.ع
                 </div>
                 <button type="button" class="text-sm font-semibold text-bad-700 hover:underline" data-scan-clear>إفراغ الجدول</button>
