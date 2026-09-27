@@ -3,8 +3,8 @@
 
 @section('content')
 @php
-    // التحية بساعة بغداد، والتوقيت المخزَّن UTC
-    $hour = now('Asia/Baghdad')->hour;
+    // التحية بساعة بغداد: توقيت التطبيق (config/app.php)
+    $hour = now()->hour;
     $greeting = $hour >= 4 && $hour < 12 ? 'صباح الخير' : 'مساء الخير';
 @endphp
 <div class="mb-6 flex flex-wrap items-end justify-between gap-3">

@@ -185,9 +185,10 @@ class ReferenceReportsTest extends TestCase
         $staff = $this->shipment();
         $portal = $this->shipment([], 'merchant_portal', $this->merchantUser);
 
-        // السادسة صباحاً بتوقيت الخادم هي التاسعة ببغداد
+        // التاسعة ببغداد تُعَدّ في التاسعة: التوقيت واحدٌ من الكتابة إلى التجميع،
+        // ولا تُزاد عليه ساعاتٌ في SQL
         Tenancy::runFor($this->company, fn () => Shipment::whereKey([$staff->id, $portal->id])
-            ->update(['created_at' => today()->setTime(6, 0)]));
+            ->update(['created_at' => today()->setTime(9, 0)]));
 
         $response = $this->actingAs($this->owner)->get($this->host().'/reports/entries')->assertOk()
             ->assertSee('إدخال موظّف')->assertSee('بوابة التاجر');

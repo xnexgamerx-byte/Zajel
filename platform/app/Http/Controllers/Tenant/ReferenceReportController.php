@@ -52,7 +52,7 @@ class ReferenceReportController extends Controller
     {
         $period = ReportPeriod::fromRequest($request);
         [$from, $to] = $period->bounds();
-        $hour = SqlDate::baghdadHour('shipments.created_at');
+        $hour = SqlDate::hour('shipments.created_at');
 
         $base = fn () => Shipment::query()->visibleTo($request->user())->whereBetween('shipments.created_at', [$from, $to]);
 

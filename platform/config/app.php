@@ -60,12 +60,15 @@ return [
     |--------------------------------------------------------------------------
     |
     | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | will be used by the PHP date and date-time functions.
+    |
+    | بغداد لا UTC: كل الشركات عراقية، و«اليوم» في التقارير والفلاتر والتسلسلات
+    | يومُ بغداد، والساعة المعروضة ساعتها. وجلسة MySQL تتبعه (config/database.php)،
+    | فأعمدة TIMESTAMP تبقى لحظةً صحيحة مهما كُتبت، والقديم منها يُقرأ صحيحاً.
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Baghdad'),
 
     /*
     |--------------------------------------------------------------------------

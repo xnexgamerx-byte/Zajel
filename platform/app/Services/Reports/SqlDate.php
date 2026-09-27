@@ -28,14 +28,15 @@ class SqlDate
     }
 
     /**
-     * ساعة اليوم ببغداد (٠–٢٣) من طابعٍ مخزَّن بتوقيت UTC: العراق +٣ بلا
-     * توقيتٍ صيفيّ، و«كم أُدخل الساعة التاسعة» سؤالٌ عن ساعة الموظّف لا ساعة الخادم.
+     * ساعة اليوم (٠–٢٣) بتوقيت التطبيق — بغداد. الطابع يُقرأ بتوقيته: SQLite
+     * حفظه نصّاً به، وجلسة MySQL تحوّله إليه. و«كم أُدخل الساعة التاسعة»
+     * سؤالٌ عن ساعة الموظّف لا ساعة الخادم.
      */
-    public static function baghdadHour(string $column): string
+    public static function hour(string $column): string
     {
         return static::sqlite()
-            ? "cast(strftime('%H', {$column}, '+3 hours') as integer)"
-            : "hour(date_add({$column}, interval 3 hour))";
+            ? "cast(strftime('%H', {$column}) as integer)"
+            : "hour({$column})";
     }
 
     protected static function sqlite(): bool

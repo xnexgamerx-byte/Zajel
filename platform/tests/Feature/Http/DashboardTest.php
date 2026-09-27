@@ -27,7 +27,7 @@ class DashboardTest extends TestCase
     {
         parent::setUp();
 
-        Carbon::setTestNow('2026-09-26 10:00:00'); // سبت، ١ ظهراً ببغداد
+        Carbon::setTestNow('2026-09-26 13:00:00'); // سبت، ١ ظهراً — التطبيق بتوقيت بغداد
 
         $this->seedReference();
         $this->company = $this->makeCompany('zajel', 'الزاجل');

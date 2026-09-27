@@ -88,6 +88,8 @@ class ManageDeposit
                 'cash_box_id'        => $box?->id,
                 'reason'             => $reason,
                 'created_by_user_id' => $actor?->id,
+                // بيد التطبيق لا افتراض القاعدة: CURRENT_TIMESTAMP في SQLite نصٌّ بتوقيت UTC
+                'created_at'         => now(),
             ]);
 
             // الإيداع والردّ يمرّان بالدرج؛ الخصم لا

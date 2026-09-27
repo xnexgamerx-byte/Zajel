@@ -107,6 +107,8 @@ class CashBook
                 'counterpart_box_id' => $counterpartBoxId,
                 'description'        => $description,
                 'created_by_user_id' => $actor?->id,
+                // بيد التطبيق لا افتراض القاعدة: CURRENT_TIMESTAMP في SQLite نصٌّ بتوقيت UTC
+                'created_at'         => now(),
             ]);
         });
     }

@@ -59,6 +59,10 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // جلسة MySQL بتوقيت التطبيق نفسه: TIMESTAMP يُحفظ UTC ويُقرأ ويُكتب بهذا
+            // الفرق، فتحسب date() وhour() في SQL يوم بغداد وساعتها. فرقٌ لا اسم منطقة:
+            // الأسماء تحتاج جداولها في MySQL، والعراق بلا توقيتٍ صيفيّ
+            'timezone' => (new DateTimeImmutable('now', new DateTimeZone(env('APP_TIMEZONE', 'Asia/Baghdad'))))->format('P'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
@@ -79,6 +83,10 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // جلسة MySQL بتوقيت التطبيق نفسه: TIMESTAMP يُحفظ UTC ويُقرأ ويُكتب بهذا
+            // الفرق، فتحسب date() وhour() في SQL يوم بغداد وساعتها. فرقٌ لا اسم منطقة:
+            // الأسماء تحتاج جداولها في MySQL، والعراق بلا توقيتٍ صيفيّ
+            'timezone' => (new DateTimeImmutable('now', new DateTimeZone(env('APP_TIMEZONE', 'Asia/Baghdad'))))->format('P'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
