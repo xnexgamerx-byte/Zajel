@@ -34,7 +34,7 @@
                 @else
                     <div>
                         <label class="field-label" for="merchant_id">التاجر <span class="text-red-500">*</span></label>
-                        <select id="merchant_id" name="merchant_id" class="field-input" required>
+                        <select id="merchant_id" name="merchant_id" class="field-input" data-searchable required>
                             <option value="">اختر التاجر</option>
                             @foreach ($merchants as $merchant)
                                 <option value="{{ $merchant->id }}" @selected(old('merchant_id') == $merchant->id)>
@@ -103,7 +103,7 @@
 
                 <div>
                     <label class="field-label" for="city_id">المنطقة</label>
-                    <select id="city_id" name="city_id" class="field-input" data-old="{{ old('city_id', $shipment?->city_id) }}">
+                    <select id="city_id" name="city_id" class="field-input" data-searchable data-old="{{ old('city_id', $shipment?->city_id) }}">
                         <option value="">اختر المحافظة أولاً</option>
                     </select>
                     @error('city_id') <p class="field-error">{{ $message }}</p> @enderror
@@ -270,12 +270,6 @@
         </section>
     </div>
 </form>
-
-@php
-    $citiesByGovernorate = $cities->groupBy('governorate_id')
-        ->map(fn ($group) => $group->map(fn ($c) => ['id' => $c->id, 'name' => $c->name_ar])->values());
-@endphp
-<script type="application/json" id="cities-data">@json($citiesByGovernorate)</script>
 
 @php
     $citiesByGovernorate = $cities->groupBy('governorate_id')

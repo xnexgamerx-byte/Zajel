@@ -88,7 +88,8 @@ class CourierController extends Controller
     {
         return view('tenant.couriers.form', $this->formData() + [
             'courier' => $courier,
-            'zones'   => $courier->zones()->pluck('governorate_id')->all(),
+            // المحافظات كلّها وحدها: المنطقة داخل محافظةٍ تُسند من «المناطق»
+            'zones'   => $courier->zones()->whereNull('city_id')->pluck('governorate_id')->all(),
         ]);
     }
 
@@ -104,10 +105,13 @@ class CourierController extends Controller
             ->with('success', 'حُفظت بيانات المندوب.');
     }
 
-    /** مناطق التغطية على مستوى المحافظة — تكفي للتوزيع اليومي. */
+    /**
+     * مناطق التغطية على مستوى المحافظة — تكفي للتوزيع اليومي. ولا تمسّ ما
+     * أُسند من «المناطق» لمنطقةٍ بعينها: تعديل هاتف المندوب لا يمحو مناطقه.
+     */
     protected function syncZones(Courier $courier, array $governorateIds): void
     {
-        CourierZone::where('courier_id', $courier->id)->delete();
+        CourierZone::where('courier_id', $courier->id)->whereNull('city_id')->delete();
 
         foreach (array_unique($governorateIds) as $governorateId) {
             CourierZone::create([

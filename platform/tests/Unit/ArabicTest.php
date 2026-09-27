@@ -63,4 +63,23 @@ class ArabicTest extends TestCase
         $this->assertSame('5 شحنات', Arabic::shipments(5));
         $this->assertSame('30 شحنة', Arabic::shipments(30));
     }
+
+    /** أسماءٌ يكتبها كلٌّ على هواه وهي اسمٌ واحد */
+    public function test_fold_makes_spellings_of_one_name_equal(): void
+    {
+        $this->assertSame(Arabic::fold('الأعظمية'), Arabic::fold('الاعظميه'));
+        $this->assertSame(Arabic::fold('أبو نؤاس'), Arabic::fold('ابو نواس'));
+        $this->assertSame(Arabic::fold('رئاسة المعلمين'), Arabic::fold('رياسه المعلمين'));
+        $this->assertSame(Arabic::fold('الـدورة'), Arabic::fold('الدورة'));
+        $this->assertSame(Arabic::fold('الدورة - الصحة'), Arabic::fold('الدورة/الصحة'));
+        $this->assertSame(Arabic::fold('الدورة - الصحة'), Arabic::fold('  الدورة   الصحة '));
+        $this->assertSame(Arabic::fold('حي ١٤ تموز'), Arabic::fold('حي 14 تموز'));
+        $this->assertSame(Arabic::fold('مُسْتَشْفى'), Arabic::fold('مستشفي'));
+        $this->assertSame('baghdad', Arabic::fold(' Baghdad '));
+
+        // والمختلف يبقى مختلفاً
+        $this->assertNotSame(Arabic::fold('الراشدية'), Arabic::fold('الرشيدية'));
+        $this->assertNotSame(Arabic::fold('حي الخضراء'), Arabic::fold('المنطقة الخضراء'));
+        $this->assertSame('', Arabic::fold(null));
+    }
 }

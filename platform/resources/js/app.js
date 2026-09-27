@@ -4,12 +4,17 @@
  * بلا إطار عمل ثقيل — الصفحة تُرسَل من الخادم، وهذا كل ما تحتاجه.
  */
 
+import { initSearchableSelects } from './searchable-select';
+
 const form = document.getElementById('shipment-form');
 
 // ربط المناطق بالمحافظة يخدم كل نموذج فيه عنوان: الشحنة والتاجر وغيرهما.
 if (document.getElementById('cities-data')) {
     initCityLinking();
 }
+
+// بعد ربط المناطق: الحقل يقرأ خياراتها الأولى
+initSearchableSelects();
 
 if (form) {
     initLiveQuote();
@@ -30,7 +35,8 @@ function initCityLinking() {
         const cities = byGovernorate[govSelect.value] ?? [];
 
         citySelect.innerHTML = '';
-        citySelect.append(new Option(cities.length ? 'اختر المنطقة' : 'اختر المحافظة أولاً', ''));
+        citySelect.append(new Option(
+            citySelect.dataset.emptyLabel ?? (cities.length ? 'اختر المنطقة' : 'اختر المحافظة أولاً'), ''));
 
         for (const city of cities) {
             const option = new Option(city.name, city.id);

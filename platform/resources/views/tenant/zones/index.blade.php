@@ -39,7 +39,7 @@
                                 <td>
                                     @forelse ($assigned as $zone)
                                         <span class="chip {{ $zone->courier?->status === 'active' ? 'chip-ok' : 'chip-mute' }} me-1 mb-1">
-                                            {{ $zone->courier?->name }}
+                                            {{ $zone->courier?->name }}@if ($zone->city)<span class="text-ink-500">· {{ $zone->city->name_ar }}</span>@endif
                                             <form method="POST" action="{{ route('zones.destroy', $zone) }}" class="inline">
                                                 @csrf @method('DELETE')
                                                 <button type="submit" class="ms-1 text-bad-700" aria-label="ألغِ الإسناد">×</button>
@@ -74,14 +74,30 @@
                 <label class="field-label" for="governorate_id">المحافظة</label>
                 <select id="governorate_id" name="governorate_id" class="field-input" required>
                     @foreach ($governorates as $governorate)
-                        <option value="{{ $governorate->id }}">{{ $governorate->name_ar }}</option>
+                        <option value="{{ $governorate->id }}" @selected(old('governorate_id') == $governorate->id)>{{ $governorate->name_ar }}</option>
                     @endforeach
                 </select>
                 @error('governorate_id') <p class="field-error">{{ $message }}</p> @enderror
             </div>
+            <div>
+                <label class="field-label" for="city_id">المنطقة</label>
+                <select id="city_id" name="city_id" class="field-input" data-searchable
+                        data-empty-label="المحافظة كلّها" data-old="{{ old('city_id') }}">
+                    <option value="">المحافظة كلّها</option>
+                </select>
+                @error('city_id') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
             <button type="submit" class="btn-primary w-full" @disabled($couriers->isEmpty())>أسنِد</button>
-            <p class="field-hint">الإسناد على مستوى المحافظة. ولمندوبَين المحافظة نفسها إن لزم.</p>
+            <p class="field-hint">
+                المحافظة كلّها، أو منطقةٌ منها — اكتب جزء اسمها. ولمندوبَين المنطقة نفسها إن لزم.
+            </p>
         </form>
     </section>
 </div>
+
+@php
+    $citiesByGovernorate = $cities->groupBy('governorate_id')
+        ->map(fn ($group) => $group->map(fn ($c) => ['id' => $c->id, 'name' => $c->name_ar])->values());
+@endphp
+<script type="application/json" id="cities-data">@json($citiesByGovernorate)</script>
 @endsection

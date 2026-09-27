@@ -4,6 +4,7 @@ namespace App\Services\Import;
 
 use App\Models\City;
 use App\Models\Governorate;
+use App\Support\Arabic;
 use App\Support\Phone;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -40,6 +41,29 @@ class ShipmentSheet
     ];
 
     public const REQUIRED = ['recipient_name', 'recipient_phone', 'governorate', 'address', 'landmark', 'cod_amount'];
+
+    /**
+     * أسماءٌ تُكتب بدل اسم المحافظة: مراكزها («الموصل»، «الحلة»)، وكما يكتبها
+     * النظام الذي تعمل عليه الشركات اليوم («بابل الحلة»، «الناصرية ذي قار») بأكواده
+     * (MOS، NAS…) — فيُرفع ملفٌّ صُدِّر منه كما هو (docs/plan/17 §٦).
+     */
+    public const GOVERNORATE_ALIASES = [
+        'BSR' => ['BAS'],
+        'NIN' => ['الموصل', 'موصل', 'MOS'],
+        'ERB' => ['هولير', 'ARB'],
+        'SUL' => ['SMH'],
+        'DHK' => ['DOH'],
+        'KIR' => ['KRK'],
+        'BBL' => ['الحلة', 'بابل الحلة', 'الحلة بابل'],
+        'ANB' => ['الرمادي', 'الانبار رمادي', 'الانبار الرمادي'],
+        'DYL' => ['بعقوبة'],
+        'WST' => ['الكوت', 'الكوت واسط', 'KOT'],
+        'MYS' => ['العمارة', 'العمارة ميسان', 'AMA'],
+        'DHQ' => ['الناصرية', 'الناصرية ذي قار', 'ذيقار', 'NAS'],
+        'MTH' => ['السماوة', 'السماوة المثنى', 'SAM'],
+        'QAD' => ['الديوانية', 'الديوانية القادسية', 'DWN'],
+        'SAL' => ['تكريت', 'SAH'],
+    ];
 
     /** @return Collection<int, array{row:int, data:array, errors:array<string>}> */
     public function read(string $path): Collection
@@ -223,21 +247,9 @@ class ShipmentSheet
 
         return $governorates->first(fn (Governorate $g) => $this->normalise($g->name_ar) === $needle
             || $this->normalise($g->name_en) === $needle
-            || strtolower($g->code) === strtolower($raw))
-            // أسماء شائعة تُكتب بدل اسم المحافظة
-            ?? $governorates->first(fn (Governorate $g) => match ($needle) {
-                'الموصل'                => $g->code === 'NIN',
-                'الحله', 'الحلة'        => $g->code === 'BBL',
-                'الرمادي'               => $g->code === 'ANB',
-                'الديوانيه', 'الديوانية' => $g->code === 'QAD',
-                'الناصريه', 'الناصرية'  => $g->code === 'DHQ',
-                'العماره', 'العمارة'    => $g->code === 'MYS',
-                'الكوت'                 => $g->code === 'WST',
-                'السماوه', 'السماوة'    => $g->code === 'MTH',
-                'بعقوبه', 'بعقوبة'      => $g->code === 'DYL',
-                'تكريت'                 => $g->code === 'SAL',
-                default                 => false,
-            });
+            || strtolower($g->code) === strtolower(trim($raw)))
+            ?? $governorates->first(fn (Governorate $g) => collect(self::GOVERNORATE_ALIASES[$g->code] ?? [])
+                ->contains(fn (string $alias) => $this->normalise($alias) === $needle));
     }
 
     protected function toInt(string $raw): ?int
@@ -256,11 +268,7 @@ class ShipmentSheet
     /** يوحّد الهمزات والتاء المربوطة والمسافات — أسماء المحافظات تُكتب بصور شتّى. */
     protected function normalise(string $raw): string
     {
-        $text = trim(preg_replace('/\s+/u', ' ', $raw));
-        $text = strtr($text, ['أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ة' => 'ه', 'ى' => 'ي', 'ؤ' => 'و', 'ئ' => 'ي']);
-        $text = preg_replace('/[\x{064B}-\x{0652}]/u', '', $text);
-
-        return mb_strtolower(trim(str_replace(['ـ', '-', '_', '*'], '', $text)));
+        return Arabic::fold($raw);
     }
 
     /** قالب جاهز بأسماء المحافظات في قائمة منسدلة. */

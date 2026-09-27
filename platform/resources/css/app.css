@@ -212,7 +212,9 @@ summary:focus-visible,
         @apply rounded-[1.25rem] leading-6;
     }
 
-    /* سهم القائمة المنسدلة رماديٌّ داكن، في جهة النهاية (اليسار في الصفحة اليمينية) */
+    /* سهم القائمة المنسدلة رماديٌّ داكن، في جهة النهاية (اليسار في الصفحة اليمينية)؛
+       والقائمة بالبحث (searchable-select.js) قائمةٌ منسدلة أيضاً فلها سهمها */
+    .field-input[role='combobox'],
     select.field-input:not([multiple]):not([size]) {
         appearance: none;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2344423F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -222,6 +224,7 @@ summary:focus-visible,
         padding-inline-end: 2.75rem;
     }
 
+    [dir='ltr'] .field-input[role='combobox'],
     [dir='ltr'] select.field-input:not([multiple]):not([size]) {
         background-position: right 0.875rem center;
     }

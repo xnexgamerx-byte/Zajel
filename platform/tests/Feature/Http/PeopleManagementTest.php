@@ -247,6 +247,53 @@ class PeopleManagementTest extends TestCase
         });
     }
 
+    /** منطقةٌ من ٣٥٥ تُسند لمندوب، وتعديل المندوب بعدها لا يمحوها. */
+    public function test_an_area_is_assigned_from_the_zones_screen_and_survives_editing_the_courier(): void
+    {
+        $this->actingAs($this->staff)->post($this->host().'/couriers', $this->courierPayload([
+            'type' => 'delivery', 'zones' => [$this->baghdad()->id],
+        ]));
+
+        $courier = Tenancy::runFor($this->company, fn () => Courier::firstOrFail());
+        $dora = \App\Models\City::where('governorate_id', $this->baghdad()->id)->where('name_ar', 'الدورة حي اسيا')->firstOrFail();
+
+        $this->actingAs($this->staff)->get($this->host().'/zones')
+            ->assertOk()->assertSee('data-searchable', false)->assertSee('id="cities-data"', false);
+
+        $this->actingAs($this->staff)
+            ->post($this->host().'/zones', [
+                'courier_id' => $courier->id, 'governorate_id' => $this->baghdad()->id, 'city_id' => $dora->id,
+            ])
+            ->assertSessionHas('success', "أُسندت الدورة حي اسيا في بغداد إلى {$courier->name}.");
+
+        // منطقةٌ من محافظةٍ أخرى تُرفض
+        $basra = \App\Models\Governorate::where('code', 'BSR')->firstOrFail();
+        $this->actingAs($this->staff)
+            ->post($this->host().'/zones', [
+                'courier_id' => $courier->id, 'governorate_id' => $basra->id, 'city_id' => $dora->id,
+            ])
+            ->assertSessionHasErrors('city_id');
+
+        $this->actingAs($this->staff)->get($this->host().'/zones')->assertSee('· الدورة حي اسيا', false);
+
+        // تعديل المندوب يستبدل المحافظات ويُبقي المنطقة
+        $this->actingAs($this->staff)
+            ->put($this->host().'/couriers/'.$courier->id, $this->courierPayload(['type' => 'delivery', 'zones' => [$basra->id]]))
+            ->assertSessionHas('success');
+
+        Tenancy::runFor($this->company, function () use ($courier, $basra, $dora) {
+            $zones = CourierZone::where('courier_id', $courier->id)->orderBy('id')->get(['governorate_id', 'city_id'])
+                ->map(fn ($z) => [$z->governorate_id, $z->city_id])->all();
+
+            $this->assertEqualsCanonicalizing([[$this->baghdad()->id, $dora->id], [$basra->id, null]], $zones);
+        });
+
+        // وشاشة التعديل لا تعلّم بغداد محافظةً كاملة لأنّ فيها منطقة
+        $this->actingAs($this->staff)->get($this->host().'/couriers/'.$courier->id.'/edit')
+            ->assertOk()
+            ->assertDontSee('value="'.$this->baghdad()->id.'" checked', false);
+    }
+
     public function test_the_lists_render(): void
     {
         $this->actingAs($this->staff)->post($this->host().'/merchants', $this->merchantPayload());

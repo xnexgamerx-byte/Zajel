@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\City;
 use App\Models\Governorate;
+use App\Support\Arabic;
 use Illuminate\Database\Seeder;
 
 /**
@@ -11,6 +12,10 @@ use Illuminate\Database\Seeder;
  *
  * لا رموز بريدية — لأنّها لا تعمل عملياً في العراق. العنوان الحقيقي
  * هو: محافظة + منطقة + أقرب نقطة دالّة + إحداثيات.
+ *
+ * ولبغداد فوق مناطقها هنا المناطق الـ٣٥٥ التي تعرفها شركات التوصيل
+ * (database/data/baghdad-areas.php). ولا تُكرَّر منطقة موجودة بإعادة البذر:
+ * المقارنة بالاسم المطويّ، فـ«الأعظمية» هي «الاعظمية».
  */
 class GovernorateSeeder extends Seeder
 {
@@ -22,11 +27,29 @@ class GovernorateSeeder extends Seeder
                 ['name_ar' => $ar, 'name_en' => $en, 'sort_order' => $order, 'is_active' => true],
             );
 
+            if ($code === 'BGD') {
+                $cities = [...$cities, ...require database_path('data/baghdad-areas.php')];
+            }
+
+            $taken = City::where('governorate_id', $gov->id)->pluck('name_ar')
+                ->mapWithKeys(fn (string $name) => [Arabic::fold($name) => true])
+                ->all();
+
+            $rows = [];
+
             foreach ($cities as $city) {
-                City::updateOrCreate(
-                    ['governorate_id' => $gov->id, 'name_ar' => $city],
-                    ['is_active' => true],
-                );
+                if (isset($taken[Arabic::fold($city)])) {
+                    continue;
+                }
+
+                $taken[Arabic::fold($city)] = true;
+                $rows[] = ['governorate_id' => $gov->id, 'name_ar' => $city, 'is_active' => true,
+                           'created_at' => now(), 'updated_at' => now()];
+            }
+
+            // دفعةً لا صفّاً صفّاً: أربعمئة منطقة لبغداد في كل تثبيتٍ وكل اختبار
+            foreach (array_chunk($rows, 100) as $chunk) {
+                City::insert($chunk);
             }
         }
     }
@@ -40,7 +63,7 @@ class GovernorateSeeder extends Seeder
                 'بغداد الجديدة', 'المشتل', 'الأمين', 'الكرخ', 'الرصافة', 'العامرية', 'الخضراء',
                 'حي الجامعة', 'الوزيرية', 'الصليخ', 'الطالبية', 'مدينة الصدر', 'الشعب الثانية',
                 'أبو غريب', 'المحمودية', 'اليوسفية', 'اللطيفية', 'التاجي', 'الحسينية',
-                'النهروان', 'المدائن', 'الرشيدية', 'سبع البور', 'الدولعي', 'الشرطة الخامسة',
+                'النهروان', 'المدائن', 'الراشدية', 'سبع البور', 'الدولعي', 'الشرطة الخامسة',
                 'حي العامل', 'حي الجهاد', 'الصالحية', 'الباب الشرقي', 'الشورجة',
             ]],
             ['BSR', 'البصرة', 'Basra', [

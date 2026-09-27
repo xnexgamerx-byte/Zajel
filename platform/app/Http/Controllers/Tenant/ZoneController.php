@@ -28,8 +28,9 @@ class ZoneController extends Controller
         $couriers = Courier::delivering()->orderBy('name')->get();
 
         $zones = CourierZone::query()
-            ->with('courier:id,name,status')
+            ->with(['courier:id,name,status', 'city:id,name_ar'])
             ->get()
+            ->sortBy(fn (CourierZone $zone) => [$zone->city_id !== null, $zone->city?->name_ar])
             ->groupBy('governorate_id');
 
         // ما ينتظر في كل محافظة الآن — المنطقة المكشوفة تُرى بالأرقام لا بالحدس
@@ -42,6 +43,7 @@ class ZoneController extends Controller
 
         return view('tenant.zones.index', [
             'governorates' => $governorates,
+            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
             'couriers'     => $couriers,
             'zones'        => $zones,
             'waiting'      => $waiting,
@@ -75,7 +77,9 @@ class ZoneController extends Controller
             'city_id'        => $data['city_id'] ?: null,
         ]);
 
-        return back()->with('success', "أُسندت {$governorate->name_ar} إلى {$courier->name}.");
+        $where = $data['city_id'] ? City::find($data['city_id'])->name_ar.' في '.$governorate->name_ar : $governorate->name_ar;
+
+        return back()->with('success', "أُسندت {$where} إلى {$courier->name}.");
     }
 
     public function destroy(CourierZone $zone): RedirectResponse

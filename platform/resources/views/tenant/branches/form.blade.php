@@ -38,7 +38,7 @@
         </div>
         <div>
             <label class="field-label" for="city_id">المنطقة</label>
-            <select id="city_id" name="city_id" class="field-input"
+            <select id="city_id" name="city_id" class="field-input" data-searchable
                     data-old="{{ old('city_id', $branch->city_id) }}">
                 <option value="">اختر المحافظة أولاً</option>
             </select>
