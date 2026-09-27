@@ -56,7 +56,7 @@ class PayPickupCommission
             $split = $cut > 0 ? 'للمركز '.number_format($cut).' وللشريك '.number_format($paid) : null;
             $this->ledger->payCommission($courier, $due, $actor, collect([$note, $split])->filter()->implode('، ') ?: null);
 
-            $box ??= CashBox::forBranch($courier->branch_id);
+            $box ??= CashBox::forActor($actor, $courier->branch_id);
 
             if ($box && $paid > 0) {
                 $this->cash->out(

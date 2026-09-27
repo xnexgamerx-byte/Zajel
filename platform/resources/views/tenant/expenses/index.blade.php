@@ -29,7 +29,14 @@
     </div>
 </div>
 
+{{-- تبويبان كما في المعتاد: المصروفات وأرشيفها --}}
+<div class="mb-3 flex gap-2">
+    <a href="{{ route('expenses.index', request()->except(['tab', 'page'])) }}" class="chip {{ $archive ? 'chip-mute' : 'chip-info' }}">المصروفات</a>
+    <a href="{{ route('expenses.index', ['tab' => 'archive'] + request()->except(['tab', 'page'])) }}" class="chip {{ $archive ? 'chip-info' : 'chip-mute' }}">أرشيف المصروفات</a>
+</div>
+
 <form method="GET" class="card mb-5 flex flex-wrap items-end gap-3 p-4">
+    @if ($archive)<input type="hidden" name="tab" value="archive">@endif
     <div>
         <label class="field-label" for="from">من</label>
         <input id="from" name="from" type="date" class="field-input" value="{{ $from->toDateString() }}">
@@ -58,17 +65,32 @@
             @endforeach
         </select>
     </div>
+    @if ($departments->isNotEmpty())
+        <div>
+            <label class="field-label" for="department">القسم</label>
+            <select id="department" name="department" class="field-input">
+                <option value="">كل الأقسام</option>
+                @foreach ($departments as $department)
+                    <option value="{{ $department }}" @selected(request('department') === $department)>{{ $department }}</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
     <button type="submit" class="btn-primary">تطبيق</button>
-    <a href="{{ route('expenses.index') }}" class="btn-ghost">هذا الشهر</a>
+    <a href="{{ route('expenses.index', $archive ? ['tab' => 'archive'] : []) }}" class="btn-ghost">هذا الشهر</a>
 </form>
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <div class="lg:col-span-2">
-        <section class="card overflow-hidden">
+        {{-- «أرشفة المحدَّد»: الجدول نموذجٌ لمربّعاته، وزرّ الدفع يفتح نافذته خارجه --}}
+        <form method="POST" action="{{ route('expenses.archive') }}" class="card overflow-hidden" data-check-scope>
+            @csrf
+            <input type="hidden" name="mode" value="{{ $archive ? 'restore' : 'archive' }}">
             <div class="overflow-x-auto">
                 <table class="tbl">
                     <thead>
                         <tr>
+                            <th class="w-10"><input type="checkbox" data-check-all class="size-4 accent-[var(--brand)]" aria-label="تحديد الكل"></th>
                             <th>الرقم</th>
                             <th>التاريخ</th>
                             <th>البيان</th>
@@ -80,6 +102,7 @@
                     <tbody>
                         @forelse ($expenses as $expense)
                             <tr>
+                                <td><input type="checkbox" name="ids[]" value="{{ $expense->id }}" class="size-4 accent-[var(--brand)]" aria-label="المصروف {{ $expense->number }}"></td>
                                 <td class="num font-semibold">{{ $expense->number }}</td>
                                 <td class="whitespace-nowrap text-sm text-ink-500">
                                     {{ $expense->spent_on->format('Y-m-d') }}
@@ -89,7 +112,11 @@
                                 <td class="max-w-72">
                                     <div class="truncate">{{ $expense->description }}</div>
                                     <div class="truncate text-xs text-ink-500">
-                                        {{ $expense->category?->name_ar }}{{ $expense->payee ? ' · '.$expense->payee : '' }}
+                                        {{ $expense->category?->name_ar }}
+                                        @if ($expense->category?->code) <span class="num" dir="ltr">({{ $expense->category->code }})</span> @endif
+                                        {{ $expense->department ? ' · '.$expense->department : '' }}
+                                        {{ $expense->order_number ? ' · أمر صرف '.$expense->order_number : '' }}
+                                        {{ $expense->payee ? ' · '.$expense->payee : '' }}
                                     </div>
                                 </td>
                                 <td class="num font-semibold">{{ number_format($expense->amount) }}</td>
@@ -116,15 +143,31 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="py-10 text-center text-ink-500">لا مصروف في هذه الفترة.</td></tr>
+                            <tr><td colspan="7" class="py-10 text-center text-ink-500">{{ $archive ? 'لا مصروف مؤرشف في هذه الفترة.' : 'لا مصروف في هذه الفترة.' }}</td></tr>
                         @endforelse
                     </tbody>
+                    @if ($expenses->isNotEmpty())
+                        <tfoot>
+                            <tr class="border-t-2 border-ink-200 font-semibold">
+                                <td></td>
+                                <td colspan="3">المجموع (بلا الملغى)</td>
+                                <td class="num">{{ number_format($listedSum) }}</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    @endif
                 </table>
             </div>
+            @if ($expenses->isNotEmpty())
+                <div class="flex flex-wrap items-center gap-3 border-t border-ink-100 px-5 py-3">
+                    <button type="submit" class="btn-ghost py-1 text-xs">{{ $archive ? 'أعِد المحدَّد من الأرشيف' : 'أرشفة المحدَّد' }}</button>
+                    <span class="text-xs text-ink-500">الأرشفة تُخرجه من القائمة اليومية ولا تمسّ ماله.</span>
+                </div>
+            @endif
             @if ($expenses->hasPages())
                 <div class="border-t border-ink-100 px-5 py-4">{{ $expenses->links() }}</div>
             @endif
-        </section>
+        </form>
 
         @if ($boxes->isNotEmpty())
             <dialog id="pay-expense" class="modal">
@@ -253,6 +296,22 @@
                     <label class="field-label" for="reference">رقم الوصل</label>
                     <input id="reference" name="reference" type="text" maxlength="60" class="field-input"
                            value="{{ old('reference') }}">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="order_number">رقم أمر الصرف</label>
+                    <input id="order_number" name="order_number" type="text" maxlength="40" class="field-input"
+                           value="{{ old('order_number') }}">
+                </div>
+                <div>
+                    <label class="field-label" for="expense_department">القسم</label>
+                    <input id="expense_department" name="department" type="text" maxlength="80" class="field-input"
+                           list="expense-departments" value="{{ old('department') }}" placeholder="الإدارة، التوزيع…">
+                    <datalist id="expense-departments">
+                        @foreach ($departments as $department)<option value="{{ $department }}">@endforeach
+                    </datalist>
                 </div>
             </div>
 

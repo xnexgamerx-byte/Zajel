@@ -34,3 +34,12 @@ Schedule::command('zajel:reconcile')
     ->dailyAt('01:30')
     ->timezone('Asia/Baghdad')
     ->withoutOverlapping();
+
+/*
+| لقطة «الموقف المالي» آخر كل يوم: تاريخه يُقرأ يوماً بيوم ولو لم يضغط
+| أحدٌ «حفظ نسخة». قبل منتصف الليل، فتُنسب اللقطة إلى يومها.
+*/
+Schedule::command('zajel:snapshot')
+    ->dailyAt('23:50')
+    ->timezone('Asia/Baghdad')
+    ->withoutOverlapping();

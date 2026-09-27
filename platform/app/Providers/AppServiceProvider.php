@@ -40,6 +40,9 @@ class AppServiceProvider extends ServiceProvider
             Gate::define($ability, fn (User $user) => $user->hasAbility($ability));
         }
 
+        // «صندوقي»: صاحب صندوق الموظّف وحده — الملكيّة هي الصلاحية
+        Gate::define('cash.own-box', fn (User $user) => \App\Models\CashBox::where('user_id', $user->id)->exists());
+
         $this->registerDateMacros();
     }
 

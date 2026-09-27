@@ -36,7 +36,12 @@ class CashMovement extends Model
 
     public function categoryLabel(): string
     {
-        return match ($this->category) {
+        return static::labelFor((string) $this->category);
+    }
+
+    public static function labelFor(string $category): string
+    {
+        return match ($category) {
             'opening'          => 'رصيد افتتاحي',
             'courier_handover' => 'تسليم نقد من مندوب',
             'merchant_payout'  => 'دفع لتاجر',
@@ -46,7 +51,9 @@ class CashMovement extends Model
             'transfer_in'      => 'مناقلة واردة',
             'transfer_out'     => 'مناقلة صادرة',
             'adjustment'       => 'تسوية جرد',
-            default            => $this->category,
+            'branch_remittance_out' => 'تسديدٌ لفرع',
+            'branch_remittance_in'  => 'مسدَّدٌ من فرع',
+            default            => $category,
         };
     }
 }

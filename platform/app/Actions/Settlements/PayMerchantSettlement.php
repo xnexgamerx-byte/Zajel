@@ -126,7 +126,7 @@ class PayMerchantSettlement
             return;
         }
 
-        $box = CashBox::forBranch($settlement->branch_id);
+        $box = CashBox::forActor($actor, $settlement->branch_id);
 
         if (! $box) {
             return;

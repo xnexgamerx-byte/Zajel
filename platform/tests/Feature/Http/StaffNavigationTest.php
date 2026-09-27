@@ -42,6 +42,8 @@ class StaffNavigationTest extends TestCase
         'shipments.scan.lookup',
         // إيصالات التسليم لمندوب الاستلام، من رسالة نجاحه
         'return-batches.print-many',
+        // «صندوقي» من شارة رصيده في الرأس، لصاحب الصندوق وحده
+        'cash.mine',
     ];
 
     private Company $company;

@@ -62,6 +62,10 @@ use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\ZoneController;
+use App\Http\Controllers\Tenant\FinancialPositionController;
+use App\Http\Controllers\Tenant\BranchRemittanceController;
+use App\Http\Controllers\Tenant\MyCashBoxController;
+use App\Http\Controllers\Tenant\AccountantAccountsController;
 use App\Http\Controllers\Tenant\AreaController;
 use App\Http\Controllers\Tenant\GovernorateSettingController;
 use App\Http\Controllers\Tenant\MerchantRequestController;
@@ -305,8 +309,27 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/cash/{box}/adjust', [CashBoxController::class, 'adjust'])->name('cash.adjust');
             });
 
+            // تسديد ديون الفروع واستلامها: نقدٌ يخرج من صندوقٍ ويدخل آخر
+            Route::middleware('can:money.cash')->group(function () {
+                Route::post('/money/position', [FinancialPositionController::class, 'store'])->name('money.position.store');
+                Route::post('/branch-accounts/remittances', [BranchRemittanceController::class, 'send'])->name('branch-accounts.remit');
+                Route::post('/branch-accounts/remittances/{remittance}/receive', [BranchRemittanceController::class, 'receive'])
+                    ->whereNumber('remittance')->name('branch-accounts.receive');
+            });
+
+            // «صندوقي»: لصاحب صندوق الموظّف وحده
+            Route::middleware('can:cash.own-box')->group(function () {
+                Route::get('/cash/mine', [MyCashBoxController::class, 'index'])->name('cash.mine');
+                Route::post('/cash/mine/handover', [MyCashBoxController::class, 'handover'])->name('cash.mine.handover');
+            });
+
             // محاسبة الفروع وتأميناتها
             Route::middleware('can:money.view')->group(function () {
+                Route::get('/money/accountants', AccountantAccountsController::class)->name('money.accountants');
+                Route::get('/money/position', [FinancialPositionController::class, 'index'])->name('money.position');
+                Route::get('/money/position/history', [FinancialPositionController::class, 'history'])->name('money.position.history');
+                Route::get('/branch-accounts/debts', [BranchRemittanceController::class, 'debts'])->name('branch-accounts.debts');
+                Route::get('/branch-accounts/remittances', [BranchRemittanceController::class, 'inbox'])->name('branch-accounts.remittances');
                 Route::get('/branch-accounts', [BranchAccountController::class, 'index'])->name('branch-accounts.index');
                 Route::get('/branch-accounts/deposits', [BranchAccountController::class, 'deposits'])->name('branch-accounts.deposits');
                 Route::get('/branch-accounts/statement', [BranchAccountController::class, 'statement'])->name('branch-accounts.statement');
@@ -319,6 +342,7 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:money.expenses')->group(function () {
                 Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');
                 Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+                Route::post('/expenses/archive', [ExpenseController::class, 'archive'])->name('expenses.archive');
                 Route::post('/expenses/{expense}/pay', [ExpenseController::class, 'pay'])->name('expenses.pay');
                 Route::post('/expenses/{expense}/cancel', [ExpenseController::class, 'cancel'])->name('expenses.cancel');
             });

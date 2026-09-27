@@ -196,9 +196,21 @@
                             <select id="type" name="type" class="field-input" required>
                                 <option value="branch">صندوق فرع</option>
                                 <option value="petty">صندوق نثريّة</option>
+                                <option value="employee" @selected(old('type') === 'employee')>صندوق موظّف</option>
                                 <option value="main">القاصة الرئيسية</option>
                             </select>
                         </div>
+                    </div>
+                    {{-- «صناديق الدفع»: ما يقبضه الموظّف بيده يدخل صندوقه، ويسلّمه للقاصة من «صندوقي» --}}
+                    <div>
+                        <label class="field-label" for="user_id">الموظّف (لصندوق موظّف)</label>
+                        <select id="user_id" name="user_id" class="field-input" data-searchable>
+                            <option value="">—</option>
+                            @foreach ($staff as $member)
+                                <option value="{{ $member->id }}" @selected((int) old('user_id') === $member->id)>{{ $member->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('user_id') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="field-label" for="branch_id">الفرع</label>

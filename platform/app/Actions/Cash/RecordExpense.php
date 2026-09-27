@@ -36,6 +36,8 @@ class RecordExpense
                 'description'         => $data['description'],
                 'payee'               => $data['payee'] ?? null,
                 'reference'           => $data['reference'] ?? null,
+                'order_number'        => $data['order_number'] ?? null,
+                'department'          => $data['department'] ?? null,
                 'status'              => 'recorded',
                 'created_by_user_id'  => $actor?->id,
             ]);

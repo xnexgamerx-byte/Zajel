@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\CashBox;
 use App\Models\CashMovement;
+use App\Models\User;
+use App\Enums\UserRole;
 use App\Services\CashBook;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,6 +49,11 @@ class CashBoxController extends Controller
             'check'     => $box ? $this->cash->reconcile($box) : null,
             'today'     => $box ? $this->todayTotals($box) : null,
             'branches'  => Branch::orderBy('name')->get(['id', 'name']),
+            // من يُفتح له «صندوق موظّف»: موظّفو الشركة، لا المناديب ولا التجّار
+            'staff'     => User::query()->where('is_active', true)
+                ->whereNotIn('role', [UserRole::Courier->value, UserRole::Merchant->value])
+                ->whereNotIn('id', CashBox::whereNotNull('user_id')->select('user_id'))
+                ->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -55,20 +62,37 @@ class CashBoxController extends Controller
         $data = $request->validate([
             'name'      => ['required', 'string', 'max:120'],
             'code'      => ['required', 'string', 'max:20', 'alpha_dash'],
-            'type'      => ['required', 'in:main,branch,petty'],
+            'type'      => ['required', 'in:main,branch,petty,employee'],
             'branch_id' => ['nullable', 'integer'],
+            'user_id'   => ['nullable', 'required_if:type,employee', 'integer'],
             'opening'   => ['nullable', 'integer', 'min:0'],
-        ], [], ['name' => 'الاسم', 'code' => 'الرمز', 'type' => 'النوع']);
+        ], ['user_id.required_if' => 'اختر الموظّف صاحب الصندوق.'], ['name' => 'الاسم', 'code' => 'الرمز', 'type' => 'النوع', 'user_id' => 'الموظّف']);
 
         if (CashBox::where('code', $data['code'])->exists()) {
             return back()->withErrors(['code' => 'هذا الرمز مستعمل لصندوق آخر.'])->withInput();
+        }
+
+        $owner = null;
+
+        if ($data['type'] === 'employee') {
+            $owner = User::query()->whereKey($data['user_id'])->where('is_active', true)
+                ->whereNotIn('role', [UserRole::Courier->value, UserRole::Merchant->value])->first();
+
+            if (! $owner) {
+                return back()->withErrors(['user_id' => 'اختر موظّفاً مفعّلاً من موظّفي الشركة.'])->withInput();
+            }
+
+            if (CashBox::where('user_id', $owner->id)->exists()) {
+                return back()->withErrors(['user_id' => "لـ{$owner->name} صندوقٌ سلفاً."])->withInput();
+            }
         }
 
         $box = CashBox::create([
             'code'      => $data['code'],
             'name'      => $data['name'],
             'type'      => $data['type'],
-            'branch_id' => $data['branch_id'] ?? null,
+            'branch_id' => $data['branch_id'] ?? $owner?->branch_id,
+            'user_id'   => $owner?->id,
             'balance'   => 0,
             'is_active' => true,
         ]);

@@ -24,6 +24,25 @@ class CashBox extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    /** صاحب «صندوق الدفع» إن كان صندوق موظّف */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * أين يدخل ما قبضه هذا الموظّف بيده: صندوقه إن كان له صندوق — كما في
+     * «صناديق الدفع» في المعتاد — وإلّا صندوق الفرع.
+     */
+    public static function forActor(?User $actor, ?int $branchId): ?self
+    {
+        if ($actor && ($own = static::active()->where('user_id', $actor->id)->first())) {
+            return $own;
+        }
+
+        return static::forBranch($branchId);
+    }
+
     public function movements(): HasMany
     {
         return $this->hasMany(CashMovement::class)->latest('id');
@@ -40,6 +59,7 @@ class CashBox extends Model
             'main'   => 'القاصة الرئيسية',
             'branch' => 'صندوق فرع',
             'petty'  => 'صندوق نثريّة',
+            'employee' => 'صندوق موظّف',
             default  => $this->type,
         };
     }
@@ -53,6 +73,8 @@ class CashBox extends Model
     public static function forBranch(?int $branchId): ?self
     {
         return static::active()
+            // صندوق الموظّف له وحده: لا يصير صندوق الفرع لغيره
+            ->whereNull('user_id')
             ->when($branchId, fn (Builder $q) => $q->orderByRaw('case when branch_id = ? then 0 else 1 end', [$branchId]))
             ->orderByRaw("case when type = 'main' then 0 else 1 end")
             ->orderBy('id')

@@ -64,6 +64,7 @@ class SequenceGenerator
             'expense'             => 'EX',
             'return_batch'        => 'RB',
             'pickup_payout'       => 'PP',
+            'branch_remittance'   => 'BR',
             'merchant_request'    => '',
             default               => '',
         };

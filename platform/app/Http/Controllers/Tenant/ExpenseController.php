@@ -29,16 +29,27 @@ class ExpenseController extends Controller
             ->whereBetween('spent_on', [$from->toDateString(), $to->toDateString()])
             ->where('status', '!=', 'cancelled');
 
-        $expenses = Expense::with(['category:id,name_ar,group', 'branch:id,name', 'cashBox:id,name'])
+        $archive = $request->query('tab') === 'archive';
+
+        // «المصروفات» و«أرشيف المصروفات»: تبويبان على الفلاتر نفسها، وصفّ مجموعٍ لما فيهما
+        $listed = fn () => Expense::query()
             ->whereBetween('spent_on', [$from->toDateString(), $to->toDateString()])
+            ->when($archive, fn ($q) => $q->whereNotNull('archived_at'), fn ($q) => $q->whereNull('archived_at'))
             ->when($request->integer('category_id'), fn ($q, $id) => $q->where('expense_category_id', $id))
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            ->when(trim((string) $request->query('department')), fn ($q, $d) => $q->where('department', $d));
+
+        $expenses = $listed()
+            ->with(['category:id,name_ar,group,code', 'branch:id,name', 'cashBox:id,name'])
             ->orderByDesc('spent_on')->orderByDesc('id')
             ->paginate(config('zajel.per_page'))
             ->withQueryString();
 
         return view('tenant.expenses.index', [
             'expenses'   => $expenses,
+            'archive'    => $archive,
+            'listedSum'  => (int) $listed()->where('status', '!=', 'cancelled')->sum('amount'),
+            'departments' => Expense::whereNotNull('department')->distinct()->orderBy('department')->pluck('department'),
             'from'       => $from,
             'to'         => $to,
             'total'      => (int) $base()->sum('amount'),
@@ -59,6 +70,8 @@ class ExpenseController extends Controller
             'description'         => ['required', 'string', 'max:255'],
             'payee'               => ['nullable', 'string', 'max:120'],
             'reference'           => ['nullable', 'string', 'max:60'],
+            'order_number'        => ['nullable', 'string', 'max:40'],
+            'department'          => ['nullable', 'string', 'max:80'],
             'branch_id'           => ['nullable', 'integer'],
             'pay_now'             => ['nullable', 'boolean'],
             'cash_box_id'         => ['nullable', 'integer'],
@@ -103,6 +116,26 @@ class ExpenseController extends Controller
         $this->expenses->pay($expense, $box, $request->user());
 
         return back()->with('success', "دُفع المصروف {$expense->number} من {$box->name}.");
+    }
+
+    /** «أرشفة المحدَّد»: يخرج من القائمة اليومية ولا يُمسّ ماله — ويُعاد متى شئت */
+    public function archive(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids'   => ['required', 'array', 'min:1', 'max:500'],
+            'ids.*' => ['integer'],
+            'mode'  => ['required', 'in:archive,restore'],
+        ], ['ids.required' => 'حدِّد مصروفاً واحداً على الأقل.']);
+
+        $changed = Expense::whereIn('id', $data['ids'])
+            ->when($data['mode'] === 'archive', fn ($q) => $q->whereNull('archived_at'), fn ($q) => $q->whereNotNull('archived_at'))
+            ->update($data['mode'] === 'archive'
+                ? ['archived_at' => now(), 'archived_by_user_id' => $request->user()->id]
+                : ['archived_at' => null, 'archived_by_user_id' => null]);
+
+        return back()->with('success', $data['mode'] === 'archive'
+            ? "أُرشف {$changed} من المصروفات."
+            : "أُعيد {$changed} من الأرشيف.");
     }
 
     public function cancel(Request $request, Expense $expense): RedirectResponse

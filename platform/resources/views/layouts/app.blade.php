@@ -78,6 +78,12 @@
         @endif
 
         <div class="ms-auto flex items-center gap-2 md:ms-0">
+            {{-- «صندوقي»: ما بيد الموظّف الآن، لمن له صندوق --}}
+            @if ($staff && ($myBox = \App\Models\CashBox::where('user_id', $user->id)->first(['id', 'balance'])))
+                <a href="{{ route('cash.mine') }}" class="chip chip-info whitespace-nowrap" title="صندوقي">
+                    صندوقي <span class="num">{{ number_format($myBox->balance) }}</span>
+                </a>
+            @endif
             @if ($staff && $user->can('shipments.create'))
                 <a href="{{ route('shipments.create') }}" class="btn-primary max-sm:hidden">
                     <x-icon name="plus" class="size-5"/>
