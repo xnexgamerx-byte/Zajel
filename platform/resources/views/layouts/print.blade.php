@@ -42,9 +42,11 @@
 
     @yield('content')
 
-    <footer class="mt-8 flex items-end justify-between gap-8 border-t border-ink-300 pt-4 text-xs text-ink-600">
-        @yield('signatures')
-    </footer>
+    @hasSection('signatures')
+        <footer class="mt-8 flex items-end justify-between gap-8 border-t border-ink-300 pt-4 text-xs text-ink-600">
+            @yield('signatures')
+        </footer>
+    @endif
 </main>
 
 </body>

@@ -62,6 +62,8 @@ class SequenceGenerator
             'courier_settlement'  => 'CS',
             'merchant_settlement' => 'MS',
             'expense'             => 'EX',
+            'return_batch'        => 'RB',
+            'merchant_request'    => '',
             default               => '',
         };
     }

@@ -29,6 +29,17 @@ class Merchant extends Model
         'other'       => 'أخرى',
     ];
 
+    /** طرق الدفع للتاجر — في بطاقته، وفي طلب الدفع من بوابته، وفي تسجيل الدفع */
+    public const PAYOUT_METHODS = [
+        'cash'          => 'نقد',
+        'zaincash'      => 'زين كاش',
+        'asiahawala'    => 'آسيا حوالة',
+        'fastpay'       => 'فاست باي',
+        'qi'            => 'Qi كارد',
+        'fib'           => 'FIB',
+        'bank_transfer' => 'حوالة مصرفية',
+    ];
+
     protected function casts(): array
     {
         return ['is_vip' => 'boolean', 'portal_access' => 'boolean',

@@ -74,7 +74,7 @@ class MerchantSettlementController extends Controller
     public function pay(Request $request, MerchantSettlement $settlement, PayMerchantSettlement $action): RedirectResponse
     {
         $data = $request->validate([
-            'payout_method'    => ['required', Rule::in(['cash', 'zaincash', 'asiahawala', 'fastpay', 'qi', 'fib', 'bank_transfer'])],
+            'payout_method'    => ['required', Rule::in(array_keys(\App\Models\Merchant::PAYOUT_METHODS))],
             'payout_reference' => ['nullable', 'string', 'max:120'],
         ], [], ['payout_method' => 'طريقة الدفع', 'payout_reference' => 'رقم الحوالة']);
 

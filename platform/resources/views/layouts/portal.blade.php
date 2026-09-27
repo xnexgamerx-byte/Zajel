@@ -25,6 +25,7 @@
         ['portal.shipments.import', 'رفع من ملف', 'portal.shipments.import*', 'upload', 'رفع'],
         ['portal.pickups.index', 'طلبات الاستلام', 'portal.pickups.*', 'clipboard', 'استلام'],
         ['portal.statement', 'حسابي', 'portal.statement', 'wallet', 'حسابي'],
+        ['portal.requests.index', 'طلباتي', 'portal.requests.*', 'card', 'طلباتي'],
         ['portal.support.index', 'الدعم', 'portal.support.*', 'chat', 'الدعم'],
     ];
     $replies = \App\Models\Conversation::where('merchant_id', auth()->user()->merchant_id)->where('merchant_unread', true)->count();

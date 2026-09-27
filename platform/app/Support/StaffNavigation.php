@@ -60,7 +60,9 @@ final class StaffNavigation
             ['تصفيات الراجع', 'undo', [
                 ['returns.incoming', 'استلام الراجع', ['returns.incoming'], 'returns.manage'],
                 ['returns.sorting', 'فرز الراجع للفروع', ['returns.sorting'], 'returns.manage'],
-                ['returns.outgoing', 'تسليم الراجع', ['returns.outgoing'], 'returns.manage'],
+                ['returns.outgoing', 'تسليم الراجع للتاجر', ['returns.outgoing'], 'returns.manage'],
+                ['returns.pickup', 'تسليم الراجع لمندوب الاستلام', ['returns.pickup'], 'returns.manage'],
+                ['returns.requests', 'طلبات كشف راجع للتجّار', ['returns.requests'], 'returns.manage'],
                 ['manifests.archive', 'أرشيف الكشوف', ['manifests.archive', 'manifests.print'], 'transport.manage'],
             ]],
             ['النظام المصرفي', 'bank', [
@@ -73,6 +75,7 @@ final class StaffNavigation
                 ['expenses.index', 'المصروفات', ['expenses.index'], 'money.expenses'],
                 ['branch-accounts.index', 'محاسبة الفروع', ['branch-accounts.index'], 'money.view'],
                 ['branch-accounts.deposits', 'التأمينات', ['branch-accounts.deposits'], 'money.view'],
+                ['merchant-requests.payments', 'طلبات حساب من التجّار', ['merchant-requests.payments'], 'money.view'],
             ]],
             ['تقارير', 'chart', [
                 ['reports.index', 'كل التقارير', ['reports.index'], 'reports.view'],
@@ -110,6 +113,7 @@ final class StaffNavigation
             ['الدفعات', 'card', [
                 ['settlements.couriers.index', 'تسوية المندوبين', ['settlements.couriers.*'], 'money.view'],
                 ['settlements.merchants.index', 'تسوية التجّار', ['settlements.merchants.*'], 'money.view'],
+                ['return-batches.index', 'دفعات الراجع', ['return-batches.*'], 'returns.manage'],
             ]],
         ];
     }

@@ -4,6 +4,7 @@ namespace App\Actions\Settlements;
 
 use App\Enums\ShipmentStatus;
 use App\Models\Merchant;
+use App\Models\MerchantRequest;
 use App\Models\MerchantSettlement;
 use App\Models\MerchantSettlementShipment;
 use App\Models\Shipment;
@@ -93,6 +94,18 @@ class BuildMerchantSettlement
                     ->sum('return_fee'),
                 'net_amount'          => (int) $shipments->sum('merchant_due'),
             ])->save();
+
+            // طلب الدفع المفتوح يُجاب بهذا الكشف: يُغلق ويُربط به
+            MerchantRequest::query()
+                ->where('merchant_id', $merchant->id)
+                ->ofType('payment')
+                ->open()
+                ->update([
+                    'status'                 => 'handled',
+                    'handled_at'             => now(),
+                    'handled_by_user_id'     => $actor?->id,
+                    'merchant_settlement_id' => $settlement->id,
+                ]);
 
             return $settlement;
         });

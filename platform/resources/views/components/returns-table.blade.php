@@ -5,6 +5,7 @@
     'empty',
     'party',          // 'courier' أو 'merchant' — العمود الذي يُعرَض
     'merchantId' => null,
+    'hidden' => [],   // حقولٌ مخفيّة أخرى: مندوب الاستلام في تسليمه
 ])
 
 @if ($shipments->isEmpty())
@@ -17,6 +18,9 @@
         @if ($merchantId)
             <input type="hidden" name="merchant_id" value="{{ $merchantId }}">
         @endif
+        @foreach ($hidden as $name => $value)
+            <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+        @endforeach
 
         <div class="overflow-x-auto">
             <table class="tbl">

@@ -35,7 +35,7 @@ class MerchantRequest extends FormRequest
             'branch_id'        => ['nullable', 'integer'],
             'price_list_id'    => ['nullable', 'integer'],
             'settlement_cycle' => ['required', Rule::in(['daily', 'weekly', 'biweekly', 'monthly', 'on_demand'])],
-            'payout_method'    => ['required', Rule::in(['cash', 'zaincash', 'asiahawala', 'fastpay', 'qi', 'fib', 'bank_transfer'])],
+            'payout_method'    => ['required', Rule::in(array_keys(\App\Models\Merchant::PAYOUT_METHODS))],
             'payout_account'   => ['nullable', 'string', 'max:120'],
             'status'           => ['required', Rule::in(['active', 'suspended', 'pending'])],
             'goods_type'       => ['nullable', Rule::in(array_keys(Merchant::GOODS_TYPES))],

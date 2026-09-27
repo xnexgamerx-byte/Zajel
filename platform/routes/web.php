@@ -62,6 +62,9 @@ use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\ZoneController;
+use App\Http\Controllers\Tenant\MerchantRequestController;
+use App\Http\Controllers\Tenant\ReturnBatchController;
+use App\Http\Controllers\Portal\RequestController as PortalRequestController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -151,7 +154,24 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/returns/sorting', [ReturnController::class, 'sort'])->name('returns.sort');
                 Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
                 Route::post('/returns/handover', [ReturnController::class, 'deliver'])->name('returns.deliver');
+                Route::get('/returns/pickup-courier', [ReturnBatchController::class, 'pickup'])->name('returns.pickup');
+                Route::post('/returns/pickup-courier', [ReturnBatchController::class, 'handToPickup'])->name('returns.pickup.deliver');
+                Route::get('/returns/requests', [MerchantRequestController::class, 'returns'])->name('returns.requests');
+                Route::post('/returns/requests/{merchantRequest}/handle', [MerchantRequestController::class, 'handleReturns'])
+                    ->whereNumber('merchantRequest')->name('returns.requests.handle');
+
+                // دفعات الراجع: كل تسليمٍ بإيصاله
+                Route::get('/return-batches', [ReturnBatchController::class, 'index'])->name('return-batches.index');
+                Route::get('/return-batches/print', [ReturnBatchController::class, 'printMany'])->name('return-batches.print-many');
+                Route::get('/return-batches/{batch}/print', [ReturnBatchController::class, 'print'])->whereNumber('batch')->name('return-batches.print');
+                Route::post('/return-batches/{batch}/confirm', [ReturnBatchController::class, 'confirm'])->whereNumber('batch')->name('return-batches.confirm');
             });
+
+            // طلبات الحساب من بوابات التجّار: تُرى بصلاحية المال، وتُغلق يدوياً بصلاحية التسوية
+            Route::get('/merchant-requests/payments', [MerchantRequestController::class, 'payments'])
+                ->middleware('can:money.view')->name('merchant-requests.payments');
+            Route::post('/merchant-requests/payments/{merchantRequest}/handle', [MerchantRequestController::class, 'handlePayment'])
+                ->middleware('can:money.settle')->whereNumber('merchantRequest')->name('merchant-requests.payments.handle');
 
             // الصلاحيات: من يحمل أيّ مرتبة، والمراتب نفسها، والاستثنائية فوقها
             Route::middleware('can:settings.permissions')->group(function () {
@@ -399,6 +419,12 @@ Route::middleware('tenant')->group(function () {
 
             Route::get('/pickups', [PickupRequestController::class, 'index'])->name('pickups.index');
             Route::post('/pickups', [PickupRequestController::class, 'store'])->name('pickups.store');
+
+            Route::get('/requests', [PortalRequestController::class, 'index'])->name('requests.index');
+            Route::post('/requests', [PortalRequestController::class, 'store'])->name('requests.store');
+            Route::post('/requests/{merchantRequest}/cancel', [PortalRequestController::class, 'cancel'])->whereNumber('merchantRequest')->name('requests.cancel');
+            Route::post('/requests/returns/{batch}/confirm', [PortalRequestController::class, 'confirm'])->whereNumber('batch')->name('requests.returns.confirm');
+            Route::get('/requests/returns/{batch}/print', [PortalRequestController::class, 'print'])->whereNumber('batch')->name('requests.returns.print');
         });
     });
 });

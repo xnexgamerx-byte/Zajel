@@ -40,6 +40,8 @@ class StaffNavigationTest extends TestCase
         'shipments.export', 'shipments.export.print',
         // يسأله جدول المسح عن كل وصل
         'shipments.scan.lookup',
+        // إيصالات التسليم لمندوب الاستلام، من رسالة نجاحه
+        'return-batches.print-many',
     ];
 
     private Company $company;

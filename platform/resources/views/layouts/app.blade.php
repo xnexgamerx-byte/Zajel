@@ -166,6 +166,12 @@
         <div class="alert alert-ok mb-5" role="status">
             <x-icon name="check" class="size-5 shrink-0"/>
             <span class="font-medium">{{ session('success') }}</span>
+            {{-- ما سُلّم بيدٍ يُوقَّع على ورقته: رابط طباعتها مع الرسالة نفسها --}}
+            @if (session('print'))
+                <a href="{{ session('print') }}" target="_blank" class="btn-ghost ms-auto py-1">
+                    <x-icon name="printer" class="size-5"/> اطبع الإيصال
+                </a>
+            @endif
         </div>
     @endif
 

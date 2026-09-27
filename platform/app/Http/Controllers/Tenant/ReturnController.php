@@ -123,18 +123,17 @@ class ReturnController extends Controller
             return back()->withErrors(['merchant_id' => 'التاجر غير موجود.']);
         }
 
-        $delivered = $this->handover->handle(
+        $batch = $this->handover->handle(
             $data['shipment_ids'], $merchant, $request->user(), $data['note'] ?? null,
         );
 
-        if ($delivered->isEmpty()) {
+        if (! $batch) {
             return back()->withErrors(['shipment_ids' => 'لم تُسلَّم أي شحنة — قد تكون مُسلَّمة سلفاً.']);
         }
 
-        return back()->with(
-            'success',
-            "سُلّم الراجع إلى {$merchant->business_name}، عدد الشحنات {$delivered->count()}. "
-            .'وقُيّدت أجرة الراجع على حسابه.',
-        );
+        return back()
+            ->with('success', "سُلّم الراجع إلى {$merchant->business_name}، عدد الشحنات {$batch->shipments_count}، "
+                ."بإيصال {$batch->number}. وقُيّدت أجرة الراجع على حسابه.")
+            ->with('print', route('return-batches.print', $batch));
     }
 }
