@@ -146,7 +146,7 @@
 
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="text-sm font-semibold">
-                                {{ $event->toLabel() }}
+                                {{ $event->headline() }}
                             </span>
                             <span class="text-xs text-ink-400" dir="ltr">
                                 {{ $event->created_at->format('Y-m-d H:i') }}
@@ -445,7 +445,8 @@
                     <dd class="font-medium">{{ $shipment->pickupCourier?->name ?? '—' }}</dd>
                 </div>
                 <div class="flex justify-between">
-                    <dt class="text-ink-600">المركز الحالي</dt>
+                    {{-- المسلَّمة والراجعة للتاجر خرجت من المراكز: المكتوب آخر مركزٍ لا مكانها الآن --}}
+                    <dt class="text-ink-600">{{ $shipment->status->isOpen() ? 'المركز الحالي' : 'آخر مركز مرّت به' }}</dt>
                     <dd class="font-medium">{{ $shipment->hub?->name ?? '—' }}</dd>
                 </div>
                 <div class="flex justify-between">

@@ -82,6 +82,21 @@ class ShipmentEvent extends Model
             ?? (string) $this->to_status;
     }
 
+    /**
+     * عنوان السطر في سجلّ الشحنة: الحالة التي صارت إليها، أو — لحدثٍ لا يغيّرها
+     * (استلام راجع، تعديل، كيس، تأكيد مبلغ…) — اسمُ الحدث نفسه.
+     *
+     * كانت كل الأحداث تُعنوَن بالحالة، فشحنةٌ رجعت مرّةً واحدة ظهرت «قيد الإرجاع»
+     * مرّتين في سجلّها، والمعدَّلة ثلاثاً تكرّرت حالتها أربعاً.
+     */
+    public function headline(): string
+    {
+        $keepsStatus = $this->from_status === $this->to_status
+            && ! in_array($this->event_type, ['status_change', 'forced_status'], true);
+
+        return $keepsStatus ? $this->typeLabel() : $this->toLabel();
+    }
+
     public function actorLabel(): string
     {
         return self::ACTORS[$this->actor_type] ?? $this->actor_type;

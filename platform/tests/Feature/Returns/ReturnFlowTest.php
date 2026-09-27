@@ -202,6 +202,26 @@ class ReturnFlowTest extends TestCase
         });
     }
 
+    /** استلام الراجع سطرٌ باسمه في سجلّ الشحنة، لا «قيد الإرجاع» ثانيةً */
+    public function test_the_history_names_the_receipt_instead_of_repeating_the_status(): void
+    {
+        $shipment = $this->returning();
+        $this->receive($shipment);
+
+        $page = $this->actingAs($this->staff)->get($this->host().'/shipments/'.$shipment->id)->assertOk();
+        preg_match('~<ol class="relative space-y-5.*?</ol>~s', $page->getContent(), $history);
+
+        $this->assertSame(1, substr_count($history[0], ShipmentStatus::Returning->label()));
+        $this->assertStringContainsString(ShipmentEvent::TYPES['return_received'], $history[0]);
+        $this->assertStringContainsString('استُلم الراجع من المندوب', $history[0]);
+        $page->assertSee('المركز الحالي');
+
+        // سُلّم للتاجر: خرج من المراكز، فالمكتوب آخر مركزٍ مرّ به
+        $this->walk($shipment, [ShipmentStatus::Returned]);
+        $this->actingAs($this->staff)->get($this->host().'/shipments/'.$shipment->id)
+            ->assertSee('آخر مركز مرّت به')->assertDontSee('المركز الحالي');
+    }
+
     // ── الشاشتان ────────────────────────────────────────────────────
 
     public function test_the_incoming_screen_lists_what_is_still_with_the_courier(): void
