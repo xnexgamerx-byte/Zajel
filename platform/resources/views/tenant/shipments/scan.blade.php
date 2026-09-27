@@ -84,7 +84,7 @@
                     @endforeach
                 </select>
                 <button type="submit" class="btn-primary w-full" disabled>إسناد وإخراج للتوصيل</button>
-                <p class="field-hint">ما لا تسمح حالته بالخروج يُتخطّى ويُبلَّغ به.</p>
+                <p class="field-hint">ما لم يُستلم بعد يُسجَّل استلامه ثم يخرج؛ والمسلَّمة والملغاة وما مع مندوبٍ تُتخطّى ويُقال لماذا.</p>
             </form>
         @endcan
     </div>

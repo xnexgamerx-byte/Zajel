@@ -211,20 +211,80 @@ class ShipmentStatusScreenTest extends TestCase
     {
         $ready = $this->shipment([ShipmentStatus::PickedUp, ShipmentStatus::AtHub]);
         $alsoReady = $this->shipment([ShipmentStatus::PickedUp, ShipmentStatus::AtHub]);
-        $tooEarly = $this->shipment();   // ما زالت "تم الإنشاء" — لا تُسنَد
+        $cancelled = $this->shipment([ShipmentStatus::Cancelled]);   // لا تخرج — ويُقال لماذا
 
         $this->actingAs($this->user)
             ->post($this->host().'/shipments/assign', [
-                'shipment_ids' => [$ready->id, $alsoReady->id, $tooEarly->id],
+                'shipment_ids' => [$ready->id, $alsoReady->id, $cancelled->id],
                 'courier_id'   => $this->courier->id,
             ])
-            ->assertSessionHas('success');
+            ->assertSessionHas('success', 'أُسندت شحنتان إلى أحمد الساعدي. تُخطّيت شحنة واحدة: '.$cancelled->number.' (ملغاة).');
 
         $this->assertSame(ShipmentStatus::OutForDelivery, $ready->fresh()->status);
         $this->assertSame(ShipmentStatus::OutForDelivery, $alsoReady->fresh()->status);
-        $this->assertSame(ShipmentStatus::Created, $tooEarly->fresh()->status);
+        $this->assertSame(ShipmentStatus::Cancelled, $cancelled->fresh()->status);
 
         $this->assertSame($this->courier->id, $ready->fresh()->delivery_courier_id);
+    }
+
+    /**
+     * ما زالت «تم الإنشاء» أو «بانتظار الاستلام»: من يُسندها بيده الطرد —
+     * التاجر أحضره أو المندوب يأخذه من عنده. تُستلم ثم تخرج، والسجلّ يقول ذلك.
+     */
+    public function test_bulk_assign_receives_a_shipment_still_with_the_merchant_then_sends_it_out(): void
+    {
+        $new = $this->shipment();
+        $waiting = $this->shipment([ShipmentStatus::PendingPickup]);
+
+        $this->actingAs($this->user)
+            ->post($this->host().'/shipments/assign', [
+                'shipment_ids' => [$new->id, $waiting->id],
+                'courier_id'   => $this->courier->id,
+            ])
+            ->assertSessionHas('success',
+                'أُسندت شحنتان إلى أحمد الساعدي (استُلمت من التاجر أوّلاً: '.$new->number.'، '.$waiting->number.').');
+
+        foreach ([$new, $waiting] as $shipment) {
+            $fresh = $shipment->fresh();
+            $this->assertSame(ShipmentStatus::OutForDelivery, $fresh->status);
+            $this->assertSame($this->courier->id, $fresh->delivery_courier_id);
+            $this->assertNotNull($fresh->picked_up_at);
+
+            $steps = Tenancy::runFor($this->company, fn () => \App\Models\ShipmentEvent::where('shipment_id', $shipment->id)
+                ->where('event_type', 'status_change')->orderBy('id')->pluck('to_status')->all());
+            $this->assertSame(['picked_up', 'out_for_delivery'], array_slice($steps, -2));
+        }
+    }
+
+    /** لا شيء خرج: رسالةٌ حمراء تقول لماذا، لا «أُسندت 0 شحنة» خضراء */
+    public function test_nothing_assigned_is_an_error_that_names_each_reason(): void
+    {
+        $delivered = $this->shipment([ShipmentStatus::PickedUp, ShipmentStatus::AtHub, ShipmentStatus::OutForDelivery, ShipmentStatus::Delivered]);
+        $withHim = $this->shipment([ShipmentStatus::PickedUp, ShipmentStatus::AtHub, ShipmentStatus::OutForDelivery]);
+
+        $this->actingAs($this->user)
+            ->post($this->host().'/shipments/assign', [
+                'shipment_ids' => [$delivered->id, $withHim->id],
+                'courier_id'   => $this->courier->id,
+            ])
+            ->assertSessionMissing('success')
+            ->assertSessionHasErrors(['shipment_ids' => 'لم تُسنَد أيّ شحنة إلى أحمد الساعدي. تُخطّيت شحنتان: '
+                .$delivered->number.' (تم التسليم)، '.$withHim->number.' (معه سلفاً).']);
+    }
+
+    public function test_a_shipment_out_with_another_courier_names_him(): void
+    {
+        $out = $this->shipment([ShipmentStatus::PickedUp, ShipmentStatus::AtHub, ShipmentStatus::OutForDelivery]);
+        $other = Tenancy::runFor($this->company, fn () => Courier::create([
+            'code' => 'C2', 'name' => 'علي الكعبي', 'phone' => '07720000002', 'type' => 'delivery', 'status' => 'active',
+        ]));
+
+        $this->actingAs($this->user)
+            ->post($this->host().'/shipments/assign', ['shipment_ids' => [$out->id], 'courier_id' => $other->id])
+            ->assertSessionHasErrors(['shipment_ids' => 'لم تُسنَد أيّ شحنة إلى علي الكعبي. تُخطّيت شحنة واحدة: '
+                .$out->number.' (مع أحمد الساعدي).']);
+
+        $this->assertSame($this->courier->id, $out->fresh()->delivery_courier_id);
     }
 
     public function test_bulk_assign_cannot_touch_another_companys_shipments(): void

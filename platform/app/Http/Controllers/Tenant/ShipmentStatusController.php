@@ -8,9 +8,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ChangeStatusRequest;
 use App\Models\Courier;
 use App\Models\Shipment;
+use App\Support\Arabic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ShipmentStatusController extends Controller
 {
@@ -41,6 +43,10 @@ class ShipmentStatusController extends Controller
      *
      * هذه العملية اليومية الأكثر تكراراً في شركة توصيل: صباحاً يوزَّع
      * ما في المخزن على المندوبين. شحنة شحنة يعني ساعة عمل كل يوم.
+     *
+     * وما لم يُستلم بعد («تم الإنشاء» أو «بانتظار الاستلام») يُسجَّل استلامه
+     * ثم يخرج — من يُسندها بيده الطرد، كما في الإدخال السريع ومسح «مندوب
+     * توصيل للكل» في المعتاد. وما عدا ذلك يُتخطّى ويُقال لماذا، شحنةً شحنة.
      */
     public function assign(Request $request): RedirectResponse
     {
@@ -58,36 +64,86 @@ class ShipmentStatusController extends Controller
 
         $shipments = Shipment::whereIn('id', $data['shipment_ids'])
             ->visibleTo($request->user())
+            ->with('deliveryCourier:id,name')
+            ->orderBy('id')
             ->get();
 
-        $moved = 0;
+        $moved = [];
+        $received = [];
         $skipped = [];
 
         foreach ($shipments as $shipment) {
-            // والمعلَّقة للمراجعة لا تخرج حتى تُجاز
-            if (! $shipment->status->canMoveTo(ShipmentStatus::OutForDelivery) || $shipment->isHeldForReview()) {
-                $skipped[] = $shipment->number.($shipment->isHeldForReview() ? ' (تحت المراجعة)' : '');
+            if ($reason = $this->cannotGoOut($shipment, $courier)) {
+                $skipped[$shipment->number] = $reason;
 
                 continue;
             }
 
-            $this->changeStatus->handle($shipment, ShipmentStatus::OutForDelivery, $request->user(), [
-                'courier_id' => $courier->id,
-                'note'       => 'إسناد جماعي',
-            ]);
+            try {
+                // الخطوتان معاً أو لا شيء: لا تبقى «مستلَمة» بلا مندوب إن سقطت الثانية
+                $wasReceived = DB::transaction(function () use ($shipment, $courier, $request) {
+                    $notYet = in_array($shipment->status, [ShipmentStatus::Created, ShipmentStatus::PendingPickup], true);
 
-            $moved++;
+                    if ($notYet) {
+                        $this->changeStatus->handle($shipment, ShipmentStatus::PickedUp, $request->user(), [
+                            'note' => 'استُلمت عند الإسناد إلى '.$courier->name,
+                        ]);
+                    }
+
+                    $this->changeStatus->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, $request->user(), [
+                        'courier_id' => $courier->id,
+                        'note'       => 'إسناد جماعي',
+                    ]);
+
+                    return $notYet;
+                });
+            } catch (ValidationException $e) {
+                // سبقه أحدٌ إليها بين الاختيار والحفظ: تُتخطّى بسببها ولا يسقط الباقي
+                $skipped[$shipment->number] = collect($e->errors())->flatten()->first();
+
+                continue;
+            }
+
+            $moved[] = $shipment->number;
+
+            if ($wasReceived) {
+                $received[] = $shipment->number;
+            }
         }
 
-        $message = 'أُسندت '.\App\Support\Arabic::shipments($moved)." إلى {$courier->name}.";
+        $list = fn (array $numbers) => implode('، ', array_slice($numbers, 0, 5)).(count($numbers) > 5 ? '…' : '');
+
+        $message = $moved
+            ? 'أُسندت '.Arabic::shipments(count($moved))." إلى {$courier->name}"
+                .($received ? ' (استُلمت من التاجر أوّلاً: '.$list($received).')' : '').'.'
+            : "لم تُسنَد أيّ شحنة إلى {$courier->name}.";
 
         if ($skipped) {
-            $message .= ' تُخطّيت '.\App\Support\Arabic::shipments(count($skipped)).' لا تسمح حالتها بالخروج: '
-                .implode('، ', array_slice($skipped, 0, 5))
-                .(count($skipped) > 5 ? ' وغيرها' : '').'.';
+            $message .= ' تُخطّيت '.Arabic::shipments(count($skipped)).': '
+                .$list(array_map(fn ($number, $reason) => "{$number} ({$reason})", array_keys($skipped), $skipped)).'.';
         }
 
-        return back()->with('success', $message);
+        // لا شيء خرج: رسالةٌ حمراء لا خضراء
+        return $moved
+            ? back()->with('success', $message)
+            : back()->withErrors(['shipment_ids' => $message]);
+    }
+
+    /** لماذا لا تخرج هذه الشحنة مع هذا المندوب — أو null إن كانت تخرج */
+    protected function cannotGoOut(Shipment $shipment, Courier $courier): ?string
+    {
+        $status = $shipment->status;
+
+        return match (true) {
+            // والمعلَّقة للمراجعة لا تخرج حتى تُجاز
+            $shipment->isHeldForReview()                  => 'تحت المراجعة',
+            $status === ShipmentStatus::OutForDelivery    => (int) $shipment->delivery_courier_id === (int) $courier->id
+                ? 'معه سلفاً'
+                : 'مع '.($shipment->deliveryCourier?->name ?? 'مندوبٍ آخر'),
+            in_array($status, [ShipmentStatus::Created, ShipmentStatus::PendingPickup], true) => null,
+            ! $status->canMoveTo(ShipmentStatus::OutForDelivery) => $status->label(),
+            default                                        => null,
+        };
     }
 
     /** ملخّص نقد المندوبين — من يحمل كم، ومن تجاوز سقفه. */

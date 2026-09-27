@@ -335,7 +335,7 @@
         <button type="button" class="btn-ghost" data-bulk-clear>إلغاء الاختيار</button>
 
         <span class="ms-auto text-xs text-ink-500">
-            الشحنات التي لا تسمح حالتها بالإسناد تُتخطّى ويُبلَّغ بها.
+            ما لم يُستلم بعد يُسجَّل استلامه ثم يخرج؛ والمسلَّمة والملغاة وما مع مندوبٍ تُتخطّى ويُقال لماذا.
         </span>
     </div>
 </form>
