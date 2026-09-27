@@ -20,6 +20,7 @@ class MerchantSettlement extends Model
             'to_date'      => 'date',
             'confirmed_at' => 'datetime',
             'paid_at'      => 'datetime',
+            'merchant_confirmed_at' => 'datetime',
         ];
     }
 

@@ -34,4 +34,20 @@ class StatementController extends Controller
                 ->latest('id')->limit(10)->get(),
         ]);
     }
+
+    /**
+     * «استلمت»: التاجر يؤكّد أن ما دُفع له وصله — ومن لم يؤكّد يظهر في
+     * «عملاء لم يؤكّدوا دفعات»، فيُسأل قبل أن يصير الخلاف شهراً.
+     */
+    public function confirm(Request $request, MerchantSettlement $settlement): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless((int) $settlement->merchant_id === (int) $request->attributes->get('merchant')->id, 404);
+
+        $confirmed = MerchantSettlement::whereKey($settlement->id)->where('status', 'paid')->whereNull('merchant_confirmed_at')
+            ->update(['merchant_confirmed_at' => now()]);
+
+        return $confirmed
+            ? back()->with('success', "أكّدت استلام دفعة الكشف {$settlement->code}.")
+            : back()->withErrors(['settlement' => "الكشف {$settlement->code} لم يُدفع بعد أو أكّدته سلفاً."]);
+    }
 }

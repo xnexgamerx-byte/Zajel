@@ -10,6 +10,37 @@
     </p>
 </div>
 
+@if ($payouts->isNotEmpty())
+    {{-- ما دُفع له: يؤكّد استلامه بنفسه --}}
+    <section class="card mb-4 p-4">
+        <h2 class="mb-2 text-sm font-bold">دفعات أرباحي</h2>
+        <div class="divide-y divide-ink-100 text-sm">
+            @foreach ($payouts as $payout)
+                <div class="flex flex-wrap items-center justify-between gap-2 py-2">
+                    <div>
+                        <span class="num font-semibold">{{ $payout->number }}</span>
+                        <span class="text-xs text-ink-500">{{ $payout->created_at->format('Y-m-d') }}</span>
+                        @if ($payout->centre_amount > 0)
+                            <div class="text-xs text-ink-500">استحققتَ {{ number_format($payout->earned) }}، وللمركز {{ number_format($payout->centre_amount) }}</div>
+                        @endif
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="num font-bold">{{ number_format($payout->paid_amount) }}</span>
+                        @if ($payout->confirmed_at)
+                            <span class="chip chip-ok">استلمتُها</span>
+                        @else
+                            <form method="POST" action="{{ route('courier.payouts.confirm', $payout) }}">
+                                @csrf
+                                <button class="btn-primary py-1 text-xs">استلمتُها</button>
+                            </form>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </section>
+@endif
+
 <div class="space-y-3">
     @forelse ($shares as $share)
         <section class="card p-4">

@@ -27,6 +27,17 @@ class SqlDate
             : "date_format({$column}, '%Y-%m')";
     }
 
+    /**
+     * ساعة اليوم ببغداد (٠–٢٣) من طابعٍ مخزَّن بتوقيت UTC: العراق +٣ بلا
+     * توقيتٍ صيفيّ، و«كم أُدخل الساعة التاسعة» سؤالٌ عن ساعة الموظّف لا ساعة الخادم.
+     */
+    public static function baghdadHour(string $column): string
+    {
+        return static::sqlite()
+            ? "cast(strftime('%H', {$column}, '+3 hours') as integer)"
+            : "hour(date_add({$column}, interval 3 hour))";
+    }
+
     protected static function sqlite(): bool
     {
         return DB::connection()->getDriverName() === 'sqlite';

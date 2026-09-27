@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Actions\Shipments\ChangeShipmentStatus;
+use App\Actions\Shipments\ProcessFailedAttempt;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -20,11 +19,7 @@ use Illuminate\View\View;
  */
 class ProcessingController extends Controller
 {
-    public const ACTIONS = [
-        'redeliver' => 'إعادة توصيل',
-        'postpone'  => 'تأجيل',
-        'return'    => 'إرجاع للتاجر',
-    ];
+    public const ACTIONS = ProcessFailedAttempt::ACTIONS;
 
     public function index(Request $request): View
     {
@@ -58,7 +53,7 @@ class ProcessingController extends Controller
         ]);
     }
 
-    public function store(Request $request, Shipment $shipment, ChangeShipmentStatus $change): RedirectResponse
+    public function store(Request $request, Shipment $shipment, ProcessFailedAttempt $process): RedirectResponse
     {
         $data = $request->validate([
             'action' => ['required', 'in:'.implode(',', array_keys(self::ACTIONS))],
@@ -69,42 +64,8 @@ class ProcessingController extends Controller
             'until.after_or_equal' => 'موعد التأجيل اليوم أو بعده.',
         ], ['until' => 'موعد التأجيل', 'note' => 'ما قاله الزبون']);
 
-        if ($shipment->status !== ShipmentStatus::FailedAttempt) {
-            return back()->withErrors(['action' => "الشحنة {$shipment->number} «{$shipment->status->label()}»: عولجت سلفاً."]);
-        }
-
-        $waited = (int) $shipment->status_changed_at?->diffInMinutes(now());
-        $note = filled($data['note'] ?? null) ? 'معالجة — '.$data['note'] : 'معالجة';
-
-        DB::transaction(function () use ($shipment, $data, $change, $request, $note, $waited) {
-            $options = ['note' => $note];
-
-            [$to, $options] = match ($data['action']) {
-                // مع مندوبها نفسه إن كان لها مندوب، وإلّا إلى المخزن تنتظر الإسناد
-                'redeliver' => $shipment->delivery_courier_id
-                    ? [ShipmentStatus::OutForDelivery, $options + ['courier_id' => $shipment->delivery_courier_id]]
-                    : [ShipmentStatus::AtHub, $options],
-                'postpone'  => [ShipmentStatus::Postponed, $options + ['scheduled_at' => \Illuminate\Support\Carbon::parse($data['until'])->startOfDay()]],
-                'return'    => [ShipmentStatus::Returning, $options],
-            };
-
-            $change->handle($shipment, $to, $request->user(), $options);
-
-            ShipmentEvent::create([
-                'shipment_id' => $shipment->id,
-                'from_status' => ShipmentStatus::FailedAttempt->value,
-                'to_status'   => $to->value,
-                'event_type'  => 'processed',
-                'actor_type'  => 'user',
-                'actor_id'    => $request->user()->id,
-                'actor_name'  => $request->user()->name,
-                'courier_id'  => $shipment->delivery_courier_id,
-                'note'        => $note,
-                'meta'        => ['action' => $data['action'], 'waited_minutes' => $waited, 'by' => 'staff',
-                                  'said' => $data['note'] ?? null],
-                'ip'          => $request->ip(),
-            ]);
-        });
+        $process->handle($shipment, $data['action'], $request->user(), 'staff', $data['until'] ?? null,
+            $data['note'] ?? null, $request->ip());
 
         return back()->with('success', "عولجت {$shipment->number}: ".self::ACTIONS[$data['action']]
             .($data['action'] === 'postpone' ? ' إلى '.$data['until'] : '').'.');

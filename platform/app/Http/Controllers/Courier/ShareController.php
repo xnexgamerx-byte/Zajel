@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Courier;
 
 use App\Actions\Pickups\AccruePickupShare;
 use App\Http\Controllers\Controller;
+use App\Models\PickupPayout;
 use App\Models\PickupShare;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,12 +24,25 @@ class ShareController extends Controller
 
         return view('courier.shares', [
             'courier' => $courier,
+            'payouts' => $courier->payouts()->latest('id')->limit(20)->get(),
             'shares'  => PickupShare::with('pickupRequest:id,number')
                 ->where('courier_id', $courier->id)
                 ->latest('id')
                 ->limit(50)
                 ->get(),
         ]);
+    }
+
+    /** «استلمت»: مندوب الاستلام يؤكّد دفعة ربحه — ومن لم يؤكّد يُعرف */
+    public function confirm(Request $request, PickupPayout $payout): RedirectResponse
+    {
+        abort_unless((int) $payout->courier_id === (int) $request->attributes->get('courier')->id, 404);
+
+        $confirmed = PickupPayout::whereKey($payout->id)->whereNull('confirmed_at')->update(['confirmed_at' => now()]);
+
+        return $confirmed
+            ? back()->with('success', "أكّدت استلام الدفعة {$payout->number}.")
+            : back()->withErrors(['payout' => "الدفعة {$payout->number} مؤكَّدة سلفاً."]);
     }
 
     public function object(Request $request, PickupShare $share, AccruePickupShare $action): RedirectResponse

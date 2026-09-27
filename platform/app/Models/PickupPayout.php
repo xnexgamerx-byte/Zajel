@@ -16,6 +16,11 @@ class PickupPayout extends Model
 
     protected $guarded = ['id'];
 
+    protected function casts(): array
+    {
+        return ['confirmed_at' => 'datetime'];
+    }
+
     public function courier(): BelongsTo
     {
         return $this->belongsTo(Courier::class);

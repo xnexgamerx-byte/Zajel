@@ -28,6 +28,13 @@
         ['portal.requests.index', 'طلباتي', 'portal.requests.*', 'card', 'طلباتي'],
         ['portal.support.index', 'الدعم', 'portal.support.*', 'chat', 'الدعم'],
     ];
+    // «للمعالجة» لمن سُمح له أن يعالج محاولاته الفاشلة بنفسه، وبعدد ما ينتظره
+    $toProcess = 0;
+    if ($merchant->can_process) {
+        array_splice($portalNav, 2, 0, [['portal.processing.index', 'للمعالجة', 'portal.processing.*', 'alert', 'للمعالجة']]);
+        $toProcess = \App\Models\Shipment::where('merchant_id', $merchant->id)
+            ->where('status', \App\Enums\ShipmentStatus::FailedAttempt->value)->count();
+    }
     $replies = \App\Models\Conversation::where('merchant_id', auth()->user()->merchant_id)->where('merchant_unread', true)->count();
 @endphp
 <header class="ds-header">
@@ -74,6 +81,9 @@
                     <span class="max-lg:hidden">{{ $label }}</span>
                     @if ($route === 'portal.support.index' && $replies)
                         <span class="nav-badge">{{ $replies }}</span>
+                    @endif
+                    @if ($route === 'portal.processing.index' && $toProcess)
+                        <span class="nav-badge">{{ $toProcess > 99 ? '99+' : $toProcess }}</span>
                     @endif
                 </a>
             @endforeach

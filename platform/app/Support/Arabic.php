@@ -45,6 +45,26 @@ class Arabic
         return static::count($n, ['طرد واحد', 'طردان', 'طرود', 'طرداً']);
     }
 
+    public static function hours(int $n): string
+    {
+        return static::count($n, ['ساعة واحدة', 'ساعتان', 'ساعات', 'ساعة']);
+    }
+
+    public static function minutes(int $n): string
+    {
+        return static::count($n, ['دقيقة واحدة', 'دقيقتان', 'دقائق', 'دقيقة']);
+    }
+
+    /** مدّة انتظارٍ بأقرب وحدةٍ تُقرأ: دقائق، ثم ساعات، ثم أيام */
+    public static function duration(int $minutes): string
+    {
+        return match (true) {
+            $minutes < 60        => static::minutes(max(0, $minutes)),
+            $minutes < 60 * 48   => static::hours((int) round($minutes / 60)),
+            default              => static::days((int) round($minutes / 1440)),
+        };
+    }
+
     public static function merchants(int $n): string
     {
         return static::count($n, ['تاجر واحد', 'تاجران', 'تجّار', 'تاجراً']);

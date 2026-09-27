@@ -115,6 +115,14 @@
                                         · <span dir="ltr">{{ $settlement->payout_reference }}</span>
                                     @endif
                                 </div>
+                                @if ($settlement->merchant_confirmed_at)
+                                    <div class="text-xs text-ink-500">أكّدتَ استلامها {{ $settlement->merchant_confirmed_at->format('Y-m-d') }}</div>
+                                @else
+                                    <form method="POST" action="{{ route('portal.settlements.confirm', $settlement) }}" class="mt-1">
+                                        @csrf
+                                        <button class="btn-primary py-1 text-xs">استلمتُها</button>
+                                    </form>
+                                @endif
                             @endif
                         </div>
                     @endforeach

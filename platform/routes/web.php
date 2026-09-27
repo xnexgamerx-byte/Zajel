@@ -62,6 +62,7 @@ use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\ZoneController;
+use App\Http\Controllers\Tenant\ReferenceReportController;
 use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\BranchRemittanceController;
 use App\Http\Controllers\Tenant\MyCashBoxController;
@@ -71,6 +72,7 @@ use App\Http\Controllers\Tenant\GovernorateSettingController;
 use App\Http\Controllers\Tenant\MerchantRequestController;
 use App\Http\Controllers\Tenant\ReturnBatchController;
 use App\Http\Controllers\Portal\RequestController as PortalRequestController;
+use App\Http\Controllers\Portal\ProcessingController as PortalProcessingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -238,6 +240,8 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:reports.financial')->group(function () {
                 Route::get('/reports/profit', [ReportController::class, 'profit'])->name('reports.profit');
                 Route::get('/reports/returns-money', [ReportController::class, 'returnsMoney'])->name('reports.returns-money');
+                Route::get('/reports/courier-overcharge', [ReferenceReportController::class, 'courierOvercharge'])->name('reports.courier-overcharge');
+                Route::get('/reports/merchant-profit', [ReferenceReportController::class, 'merchantProfit'])->name('reports.merchant-profit');
             });
 
             // عشرة تقارير لا واحد وثلاثون
@@ -251,6 +255,13 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/dormant', [ReportController::class, 'dormant'])->name('reports.dormant');
             Route::get('/reports/debtors', [ReportController::class, 'debtors'])->name('reports.debtors');
             Route::get('/reports/changes', [ReportController::class, 'changes'])->name('reports.changes');
+            // وما في المعتاد غيرها، كلٌّ بسؤاله
+            Route::get('/reports/entries', [ReferenceReportController::class, 'entries'])->name('reports.entries');
+            Route::get('/reports/portal', [ReferenceReportController::class, 'portal'])->name('reports.portal');
+            Route::get('/reports/processing', [ReferenceReportController::class, 'processing'])->name('reports.processing');
+            Route::get('/reports/stuck', [ReferenceReportController::class, 'stuck'])->name('reports.stuck');
+            Route::get('/reports/special-prices', [ReferenceReportController::class, 'specialPrices'])->name('reports.special-prices');
+            Route::get('/reports/unconfirmed', [ReferenceReportController::class, 'unconfirmed'])->name('reports.unconfirmed');
             });
 
             // المحادثات مع التجّار: للشركة لا لموظّفٍ بعينه
@@ -415,6 +426,7 @@ Route::middleware('tenant')->group(function () {
             // حقّ الاعتراض لا معنى له إن لم يكن في يد صاحبه
             Route::get('/shares', [CourierShareController::class, 'index'])->name('shares');
             Route::post('/shares/{share}/object', [CourierShareController::class, 'object'])->name('shares.object');
+            Route::post('/payouts/{payout}/confirm', [CourierShareController::class, 'confirm'])->whereNumber('payout')->name('payouts.confirm');
 
             Route::get('/', [TaskController::class, 'index'])->name('tasks');
             Route::get('/search', [TaskController::class, 'search'])->name('search');
@@ -445,6 +457,7 @@ Route::middleware('tenant')->group(function () {
             Route::get('/shipments/{shipment}', [PortalShipmentController::class, 'show'])->name('shipments.show');
 
             Route::get('/statement', StatementController::class)->name('statement');
+            Route::post('/settlements/{settlement}/confirm', [StatementController::class, 'confirm'])->whereNumber('settlement')->name('settlements.confirm');
             Route::get('/inbox', [InboxController::class, 'portal'])->name('inbox');
 
             Route::get('/support', [PortalSupportController::class, 'index'])->name('support.index');
@@ -454,6 +467,9 @@ Route::middleware('tenant')->group(function () {
 
             Route::get('/pickups', [PickupRequestController::class, 'index'])->name('pickups.index');
             Route::post('/pickups', [PickupRequestController::class, 'store'])->name('pickups.store');
+
+            Route::get('/processing', [PortalProcessingController::class, 'index'])->name('processing.index');
+            Route::post('/processing/{shipment}', [PortalProcessingController::class, 'store'])->whereNumber('shipment')->name('processing.store');
 
             Route::get('/requests', [PortalRequestController::class, 'index'])->name('requests.index');
             Route::post('/requests', [PortalRequestController::class, 'store'])->name('requests.store');

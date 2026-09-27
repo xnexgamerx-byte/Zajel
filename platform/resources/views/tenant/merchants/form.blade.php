@@ -129,6 +129,12 @@
                                @checked(old('hold_for_review', $merchant->hold_for_review))>
                         <span>شحناته تحت المراجعة <span class="block text-xs text-ink-500">لا تخرج مع مندوبٍ حتى يجيزها موظّف</span></span>
                     </label>
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="hidden" name="can_process" value="0">
+                        <input type="checkbox" name="can_process" value="1" class="mt-1 size-4 accent-[var(--brand)]"
+                               @checked(old('can_process', $merchant->can_process))>
+                        <span>يعالج محاولاته الفاشلة بنفسه <span class="block text-xs text-ink-500">«إدخال طلبات العميل للمعالجة»: يقرّر من بوابته إعادة التوصيل أو التأجيل أو الإرجاع</span></span>
+                    </label>
                 </div>
             </div>
         </section>
