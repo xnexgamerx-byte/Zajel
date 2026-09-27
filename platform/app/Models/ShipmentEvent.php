@@ -45,6 +45,8 @@ class ShipmentEvent extends Model
         'bagged'           => 'إضافة لكيس',
         'unbagged'         => 'إخراج من كيس',
         'bag_missing'      => 'ناقص من كيس',
+        'deleted'          => 'مسح',
+        'restored'         => 'استرجاع من الممسوحة',
     ];
 
     /** @var array<string, string> */

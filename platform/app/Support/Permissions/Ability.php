@@ -41,6 +41,9 @@ class Ability
      */
     public const SHIPMENTS_EXPORT = 'shipments.export';
 
+    /** مسح ما أُنشئ خطأً قبل أن يصلنا، واسترجاعه — «صلاحية تعديل وحذف الشحنات» في المعتاد */
+    public const SHIPMENTS_DELETE = 'shipments.delete';
+
     // عمليات التوصيل · طلبات شحن · تصفيات الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
 
@@ -116,6 +119,7 @@ class Ability
                 self::SHIPMENTS_STATUS => 'تغيير حالة شحنة',
                 self::SHIPMENTS_ASSIGN => 'إسناد للمندوبين',
                 self::SHIPMENTS_EXPORT => 'تصدير القوائم (Excel وPDF) بأرقام الزبائن',
+                self::SHIPMENTS_DELETE => 'مسح الشحنات قبل استلامها، واسترجاعها',
             ]],
             'delivery' => ['label' => 'عمليات التوصيل', 'abilities' => [
                 self::TRANSPORT_MANAGE => 'الأكياس وكشوف النقل والمناديب',

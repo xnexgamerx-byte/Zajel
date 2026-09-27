@@ -32,6 +32,7 @@ use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
 use App\Http\Controllers\Tenant\ShipmentExportController;
 use App\Http\Controllers\Tenant\ShipmentScanController;
+use App\Http\Controllers\Tenant\ShipmentTrashController;
 use App\Http\Controllers\Tenant\UserGrantController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BagController;
@@ -113,6 +114,11 @@ Route::middleware('tenant')->group(function () {
         });
         Route::post('/shipments/scan/receive', [ShipmentScanController::class, 'receive'])
             ->middleware(['staff', 'can:shipments.status'])->name('shipments.scan.receive');
+        Route::middleware(['staff', 'can:shipments.delete'])->group(function () {
+            Route::get('/shipments/trash', [ShipmentTrashController::class, 'index'])->name('shipments.trash');
+            Route::post('/shipments/trash/{id}/restore', [ShipmentTrashController::class, 'restore'])
+                ->whereNumber('id')->name('shipments.trash.restore');
+        });
         Route::middleware(['staff', 'can:shipments.export'])->group(function () {
             Route::get('/shipments/export', [ShipmentExportController::class, 'excel'])->name('shipments.export');
             Route::get('/shipments/export/print', [ShipmentExportController::class, 'print'])->name('shipments.export.print');
@@ -122,6 +128,8 @@ Route::middleware('tenant')->group(function () {
             Route::get('/shipments/{shipment}/edit', [ShipmentController::class, 'edit'])->name('shipments.edit');
             Route::put('/shipments/{shipment}', [ShipmentController::class, 'update'])->name('shipments.update');
         });
+        Route::delete('/shipments/{shipment}', [ShipmentTrashController::class, 'destroy'])
+            ->middleware(['staff', 'can:shipments.delete'])->name('shipments.destroy');
         Route::post('/shipments/{shipment}/status', [ShipmentStatusController::class, 'update'])
             ->middleware(['staff', 'can:shipments.status'])->name('shipments.status');
         Route::post('/shipments/assign', [ShipmentStatusController::class, 'assign'])

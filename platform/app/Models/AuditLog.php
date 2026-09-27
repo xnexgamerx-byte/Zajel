@@ -45,6 +45,8 @@ class AuditLog extends Model
         'permission_granted'       => 'مُنحت صلاحية استثنائية',
         'permission_revoked'       => 'سُحبت صلاحية استثنائية',
         'shipments_exported'       => 'صُدِّرت قائمة شحنات',
+        'shipment_deleted'         => 'مُسحت شحنة',
+        'shipment_restored'        => 'استُرجعت شحنة ممسوحة',
     ];
 
     public function actionLabel(): string

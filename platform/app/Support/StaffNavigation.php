@@ -53,6 +53,7 @@ final class StaffNavigation
             ['طلبات شحن', 'clipboard', [
                 ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
                 ['bags.index', 'الأكياس', ['bags.*'], 'transport.manage'],
+                ['shipments.trash', 'شحنات ممسوحة', ['shipments.trash'], 'shipments.delete'],
             ]],
             ['تصفيات الراجع', 'undo', [
                 ['returns.incoming', 'استلام الراجع', ['returns.incoming'], 'returns.manage'],

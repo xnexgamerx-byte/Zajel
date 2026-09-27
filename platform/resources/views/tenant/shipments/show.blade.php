@@ -32,6 +32,26 @@
     </div>
 </div>
 
+{{-- المسح لما أُنشئ خطأً قبل أن يصلنا؛ وما وصل يُلغى أو يُرجع --}}
+@can('shipments.delete')
+    @if (\App\Actions\Shipments\DeleteShipment::deletable($shipment))
+        <details class="card mb-5 p-4" @if ($errors->has('reason')) open @endif>
+            <summary class="cursor-pointer text-sm font-semibold text-bad-700">مسح الشحنة</summary>
+            <form method="POST" action="{{ route('shipments.destroy', $shipment) }}" class="mt-3 flex flex-wrap items-end gap-3">
+                @csrf @method('DELETE')
+                <div class="min-w-64 flex-1">
+                    <label class="field-label" for="reason">السبب <span class="text-red-500">*</span></label>
+                    <input id="reason" name="reason" class="field-input" required minlength="3" maxlength="255"
+                           value="{{ old('reason') }}" placeholder="مثل: أُدخلت مرّتين، أو ألغاها التاجر قبل الاستلام">
+                    @error('reason') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <button type="submit" class="btn-danger">امسحها</button>
+                <p class="w-full text-xs text-ink-500">تنتقل إلى «شحنات ممسوحة» بسببها واسمك، وتُسترجع منها كما كانت.</p>
+            </form>
+        </details>
+    @endif
+@endcan
+
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <div class="space-y-5 lg:col-span-2">
 
