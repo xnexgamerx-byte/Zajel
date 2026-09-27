@@ -23,4 +23,9 @@ class AnnouncementRead extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function announcement(): BelongsTo
+    {
+        return $this->belongsTo(Announcement::class);
+    }
 }

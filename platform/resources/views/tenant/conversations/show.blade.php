@@ -27,13 +27,18 @@
 
 <div class="mx-auto max-w-3xl">
     <section class="card mb-4 p-5">
-        <x-thread :messages="$conversation->messages" mine="staff" />
+        <x-thread :messages="$conversation->messages" mine="staff" file-route="conversations.attachment" />
     </section>
 
-    <form method="POST" action="{{ route('conversations.reply', $conversation) }}" class="card p-4">
+    <form method="POST" action="{{ route('conversations.reply', $conversation) }}" enctype="multipart/form-data" class="card p-4">
         @csrf
         <label class="field-label" for="body">ردّك</label>
-        <textarea id="body" name="body" rows="3" class="field-input" maxlength="2000" required autofocus></textarea>
+        <textarea id="body" name="body" rows="3" class="field-input" maxlength="2000" autofocus>{{ old('body') }}</textarea>
+        <div class="mt-3">
+            <label class="field-label" for="attachment">ملف (اختياري)</label>
+            <input id="attachment" name="attachment" type="file" class="field-input" accept="image/jpeg,image/png,image/webp,application/pdf">
+            <p class="mt-1 text-xs text-ink-500">صورة أو PDF حتى 5 MB — صورة التلف أو الوصل تُغني عن الشرح.</p>
+        </div>
         <div class="mt-3 flex items-center justify-between gap-3">
             <p class="text-xs text-ink-500">
                 @unless ($conversation->isOpen()) الردّ يُعيد فتح المحادثة. @endunless

@@ -7,6 +7,7 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PortalShipmentRequest;
 use App\Models\City;
+use App\Models\Conversation;
 use App\Models\Governorate;
 use App\Models\Shipment;
 use Illuminate\Http\RedirectResponse;
@@ -68,6 +69,10 @@ class ShipmentController extends Controller
             'events' => fn ($q) => $q->where('event_type', 'status_change')->orderBy('id'),
         ]);
 
-        return view('portal.shipments.show', compact('shipment'));
+        return view('portal.shipments.show', [
+            'shipment'      => $shipment,
+            'conversations' => Conversation::where('merchant_id', $merchant->id)->where('shipment_id', $shipment->id)
+                ->orderByDesc('last_message_at')->get(['id', 'subject', 'status', 'last_message_at', 'merchant_unread']),
+        ]);
     }
 }

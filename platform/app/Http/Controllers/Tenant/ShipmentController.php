@@ -10,6 +10,7 @@ use App\Http\Requests\StoreShipmentRequest;
 use App\Http\Requests\UpdateShipmentRequest;
 use App\Models\Branch;
 use App\Models\City;
+use App\Models\Conversation;
 use App\Models\Courier;
 use App\Models\FailureReason;
 use App\Models\Governorate;
@@ -153,6 +154,11 @@ class ShipmentController extends Controller
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'hubs'         => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(),
+            // «محادثة الشحنة»: ما دار مع التاجر عنها، لمن يردّ على المحادثات
+            'conversations' => $request->user()->can('support.reply')
+                ? Conversation::visibleTo($request->user())->where('shipment_id', $shipment->id)
+                    ->orderByDesc('last_message_at')->get(['id', 'subject', 'status', 'last_author', 'last_message_at', 'staff_unread'])
+                : collect(),
         ]);
     }
 

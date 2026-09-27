@@ -205,6 +205,12 @@ summary:focus-visible,
         box-shadow: inset 0 0 0 2px var(--color-aered-600);
     }
 
+    /* حقل الملف: زرّ الاختيار حبّةٌ رمادية داخل الحقل، لا زرّ المتصفّح الخامّ */
+    input[type='file'].field-input {
+        @apply py-1.5 ps-1.5 file:me-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-ink-100
+               file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-aeblack-800 hover:file:bg-ink-200;
+    }
+
     /* ما يطول من الحقول لا يكون حبّة: زوايا ٢٠ */
     textarea.field-input,
     select.field-input[multiple],

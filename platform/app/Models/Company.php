@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class Company extends Model
@@ -74,5 +75,17 @@ class Company extends Model
     public function setting(string $key, mixed $default = null): mixed
     {
         return data_get($this->settings ?? [], $key, $default);
+    }
+
+    /**
+     * واتساب الدعم لوجهةٍ بعينها: رقم محافظتها إن كان لها رقم في «إعدادات
+     * المحافظات»، وإلّا رقم الشركة العامّ — زبون البصرة يكلّم فرع البصرة.
+     */
+    public function supportWhatsappFor(?int $governorateId = null): ?string
+    {
+        $own = $governorateId === null ? null : DB::table('governorate_settings')
+            ->where('company_id', $this->id)->where('governorate_id', $governorateId)->value('whatsapp');
+
+        return $own ?: $this->setting('support.whatsapp');
     }
 }

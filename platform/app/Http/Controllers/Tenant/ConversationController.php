@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Tenant;
 use App\Actions\Support\Converse;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\ConversationMessage;
 use App\Models\Merchant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * المحادثات من جهة الشركة — «المراجعة ← المحادثات» في النظام المرجعي.
@@ -64,9 +66,10 @@ class ConversationController extends Controller
         $data = $request->validate([
             'merchant_id'     => ['required', 'integer'],
             'subject'         => ['required', 'string', 'min:3', 'max:160'],
-            'body'            => ['required', 'string', 'max:2000'],
+            'body'            => ['nullable', 'required_without:attachment', 'string', 'max:2000'],
+            'attachment'      => Converse::ATTACHMENT_RULE,
             'shipment_number' => ['nullable', 'string', 'max:40'],
-        ], [], ['merchant_id' => 'التاجر', 'subject' => 'الموضوع', 'body' => 'الرسالة', 'shipment_number' => 'رقم الوصل']);
+        ], [], ['merchant_id' => 'التاجر', 'subject' => 'الموضوع', 'body' => 'الرسالة', 'attachment' => 'الملف', 'shipment_number' => 'رقم الوصل']);
 
         $merchant = Merchant::find($data['merchant_id']);
 
@@ -75,7 +78,8 @@ class ConversationController extends Controller
         }
 
         $conversation = $this->converse->start(
-            $merchant, $data['subject'], $data['body'], $request->user(), Converse::STAFF, $data['shipment_number'] ?? null,
+            $merchant, $data['subject'], (string) ($data['body'] ?? ''), $request->user(), Converse::STAFF,
+            $data['shipment_number'] ?? null, $request->file('attachment'),
         );
 
         return redirect()->route('conversations.show', $conversation)->with('success', 'أُرسلت الرسالة إلى '.$merchant->business_name.'.');
@@ -85,11 +89,23 @@ class ConversationController extends Controller
     {
         $this->authorizeVisible($request, $conversation);
 
-        $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الردّ']);
+        $data = $request->validate([
+            'body'       => ['nullable', 'required_without:attachment', 'string', 'max:2000'],
+            'attachment' => Converse::ATTACHMENT_RULE,
+        ], [], ['body' => 'الردّ', 'attachment' => 'الملف']);
 
-        $this->converse->reply($conversation, $data['body'], $request->user(), Converse::STAFF);
+        $this->converse->reply($conversation, (string) ($data['body'] ?? ''), $request->user(), Converse::STAFF, $request->file('attachment'));
 
         return back();
+    }
+
+    /** ملفّ رسالةٍ لمن يرى محادثتها وحده */
+    public function attachment(Request $request, Conversation $conversation, ConversationMessage $message): StreamedResponse
+    {
+        $this->authorizeVisible($request, $conversation);
+        abort_unless((int) $message->conversation_id === (int) $conversation->id, 404);
+
+        return $message->attachmentResponse();
     }
 
     public function close(Request $request, Conversation $conversation): RedirectResponse

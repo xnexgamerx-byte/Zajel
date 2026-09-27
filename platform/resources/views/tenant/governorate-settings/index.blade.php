@@ -30,6 +30,7 @@
                     <th>للأقضية</th>
                     <th title="لمن لا أجرة توصيلٍ في بطاقته">أجرة المندوب</th>
                     <th>أجرة المندوب للأقضية</th>
+                    <th title="فارغاً: رقم الشركة العامّ">واتساب الدعم</th>
                 </tr>
             </thead>
             <tbody>
@@ -58,6 +59,11 @@
                                        aria-label="{{ $field === 'courier_fee' ? 'أجرة المندوب' : 'أجرة المندوب للأقضية' }} — {{ $gov->name_ar }}">
                             </td>
                         @endforeach
+                        <td>
+                            <input name="rows[{{ $gov->id }}][whatsapp]" inputmode="tel" dir="ltr" class="field-input num w-36 text-left"
+                                   placeholder="الرقم العامّ" value="{{ old("rows.{$gov->id}.whatsapp", $setting?->whatsapp) }}"
+                                   aria-label="واتساب الدعم — {{ $gov->name_ar }}">
+                        </td>
                     </tr>
                 @endforeach
             </tbody>
@@ -65,7 +71,7 @@
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 px-5 py-3">
         <p class="text-xs text-ink-500">
-            المحافظة غير النشطة لا تظهر عند إنشاء الشحنات ولا يُشحَن إليها. وأجرة المندوب هنا لمن تُرك «عمولة التوصيل» في بطاقته فارغاً.
+            المحافظة غير النشطة لا تظهر عند إنشاء الشحنات ولا يُشحَن إليها. وأجرة المندوب هنا لمن تُرك «عمولة التوصيل» في بطاقته فارغاً. وواتساب المحافظة يظهر لزبون شحنتها في صفحة التتبّع.
         </p>
         <button type="submit" class="btn-primary">احفظ</button>
     </div>

@@ -14,6 +14,8 @@
     </div>
 </div>
 
+<x-app-ads audience="couriers" class="mb-4" />
+
 @if ($team->isNotEmpty())
     {{-- المندوب الأب: فريقه في سطرٍ لكلٍّ — ويُسوّى معه كشوفهم --}}
     <details class="mb-4 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">

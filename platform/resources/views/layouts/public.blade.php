@@ -29,9 +29,11 @@
 
     {{-- أوّل ما يسأله زبونٌ قلق: بمن أتّصل؟ --}}
     @php
-        $whatsapp = \App\Support\Phone::whatsappUrl($company->setting('support.whatsapp'));
+        // واتساب محافظة الشحنة إن كان لها رقم، وإلّا رقم الشركة
+        $whatsapp = \App\Support\Phone::whatsappUrl($company->supportWhatsappFor(isset($shipment) ? $shipment->governorate_id : null));
+        $complaints = $company->setting('support.complaints');
     @endphp
-    @if ($whatsapp || $company->phone)
+    @if ($whatsapp || $company->phone || $complaints)
         <section class="card mt-5 flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
             <div class="min-w-0 sm:flex-1">
                 <div class="card-title">عندك سؤال عن شحنتك؟</div>
@@ -51,6 +53,9 @@
                 <a href="tel:{{ $company->phone }}" class="btn-ghost">
                     <span class="num">{{ $company->phone }}</span>
                 </a>
+            @endif
+            @if ($complaints)
+                <a href="tel:{{ $complaints }}" class="btn-ghost">للشكاوى <span class="num">{{ $complaints }}</span></a>
             @endif
             </div>
         </section>

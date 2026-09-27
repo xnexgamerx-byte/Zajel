@@ -138,6 +138,30 @@
                 </p>
             @endif
         </section>
+
+        {{-- «محادثة الشحنة»: سؤالك عنها وصورها في مكانٍ واحد --}}
+        <section class="card p-5">
+            <div class="mb-3 flex items-center justify-between gap-3">
+                <h2 class="text-sm font-bold">محادثة عن الشحنة</h2>
+                <a href="{{ route('portal.support.index', ['shipment_number' => $shipment->number]) }}#new-conversation"
+                   class="text-xs font-semibold text-[var(--brand)] hover:underline">اسأل عنها</a>
+            </div>
+            @forelse ($conversations as $conversation)
+                <a href="{{ route('portal.support.show', $conversation) }}" class="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-ink-50">
+                    <span class="min-w-0 truncate {{ $conversation->merchant_unread ? 'font-bold' : 'font-medium' }}">{{ $conversation->subject }}</span>
+                    <span class="flex shrink-0 items-center gap-2">
+                        @if ($conversation->merchant_unread)
+                            <span class="chip chip-info">ردٌّ جديد</span>
+                        @elseif (! $conversation->isOpen())
+                            <span class="chip chip-mute">مغلقة</span>
+                        @endif
+                        <span class="num text-xs text-ink-500">{{ $conversation->last_message_at?->format('m-d H:i') }}</span>
+                    </span>
+                </a>
+            @empty
+                <p class="text-sm text-ink-500">سؤالٌ عنها مع صورةٍ يصل الشركة هنا ويبقى معها.</p>
+            @endforelse
+        </section>
     </div>
 </div>
 @endsection

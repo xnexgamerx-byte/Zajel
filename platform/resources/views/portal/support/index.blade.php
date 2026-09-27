@@ -7,17 +7,23 @@
     <p class="mt-1 text-sm text-ink-500">اسأل {{ $company->name }} هنا، وتجد الردّ في المحادثة نفسها.</p>
 </div>
 
-@if ($link = \App\Support\Phone::whatsappUrl($company->setting('support.whatsapp'), 'مرحباً، أنا '.auth()->user()->merchant?->business_name))
+{{-- واتساب محافظة التاجر إن كان لها رقم، وإلّا رقم الشركة --}}
+@php $support = $company->supportWhatsappFor(auth()->user()->merchant?->governorate_id); @endphp
+@if ($link = \App\Support\Phone::whatsappUrl($support, 'مرحباً، أنا '.auth()->user()->merchant?->business_name))
     <a href="{{ $link }}" target="_blank" rel="noopener"
        class="card mb-5 flex items-center justify-between gap-3 p-4 transition hover:border-ok-200">
         <div>
             <p class="font-semibold">أو راسلنا على واتساب</p>
-            <p class="num text-sm text-ink-500">{{ $company->setting('support.whatsapp') }}
+            <p class="num text-sm text-ink-500">{{ $support }}
                 @if ($company->setting('support.hours')) · <span class="font-sans">{{ $company->setting('support.hours') }}</span>@endif
             </p>
         </div>
         <span class="chip chip-ok">واتساب ←</span>
     </a>
+@endif
+
+@if ($complaints = $company->setting('support.complaints'))
+    <p class="mb-5 text-sm text-ink-600">للشكاوى: <a href="tel:{{ $complaints }}" class="num font-semibold text-[var(--brand)] hover:underline">{{ $complaints }}</a></p>
 @endif
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -58,7 +64,7 @@
         @endif
     </section>
 
-    <form method="POST" action="{{ route('portal.support.store') }}" class="card h-fit space-y-4 p-5">
+    <form method="POST" action="{{ route('portal.support.store') }}" enctype="multipart/form-data" class="card h-fit space-y-4 p-5" id="new-conversation">
         @csrf
         <h2 class="card-title">سؤالٌ جديد</h2>
         <div>
@@ -68,11 +74,16 @@
         </div>
         <div>
             <label class="field-label" for="shipment_number">رقم الوصل (إن كان عن شحنة)</label>
-            <input id="shipment_number" name="shipment_number" class="field-input num" value="{{ old('shipment_number') }}">
+            <input id="shipment_number" name="shipment_number" class="field-input num" value="{{ old('shipment_number', request('shipment_number')) }}">
         </div>
         <div>
             <label class="field-label" for="body">سؤالك</label>
-            <textarea id="body" name="body" rows="4" class="field-input" maxlength="2000" required>{{ old('body') }}</textarea>
+            <textarea id="body" name="body" rows="4" class="field-input" maxlength="2000">{{ old('body') }}</textarea>
+        </div>
+        <div>
+            <label class="field-label" for="attachment">ملف (اختياري)</label>
+            <input id="attachment" name="attachment" type="file" class="field-input" accept="image/jpeg,image/png,image/webp,application/pdf">
+            <p class="mt-1 text-xs text-ink-500">صورة أو PDF حتى 5 MB.</p>
         </div>
         <button type="submit" class="btn-primary w-full">أرسل</button>
     </form>

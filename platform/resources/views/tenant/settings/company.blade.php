@@ -33,12 +33,17 @@
 
         <div class="rounded-xl border border-ink-200 p-4">
             <h2 class="card-title">واتساب الدعم</h2>
-            <p class="card-hint mb-3">يظهر زرًّا في بوّابة التاجر وتطبيق المندوب يفتح محادثة واتساب مع هذا الرقم.</p>
+            <p class="card-hint mb-3">يظهر زرًّا في بوّابة التاجر وتطبيق المندوب وصفحة التتبّع يفتح محادثة واتساب مع هذا الرقم. ولكل محافظةٍ رقمها إن شئت من «إعدادات المحافظات».</p>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <label class="field-label" for="support_whatsapp">الرقم</label>
                     <input id="support_whatsapp" name="support_whatsapp" class="field-input num" inputmode="tel" placeholder="07xxxxxxxxx"
                            value="{{ old('support_whatsapp', $company->setting('support.whatsapp')) }}">
+                </div>
+                <div>
+                    <label class="field-label" for="support_complaints">هاتف الشكاوى (اختياري)</label>
+                    <input id="support_complaints" name="support_complaints" class="field-input num" inputmode="tel" placeholder="07xxxxxxxxx"
+                           value="{{ old('support_complaints', $company->setting('support.complaints')) }}">
                 </div>
                 <div>
                     <label class="field-label" for="support_hours">ساعات الدعم (اختياري)</label>

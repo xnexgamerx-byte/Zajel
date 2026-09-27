@@ -38,12 +38,13 @@ class CompanySettingsController extends Controller
             'phone'            => ['nullable', 'string', 'max:30', $iraqi],
             'email'            => ['nullable', 'email', 'max:160'],
             'support_whatsapp' => ['nullable', 'string', 'max:30', $iraqi],
+            'support_complaints' => ['nullable', 'string', 'max:30', $iraqi],
             'support_hours'    => ['nullable', 'string', 'max:120'],
             'primary_color'    => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ], [
             'primary_color.regex' => 'اللون بصيغة #RRGGBB.',
         ], [
-            'phone' => 'الهاتف', 'email' => 'البريد', 'support_whatsapp' => 'واتساب الدعم',
+            'phone' => 'الهاتف', 'email' => 'البريد', 'support_whatsapp' => 'واتساب الدعم', 'support_complaints' => 'هاتف الشكاوى',
             'support_hours' => 'ساعات الدعم', 'primary_color' => 'اللون',
         ]);
 
@@ -51,6 +52,7 @@ class CompanySettingsController extends Controller
         $phones = [
             'phone'            => Phone::normalise($data['phone'] ?? null),
             'support_whatsapp' => Phone::normalise($data['support_whatsapp'] ?? null),
+            'support_complaints' => Phone::normalise($data['support_complaints'] ?? null),
         ];
 
         $before = [
@@ -58,11 +60,13 @@ class CompanySettingsController extends Controller
             'email'            => $company->email,
             'primary_color'    => $company->primary_color,
             'support_whatsapp' => $company->setting('support.whatsapp'),
+            'support_complaints' => $company->setting('support.complaints'),
             'support_hours'    => $company->setting('support.hours'),
         ];
 
         $settings = $company->settings ?? [];
         data_set($settings, 'support.whatsapp', $phones['support_whatsapp']);
+        data_set($settings, 'support.complaints', $phones['support_complaints']);
         data_set($settings, 'support.hours', filled($data['support_hours'] ?? null) ? trim($data['support_hours']) : null);
 
         $company->forceFill([
@@ -77,6 +81,7 @@ class CompanySettingsController extends Controller
             'email'            => $company->email,
             'primary_color'    => $company->primary_color,
             'support_whatsapp' => $company->setting('support.whatsapp'),
+            'support_complaints' => $company->setting('support.complaints'),
             'support_hours'    => $company->setting('support.hours'),
         ];
 

@@ -63,7 +63,7 @@
         </section>
     </div>
 
-    <form method="POST" action="{{ route('conversations.store') }}" class="card h-fit space-y-4 p-5">
+    <form method="POST" action="{{ route('conversations.store') }}" enctype="multipart/form-data" class="card h-fit space-y-4 p-5" id="new-conversation">
         @csrf
         <h2 class="card-title">راسِل تاجراً</h2>
         <div>
@@ -71,7 +71,7 @@
             <select id="merchant_id" name="merchant_id" class="field-input" required>
                 <option value="">اختر…</option>
                 @foreach ($merchants as $merchant)
-                    <option value="{{ $merchant->id }}" @selected((int) old('merchant_id') === $merchant->id)>{{ $merchant->business_name }}</option>
+                    <option value="{{ $merchant->id }}" @selected((int) old('merchant_id', request('merchant_id')) === $merchant->id)>{{ $merchant->business_name }}</option>
                 @endforeach
             </select>
         </div>
@@ -81,11 +81,16 @@
         </div>
         <div>
             <label class="field-label" for="shipment_number">رقم الوصل (اختياري)</label>
-            <input id="shipment_number" name="shipment_number" class="field-input num" value="{{ old('shipment_number') }}">
+            <input id="shipment_number" name="shipment_number" class="field-input num" value="{{ old('shipment_number', request('shipment_number')) }}">
         </div>
         <div>
             <label class="field-label" for="body">الرسالة</label>
-            <textarea id="body" name="body" rows="4" class="field-input" maxlength="2000" required>{{ old('body') }}</textarea>
+            <textarea id="body" name="body" rows="4" class="field-input" maxlength="2000">{{ old('body') }}</textarea>
+        </div>
+        <div>
+            <label class="field-label" for="attachment">ملف (اختياري)</label>
+            <input id="attachment" name="attachment" type="file" class="field-input" accept="image/jpeg,image/png,image/webp,application/pdf">
+            <p class="mt-1 text-xs text-ink-500">صورة أو PDF حتى 5 MB.</p>
         </div>
         <button type="submit" class="btn-primary w-full">أرسل</button>
     </form>

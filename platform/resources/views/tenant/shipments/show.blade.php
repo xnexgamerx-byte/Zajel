@@ -446,6 +446,32 @@
                 </div>
             </dl>
         </section>
+
+        @can('support.reply')
+            {{-- «محادثة الشحنة»: ما دار مع التاجر عنها، وصورها وملفّاتها في المحادثة نفسها --}}
+            <section class="card p-5">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                    <h2 class="text-sm font-bold">محادثات الشحنة</h2>
+                    <a href="{{ route('conversations.index', ['merchant_id' => $shipment->merchant_id, 'shipment_number' => $shipment->number]) }}#new-conversation"
+                       class="text-xs font-semibold text-[var(--brand)] hover:underline">راسِل التاجر عنها</a>
+                </div>
+                @forelse ($conversations as $conversation)
+                    <a href="{{ route('conversations.show', $conversation) }}" class="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-sm hover:bg-ink-50">
+                        <span class="min-w-0 truncate {{ $conversation->staff_unread ? 'font-bold' : 'font-medium' }}">{{ $conversation->subject }}</span>
+                        <span class="flex shrink-0 items-center gap-2">
+                            @if ($conversation->awaitsUs())
+                                <span class="chip chip-warn">ينتظر ردّنا</span>
+                            @elseif (! $conversation->isOpen())
+                                <span class="chip chip-mute">مغلقة</span>
+                            @endif
+                            <span class="num text-xs text-ink-500">{{ $conversation->last_message_at?->format('m-d H:i') }}</span>
+                        </span>
+                    </a>
+                @empty
+                    <p class="text-sm text-ink-500">لا محادثة عن هذه الشحنة.</p>
+                @endforelse
+            </section>
+        @endcan
     </div>
 </div>
 @endsection

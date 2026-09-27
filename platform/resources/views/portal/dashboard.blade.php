@@ -10,6 +10,8 @@
     <a href="{{ route('portal.shipments.create') }}" class="btn-primary">+ شحنة جديدة</a>
 </div>
 
+<x-app-ads audience="merchants" class="mb-5" />
+
 <div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
     <div class="card p-4">
         <div class="text-xs font-medium text-ink-500">

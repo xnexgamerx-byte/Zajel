@@ -7,7 +7,9 @@ use App\Models\ConversationMessage;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -16,6 +18,9 @@ use Illuminate\Validation\ValidationException;
  * الرسائل إضافةٌ فقط — لا تُعدَّل ولا تُحذف، فالمحادثة سجلُّ ما قيل.
  * والعلَمان (غير مقروء عندنا / عنده) يُقلبان مع كل سطر تحت قفل الصفّ،
  * فردّان متزامنان لا يتركان المحادثة «مقروءة» وفيها سطرٌ لم يُقرأ.
+ *
+ * وللرسالة ملفٌّ واحد إن شاء كاتبها — صورة تلفٍ أو وصلٍ أو كشف — في
+ * التخزين الخاصّ، يُقدَّم لطرفي المحادثة وحدهما. ورسالةٌ هي ملفٌّ بلا نصّ مقبولة.
  */
 class Converse
 {
@@ -23,11 +28,17 @@ class Converse
 
     public const STAFF = 'staff';
 
-    public function start(Merchant $merchant, string $subject, string $body, User $actor, string $author, ?string $shipmentNumber = null): Conversation
+    /** ما يُقبل ملفّاً: صورٌ حقيقية وPDF — لا SVG ولا ما يُنفَّذ في المتصفّح */
+    public const ATTACHMENT_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+    /** قاعدة التحقّق نفسها في كل نموذج يرفع ملفّاً */
+    public const ATTACHMENT_RULE = ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'];
+
+    public function start(Merchant $merchant, string $subject, string $body, User $actor, string $author, ?string $shipmentNumber = null, ?UploadedFile $file = null): Conversation
     {
         $shipment = $this->resolveShipment($merchant, $shipmentNumber);
 
-        return DB::transaction(function () use ($merchant, $subject, $body, $actor, $author, $shipment) {
+        return DB::transaction(function () use ($merchant, $subject, $body, $actor, $author, $shipment, $file) {
             $conversation = Conversation::create([
                 'merchant_id'     => $merchant->id,
                 'shipment_id'     => $shipment?->id,
@@ -39,18 +50,18 @@ class Converse
                 'merchant_unread' => $author === self::STAFF,
             ]);
 
-            $this->write($conversation, $author, $body, $actor);
+            $this->write($conversation, $author, $body, $actor, $file);
 
             return $conversation;
         });
     }
 
-    public function reply(Conversation $conversation, string $body, User $actor, string $author): ConversationMessage
+    public function reply(Conversation $conversation, string $body, User $actor, string $author, ?UploadedFile $file = null): ConversationMessage
     {
-        return DB::transaction(function () use ($conversation, $body, $actor, $author) {
+        return DB::transaction(function () use ($conversation, $body, $actor, $author, $file) {
             $fresh = Conversation::query()->lockForUpdate()->findOrFail($conversation->id);
 
-            $message = $this->write($fresh, $author, $body, $actor);
+            $message = $this->write($fresh, $author, $body, $actor, $file);
 
             $fresh->forceFill([
                 // سطرٌ جديد في محادثة مغلقة سؤالٌ جديد: تُفتح من تلقاء نفسها
@@ -92,11 +103,11 @@ class Converse
         }
     }
 
-    protected function write(Conversation $conversation, string $author, string $body, User $actor): ConversationMessage
+    protected function write(Conversation $conversation, string $author, string $body, User $actor, ?UploadedFile $file = null): ConversationMessage
     {
         $body = trim($body);
 
-        if ($body === '') {
+        if ($body === '' && ! $file) {
             throw ValidationException::withMessages(['body' => 'لا تُرسَل رسالة فارغة.']);
         }
 
@@ -104,13 +115,43 @@ class Converse
             throw ValidationException::withMessages(['body' => 'كاتبٌ غير معروف.']);
         }
 
-        return ConversationMessage::create([
-            'conversation_id' => $conversation->id,
-            'author'          => $author,
-            'user_id'         => $actor->id,
-            'author_name'     => $actor->name,
-            'body'            => $body,
-        ]);
+        // النوع من محتوى الملف لا من اسمه ولا مما قاله المتصفّح
+        $mime = $file?->getMimeType();
+
+        if ($file && ! in_array($mime, self::ATTACHMENT_MIMES, true)) {
+            throw ValidationException::withMessages(['attachment' => 'الملف صورةٌ (JPG أو PNG أو WEBP) أو PDF.']);
+        }
+
+        $path = $file?->store('attachments/'.$conversation->company_id, 'local');
+
+        try {
+            return ConversationMessage::create([
+                'conversation_id' => $conversation->id,
+                'author'          => $author,
+                'user_id'         => $actor->id,
+                'author_name'     => $actor->name,
+                'body'            => $body,
+                'attachment_path' => $path ?: null,
+                'attachment_name' => $file ? $this->displayName($file) : null,
+                'attachment_mime' => $file ? $mime : null,
+                'attachment_size' => $file?->getSize(),
+            ]);
+        } catch (\Throwable $e) {
+            // لا ملفّ يتيم في التخزين لرسالةٍ لم تُكتب
+            if ($path) {
+                Storage::disk('local')->delete($path);
+            }
+
+            throw $e;
+        }
+    }
+
+    /** اسم الملف كما سمّاه صاحبه، للعرض وحده: بلا مسار ولا محارف تحكّم */
+    protected function displayName(UploadedFile $file): string
+    {
+        $name = preg_replace('/[\x00-\x1F\x7F]+/u', '', basename(str_replace('\\', '/', (string) $file->getClientOriginalName())));
+
+        return mb_substr(trim((string) $name), 0, 160) ?: 'ملف';
     }
 
     /** رقم الوصل يُقبل إن كان للتاجر نفسه — وإلا فشحنة غيره لا تُعلَّق بمحادثته. */

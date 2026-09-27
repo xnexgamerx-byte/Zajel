@@ -42,6 +42,7 @@ class GovernorateSettingController extends Controller
             'rows.*.sort_order'             => ['nullable', 'integer', 'min:0', 'max:999'],
             'rows.*.courier_fee'            => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.courier_fee_peripheral' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'rows.*.whatsapp'               => ['nullable', 'string', 'max:30'],
         ], [], [
             'rows.*.sort_order'  => 'الترتيب',
             'rows.*.courier_fee' => 'أجرة المندوب',
@@ -61,10 +62,17 @@ class GovernorateSettingController extends Controller
                     'sort_order'             => $nullable($row['sort_order'] ?? null),
                     'courier_fee'            => $nullable($row['courier_fee'] ?? null),
                     'courier_fee_peripheral' => $nullable($row['courier_fee_peripheral'] ?? null),
+                    'whatsapp'               => \App\Support\Phone::normalise($row['whatsapp'] ?? null),
                 ];
 
+                if (filled($row['whatsapp'] ?? null) && $values['whatsapp'] === null) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "rows.{$governorateId}.whatsapp" => 'واتساب المحافظة رقمٌ عراقي بصيغة 07xxxxxxxxx.',
+                    ]);
+                }
+
                 // كالافتراض في كل شيء: لا صفّ لها
-                if ($values['is_active'] && $values['sort_order'] === null
+                if ($values['is_active'] && $values['sort_order'] === null && $values['whatsapp'] === null
                     && $values['courier_fee'] === null && $values['courier_fee_peripheral'] === null) {
                     GovernorateSetting::where('governorate_id', $governorateId)->delete();
 

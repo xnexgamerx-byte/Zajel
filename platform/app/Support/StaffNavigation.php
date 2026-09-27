@@ -35,6 +35,7 @@ final class StaffNavigation
                 ['announcements.index', 'إرسال إشعار لكافة مندوبي الاستلام', ['announcements.*'], 'notify.send', ['audience' => 'pickup_couriers']],
                 ['announcements.index', 'إرسال إشعار لكافة مندوبي التوصيل', ['announcements.*'], 'notify.send', ['audience' => 'delivery_couriers']],
                 ['announcements.index', 'إرسال إشعار لكافة التجّار', ['announcements.*'], 'notify.send', ['audience' => 'merchants']],
+                ['app-ads.index', 'إعلانات الصفحة الرئيسية بالتطبيق', ['app-ads.*'], 'notify.send'],
             ]],
             ['شحنات العميل', 'boxes', [
                 ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show'], 'shipments.view'],
@@ -96,6 +97,7 @@ final class StaffNavigation
                 ['reports.processing', 'المتابعة والمراجعة', ['reports.processing'], 'reports.view'],
                 ['reports.special-prices', 'التجّار ذوو الأسعار الخاصّة', ['reports.special-prices'], 'reports.view'],
                 ['reports.unconfirmed', 'دفعات لم يؤكَّد استلامها', ['reports.unconfirmed'], 'reports.view'],
+                ['reports.notifications', 'سجلّ الإشعارات', ['reports.notifications'], 'reports.view'],
             ]],
             ['تقارير مالية', 'trend', [
                 ['reports.profit', 'أرباح الشحنات', ['reports.profit'], 'reports.financial'],

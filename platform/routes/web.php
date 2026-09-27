@@ -62,6 +62,7 @@ use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\ZoneController;
+use App\Http\Controllers\Tenant\AppAdController;
 use App\Http\Controllers\Tenant\ReferenceReportController;
 use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\BranchRemittanceController;
@@ -102,6 +103,8 @@ Route::middleware('tenant')->group(function () {
 
     Route::middleware('auth')->group(function () {
         Route::get('/', TenantDashboardController::class)->middleware('staff')->name('dashboard');
+        // صورة إعلان التطبيق: لكل مستخدمي الشركة — ربط المسار يفلتر بها
+        Route::get('/app-ads/{ad}/image', [AppAdController::class, 'image'])->whereNumber('ad')->name('app-ads.image');
 
         Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
         Route::get('/shipments/create', [ShipmentController::class, 'create'])
@@ -262,6 +265,7 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/stuck', [ReferenceReportController::class, 'stuck'])->name('reports.stuck');
             Route::get('/reports/special-prices', [ReferenceReportController::class, 'specialPrices'])->name('reports.special-prices');
             Route::get('/reports/unconfirmed', [ReferenceReportController::class, 'unconfirmed'])->name('reports.unconfirmed');
+            Route::get('/reports/notifications', [ReferenceReportController::class, 'notifications'])->name('reports.notifications');
             });
 
             // المحادثات مع التجّار: للشركة لا لموظّفٍ بعينه
@@ -271,6 +275,8 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->name('conversations.show');
                 Route::post('/conversations/{conversation}/reply', [ConversationController::class, 'reply'])->name('conversations.reply');
                 Route::post('/conversations/{conversation}/close', [ConversationController::class, 'close'])->name('conversations.close');
+                Route::get('/conversations/{conversation}/files/{message}', [ConversationController::class, 'attachment'])
+                    ->whereNumber('message')->name('conversations.attachment');
             });
 
             // بيانات الشركة: الهاتف وواتساب الدعم واللون
@@ -326,6 +332,14 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/branch-accounts/remittances', [BranchRemittanceController::class, 'send'])->name('branch-accounts.remit');
                 Route::post('/branch-accounts/remittances/{remittance}/receive', [BranchRemittanceController::class, 'receive'])
                     ->whereNumber('remittance')->name('branch-accounts.receive');
+            });
+
+            // «إعلانات الصفحة الرئيسية بالتطبيق»: مع الإشعارات
+            Route::middleware('can:notify.send')->group(function () {
+                Route::get('/app-ads', [AppAdController::class, 'index'])->name('app-ads.index');
+                Route::post('/app-ads', [AppAdController::class, 'store'])->name('app-ads.store');
+                Route::put('/app-ads/{ad}', [AppAdController::class, 'update'])->whereNumber('ad')->name('app-ads.update');
+                Route::delete('/app-ads/{ad}', [AppAdController::class, 'destroy'])->whereNumber('ad')->name('app-ads.destroy');
             });
 
             // «صندوقي»: لصاحب صندوق الموظّف وحده
@@ -464,6 +478,8 @@ Route::middleware('tenant')->group(function () {
             Route::post('/support', [PortalSupportController::class, 'store'])->name('support.store');
             Route::get('/support/{conversation}', [PortalSupportController::class, 'show'])->name('support.show');
             Route::post('/support/{conversation}/reply', [PortalSupportController::class, 'reply'])->name('support.reply');
+            Route::get('/support/{conversation}/files/{message}', [PortalSupportController::class, 'attachment'])
+                ->whereNumber('message')->name('support.attachment');
 
             Route::get('/pickups', [PickupRequestController::class, 'index'])->name('pickups.index');
             Route::post('/pickups', [PickupRequestController::class, 'store'])->name('pickups.store');

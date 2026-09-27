@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Enums\ShipmentStatus;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
+use App\Models\AnnouncementRead;
 use App\Models\Branch;
 use App\Models\Courier;
 use App\Models\Governorate;
@@ -26,7 +29,7 @@ use Illuminate\View\View;
  * كم أُدخل ومن أدخله وفي أيّ ساعة · ما رفعه التجّار من بواباتهم وكم استُلم ·
  * من عالج المحاولات الفاشلة وبعد كم، ومن أجاز المعلّق للمراجعة · ما علق في
  * مرحلته أكثر من ساعات · ما حوسب عليه المندوب فوق أجرته · الربح بالتاجر ·
- * التجّار بأسعارٍ خاصّة · ومن لم يؤكّد استلام دفعاته.
+ * التجّار بأسعارٍ خاصّة · ومن لم يؤكّد استلام دفعاته · وما أُرسل من إشعارات ومن قرأها.
  */
 class ReferenceReportController extends Controller
 {
@@ -35,6 +38,13 @@ class ReferenceReportController extends Controller
         'import'          => 'رفع ملف',
         'merchant_portal' => 'بوابة التاجر',
         'api'             => 'واجهة برمجية',
+    ];
+
+    /** تطبيق كل فئة: الإشعار يصل التاجرَ في بوابته والمندوبَ في تطبيقه */
+    public const NOTIFICATION_APPS = [
+        'merchants'         => 'بوابة التاجر',
+        'delivery_couriers' => 'تطبيق المندوب',
+        'pickup_couriers'   => 'تطبيق المندوب',
     ];
 
     /** «عدد الشحنات المُدخلة»: بمن أدخلها وقناتها، وساعةً بساعة ببغداد */
@@ -268,6 +278,67 @@ class ReferenceReportController extends Controller
                 ->groupBy('courier_id')->orderByDesc('last_paid')->toBase()->get(),
             'merchantNames' => Merchant::withTrashed()->pluck('business_name', 'id'),
             'courierNames'  => Courier::withTrashed()->pluck('name', 'id'),
+        ]);
+    }
+
+    /**
+     * «سجلّ الإشعارات»: ما أُرسل في المدّة — لأيّ تطبيق وأيّ فئة، ومن أرسله،
+     * وكم قرأه. وباختيار تاجرٍ أو مندوب: ما وُجِّه إلى فئته، وهل قرأه ومتى.
+     */
+    public function notifications(Request $request): View
+    {
+        $period = ReportPeriod::fromRequest($request);
+        [$from, $to] = $period->bounds();
+
+        $audience = $request->query('audience');
+        $audience = is_string($audience) && array_key_exists($audience, Announcement::AUDIENCES) ? $audience : null;
+
+        $recipients = User::whereIn('role', [UserRole::Merchant, UserRole::Courier])
+            ->orderBy('name')->get(['id', 'name', 'role']);
+        $user = $recipients->firstWhere('id', $request->integer('user_id') ?: null);
+        $userAudiences = $user ? Announcement::audiencesFor($user) : null;
+
+        $announcements = Announcement::query()
+            ->with('author:id,name')
+            ->withCount('reads')
+            ->whereBetween('announcements.created_at', [$from, $to])
+            ->when($audience, fn ($q) => $q->where('audience', $audience))
+            ->when($user, fn ($q) => $q->whereIn('audience', $userAudiences ?: ['—'])
+                ->with(['reads' => fn ($r) => $r->where('user_id', $user->id)]))
+            ->latest('id')
+            ->paginate(config('zajel.per_page'))
+            ->withQueryString();
+
+        $sent = Announcement::query()
+            ->whereBetween('announcements.created_at', [$from, $to])
+            ->selectRaw('audience, count(*) as total')
+            ->groupBy('audience')->pluck('total', 'audience');
+
+        $reads = AnnouncementRead::query()
+            ->join('announcements', 'announcements.id', '=', 'announcement_reads.announcement_id')
+            ->whereBetween('announcements.created_at', [$from, $to])
+            ->selectRaw('announcements.audience as audience, count(*) as total')
+            ->groupBy('announcements.audience')->pluck('total', 'audience');
+
+        return view('tenant.reports.reference.notifications', [
+            'period'        => $period,
+            'announcements' => $announcements,
+            'audience'      => $audience,
+            'audiences'     => Announcement::AUDIENCES,
+            'apps'          => self::NOTIFICATION_APPS,
+            'sent'          => $sent,
+            'reads'         => $reads,
+            // البلوغ لكل فئة مرّةً لا لكل إشعار
+            'reach'         => collect(Announcement::AUDIENCES)->keys()
+                ->mapWithKeys(fn ($a) => [$a => (new Announcement(['audience' => $a]))->reach()]),
+            'recipients'    => $recipients,
+            'user'          => $user,
+            'userAudiences' => $userAudiences,
+            'userRead'      => $user
+                ? AnnouncementRead::where('user_id', $user->id)
+                    ->whereHas('announcement', fn ($a) => $a->whereBetween('created_at', [$from, $to])->whereIn('audience', $userAudiences ?: ['—']))
+                    ->count()
+                : null,
         ]);
     }
 }
