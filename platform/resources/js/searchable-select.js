@@ -68,7 +68,9 @@ function enhance(select) {
     list.id = `${id}-list`;
     list.setAttribute('role', 'listbox');
     list.hidden = true;
-    list.className = 'absolute inset-x-0 top-full z-30 mt-1.5 max-h-72 overflow-y-auto overscroll-contain rounded-2xl '
+    // ثابتةٌ على الشاشة لا داخل أبيها: في جدولٍ يتمرّر أفقياً أو بطاقةٍ تقصّ ما يفيض
+    // (الإدخال السريع) تُقصّ القائمة المطلقة عند حافّته
+    list.className = 'fixed z-50 overflow-y-auto overscroll-contain rounded-2xl '
         + 'bg-white p-1.5 text-sm shadow-lg ring-1 ring-aeblack-200';
 
     select.parentNode.insertBefore(wrapper, select);
@@ -92,7 +94,25 @@ function enhance(select) {
         input.disabled = select.disabled;
     };
 
+    // تحت الحقل، وفوقه إن ضاق ما تحته
+    const place = () => {
+        const box = input.getBoundingClientRect();
+        const below = window.innerHeight - box.bottom;
+        const above = box.top;
+        const up = below < 220 && above > below;
+
+        list.style.left = `${box.left}px`;
+        list.style.width = `${box.width}px`;
+        list.style.top = up ? '' : `${box.bottom + 6}px`;
+        list.style.bottom = up ? `${window.innerHeight - box.top + 6}px` : '';
+        list.style.maxHeight = `${Math.max(120, Math.min(288, (up ? above : below) - 12))}px`;
+    };
+
+    const follow = () => !list.hidden && place();
+
     const close = () => {
+        window.removeEventListener('scroll', follow, true);
+        window.removeEventListener('resize', follow);
         list.hidden = true;
         input.setAttribute('aria-expanded', 'false');
         input.removeAttribute('aria-activedescendant');
@@ -153,6 +173,9 @@ function enhance(select) {
         });
 
         list.hidden = false;
+        place();
+        window.addEventListener('scroll', follow, true);
+        window.addEventListener('resize', follow);
         input.setAttribute('aria-expanded', 'true');
         active = -1;
 

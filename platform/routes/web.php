@@ -28,6 +28,7 @@ use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\ReconcileController;
+use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
 use App\Http\Controllers\Tenant\ShipmentExportController;
 use App\Http\Controllers\Tenant\ShipmentScanController;
@@ -94,6 +95,8 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.create'])->name('shipments.store');
 
         Route::middleware(['staff', 'can:shipments.create'])->group(function () {
+            Route::get('/shipments/quick', [QuickEntryController::class, 'create'])->name('shipments.quick');
+            Route::post('/shipments/quick', [QuickEntryController::class, 'store'])->name('shipments.quick.store');
             Route::get('/shipments/import', [ShipmentImportController::class, 'create'])->name('shipments.import');
             Route::get('/shipments/import/template', [ShipmentImportController::class, 'template'])->name('shipments.import.template');
             Route::post('/shipments/import', [ShipmentImportController::class, 'store'])->name('shipments.import.store');

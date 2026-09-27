@@ -39,6 +39,7 @@ final class StaffNavigation
             ['شحنات العميل', 'boxes', [
                 ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show'], 'shipments.view'],
                 ['shipments.create', 'شحنة جديدة', ['shipments.create'], 'shipments.create'],
+                ['shipments.quick', 'إدخال سريع (حتى ٣٠ شحنة)', ['shipments.quick*'], 'shipments.create'],
                 ['shipments.import', 'رفع من ملف', ['shipments.import*'], 'shipments.create'],
             ]],
             ['عمليات التوصيل', 'truck', [

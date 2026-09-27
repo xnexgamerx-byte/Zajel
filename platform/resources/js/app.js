@@ -6,6 +6,7 @@
 
 import { initSearchableSelects } from './searchable-select';
 import { initScanTable } from './scan-table';
+import { initQuickEntry } from './quick-entry';
 
 const form = document.getElementById('shipment-form');
 
@@ -19,6 +20,9 @@ initSearchableSelects();
 
 const scanTable = document.querySelector('[data-scan-table]');
 if (scanTable) initScanTable(scanTable);
+
+const quickForm = document.querySelector('[data-quick-form]');
+if (quickForm) initQuickEntry(quickForm);
 
 if (form) {
     initLiveQuote();
