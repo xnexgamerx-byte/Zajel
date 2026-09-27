@@ -162,6 +162,13 @@
             </dl>
         </section>
 
+        @if ($merchant->fixed_note)
+            <section class="card p-5">
+                <h2 class="mb-2 text-sm font-bold">ملاحظة ثابتة على شحناته</h2>
+                <p class="text-sm text-ink-600">{{ $merchant->fixed_note }}</p>
+            </section>
+        @endif
+
         @if ($merchant->notes)
             <section class="card p-5">
                 <h2 class="mb-2 text-sm font-bold">ملاحظات</h2>

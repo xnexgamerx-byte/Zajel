@@ -24,6 +24,22 @@ class CreateShipment
         protected DuplicateDetector $duplicates,
     ) {}
 
+    /**
+     * «الملاحظة الثابتة» للتاجر تُلحق بكل شحنةٍ جديدة له، بعد ما كُتب فيها —
+     * من أيّ طريقٍ أُنشئت: الشاشة والبوابة والإدخال السريع والملف.
+     */
+    public static function withFixedNote(?string $notes, Merchant $merchant): ?string
+    {
+        $fixed = trim((string) $merchant->fixed_note);
+        $notes = trim((string) $notes);
+
+        if ($fixed === '' || str_contains($notes, $fixed)) {
+            return $notes === '' ? null : $notes;
+        }
+
+        return $notes === '' ? $fixed : "{$notes} — {$fixed}";
+    }
+
     public function handle(array $data, ?User $actor = null): Shipment
     {
         return DB::transaction(function () use ($data, $actor) {
@@ -80,7 +96,7 @@ class CreateShipment
                 'weight_grams'        => $weight,
                 'is_fragile'          => (bool) ($data['is_fragile'] ?? false),
                 'allow_open'          => (bool) ($data['allow_open'] ?? false),
-                'notes'               => $data['notes'] ?? null,
+                'notes'               => static::withFixedNote($data['notes'] ?? null, $merchant),
 
                 'cod_amount'          => $cod,
                 'delivery_fee'        => $deliveryFee,

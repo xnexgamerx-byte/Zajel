@@ -39,6 +39,7 @@ class MerchantRequest extends FormRequest
             'payout_account'   => ['nullable', 'string', 'max:120'],
             'status'           => ['required', Rule::in(['active', 'suspended', 'pending'])],
             'notes'            => ['nullable', 'string', 'max:500'],
+            'fixed_note'       => ['nullable', 'string', 'max:255'],
 
             'create_login'     => ['nullable', 'boolean'],
             'username'         => ['nullable', 'string', 'max:64'],

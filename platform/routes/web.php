@@ -28,6 +28,8 @@ use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\ReconcileController;
+use App\Http\Controllers\Tenant\PassedThroughController;
+use App\Http\Controllers\Tenant\ProcessingController;
 use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
 use App\Http\Controllers\Tenant\ShipmentExportController;
@@ -108,6 +110,8 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.labels');
         Route::get('/shipments/stages', [ShipmentController::class, 'stages'])
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.stages');
+        Route::get('/shipments/passed', [PassedThroughController::class, 'index'])
+            ->middleware(['staff', 'can:shipments.view'])->name('shipments.passed');
         Route::middleware(['staff', 'can:shipments.view'])->group(function () {
             Route::get('/shipments/scan', [ShipmentScanController::class, 'index'])->name('shipments.scan');
             Route::get('/shipments/scan/lookup', [ShipmentScanController::class, 'lookup'])->name('shipments.scan.lookup');
@@ -170,6 +174,12 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/zones', [ZoneController::class, 'index'])->name('zones.index');
                 Route::post('/zones', [ZoneController::class, 'store'])->name('zones.store');
                 Route::delete('/zones/{zone}', [ZoneController::class, 'destroy'])->name('zones.destroy');
+            });
+
+            // شحنات للمعالجة: قرار المتابعة في كل محاولةٍ فاشلة
+            Route::middleware('can:shipments.status')->group(function () {
+                Route::get('/processing', [ProcessingController::class, 'index'])->name('processing.index');
+                Route::post('/processing/{shipment}', [ProcessingController::class, 'store'])->name('processing.store');
             });
 
             // الرقابة: قوائم تُحسَم لا تقارير تُقرأ

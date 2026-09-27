@@ -170,6 +170,13 @@
                 </div>
 
                 <div>
+                    <label class="field-label" for="fixed_note">ملاحظة ثابتة على شحناته</label>
+                    <input id="fixed_note" name="fixed_note" class="field-input" maxlength="255"
+                           value="{{ old('fixed_note', $merchant->fixed_note) }}" placeholder="مثل: اتّصل قبل الوصول · لا يُفتح الطرد">
+                    <p class="field-hint">تُلحق بملاحظات كل شحنةٍ جديدة له، من أيّ طريقٍ أُنشئت.</p>
+                    @error('fixed_note') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
                     <label class="field-label" for="notes">ملاحظات</label>
                     <textarea id="notes" name="notes" rows="2" class="field-input">{{ old('notes', $merchant->notes) }}</textarea>
                 </div>

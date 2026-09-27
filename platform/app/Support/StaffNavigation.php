@@ -45,6 +45,7 @@ final class StaffNavigation
             ['عمليات التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],
                 ['shipments.scan', 'استلام وصولات في كل المراحل وإسنادها', ['shipments.scan'], 'shipments.status'],
+                ['processing.index', 'شحنات للمعالجة', ['processing.*'], 'shipments.status'],
                 ['courier-manifests.index', 'كشوف المناديب', ['courier-manifests.*'], 'transport.manage'],
                 ['manifests.index', 'كشوف النقل', ['manifests.index', 'manifests.show'], 'transport.manage'],
                 ['manifests.inbound', 'وارد المراكز', ['manifests.inbound'], 'transport.manage'],
@@ -53,6 +54,7 @@ final class StaffNavigation
             ['طلبات شحن', 'clipboard', [
                 ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
                 ['bags.index', 'الأكياس', ['bags.*'], 'transport.manage'],
+                ['shipments.passed', 'شحنات مرّت على مخزني', ['shipments.passed'], 'shipments.view'],
                 ['shipments.trash', 'شحنات ممسوحة', ['shipments.trash'], 'shipments.delete'],
             ]],
             ['تصفيات الراجع', 'undo', [

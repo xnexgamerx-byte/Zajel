@@ -134,6 +134,11 @@ class ChangeShipmentStatus
                 $attributes['hub_id'] = $options['hub_id'];
             }
 
+            // التأجيل إلى موعدٍ اتُّفق عليه مع الزبون
+            if (array_key_exists('scheduled_at', $options)) {
+                $attributes['scheduled_at'] = $options['scheduled_at'];
+            }
+
             // المبلغ المحصَّل يُثبَّت عند التسليم ولا يُعدَّل بعده،
             // ومعه تُجمَّد عمولة المندوب ويُعاد حساب مستحقّ التاجر على
             // أساس ما حُصِّل فعلاً لا ما كان مطلوباً.

@@ -47,6 +47,7 @@ class ShipmentEvent extends Model
         'bag_missing'      => 'ناقص من كيس',
         'deleted'          => 'مسح',
         'restored'         => 'استرجاع من الممسوحة',
+        'processed'        => 'معالجة',
     ];
 
     /** @var array<string, string> */

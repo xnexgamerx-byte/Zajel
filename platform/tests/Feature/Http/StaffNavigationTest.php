@@ -109,7 +109,7 @@ class StaffNavigationTest extends TestCase
 
         // والتقارير المالية لمن يرى أرباح الشركة وحده
         // ويرى «كل مراحل النقل»: عدّاداتٌ للقراءة
-        $this->assertSame(['الصفحة الرئيسية', 'شحنات العميل', 'عمليات التوصيل', 'تقارير', 'المراجعة'], $labels);
+        $this->assertSame(['الصفحة الرئيسية', 'شحنات العميل', 'عمليات التوصيل', 'طلبات شحن', 'تقارير', 'المراجعة'], $labels);
         $delivery = $menus[array_search('عمليات التوصيل', $labels, true)];
         $this->assertSame(['كل مراحل النقل'], array_column($delivery['links'], 'label'));
 
