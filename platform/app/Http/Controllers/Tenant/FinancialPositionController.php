@@ -15,11 +15,12 @@ use Illuminate\View\View;
  */
 class FinancialPositionController extends Controller
 {
-    public function index(FinancialPosition $position): View
+    public function index(Request $request, FinancialPosition $position): View
     {
         return view('tenant.money.position', [
-            'position' => $position->now(),
-            'last'     => FinancialSnapshot::latest('taken_at')->first(),
+            // موظّف الفرع يرى موقف فرعه، واللقطات المحفوظة للشركة كلّها (main-branch)
+            'position' => $position->now($request->user()),
+            'last'     => $request->user()->isBranchLimited() ? null : FinancialSnapshot::latest('taken_at')->first(),
         ]);
     }
 

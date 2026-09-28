@@ -32,14 +32,14 @@ class ReturnController extends Controller
     public function incoming(Request $request): View
     {
         $courierId = $request->integer('courier_id') ?: null;
-        $shipments = $this->receiver->pending($courierId);
+        $shipments = $this->receiver->pending($courierId, $request->user());
 
         return view('tenant.returns.incoming', [
             'shipments' => $shipments,
             'courierId' => $courierId,
-            'couriers'  => Courier::delivering()->orderBy('name')->get(['id', 'name']),
+            'couriers'  => Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             // عدّاد لكل مندوب: الموظّف يعرف مَن عنده راجع قبل أن يفتح قائمته
-            'perCourier' => $this->receiver->pending()->groupBy('delivery_courier_id')->map->count(),
+            'perCourier' => $this->receiver->pending(viewer: $request->user())->groupBy('delivery_courier_id')->map->count(),
         ]);
     }
 
@@ -64,10 +64,10 @@ class ReturnController extends Controller
     public function sorting(Request $request): View
     {
         return view('tenant.returns.sorting', [
-            'misplaced' => $this->sorter->misplaced(),
-            'onTheWay'  => $this->sorter->onTheWay(),
+            'misplaced' => $this->sorter->misplaced($request->user()),
+            'onTheWay'  => $this->sorter->onTheWay($request->user()),
             'branches'  => Branch::withTrashed()->get(['id', 'name', 'deleted_at'])->keyBy('id'),
-            'readyHere' => $this->handover->ready()->count(),
+            'readyHere' => $this->handover->ready(viewer: $request->user())->count(),
         ]);
     }
 
@@ -98,13 +98,13 @@ class ReturnController extends Controller
     public function outgoing(Request $request): View
     {
         $merchantId = $request->integer('merchant_id') ?: null;
-        $shipments = $this->handover->ready($merchantId);
+        $shipments = $this->handover->ready($merchantId, viewer: $request->user());
 
         return view('tenant.returns.outgoing', [
             'shipments'   => $shipments,
             'merchantId'  => $merchantId,
-            'merchants'   => Merchant::orderBy('business_name')->get(['id', 'business_name']),
-            'perMerchant' => $this->handover->ready()->groupBy('merchant_id')->map->count(),
+            'merchants'   => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
+            'perMerchant' => $this->handover->ready(viewer: $request->user())->groupBy('merchant_id')->map->count(),
         ]);
     }
 
@@ -117,7 +117,7 @@ class ReturnController extends Controller
             'note'           => ['nullable', 'string', 'max:255'],
         ], [], ['shipment_ids' => 'الشحنات', 'merchant_id' => 'التاجر']);
 
-        $merchant = Merchant::find($data['merchant_id']);
+        $merchant = Merchant::visibleTo($request->user())->find($data['merchant_id']);
 
         if (! $merchant) {
             return back()->withErrors(['merchant_id' => 'التاجر غير موجود.']);

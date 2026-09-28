@@ -25,7 +25,7 @@ class ManifestController extends Controller
 
     public function index(Request $request): View
     {
-        $manifests = Manifest::with(['fromHub:id,name', 'toHub:id,name'])
+        $manifests = Manifest::visibleTo($request->user())->with(['fromHub:id,name', 'toHub:id,name'])
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when(! $request->query('status'), fn ($q) => $q->whereIn('status', ['draft', 'dispatched', 'arrived']))
             ->orderByRaw("case status when 'draft' then 0 when 'dispatched' then 1 else 2 end")
@@ -41,7 +41,7 @@ class ManifestController extends Controller
             'hubs'      => $hubs,
             'home'      => $home,
             'away'      => $hubs->firstWhere('id', '!=', $home?->id),
-            'inbound'   => Manifest::where('status', 'dispatched')->count(),
+            'inbound'   => Manifest::visibleTo($request->user())->where('status', 'dispatched')->count(),
         ]);
     }
 
@@ -61,6 +61,11 @@ class ManifestController extends Controller
 
         if (! $from || ! $to) {
             return back()->withErrors(['to_hub_id' => 'اختر مركزين موجودين.']);
+        }
+
+        // موظّف الفرع يُرسل من مراكز فرعه، إلى أيّ فرع
+        if ($request->user()->isBranchLimited() && (int) $from->branch_id !== (int) $request->user()->branch_id) {
+            return back()->withErrors(['from_hub_id' => 'أرسل من مركزٍ في فرعك.']);
         }
 
         $manifest = $this->manifests->create($from, $to, $data, $request->user());
@@ -91,7 +96,7 @@ class ManifestController extends Controller
     {
         $data = $request->validate(['bag_id' => ['required', 'integer']], [], ['bag_id' => 'الكيس']);
 
-        $bag = Bag::find($data['bag_id']);
+        $bag = Bag::visibleTo($request->user())->find($data['bag_id']);
 
         if (! $bag) {
             return back()->withErrors(['bag_id' => 'الكيس غير موجود.']);
@@ -137,7 +142,7 @@ class ManifestController extends Controller
             ?? $this->homeHub($hubs->where('is_active', true), $request->user()->branch_id);
         $direction = $request->query('direction') === 'in' ? 'in' : 'out';
 
-        $manifests = Manifest::with(['fromHub:id,name', 'toHub:id,name'])
+        $manifests = Manifest::visibleTo($request->user())->with(['fromHub:id,name', 'toHub:id,name'])
             ->withCount(['bags as missing_count' => fn ($q) => $q->where('manifest_bags.is_missing', true)])
             ->whereIn('status', ['arrived', 'closed'])
             ->when($hub, fn ($q) => $q->where($direction === 'out' ? 'from_hub_id' : 'to_hub_id', $hub->id))
@@ -168,10 +173,10 @@ class ManifestController extends Controller
         ]);
     }
 
-    public function inbound(): View
+    public function inbound(Request $request): View
     {
         return view('tenant.manifests.inbound', [
-            'manifests' => Manifest::with(['fromHub:id,name', 'toHub:id,name', 'bags'])
+            'manifests' => Manifest::visibleTo($request->user())->with(['fromHub:id,name', 'toHub:id,name', 'bags'])
                 ->where('status', 'dispatched')
                 ->orderBy('departed_at')
                 ->get(),

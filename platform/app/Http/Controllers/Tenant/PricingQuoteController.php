@@ -27,7 +27,7 @@ class PricingQuoteController extends Controller
             'discount'       => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $merchant = Merchant::find($data['merchant_id']);
+        $merchant = Merchant::visibleTo($request->user())->find($data['merchant_id']);
 
         if (! $merchant) {
             return response()->json(['message' => 'التاجر غير موجود.'], 404);

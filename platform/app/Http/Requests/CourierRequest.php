@@ -15,6 +15,14 @@ class CourierRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    /** موظّف فرعٍ يضيف مناديب لفرعه وحده، ولا ينقل مندوباً إلى فرعٍ آخر. */
+    protected function prepareForValidation(): void
+    {
+        if ($this->user()?->isBranchLimited()) {
+            $this->merge(['branch_id' => $this->user()->branch_id]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -75,7 +83,7 @@ class CourierRequest extends FormRequest
 
             // مستوىً واحد: الأب مندوب توصيلٍ ليس فرعيّاً، ومن له فريقٌ لا يصير فرعيّاً
             if (filled($this->parent_id)) {
-                $parent = Courier::delivering()->find($this->parent_id);
+                $parent = Courier::delivering()->visibleTo($this->user())->find($this->parent_id);
 
                 if (! $parent || ($courier && $parent->id === $courier->id)) {
                     $validator->errors()->add('parent_id', 'اختر مندوب توصيلٍ غيره أباً له.');

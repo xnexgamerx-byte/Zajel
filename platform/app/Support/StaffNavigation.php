@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Route;
 
 /**
  * الشريط العلوي لموظّفي الشركة.
@@ -149,6 +150,7 @@ final class StaffNavigation
             : 0;
 
         $menus = [];
+        $limited = $user->isBranchLimited();
 
         foreach (static::menus() as [$label, $icon, $links]) {
             $visible = [];
@@ -158,6 +160,11 @@ final class StaffNavigation
                 $params = $link[4] ?? [];
 
                 if ($ability !== null && ! $user->can($ability)) {
+                    continue;
+                }
+
+                // شاشة الشركة كلّها (main-branch) تغيب عن موظّف فرعٍ غير الرئيسي
+                if ($limited && in_array('main-branch', Route::getRoutes()->getByName($route)?->gatherMiddleware() ?? [], true)) {
                     continue;
                 }
 

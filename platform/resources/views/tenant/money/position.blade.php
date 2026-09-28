@@ -6,16 +6,21 @@
     <div>
         <h1 class="page-title">الموقف المالي</h1>
         <p class="mt-1 text-sm text-ink-500">
-            ما عندنا وما لنا وما علينا — الآن. كل رقمٍ من مصدره الذي يُحاسَب به.
+            @if (auth()->user()->isBranchLimited())
+                موقف فرعك الآن: صناديقه وتجّاره ومناديبه وحوالاته. كل رقمٍ من مصدره الذي يُحاسَب به.
+            @else
+                ما عندنا وما لنا وما علينا — الآن. كل رقمٍ من مصدره الذي يُحاسَب به.
+            @endif
             @if ($last) آخر لقطة: <a href="{{ route('money.position.history') }}" class="text-[var(--brand)] hover:underline">{{ $last->taken_at->format('Y-m-d H:i') }}</a>. @endif
         </p>
     </div>
-    @can('money.cash')
+    {{-- اللقطة المحفوظة للشركة كلّها: يحفظها الفرع الرئيسي --}}
+    @if (auth()->user()->can('money.cash') && ! auth()->user()->isBranchLimited())
         <form method="POST" action="{{ route('money.position.store') }}">
             @csrf
             <button class="btn-primary">حفظ نسخة من الموقف المالي الحالي</button>
         </form>
-    @endcan
+    @endif
 </div>
 
 <div class="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

@@ -6,6 +6,7 @@ use App\Models\BranchRemittance;
 use App\Models\CashBox;
 use App\Models\Courier;
 use App\Models\Merchant;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,22 +31,26 @@ final class FinancialPosition
         'deposits_held'       => ['تأمينات التجّار عندنا', 'liability'],
     ];
 
-    /** @return array{figures: array<string,int>, total: int, payables_by_pickup: array<string,int>} */
-    public function now(): array
+    /**
+     * والناظر المقيَّد بفرع يرى موقف فرعه: صناديقه وتجّاره ومناديبه وحوالاته.
+     *
+     * @return array{figures: array<string,int>, total: int, payables_by_pickup: array<string,int>}
+     */
+    public function now(?User $viewer = null): array
     {
-        $boxes = CashBox::active()->selectRaw("
+        $boxes = CashBox::active()->visibleTo($viewer)->selectRaw("
                 sum(case when user_id is null and type = 'main' then balance else 0 end) as safe,
                 sum(case when user_id is null and type <> 'main' then balance else 0 end) as boxes,
                 sum(case when user_id is not null then balance else 0 end) as employee_boxes")
             ->toBase()->first();
 
-        $merchants = Merchant::query()->selectRaw('
+        $merchants = Merchant::query()->visibleTo($viewer)->selectRaw('
                 sum(case when balance < 0 then -balance else 0 end) as debts,
                 sum(case when balance > 0 then balance else 0 end) as payables,
                 sum(deposit_balance) as deposits')
             ->toBase()->first();
 
-        $couriers = Courier::query()->selectRaw('
+        $couriers = Courier::query()->visibleTo($viewer)->selectRaw('
                 sum(case when cash_in_hand > 0 then cash_in_hand else 0 end) as cash,
                 sum(case when commission_balance > 0 then commission_balance else 0 end) as commissions')
             ->toBase()->first();
@@ -55,7 +60,10 @@ final class FinancialPosition
             'boxes'               => (int) ($boxes->boxes ?? 0),
             'employee_boxes'      => (int) ($boxes->employee_boxes ?? 0),
             'with_couriers'       => (int) ($couriers->cash ?? 0),
-            'in_transit'          => (int) BranchRemittance::pending()->sum('amount'),
+            'in_transit'          => (int) BranchRemittance::pending()
+                ->when($viewer?->isBranchLimited(), fn ($q) => $q->where(fn ($w) => $w
+                    ->where('from_branch_id', $viewer->branch_id)->orWhere('to_branch_id', $viewer->branch_id)))
+                ->sum('amount'),
             'merchant_debts'      => (int) ($merchants->debts ?? 0),
             'merchant_payables'   => (int) ($merchants->payables ?? 0),
             'courier_commissions' => (int) ($couriers->commissions ?? 0),
@@ -71,14 +79,15 @@ final class FinancialPosition
             'figures'            => $figures,
             'total'              => $total,
             // «ومقسّمة حسب مندوب الاستلام»: من يحمل المال لتجّاره
-            'payables_by_pickup' => $this->payablesByPickupCourier(),
+            'payables_by_pickup' => $this->payablesByPickupCourier($viewer),
         ];
     }
 
     /** @return array<string, int> */
-    private function payablesByPickupCourier(): array
+    private function payablesByPickupCourier(?User $viewer): array
     {
         return Merchant::query()
+            ->visibleTo($viewer)
             ->where('merchants.balance', '>', 0)
             ->leftJoin('couriers', 'couriers.id', '=', 'merchants.pickup_courier_id')
             ->selectRaw("coalesce(couriers.name, 'بلا مندوب استلام') as name, sum(merchants.balance) as total")

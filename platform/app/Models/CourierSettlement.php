@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SeenByBranch;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CourierSettlement extends Model
 {
-    use BelongsToCompany;
+    use BelongsToCompany, SeenByBranch;
 
     protected $guarded = ['id'];
 

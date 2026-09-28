@@ -25,9 +25,11 @@ class ZoneController extends Controller
     public function index(Request $request): View
     {
         $governorates = Governorate::offered()->get();
-        $couriers = Courier::delivering()->orderBy('name')->get();
+        $couriers = Courier::delivering()->visibleTo($request->user())->orderBy('name')->get();
 
+        // مناديب فرعه ومناطقهم إن كان مقيَّداً بفرع
         $zones = CourierZone::query()
+            ->visibleTo($request->user())
             ->with(['courier:id,name,status', 'city:id,name_ar'])
             ->get()
             ->sortBy(fn (CourierZone $zone) => [$zone->city_id !== null, $zone->city?->name_ar])
@@ -35,6 +37,7 @@ class ZoneController extends Controller
 
         // ما ينتظر في كل محافظة الآن — المنطقة المكشوفة تُرى بالأرقام لا بالحدس
         $waiting = Shipment::query()
+            ->visibleTo($request->user())
             ->whereIn('status', ShipmentStatus::openValues())
             ->selectRaw('governorate_id, count(*) as total')
             ->groupBy('governorate_id')
@@ -60,7 +63,7 @@ class ZoneController extends Controller
             'city_id'        => ['nullable', 'integer'],
         ], [], ['courier_id' => 'المندوب', 'governorate_id' => 'المحافظة']);
 
-        $courier = Courier::delivering()->find($data['courier_id']);
+        $courier = Courier::delivering()->visibleTo($request->user())->find($data['courier_id']);
         $governorate = Governorate::find($data['governorate_id']);
 
         if (! $courier || ! $governorate) {

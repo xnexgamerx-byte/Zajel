@@ -16,6 +16,14 @@ class MerchantRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    /** موظّف فرعٍ يضيف تجّاراً لفرعه وحده، ولا ينقل تاجراً إلى فرعٍ آخر. */
+    protected function prepareForValidation(): void
+    {
+        if ($this->user()?->isBranchLimited()) {
+            $this->merge(['branch_id' => $this->user()->branch_id]);
+        }
+    }
+
     public function rules(): array
     {
         $merchant = $this->route('merchant');
@@ -70,11 +78,12 @@ class MerchantRequest extends FormRequest
             }
 
             // CompanyScope مفعّل: مندوبٌ أو موظّفٌ من شركةٍ أخرى لا يُعثر عليه أصلاً
-            if ($this->pickup_courier_id && ! \App\Models\Courier::picking()->whereKey($this->pickup_courier_id)->exists()) {
+            // ومن فرعه إن كان الموظّف مقيَّداً بفرع
+            if ($this->pickup_courier_id && ! \App\Models\Courier::picking()->visibleTo($this->user())->whereKey($this->pickup_courier_id)->exists()) {
                 $validator->errors()->add('pickup_courier_id', 'اختر مندوب استلامٍ من مندوبي شركتك.');
             }
 
-            if ($this->sales_user_id && ! User::whereKey($this->sales_user_id)->where('is_sales', true)->exists()) {
+            if ($this->sales_user_id && ! User::whereKey($this->sales_user_id)->where('is_sales', true)->visibleTo($this->user())->exists()) {
                 $validator->errors()->add('sales_user_id', 'اختر موظّف مبيعاتٍ من موظّفي شركتك.');
             }
 

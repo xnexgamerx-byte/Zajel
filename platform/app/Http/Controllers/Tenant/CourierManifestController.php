@@ -27,9 +27,12 @@ class CourierManifestController extends Controller
     /** مَن بيده شيء، وكم، وبكم. */
     public function index(Request $request): View
     {
+        // مناديب فرعه وحدهم إن كان مقيَّداً بفرع — ولو محذوفين وبيدهم عهدة
         $held = Shipment::query()
             ->status(ShipmentStatus::OutForDelivery)
             ->whereNotNull('delivery_courier_id')
+            ->when($request->user()->isBranchLimited(), fn ($q) => $q->whereIn(
+                'delivery_courier_id', Courier::withTrashed()->visibleTo($request->user())->select('id')))
             ->selectRaw('delivery_courier_id,
                          count(*) as shipments,
                          sum(cod_amount) as cod,
@@ -48,6 +51,7 @@ class CourierManifestController extends Controller
         | بيده. والموقوف والمحذوف أولى بالظهور لا أحقّ بالإخفاء.
         */
         $couriers = Courier::withTrashed()
+            ->visibleTo($request->user())
             ->whereIn('id', $held->keys()->all() ?: [0])
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'type', 'status', 'cash_in_hand', 'cash_limit', 'branch_id', 'deleted_at']);

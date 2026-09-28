@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SeenByBranch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Announcement extends Model
 {
-    use BelongsToCompany;
+    use BelongsToCompany, SeenByBranch;
 
     protected $guarded = ['id'];
 
@@ -77,10 +78,21 @@ class Announcement extends Model
         return [];
     }
 
-    /** ما يراه المستخدم: ما وُجِّه إلى جمهوره ولم ينتهِ أجله — ولو أُرسل قبل تعيينه. */
+    /**
+     * ما يراه المستخدم: ما وُجِّه إلى جمهوره ولم ينتهِ أجله — ولو أُرسل قبل تعيينه.
+     * وإعلان الفرع لتجّار فرعه ومناديبه، وإعلان الشركة (بلا فرع) للجميع.
+     */
     public function scopeFor(Builder $q, User $user): Builder
     {
-        return $q->whereIn('audience', static::audiencesFor($user) ?: ['—'])->live();
+        $branch = match ($user->role) {
+            UserRole::Merchant => $user->merchant?->branch_id,
+            UserRole::Courier  => $user->courier?->branch_id,
+            default            => null,
+        };
+
+        return $q->whereIn('audience', static::audiencesFor($user) ?: ['—'])
+            ->where(fn (Builder $w) => $w->whereNull('branch_id')->when($branch, fn ($w) => $w->orWhere('branch_id', $branch)))
+            ->live();
     }
 
     public function scopeUnreadBy(Builder $q, User $user): Builder
@@ -97,13 +109,15 @@ class Announcement extends Model
     public function reach(): int
     {
         $users = User::query()->where('is_active', true);
+        $branch = fn ($q) => $this->branch_id ? $q->where('branch_id', $this->branch_id) : $q;
 
         return match ($this->audience) {
-            'merchants' => $users->where('role', UserRole::Merchant)->count(),
+            'merchants' => $users->where('role', UserRole::Merchant)
+                ->when($this->branch_id, fn ($u) => $u->whereHas('merchant', $branch))->count(),
             'delivery_couriers' => $users->where('role', UserRole::Courier)
-                ->whereHas('courier', fn ($c) => $c->delivering()->active())->count(),
+                ->whereHas('courier', fn ($c) => $branch($c->delivering()->active()))->count(),
             'pickup_couriers' => $users->where('role', UserRole::Courier)
-                ->whereHas('courier', fn ($c) => $c->picking()->active())->count(),
+                ->whereHas('courier', fn ($c) => $branch($c->picking()->active()))->count(),
             default => 0,
         };
     }

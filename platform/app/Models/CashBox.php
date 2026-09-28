@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SeenByBranch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CashBox extends Model
 {
-    use BelongsToCompany;
+    use BelongsToCompany, SeenByBranch;
 
     protected $guarded = ['id'];
 
@@ -40,7 +41,7 @@ class CashBox extends Model
             return $own;
         }
 
-        return static::forBranch($branchId);
+        return static::forBranch($branchId, strict: (bool) $actor?->isBranchLimited());
     }
 
     public function movements(): HasMany
@@ -69,12 +70,16 @@ class CashBox extends Model
      *
      * الشركة ذات الفرع الواحد لا تُجبَر على اختيار صندوق في كل عملية،
      * وذات الفروع تُصيب صندوقها الصحيح بلا إعداد إضافي.
+     *
+     * وموظّف فرعٍ غير الرئيسي (strict) لا يسقط إلى صندوق فرعٍ آخر: النقد في
+     * يده بالبصرة لا في درج بغداد، وصندوقٌ لا يراه لا يُقيَّد فيه ما قبضه.
      */
-    public static function forBranch(?int $branchId): ?self
+    public static function forBranch(?int $branchId, bool $strict = false): ?self
     {
         return static::active()
             // صندوق الموظّف له وحده: لا يصير صندوق الفرع لغيره
             ->whereNull('user_id')
+            ->when($strict, fn (Builder $q) => $q->where('branch_id', $branchId))
             ->when($branchId, fn (Builder $q) => $q->orderByRaw('case when branch_id = ? then 0 else 1 end', [$branchId]))
             ->orderByRaw("case when type = 'main' then 0 else 1 end")
             ->orderBy('id')

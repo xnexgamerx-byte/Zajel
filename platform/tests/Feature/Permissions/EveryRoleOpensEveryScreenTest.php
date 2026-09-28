@@ -39,6 +39,9 @@ class EveryRoleOpensEveryScreenTest extends TestCase
 
     private Branch $branch;
 
+    /** فرعٌ غير الرئيسي: موظّفوه مقيَّدون به، وفيه وحده كانت الاستعلامات تسقط */
+    private Branch $sub;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -51,6 +54,7 @@ class EveryRoleOpensEveryScreenTest extends TestCase
         // بيانات تمرّ بها الاستعلامات: فرع ومركز، ومسلَّمة، وراجع على الرفّ
         Tenancy::runFor($this->company, function () use ($merchant, $owner) {
             $this->branch = Branch::where('code', 'B1')->firstOrFail();
+            $this->sub = Branch::create(['code' => 'B2', 'name' => 'فرع البصرة', 'is_active' => true]);
             Hub::create(['code' => 'H1', 'name' => 'مركز', 'type' => 'main',
                 'branch_id' => $this->branch->id, 'is_active' => true]);
 
@@ -112,18 +116,20 @@ class EveryRoleOpensEveryScreenTest extends TestCase
             UserRole::CompanyOwner, UserRole::CompanyAdmin, UserRole::BranchManager,
             UserRole::Operations, UserRole::CustomerService, UserRole::Accountant,
         ] as $role) {
-            // مقيَّدٌ بفرع: هنا بالذات كان السقوط
-            $user = Tenancy::runFor($this->company, fn () => User::create([
-                'name' => $role->label(), 'phone' => $this->phoneFrom('role'.$role->value),
-                'password' => 'password', 'role' => $role,
-                'branch_id' => $this->branch->id, 'is_active' => true,
-            ]));
+            // في الفرع الرئيسي (يرى الفروع كلّها)، وفي فرعٍ غيره مقيَّداً به: هنا بالذات كان السقوط
+            foreach (['main' => $this->branch, 'sub' => $this->sub] as $where => $branch) {
+                $user = Tenancy::runFor($this->company, fn () => User::create([
+                    'name' => $role->label(), 'phone' => $this->phoneFrom('role'.$role->value.$where),
+                    'password' => 'password', 'role' => $role,
+                    'branch_id' => $branch->id, 'is_active' => true,
+                ]));
 
-            foreach ($screens as $uri) {
-                $status = $this->actingAs($user)->get($host.$uri)->getStatusCode();
+                foreach ($screens as $uri) {
+                    $status = $this->actingAs($user)->get($host.$uri)->getStatusCode();
 
-                if ($status >= 500) {
-                    $crashes[] = "{$role->value} {$uri} → {$status}";
+                    if ($status >= 500) {
+                        $crashes[] = "{$role->value}@{$where} {$uri} → {$status}";
+                    }
                 }
             }
         }

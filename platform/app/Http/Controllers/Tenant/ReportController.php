@@ -267,6 +267,7 @@ class ReportController extends Controller
         $since = now()->subDays($days);
 
         $activeIds = Shipment::query()
+            ->visibleTo($request->user())
             ->whereFromDate('created_at', $since)
             ->distinct()
             ->toBase()
@@ -274,6 +275,7 @@ class ReportController extends Controller
             ->all();
 
         $merchants = Merchant::query()
+            ->visibleTo($request->user())
             ->where('status', 'active')
             ->when($activeIds, fn ($q) => $q->whereNotIn('id', $activeIds))
             ->orderBy('business_name')
@@ -323,11 +325,13 @@ class ReportController extends Controller
     public function debtors(Request $request): View
     {
         $merchants = Merchant::query()
+            ->visibleTo($request->user())
             ->where('balance', '<', 0)
             ->orderBy('balance')
             ->get(['id', 'business_name', 'code', 'phone', 'balance', 'deposit_balance', 'status']);
 
         $couriers = Courier::query()
+            ->visibleTo($request->user())
             ->where('cash_in_hand', '>', 0)
             ->orderByDesc('cash_in_hand')
             ->get(['id', 'name', 'phone', 'cash_in_hand', 'cash_limit', 'commission_balance', 'status']);
@@ -371,6 +375,11 @@ class ReportController extends Controller
             ->when($number !== '', fn ($q) => $q->whereIn(
                 'shipment_id',
                 Shipment::where('number', $number)->orWhere('barcode', $number)->toBase()->pluck('id')
+            ))
+            // تغييرات ما يراه وحده: شحنات فرعه إن كان مقيَّداً بفرع
+            ->when($request->user()->isBranchLimited(), fn ($q) => $q->whereIn(
+                'shipment_id',
+                Shipment::withTrashed()->visibleTo($request->user())->select('shipments.id'),
             ))
             ->latest('id')
             ->paginate(config('zajel.per_page'))

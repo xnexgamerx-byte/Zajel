@@ -25,6 +25,7 @@ class CourierController extends Controller
     public function index(Request $request): View
     {
         $couriers = Courier::query()
+            ->visibleTo($request->user())
             ->with(['branch:id,name', 'parent:id,name', 'zones' => fn ($q) => $q->whereNull('city_id')->with('governorate:id,name_ar')])
             ->when($request->query('q'), fn ($q, $term) => $q->where(
                 fn ($w) => $w->where('name', 'like', "%{$term}%")->orWhere('phone', $term)->orWhere('code', $term)
@@ -43,7 +44,7 @@ class CourierController extends Controller
 
         return view('tenant.couriers.index', [
             'couriers' => $couriers,
-            'parents'  => Courier::whereHas('subs')->orderBy('name')->get(['id', 'name']),
+            'parents'  => Courier::whereHas('subs')->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -159,11 +160,16 @@ class CourierController extends Controller
 
     protected function formData(): array
     {
+        $user = auth()->user();
+
         return [
-            'branches'     => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            // موظّف الفرع يضيف لفرعه وحده
+            'branches'     => Branch::where('is_active', true)
+                ->when($user->isBranchLimited(), fn ($q) => $q->whereKey($user->branch_id))
+                ->orderBy('name')->get(['id', 'name']),
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             // الأب مندوب توصيلٍ ليس فرعيّاً
-            'parents'      => Courier::delivering()->whereNull('parent_id')->orderBy('name')->get(['id', 'name', 'code']),
+            'parents'      => Courier::delivering()->whereNull('parent_id')->visibleTo($user)->orderBy('name')->get(['id', 'name', 'code']),
         ];
     }
 }

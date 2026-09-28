@@ -46,12 +46,12 @@ class ShipmentController extends Controller
             'shipments'    => $shipments,
             'statuses'     => ShipmentStatus::cases(),
             'stage'        => ShipmentStages::find($request->query('stage')),
-            'merchants'    => Merchant::orderBy('business_name')->get(['id', 'business_name']),
+            'merchants'    => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
-            'couriers'     => Courier::delivering()->active()->orderBy('name')
+            'couriers'     => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
-            'pickupCouriers' => Courier::picking()->orderBy('name')->get(['id', 'name']),
+            'pickupCouriers' => Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             'branches'     => Branch::orderBy('name')->get(['id', 'name']),
             'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(['id', 'name_ar']),
             'advanced'     => ShipmentFilters::hasAdvanced($request),
@@ -91,7 +91,7 @@ class ShipmentController extends Controller
     public function create(Request $request): View
     {
         return view('tenant.shipments.create', [
-            'merchants'    => Merchant::where('status', 'active')->orderBy('business_name')->get(['id', 'business_name', 'phone']),
+            'merchants'    => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name', 'phone']),
             'governorates' => Governorate::offered()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
         ]);
@@ -150,7 +150,7 @@ class ShipmentController extends Controller
             // الخيارات تأتي من خريطة الانتقالات نفسها، فلا تظهر في الواجهة
             // حالة لا يقبلها النظام — الواجهة والمنطق مصدرهما واحد.
             'nextStatuses' => $shipment->status->allowedNext(),
-            'couriers'     => Courier::delivering()->active()->orderBy('name')
+            'couriers'     => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'hubs'         => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(),

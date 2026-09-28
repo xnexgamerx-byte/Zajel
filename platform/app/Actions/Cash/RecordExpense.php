@@ -45,7 +45,7 @@ class RecordExpense
             // الدفع فوراً حالة شائعة (نثريّة تُدفع نقداً)، لكنّه يبقى
             // خطوةً مستقلّة تُسجَّل حركتها في الصندوق
             if (! empty($data['pay_now'])) {
-                return $this->pay($expense, $this->box($data, $expense), $actor);
+                return $this->pay($expense, $this->box($data, $expense, $actor), $actor);
             }
 
             return $expense;
@@ -129,11 +129,11 @@ class RecordExpense
         $expense->unsetRelation('cashBox');
     }
 
-    protected function box(array $data, Expense $expense): CashBox
+    protected function box(array $data, Expense $expense, ?User $actor = null): CashBox
     {
         $box = ! empty($data['cash_box_id'])
-            ? CashBox::active()->find($data['cash_box_id'])
-            : CashBox::forBranch($expense->branch_id);
+            ? CashBox::active()->visibleTo($actor)->find($data['cash_box_id'])
+            : CashBox::forBranch($expense->branch_id, strict: (bool) $actor?->isBranchLimited());
 
         if (! $box) {
             throw ValidationException::withMessages([

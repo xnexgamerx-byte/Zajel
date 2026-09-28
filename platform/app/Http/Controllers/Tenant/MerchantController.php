@@ -26,6 +26,7 @@ class MerchantController extends Controller
     public function index(Request $request): View
     {
         $merchants = Merchant::query()
+            ->visibleTo($request->user())
             ->with(['governorate:id,name_ar', 'branch:id,name'])
             ->when($request->query('q'), function ($q, $term) {
                 $q->where(fn ($w) => $w->where('business_name', 'like', "%{$term}%")
@@ -47,13 +48,9 @@ class MerchantController extends Controller
 
         return view('tenant.merchants.index', [
             'merchants' => $merchants,
-            'pickupCouriers' => \App\Models\Courier::picking()->orderBy('name')->get(['id', 'name']),
-            'salesUsers' => User::where('is_sales', true)->orderBy('name')->get(['id', 'name']),
-            'owed'      => (int) DB::table('merchants')
-                ->where('company_id', $request->user()->company_id)
-                ->whereNull('deleted_at')
-                ->where('balance', '>', 0)
-                ->sum('balance'),
+            'pickupCouriers' => \App\Models\Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
+            'salesUsers' => User::where('is_sales', true)->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
+            'owed'      => (int) Merchant::query()->visibleTo($request->user())->where('balance', '>', 0)->sum('balance'),
         ]);
     }
 
@@ -150,13 +147,18 @@ class MerchantController extends Controller
 
     protected function formData(): array
     {
+        $user = auth()->user();
+
         return [
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
-            'branches'     => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            // موظّف الفرع يضيف لفرعه وحده
+            'branches'     => Branch::where('is_active', true)
+                ->when($user->isBranchLimited(), fn ($q) => $q->whereKey($user->branch_id))
+                ->orderBy('name')->get(['id', 'name']),
             'priceLists'   => PriceList::where('is_active', true)->orderBy('name')->get(['id', 'name', 'is_default']),
-            'pickupCouriers' => \App\Models\Courier::picking()->active()->orderBy('name')->get(['id', 'name']),
-            'salesUsers'   => User::where('is_sales', true)->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'pickupCouriers' => \App\Models\Courier::picking()->active()->visibleTo($user)->orderBy('name')->get(['id', 'name']),
+            'salesUsers'   => User::where('is_sales', true)->where('is_active', true)->visibleTo($user)->orderBy('name')->get(['id', 'name']),
         ];
     }
 }

@@ -50,7 +50,8 @@ class StoreShipmentRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             // CompanyScope مفعّل هنا: تاجر من شركة أخرى لا يُعثَر عليه أصلاً.
-            if ($this->merchant_id && ! Merchant::where('id', $this->merchant_id)->exists()) {
+            // وتاجرٌ من فرع الموظّف إن كان مقيَّداً بفرع
+            if ($this->merchant_id && ! Merchant::visibleTo($this->user())->where('id', $this->merchant_id)->exists()) {
                 $validator->errors()->add('merchant_id', 'التاجر غير موجود.');
             }
 

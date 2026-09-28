@@ -23,7 +23,7 @@ class BagController extends Controller
 
     public function index(Request $request): View
     {
-        $bags = Bag::with(['fromHub:id,name', 'toHub:id,name'])
+        $bags = Bag::visibleTo($request->user())->with(['fromHub:id,name', 'toHub:id,name'])
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when(! $request->query('status'), fn ($q) => $q->whereIn('status', ['open', 'sealed', 'in_transit', 'received']))
             ->when($request->integer('to_hub_id'), fn ($q, $id) => $q->where('to_hub_id', $id))
@@ -40,7 +40,7 @@ class BagController extends Controller
             'hubs'  => $hubs,
             'home'  => $home,
             'away'  => $hubs->firstWhere('id', '!=', $home?->id),
-            'counts' => Bag::toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
+            'counts' => Bag::visibleTo($request->user())->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
         ]);
     }
 
@@ -57,6 +57,11 @@ class BagController extends Controller
 
         if (! $from || ! $to) {
             return back()->withErrors(['to_hub_id' => 'اختر مركزين موجودين.']);
+        }
+
+        // موظّف الفرع يكيّس في مراكز فرعه، إلى أيّ فرع
+        if ($request->user()->isBranchLimited() && (int) $from->branch_id !== (int) $request->user()->branch_id) {
+            return back()->withErrors(['from_hub_id' => 'كيّس في مركزٍ من فرعك.']);
         }
 
         $bag = $this->bags->create($from, $to, $request->user(), $data['notes'] ?? null);

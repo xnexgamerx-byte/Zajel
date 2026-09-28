@@ -75,7 +75,8 @@ class FixedNoteAndPassedTest extends TestCase
     public function test_a_shipment_that_passed_through_a_branch_shows_there_even_after_it_left(): void
     {
         [$here, $there, $hereHub, $thereHub] = Tenancy::runFor($this->company, function () {
-            $here = Branch::where('code', 'B1')->firstOrFail();
+            // فرعان غير الرئيسي: الفرع الرئيسي يرى الفروع كلّها فلا يُقاس به العزل
+            $here = Branch::create(['code' => 'B3', 'name' => 'فرع الكرخ']);
             $there = Branch::create(['code' => 'B2', 'name' => 'فرع البصرة']);
 
             return [$here, $there,

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SeenByBranch;
 use App\Support\Permissions\Ability;
 use App\Support\Username;
 use App\Models\Scopes\CompanyScope;
@@ -22,11 +23,14 @@ use Illuminate\Notifications\Notifiable;
  */
 class User extends Authenticatable
 {
-    use BelongsToCompany, HasFactory, Notifiable, SoftDeletes;
+    use BelongsToCompany, HasFactory, Notifiable, SeenByBranch, SoftDeletes;
 
     protected $guarded = ['id'];
 
     protected $hidden = ['password', 'remember_token'];
+
+    /** أهو في الفرع الرئيسي — inMainBranch() يحسبه مرّةً في الطلب */
+    private ?bool $inMainBranch = null;
 
     protected function casts(): array
     {
@@ -106,7 +110,10 @@ class User extends Authenticatable
             default                                 => Ability::defaultsFor($this->role),
         };
 
-        return Ability::ordered([...$base, ...$this->grants->pluck('ability')]);
+        $abilities = Ability::ordered([...$base, ...$this->grants->pluck('ability')]);
+
+        // ما يسري على الشركة كلّها للفرع الرئيسي: موظّف فرعٍ آخر لا يغيّره ولو أُعطيه
+        return $this->isBranchLimited() ? array_values(array_diff($abilities, Ability::COMPANY_WIDE)) : $abilities;
     }
 
     /** مصدر صلاحياته، للعرض: «مخصّصة»، أو اسم مرتبته، أو دوره. */
@@ -152,10 +159,24 @@ class User extends Authenticatable
         return $this->company_id === null && $this->role->isPlatform();
     }
 
-    /** المستخدم المقيّد بفرع لا يرى شحنات الفروع الأخرى. */
+    /**
+     * موظّفٌ مقيَّدٌ بفرعه: يرى ما لفرعه وحده — تجّاره ومناديبه وشحناته وماله.
+     *
+     * صاحب الشركة ومديرها لا يُقيَّدان، ولا موظّف الفرع الرئيسي: الفرع الرئيسي
+     * يرى الفروع كلّها. والتاجر والمندوب لكلٍّ نطاقه (ما له وحده) لا هذا.
+     */
     public function isBranchLimited(): bool
     {
         return $this->branch_id !== null
-            && ! in_array($this->role, [UserRole::CompanyOwner, UserRole::CompanyAdmin], true);
+            && $this->isStaff()
+            && ! in_array($this->role, [UserRole::CompanyOwner, UserRole::CompanyAdmin], true)
+            && ! $this->inMainBranch();
+    }
+
+    /** موظّفٌ في الفرع الرئيسي — يُسأل عنه في كل نطاق، فيُحسب مرّةً في الطلب. */
+    public function inMainBranch(): bool
+    {
+        return $this->inMainBranch ??= $this->branch_id !== null
+            && (bool) Branch::query()->whereKey($this->branch_id)->value('is_main');
     }
 }

@@ -17,7 +17,7 @@ class CourierSettlementController extends Controller
     public function index(Request $request): View
     {
         return view('tenant.settlements.couriers.index', [
-            'settlements' => CourierSettlement::with('courier:id,name,code')
+            'settlements' => CourierSettlement::visibleTo($request->user())->with('courier:id,name,code')
                 ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
                 ->when($request->query('courier_id'), fn ($q, $c) => $q->where('courier_id', $c))
                 ->latest('id')
@@ -26,6 +26,7 @@ class CourierSettlementController extends Controller
 
             // من عنده نقد أو عمولة معلّقة هو من يحتاج كشفاً
             'pending' => Courier::query()
+                ->visibleTo($request->user())
                 ->where(fn ($q) => $q->where('cash_in_hand', '!=', 0)->orWhere('commission_balance', '!=', 0)
                     // والأب الذي بيد فريقه نقد، ولو لم يكن بيده شيء
                     ->orWhereHas('subs', fn ($s) => $s->where('cash_in_hand', '!=', 0)->orWhere('commission_balance', '!=', 0)))
@@ -44,7 +45,7 @@ class CourierSettlementController extends Controller
     {
         $data = $request->validate(['courier_id' => ['required', 'integer']], [], ['courier_id' => 'المندوب']);
 
-        $parent = Courier::whereNull('parent_id')->whereHas('subs')->find($data['courier_id']);
+        $parent = Courier::whereNull('parent_id')->whereHas('subs')->visibleTo($request->user())->find($data['courier_id']);
 
         if (! $parent) {
             return back()->withErrors(['courier_id' => 'ليس لهذا المندوب فريقٌ تحته.']);
@@ -83,7 +84,7 @@ class CourierSettlementController extends Controller
             'to'         => ['nullable', 'date', 'after_or_equal:from'],
         ], [], ['courier_id' => 'المندوب', 'from' => 'من تاريخ', 'to' => 'إلى تاريخ']);
 
-        $courier = Courier::find($data['courier_id']);
+        $courier = Courier::visibleTo($request->user())->find($data['courier_id']);
 
         if (! $courier) {
             return back()->withErrors(['courier_id' => 'المندوب غير موجود.']);

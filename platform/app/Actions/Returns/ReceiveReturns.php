@@ -39,6 +39,7 @@ class ReceiveReturns
         return DB::transaction(function () use ($shipmentIds, $actor, $note, $receivedAt) {
             $shipments = Shipment::query()
                 ->whereIn('id', $shipmentIds)
+                ->visibleTo($actor)
                 ->where('status', ShipmentStatus::Returning->value)
                 ->whereNull('return_received_at')
                 ->lockForUpdate()
@@ -72,9 +73,10 @@ class ReceiveReturns
     }
 
     /** ما هو في طريق العودة ولم يصل المخزن بعد. */
-    public function pending(?int $courierId = null): Collection
+    public function pending(?int $courierId = null, ?User $viewer = null): Collection
     {
         return Shipment::query()
+            ->visibleTo($viewer)
             ->with(['merchant:id,business_name,code', 'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
             ->where('status', ShipmentStatus::Returning->value)
             ->whereNull('return_received_at')

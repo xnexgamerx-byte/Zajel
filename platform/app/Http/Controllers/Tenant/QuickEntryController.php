@@ -39,10 +39,10 @@ class QuickEntryController extends Controller
 
         return view('tenant.shipments.quick', [
             'mode'         => $mode,
-            'merchants'    => Merchant::where('status', 'active')->orderBy('business_name')->get(['id', 'business_name', 'phone']),
+            'merchants'    => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name', 'phone']),
             'governorates' => Governorate::offered()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
-            'couriers'     => Courier::delivering()->active()->orderBy('name')->get(['id', 'name']),
+            'couriers'     => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             'baghdad'      => Governorate::where('code', 'BGD')->value('id'),
             'rows'         => max(5, min(self::MAX_ROWS, count((array) old('rows', [])))),
         ]);
@@ -68,14 +68,15 @@ class QuickEntryController extends Controller
 
         if (filled($header['courier_id'] ?? null)) {
             abort_unless($request->user()->can('shipments.assign'), 403);
-            $courier = Courier::delivering()->active()->find($header['courier_id']);
+            $courier = Courier::delivering()->active()->visibleTo($request->user())->find($header['courier_id']);
 
             if (! $courier) {
                 return back()->withInput()->withErrors(['courier_id' => 'المندوب غير موجود أو غير مفعّل.']);
             }
         }
 
-        $merchants = Merchant::where('status', 'active')->pluck('id')->flip();
+        // تجّار فرعه إن كان مقيَّداً بفرع: لا يُنشئ لتاجر فرعٍ آخر ولو كتب رقمه
+        $merchants = Merchant::where('status', 'active')->visibleTo($request->user())->pluck('id')->flip();
         $cities = City::where('is_active', true)->get(['id', 'governorate_id'])->keyBy('id');
         $governorates = Governorate::offered()->pluck('id')->flip();
 

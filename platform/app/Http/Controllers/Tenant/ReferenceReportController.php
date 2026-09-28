@@ -105,7 +105,7 @@ class ReferenceReportController extends Controller
             'period'     => $period,
             'days'       => $days,
             'merchantId' => $merchantId,
-            'merchants'  => Merchant::orderBy('business_name')->get(['id', 'business_name']),
+            'merchants'  => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
         ]);
     }
 
@@ -214,7 +214,7 @@ class ReferenceReportController extends Controller
             'shipments' => $query()->with(['deliveryCourier:id,name', 'branch:id,name', 'governorate:id,name_ar'])
                 ->orderByDesc('shipments.status_changed_at')->paginate(config('zajel.per_page'))->withQueryString(),
             'totals'    => $totals,
-            'couriers'  => Courier::delivering()->orderBy('name')->get(['id', 'name']),
+            'couriers'  => Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -253,6 +253,7 @@ class ReferenceReportController extends Controller
         $default = PriceList::where('is_default', true)->value('id');
 
         $merchants = Merchant::query()
+            ->visibleTo($request->user())
             ->whereNotNull('price_list_id')
             ->when($default, fn ($q) => $q->where('price_list_id', '!=', $default))
             ->with(['priceList:id,name', 'priceList.rules' => fn ($q) => $q->whereNull('to_city_id')->where('weight_from_grams', 0)
@@ -268,16 +269,16 @@ class ReferenceReportController extends Controller
     public function unconfirmed(Request $request): View
     {
         return view('tenant.reports.reference.unconfirmed', [
-            'merchants' => MerchantSettlement::query()
+            'merchants' => MerchantSettlement::query()->visibleTo($request->user())
                 ->where('status', 'paid')->whereNull('merchant_confirmed_at')
                 ->selectRaw('merchant_id, count(*) as payments, sum(net_amount) as total, max(paid_at) as last_paid')
                 ->groupBy('merchant_id')->orderByDesc('last_paid')->toBase()->get(),
-            'couriers'  => PickupPayout::query()
+            'couriers'  => PickupPayout::query()->visibleTo($request->user())
                 ->whereNull('confirmed_at')->where('paid_amount', '>', 0)
                 ->selectRaw('courier_id, count(*) as payments, sum(paid_amount) as total, max(created_at) as last_paid')
                 ->groupBy('courier_id')->orderByDesc('last_paid')->toBase()->get(),
-            'merchantNames' => Merchant::withTrashed()->pluck('business_name', 'id'),
-            'courierNames'  => Courier::withTrashed()->pluck('name', 'id'),
+            'merchantNames' => Merchant::withTrashed()->visibleTo($request->user())->pluck('business_name', 'id'),
+            'courierNames'  => Courier::withTrashed()->visibleTo($request->user())->pluck('name', 'id'),
         ]);
     }
 
@@ -293,12 +294,18 @@ class ReferenceReportController extends Controller
         $audience = $request->query('audience');
         $audience = is_string($audience) && array_key_exists($audience, Announcement::AUDIENCES) ? $audience : null;
 
+        $viewer = $request->user();
+        // تجّار فرعه ومناديبه، وما أرسله فرعه، إن كان مقيَّداً بفرع
         $recipients = User::whereIn('role', [UserRole::Merchant, UserRole::Courier])
+            ->when($viewer->isBranchLimited(), fn ($q) => $q->where(fn ($w) => $w
+                ->whereHas('merchant', fn ($m) => $m->visibleTo($viewer))
+                ->orWhereHas('courier', fn ($c) => $c->visibleTo($viewer))))
             ->orderBy('name')->get(['id', 'name', 'role']);
         $user = $recipients->firstWhere('id', $request->integer('user_id') ?: null);
         $userAudiences = $user ? Announcement::audiencesFor($user) : null;
 
         $announcements = Announcement::query()
+            ->visibleTo($viewer)
             ->with('author:id,name')
             ->withCount('reads')
             ->whereBetween('announcements.created_at', [$from, $to])
@@ -310,12 +317,14 @@ class ReferenceReportController extends Controller
             ->withQueryString();
 
         $sent = Announcement::query()
+            ->visibleTo($viewer)
             ->whereBetween('announcements.created_at', [$from, $to])
             ->selectRaw('audience, count(*) as total')
             ->groupBy('audience')->pluck('total', 'audience');
 
         $reads = AnnouncementRead::query()
             ->join('announcements', 'announcements.id', '=', 'announcement_reads.announcement_id')
+            ->whereIn('announcement_reads.announcement_id', Announcement::query()->visibleTo($viewer)->select('announcements.id'))
             ->whereBetween('announcements.created_at', [$from, $to])
             ->selectRaw('announcements.audience as audience, count(*) as total')
             ->groupBy('announcements.audience')->pluck('total', 'audience');
@@ -330,13 +339,15 @@ class ReferenceReportController extends Controller
             'reads'         => $reads,
             // البلوغ لكل فئة مرّةً لا لكل إشعار
             'reach'         => collect(Announcement::AUDIENCES)->keys()
-                ->mapWithKeys(fn ($a) => [$a => (new Announcement(['audience' => $a]))->reach()]),
+                ->mapWithKeys(fn ($a) => [$a => (new Announcement([
+                    'audience' => $a, 'branch_id' => $viewer->isBranchLimited() ? $viewer->branch_id : null,
+                ]))->reach()]),
             'recipients'    => $recipients,
             'user'          => $user,
             'userAudiences' => $userAudiences,
             'userRead'      => $user
                 ? AnnouncementRead::where('user_id', $user->id)
-                    ->whereHas('announcement', fn ($a) => $a->whereBetween('created_at', [$from, $to])->whereIn('audience', $userAudiences ?: ['—']))
+                    ->whereHas('announcement', fn ($a) => $a->visibleTo($viewer)->whereBetween('created_at', [$from, $to])->whereIn('audience', $userAudiences ?: ['—']))
                     ->count()
                 : null,
         ]);

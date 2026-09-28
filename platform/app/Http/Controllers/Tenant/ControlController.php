@@ -21,10 +21,10 @@ use Illuminate\View\View;
 class ControlController extends Controller
 {
     /** شحنات مشتبه بتكرارها — تُحاسَب مرّتين إن مرّت. */
-    public function duplicates(DuplicateDetector $detector): View
+    public function duplicates(Request $request, DuplicateDetector $detector): View
     {
         return view('tenant.control.duplicates', [
-            'suspects' => $detector->pending()->load('duplicateOf.merchant:id,business_name'),
+            'suspects' => $detector->pending($request->user())->load('duplicateOf.merchant:id,business_name'),
             'window'   => DuplicateDetector::WINDOW_DAYS,
         ]);
     }
@@ -63,6 +63,7 @@ class ControlController extends Controller
         return view('tenant.control.forced', [
             'period'    => $period,
             'shipments' => Shipment::query()
+                ->visibleTo($request->user())
                 ->where('is_forced', true)
                 ->whereBetween('status_changed_at', [$from, $to])
                 ->with(['merchant:id,business_name', 'deliveryCourier:id,name'])
@@ -70,6 +71,7 @@ class ControlController extends Controller
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString(),
             'byUser'    => Shipment::query()
+                ->visibleTo($request->user())
                 ->where('is_forced', true)
                 ->whereBetween('status_changed_at', [$from, $to])
                 ->join('users', 'users.id', '=', 'shipments.forced_by_user_id')

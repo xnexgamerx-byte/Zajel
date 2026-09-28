@@ -33,6 +33,7 @@ class PickupAgentController extends Controller
         [$from, $to] = $period->bounds();
 
         $agents = Courier::picking()
+            ->visibleTo($request->user())
             ->orderByDesc('commission_balance')
             ->get()
             ->map(function (Courier $courier) use ($from, $to) {
@@ -50,8 +51,8 @@ class PickupAgentController extends Controller
         return view('tenant.pickup_agents.index', [
             'period'     => $period,
             'agents'     => $agents,
-            'boxes'      => CashBox::active()->orderBy('name')->get(['id', 'name', 'balance']),
-            'objections' => PickupShare::objected()->count(),
+            'boxes'      => CashBox::active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name', 'balance']),
+            'objections' => PickupShare::objected()->visibleTo($request->user())->count(),
         ]);
     }
 
@@ -69,7 +70,7 @@ class PickupAgentController extends Controller
                 ->latest('id')
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString(),
-            'boxes'   => CashBox::active()->orderBy('name')->get(['id', 'name', 'balance']),
+            'boxes'   => CashBox::active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name', 'balance']),
             'payouts' => $courier->payouts()->with('paidBy:id,name')->latest('id')->limit(20)->get(),
         ]);
     }
@@ -81,7 +82,7 @@ class PickupAgentController extends Controller
             'note'        => ['nullable', 'string', 'max:255'],
         ], [], ['cash_box_id' => 'الصندوق']);
 
-        $box = empty($data['cash_box_id']) ? null : CashBox::active()->find($data['cash_box_id']);
+        $box = empty($data['cash_box_id']) ? null : CashBox::active()->visibleTo($request->user())->find($data['cash_box_id']);
 
         $paid = $this->payout->handle($courier, $request->user(), $box, $data['note'] ?? null);
 
@@ -92,14 +93,16 @@ class PickupAgentController extends Controller
     }
 
     /** ٢ — اعتراضات حصص الاستلام. */
-    public function objections(): View
+    public function objections(Request $request): View
     {
         return view('tenant.pickup_agents.objections', [
             'open'     => PickupShare::objected()
+                ->visibleTo($request->user())
                 ->with(['courier:id,name', 'pickupRequest:id,number'])
                 ->orderBy('objected_at')
                 ->get(),
             'resolved' => PickupShare::whereIn('status', ['adjusted', 'rejected'])
+                ->visibleTo($request->user())
                 ->with(['courier:id,name', 'pickupRequest:id,number'])
                 ->latest('resolved_at')
                 ->limit(20)

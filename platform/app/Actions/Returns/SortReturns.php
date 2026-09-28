@@ -35,9 +35,10 @@ class SortReturns
      *
      * @return Collection<int, Collection<int, Shipment>>
      */
-    public function misplaced(): Collection
+    public function misplaced(?User $viewer = null): Collection
     {
         return Shipment::query()
+            ->visibleTo($viewer)
             ->with(['merchant:id,business_name,code,branch_id', 'hub:id,name,branch_id', 'lastFailureReason:id,name_ar'])
             ->returnOnShelf()
             ->awayFromHomeBranch()
@@ -51,9 +52,10 @@ class SortReturns
      *
      * @return Collection<int, Shipment>
      */
-    public function onTheWay(): Collection
+    public function onTheWay(?User $viewer = null): Collection
     {
         return Shipment::query()
+            ->visibleTo($viewer)
             ->with(['merchant:id,business_name,branch_id', 'currentBag:id,code,status,to_hub_id,sealed_at,created_at', 'currentBag.toHub:id,name'])
             ->where('status', 'returning')
             ->whereNotNull('return_received_at')
@@ -84,6 +86,7 @@ class SortReturns
             $shipments = Shipment::query()
                 ->with('merchant:id,branch_id')
                 ->whereIn('id', $shipmentIds)
+                ->visibleTo($actor)
                 ->returnOnShelf()
                 ->awayFromHomeBranch()
                 ->lockForUpdate()

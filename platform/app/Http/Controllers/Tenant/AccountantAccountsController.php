@@ -22,7 +22,9 @@ class AccountantAccountsController extends Controller
         [$from, $to] = $period->bounds();
         $userId = $request->integer('user_id') ?: null;
 
+        // حركات صناديق فرعه وموظّفيه وحدها إن كان مقيَّداً بفرع
         $base = fn () => CashMovement::query()
+            ->visibleTo($request->user())
             ->whereBetween('created_at', [$from, $to])
             ->whereNotNull('created_by_user_id')
             ->when($userId, fn ($q) => $q->where('created_by_user_id', $userId));
@@ -42,7 +44,8 @@ class AccountantAccountsController extends Controller
             'userId'    => $userId,
             'rows'      => $rows,
             'users'     => User::whereIn('id', $rows->keys()->merge($userId ? [$userId] : []))->orderBy('name')->get(['id', 'name'])->keyBy('id'),
-            'everyone'  => User::whereNotIn('role', [UserRole::Courier->value, UserRole::Merchant->value])->orderBy('name')->get(['id', 'name']),
+            'everyone'  => User::whereNotIn('role', [UserRole::Courier->value, UserRole::Merchant->value])
+                ->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             'movements' => $userId
                 ? $base()->with('cashBox:id,name')->latest('id')->paginate(config('zajel.per_page'))->withQueryString()
                 : null,

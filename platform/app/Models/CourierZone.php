@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SeenByBranch;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CourierZone extends Model
 {
-    use BelongsToCompany;
+    use BelongsToCompany, SeenByBranch;
 
     protected $guarded = ['id'];
 
@@ -25,5 +26,11 @@ class CourierZone extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class);
+    }
+
+    /** فرعه فرعُ مندوبه — SeenByBranch */
+    protected function branchThrough(): ?string
+    {
+        return 'courier';
     }
 }

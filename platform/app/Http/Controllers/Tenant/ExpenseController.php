@@ -25,7 +25,9 @@ class ExpenseController extends Controller
         $from = $request->date('from') ?? now()->startOfMonth();
         $to = $request->date('to') ?? now()->endOfMonth();
 
+        // مصروفات فرعه وحدها إن كان مقيَّداً بفرع
         $base = fn () => Expense::query()
+            ->visibleTo($request->user())
             ->whereBetween('spent_on', [$from->toDateString(), $to->toDateString()])
             ->where('status', '!=', 'cancelled');
 
@@ -33,6 +35,7 @@ class ExpenseController extends Controller
 
         // «المصروفات» و«أرشيف المصروفات»: تبويبان على الفلاتر نفسها، وصفّ مجموعٍ لما فيهما
         $listed = fn () => Expense::query()
+            ->visibleTo($request->user())
             ->whereBetween('spent_on', [$from->toDateString(), $to->toDateString()])
             ->when($archive, fn ($q) => $q->whereNotNull('archived_at'), fn ($q) => $q->whereNull('archived_at'))
             ->when($request->integer('category_id'), fn ($q, $id) => $q->where('expense_category_id', $id))
@@ -49,15 +52,17 @@ class ExpenseController extends Controller
             'expenses'   => $expenses,
             'archive'    => $archive,
             'listedSum'  => (int) $listed()->where('status', '!=', 'cancelled')->sum('amount'),
-            'departments' => Expense::whereNotNull('department')->distinct()->orderBy('department')->pluck('department'),
+            'departments' => Expense::visibleTo($request->user())->whereNotNull('department')->distinct()->orderBy('department')->pluck('department'),
             'from'       => $from,
             'to'         => $to,
             'total'      => (int) $base()->sum('amount'),
             'unpaid'     => (int) $base()->where('status', 'recorded')->sum('amount'),
-            'byCategory' => $this->byCategory($from, $to),
+            'byCategory' => $this->byCategory($request, $from, $to),
             'categories' => ExpenseCategory::availableFor($request->user()->company_id)->get(),
-            'boxes'      => CashBox::active()->orderBy('name')->get(['id', 'name', 'balance']),
-            'branches'   => Branch::orderBy('name')->get(['id', 'name']),
+            'boxes'      => CashBox::active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name', 'balance']),
+            'branches'   => Branch::query()
+                ->when($request->user()->isBranchLimited(), fn ($q) => $q->whereKey($request->user()->branch_id))
+                ->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -82,6 +87,15 @@ class ExpenseController extends Controller
             'description'         => 'البيان',
         ]);
 
+        // موظّف الفرع يقيّد على فرعه، ويدفع من صناديقه وحدها
+        if ($request->user()->isBranchLimited()) {
+            $data['branch_id'] = $request->user()->branch_id;
+        }
+
+        if (filled($data['cash_box_id'] ?? null) && ! CashBox::visibleTo($request->user())->whereKey($data['cash_box_id'])->exists()) {
+            return back()->withErrors(['cash_box_id' => 'اختر صندوقاً من صناديق فرعك.'])->withInput();
+        }
+
         $category = ExpenseCategory::availableFor($request->user()->company_id)->find($data['expense_category_id']);
 
         if (! $category) {
@@ -101,7 +115,7 @@ class ExpenseController extends Controller
             'cash_box_id' => ['required', 'integer'],
         ], [], ['cash_box_id' => 'الصندوق']);
 
-        $box = CashBox::active()->find($data['cash_box_id']);
+        $box = CashBox::active()->visibleTo($request->user())->find($data['cash_box_id']);
 
         if (! $box) {
             return back()->withErrors(['cash_box_id' => 'اختر صندوقاً مفعّلاً.']);
@@ -128,6 +142,7 @@ class ExpenseController extends Controller
         ], ['ids.required' => 'حدِّد مصروفاً واحداً على الأقل.']);
 
         $changed = Expense::whereIn('id', $data['ids'])
+            ->visibleTo($request->user())
             ->when($data['mode'] === 'archive', fn ($q) => $q->whereNull('archived_at'), fn ($q) => $q->whereNotNull('archived_at'))
             ->update($data['mode'] === 'archive'
                 ? ['archived_at' => now(), 'archived_by_user_id' => $request->user()->id]
@@ -151,9 +166,10 @@ class ExpenseController extends Controller
     }
 
     /** أين ذهب المال — الجواب الذي يُبنى عليه التصنيف. */
-    protected function byCategory($from, $to)
+    protected function byCategory(Request $request, $from, $to)
     {
         return Expense::query()
+            ->visibleTo($request->user())
             ->join('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
             ->whereBetween('expenses.spent_on', [$from->toDateString(), $to->toDateString()])
             ->where('expenses.status', '!=', 'cancelled')

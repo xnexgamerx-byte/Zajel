@@ -17,7 +17,7 @@ class MerchantSettlementController extends Controller
     public function index(Request $request): View
     {
         return view('tenant.settlements.merchants.index', [
-            'settlements' => MerchantSettlement::with('merchant:id,business_name,code')
+            'settlements' => MerchantSettlement::visibleTo($request->user())->with('merchant:id,business_name,code')
                 ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
                 ->when($request->query('merchant_id'), fn ($q, $m) => $q->where('merchant_id', $m))
                 ->latest('id')
@@ -25,6 +25,7 @@ class MerchantSettlementController extends Controller
                 ->withQueryString(),
 
             'pending' => Merchant::query()
+                ->visibleTo($request->user())
                 ->where('balance', '!=', 0)
                 ->orderByDesc('balance')
                 ->get(),
@@ -39,7 +40,7 @@ class MerchantSettlementController extends Controller
             'to'          => ['nullable', 'date', 'after_or_equal:from'],
         ], [], ['merchant_id' => 'التاجر']);
 
-        $merchant = Merchant::find($data['merchant_id']);
+        $merchant = Merchant::visibleTo($request->user())->find($data['merchant_id']);
 
         if (! $merchant) {
             return back()->withErrors(['merchant_id' => 'التاجر غير موجود.']);

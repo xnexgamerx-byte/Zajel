@@ -34,10 +34,10 @@ class ShipmentTrashController extends Controller
 
         return view('tenant.shipments.trash', [
             'shipments' => $shipments,
-            'merchants' => Merchant::orderBy('business_name')->get(['id', 'business_name']),
-            // من مسح شيئاً: قائمةٌ قصيرة لا كل الموظّفين
-            'deleters'  => User::whereIn('id', Shipment::onlyTrashed()->whereNotNull('deleted_by_user_id')
-                    ->select('deleted_by_user_id')->distinct())
+            'merchants' => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
+            // من مسح شيئاً مما يراه: قائمةٌ قصيرة لا كل الموظّفين
+            'deleters'  => User::whereIn('id', Shipment::onlyTrashed()->visibleTo($request->user())
+                    ->whereNotNull('deleted_by_user_id')->select('deleted_by_user_id')->distinct())
                 ->orderBy('name')->get(['id', 'name']),
         ]);
     }

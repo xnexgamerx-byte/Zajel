@@ -24,7 +24,7 @@ class ShipmentScanController extends Controller
     public function index(Request $request): View
     {
         return view('tenant.shipments.scan', [
-            'couriers' => Courier::delivering()->active()->orderBy('name')
+            'couriers' => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'hub'      => ReceiveAtHub::hubOf($request->user()),
         ]);

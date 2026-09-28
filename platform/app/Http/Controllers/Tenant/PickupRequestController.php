@@ -20,6 +20,7 @@ class PickupRequestController extends Controller
     public function index(Request $request): View
     {
         $pickups = PickupRequest::query()
+            ->visibleTo($request->user())
             ->with(['merchant:id,business_name,phone,address,landmark,pickup_courier_id', 'courier:id,name'])
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when(! $request->query('status'), fn ($q) => $q->whereIn('status', ['pending', 'assigned', 'in_progress']))
@@ -32,8 +33,8 @@ class PickupRequestController extends Controller
         return view('tenant.pickups.index', [
             'pickups'  => $pickups,
             // مندوبو الاستلام فقط: التوصيل وظيفة أخرى
-            'couriers' => Courier::picking()->active()->orderBy('name')->get(['id', 'name']),
-            'pending'  => PickupRequest::where('status', 'pending')->count(),
+            'couriers' => Courier::picking()->active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
+            'pending'  => PickupRequest::visibleTo($request->user())->where('status', 'pending')->count(),
         ]);
     }
 
@@ -44,7 +45,7 @@ class PickupRequestController extends Controller
             'scheduled_at' => ['nullable', 'date'],
         ], [], ['courier_id' => 'المندوب']);
 
-        $courier = Courier::picking()->active()->find($data['courier_id']);
+        $courier = Courier::picking()->active()->visibleTo($request->user())->find($data['courier_id']);
 
         if (! $courier) {
             return back()->withErrors(['courier_id' => 'اختر مندوب استلام مفعّلاً.']);

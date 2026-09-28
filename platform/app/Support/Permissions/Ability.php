@@ -100,6 +100,16 @@ class Ability
     /** هاتف الشركة وواتساب الدعم ولونها */
     public const SETTINGS_COMPANY = 'settings.company';
 
+    /**
+     * ما يسري على الشركة كلّها لا على فرعٍ بعينه: الموظّفون والمراتب والفروع
+     * والتسعيرات وبيانات الشركة. لصاحب الشركة ومديرها وموظّفي الفرع الرئيسي؛
+     * وموظّف فرعٍ آخر لا يملكه ولو كان في مرتبته — كل فرعٍ يُعدّه صاحب الشركة.
+     */
+    public const COMPANY_WIDE = [
+        self::SETTINGS_USERS, self::SETTINGS_PERMISSIONS, self::SETTINGS_BRANCHES,
+        self::SETTINGS_PRICING, self::SETTINGS_COMPANY,
+    ];
+
     /** @var array<int, string>|null */
     private static ?array $all = null;
 

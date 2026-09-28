@@ -92,13 +92,12 @@ class ScanReceiveTest extends TestCase
 
     public function test_lookup_does_not_reveal_another_branchs_shipment(): void
     {
+        // شحنة الفرع الرئيسي، وموظّفٌ في فرع البصرة: الرئيسي وحده يرى الفروع كلّها
         $other = Tenancy::runFor($this->company, fn () => Branch::create(['code' => 'B2', 'name' => 'فرع البصرة']));
-        $theirs = $this->shipment(['branch_id' => $other->id]);
+        $theirs = $this->shipment();
 
         $clerk = $this->makeUser($this->company, UserRole::Operations);
-        Tenancy::runFor($this->company, fn () => $clerk->forceFill([
-            'branch_id' => Branch::where('code', 'B1')->value('id'),
-        ])->save());
+        Tenancy::runFor($this->company, fn () => $clerk->forceFill(['branch_id' => $other->id])->save());
 
         $this->actingAs($clerk)->getJson($this->host().'/shipments/scan/lookup?number='.$theirs->number)->assertNotFound();
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ShipmentStatus;
 use App\Models\Shipment;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
@@ -49,9 +50,10 @@ class DuplicateDetector
     }
 
     /** المشتبهات المفتوحة — لم تُمسَح ولم تُلغَ. */
-    public function pending(): Collection
+    public function pending(?User $viewer = null): Collection
     {
         return Shipment::query()
+            ->visibleTo($viewer)
             ->whereNotNull('duplicate_of_id')
             ->whereNull('duplicate_cleared_at')
             ->where('status', '!=', ShipmentStatus::Cancelled->value)

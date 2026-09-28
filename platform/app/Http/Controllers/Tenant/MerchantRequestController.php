@@ -32,7 +32,7 @@ class MerchantRequestController extends Controller
                 fn ($q) => $q->where('merchant_requests.payout_method', $request->query('payout_method')));
 
         // البطاقتان على الطلبات المفتوحة وحدها: ما ينتظر اليوم
-        $waiting = MerchantRequest::query()->open()->ofType('payment')->select('merchant_id');
+        $waiting = MerchantRequest::query()->visibleTo($request->user())->open()->ofType('payment')->select('merchant_id');
 
         return view('tenant.merchant-requests.payments', [
             'requests' => $requests->paginate(config('zajel.per_page'))->withQueryString(),
@@ -42,8 +42,8 @@ class MerchantRequestController extends Controller
                 ->whereIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
                 ->sum('shipments.collected_amount'),
             'net'      => (int) Merchant::query()->whereIn('id', $waiting)->where('balance', '>', 0)->sum('balance'),
-            'open'     => MerchantRequest::query()->open()->ofType('payment')->count(),
-            ...$this->filters(),
+            'open'     => MerchantRequest::query()->visibleTo($request->user())->open()->ofType('payment')->count(),
+            ...$this->filters($request),
         ]);
     }
 
@@ -63,8 +63,8 @@ class MerchantRequestController extends Controller
         return view('tenant.merchant-requests.returns', [
             'requests' => $requests,
             'ready'    => $ready,
-            'open'     => MerchantRequest::query()->open()->ofType('returns')->count(),
-            ...$this->filters(),
+            'open'     => MerchantRequest::query()->visibleTo($request->user())->open()->ofType('returns')->count(),
+            ...$this->filters($request),
         ]);
     }
 
@@ -100,6 +100,7 @@ class MerchantRequestController extends Controller
         $status = $request->query('status', 'open');
 
         return MerchantRequest::query()
+            ->visibleTo($request->user())
             ->ofType($type)
             ->with([
                 'merchant:id,business_name,code,phone,address,balance,governorate_id,city_id,pickup_courier_id',
@@ -115,11 +116,11 @@ class MerchantRequestController extends Controller
             ->oldest('merchant_requests.id');
     }
 
-    private function filters(): array
+    private function filters(Request $request): array
     {
         return [
-            'merchants' => Merchant::orderBy('business_name')->get(['id', 'business_name']),
-            'couriers'  => Courier::picking()->orderBy('name')->get(['id', 'name']),
+            'merchants' => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
+            'couriers'  => Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
         ];
     }
 }

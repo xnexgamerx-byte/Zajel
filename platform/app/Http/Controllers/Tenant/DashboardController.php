@@ -6,12 +6,12 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Merchant;
+use App\Models\MerchantSettlement;
 use App\Models\PickupRequest;
 use App\Models\Shipment;
 use App\Services\Dashboard\HomeAlerts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -45,8 +45,9 @@ class DashboardController extends Controller
             ->whereOnDate('delivered_at', today())->count();
 
         // المحذوفون داخلون: مندوبٌ فُصل وبيده نقد لم يُسلَّم — والنقد لا يُحذف بحذفه
-        $money = DB::table('couriers')
-            ->where('company_id', $user->company_id)
+        // ومن فرعه وحده إن كان مقيَّداً بفرع
+        $money = Courier::withTrashed()->visibleTo($user)
+            ->toBase()
             ->selectRaw('sum(cash_in_hand) as cash, sum(commission_balance) as commission')
             ->first();
 
@@ -58,8 +59,7 @@ class DashboardController extends Controller
             ->where('collected_amount', '>', 0)
             ->min('delivered_at');
 
-        $oldestUnpaid = DB::table('merchant_settlements')
-            ->where('company_id', $user->company_id)
+        $oldestUnpaid = MerchantSettlement::query()->visibleTo($user)
             ->where('status', 'confirmed')
             ->min('confirmed_at');
 
@@ -80,8 +80,8 @@ class DashboardController extends Controller
                 'stuck'          => $of(ShipmentStatus::FailedAttempt) + $of(ShipmentStatus::Postponed),
                 'cod_open'       => (int) $open->sum('cod'),
                 'cash_in_hand'   => (int) ($money->cash ?? 0),
-                'owed_merchants' => (int) Merchant::where('balance', '>', 0)->sum('balance'),
-                'pending_pickups' => PickupRequest::where('status', 'pending')->count(),
+                'owed_merchants' => (int) Merchant::visibleTo($user)->where('balance', '>', 0)->sum('balance'),
+                'pending_pickups' => PickupRequest::visibleTo($user)->where('status', 'pending')->count(),
             ],
 
             // الشحنات المتعثّرة: أهم قائمة في الشاشة — كل يوم تأخير يزيد احتمال الراجع
@@ -117,6 +117,7 @@ class DashboardController extends Controller
             ],
 
             'overCashLimit' => Courier::query()
+                ->visibleTo($user)
                 ->where('cash_limit', '>', 0)
                 ->whereColumn('cash_in_hand', '>=', 'cash_limit')
                 ->orderByDesc('cash_in_hand')

@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Models\Concerns\AppendOnly;
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SeenByBranch;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MerchantDeposit extends Model
 {
-    use AppendOnly, BelongsToCompany;
+    use AppendOnly, BelongsToCompany, SeenByBranch;
 
     public $timestamps = false;
 

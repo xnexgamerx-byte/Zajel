@@ -25,7 +25,9 @@ class CashBoxController extends Controller
 
     public function index(Request $request): View
     {
-        $boxes = CashBox::with('branch:id,name')->orderByRaw("case when type = 'main' then 0 else 1 end")
+        // صناديق فرعه وحدها إن كان مقيَّداً بفرع: القاصة الرئيسية للفرع الرئيسي
+        $boxes = CashBox::visibleTo($request->user())->with('branch:id,name')
+            ->orderByRaw("case when type = 'main' then 0 else 1 end")
             ->orderBy('name')->get();
 
         $box = $request->integer('box_id')
@@ -48,9 +50,11 @@ class CashBoxController extends Controller
             // الجرد: هل الرصيد المخزَّن يطابق مجموع الحركات؟
             'check'     => $box ? $this->cash->reconcile($box) : null,
             'today'     => $box ? $this->todayTotals($box) : null,
-            'branches'  => Branch::orderBy('name')->get(['id', 'name']),
+            'branches'  => Branch::query()
+                ->when($request->user()->isBranchLimited(), fn ($q) => $q->whereKey($request->user()->branch_id))
+                ->orderBy('name')->get(['id', 'name']),
             // من يُفتح له «صندوق موظّف»: موظّفو الشركة، لا المناديب ولا التجّار
-            'staff'     => User::query()->where('is_active', true)
+            'staff'     => User::query()->visibleTo($request->user())->where('is_active', true)
                 ->whereNotIn('role', [UserRole::Courier->value, UserRole::Merchant->value])
                 ->whereNotIn('id', CashBox::whereNotNull('user_id')->select('user_id'))
                 ->orderBy('name')->get(['id', 'name']),
@@ -68,6 +72,11 @@ class CashBoxController extends Controller
             'opening'   => ['nullable', 'integer', 'min:0'],
         ], ['user_id.required_if' => 'اختر الموظّف صاحب الصندوق.'], ['name' => 'الاسم', 'code' => 'الرمز', 'type' => 'النوع', 'user_id' => 'الموظّف']);
 
+        // موظّف الفرع يفتح صناديق فرعه وحده
+        if ($request->user()->isBranchLimited()) {
+            $data['branch_id'] = $request->user()->branch_id;
+        }
+
         if (CashBox::where('code', $data['code'])->exists()) {
             return back()->withErrors(['code' => 'هذا الرمز مستعمل لصندوق آخر.'])->withInput();
         }
@@ -75,7 +84,7 @@ class CashBoxController extends Controller
         $owner = null;
 
         if ($data['type'] === 'employee') {
-            $owner = User::query()->whereKey($data['user_id'])->where('is_active', true)
+            $owner = User::query()->whereKey($data['user_id'])->visibleTo($request->user())->where('is_active', true)
                 ->whereNotIn('role', [UserRole::Courier->value, UserRole::Merchant->value])->first();
 
             if (! $owner) {
@@ -115,8 +124,9 @@ class CashBoxController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
         ], [], ['from_box_id' => 'الصندوق المُرسِل', 'to_box_id' => 'الصندوق المستلم', 'amount' => 'المبلغ']);
 
-        $from = CashBox::active()->find($data['from_box_id']);
-        $to = CashBox::active()->find($data['to_box_id']);
+        // بين صناديق فرعه وحده؛ وما يخرج إلى فرعٍ آخر حوالةٌ في «كشف حساب الفروع»
+        $from = CashBox::active()->visibleTo($request->user())->find($data['from_box_id']);
+        $to = CashBox::active()->visibleTo($request->user())->find($data['to_box_id']);
 
         if (! $from || ! $to) {
             return back()->withErrors(['to_box_id' => 'اختر صندوقين مفعّلين.']);

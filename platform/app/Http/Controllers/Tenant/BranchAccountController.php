@@ -36,8 +36,12 @@ class BranchAccountController extends Controller
         $closed = [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value,
                    ShipmentStatus::Returned->value];
 
+        // موظّف الفرع يرى صفّ فرعه وحده، والفرع الرئيسي الفروعَ كلّها
+        $mine = $request->user()->isBranchLimited() ? $request->user()->branch_id : null;
+
         $revenue = DB::table('shipments')
             ->where('company_id', $request->user()->company_id)
+            ->when($mine, fn ($q) => $q->where('branch_id', $mine))
             ->whereNull('deleted_at')
             ->whereIn('status', $closed)
             ->whereBetween('status_changed_at', [$from, $to])
@@ -50,18 +54,19 @@ class BranchAccountController extends Controller
 
         $expenses = DB::table('expenses')
             ->where('company_id', $request->user()->company_id)
+            ->when($mine, fn ($q) => $q->where('branch_id', $mine))
             ->where('status', '!=', 'cancelled')
             ->whereBetween('spent_on', [$period->from->toDateString(), $period->to->toDateString()])
             ->selectRaw('branch_id, sum(amount) as total')
             ->groupBy('branch_id')
             ->pluck('total', 'branch_id');
 
-        $cash = CashBox::active()->selectRaw('branch_id, sum(balance) as total')
+        $cash = CashBox::active()->visibleTo($request->user())->selectRaw('branch_id, sum(balance) as total')
             ->groupBy('branch_id')->toBase()->pluck('total', 'branch_id');
 
         return view('tenant.branch_accounts.index', [
             'period'   => $period,
-            'branches' => Branch::orderByDesc('is_main')->orderBy('name')->get(),
+            'branches' => Branch::when($mine, fn ($q) => $q->whereKey($mine))->orderByDesc('is_main')->orderBy('name')->get(),
             'revenue'  => $revenue,
             'expenses' => $expenses,
             'cash'     => $cash,
@@ -86,6 +91,10 @@ class BranchAccountController extends Controller
             ->whereNotNull('shipments.branch_id')
             ->whereNotNull('merchants.branch_id')
             ->whereColumn('shipments.branch_id', '!=', 'merchants.branch_id')
+            // ما بين فرعه وغيره وحده، إن كان مقيَّداً بفرع
+            ->when($request->user()->isBranchLimited(), fn ($q) => $q->where(fn ($w) => $w
+                ->where('shipments.branch_id', $request->user()->branch_id)
+                ->orWhere('merchants.branch_id', $request->user()->branch_id)))
             ->selectRaw('shipments.branch_id as collector, merchants.branch_id as owner,
                          count(*) as shipments, sum(shipments.collected_amount) as amount')
             ->groupBy('shipments.branch_id', 'merchants.branch_id')
@@ -202,13 +211,13 @@ class BranchAccountController extends Controller
     public function deposits(Request $request): View
     {
         return view('tenant.branch_accounts.deposits', [
-            'merchants' => Merchant::where('status', '!=', 'closed')
+            'merchants' => Merchant::where('status', '!=', 'closed')->visibleTo($request->user())
                 ->orderByDesc('deposit_balance')->orderBy('business_name')
                 ->get(['id', 'business_name', 'code', 'deposit_balance', 'balance']),
-            'movements' => MerchantDeposit::with(['merchant:id,business_name', 'user:id,name'])
+            'movements' => MerchantDeposit::visibleTo($request->user())->with(['merchant:id,business_name', 'user:id,name'])
                 ->latest('id')->limit(30)->get(),
-            'boxes'     => CashBox::active()->orderBy('name')->get(['id', 'name', 'balance']),
-            'held'      => (int) Merchant::sum('deposit_balance'),
+            'boxes'     => CashBox::active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name', 'balance']),
+            'held'      => (int) Merchant::visibleTo($request->user())->sum('deposit_balance'),
         ]);
     }
 
@@ -222,13 +231,13 @@ class BranchAccountController extends Controller
             'reason'      => ['required_if:kind,forfeit', 'nullable', 'string', 'max:255'],
         ], [], ['merchant_id' => 'التاجر', 'amount' => 'المبلغ', 'reason' => 'السبب']);
 
-        $merchant = Merchant::find($data['merchant_id']);
+        $merchant = Merchant::visibleTo($request->user())->find($data['merchant_id']);
 
         if (! $merchant) {
             return back()->withErrors(['merchant_id' => 'التاجر غير موجود.']);
         }
 
-        $box = empty($data['cash_box_id']) ? null : CashBox::active()->find($data['cash_box_id']);
+        $box = empty($data['cash_box_id']) ? null : CashBox::active()->visibleTo($request->user())->find($data['cash_box_id']);
 
         $row = match ($data['kind']) {
             'deposit' => $this->deposits->deposit($merchant, $data['amount'], $request->user(), $box, $data['reason'] ?? null),

@@ -48,6 +48,7 @@ class HandOverReturns
         return DB::transaction(function () use ($shipmentIds, $merchant, $actor, $note, $pickupCourier) {
             $shipments = Shipment::query()
                 ->whereIn('id', $shipmentIds)
+                ->visibleTo($actor)
                 ->where('merchant_id', $merchant->id)
                 ->where('status', ShipmentStatus::Returning->value)
                 ->lockForUpdate()
@@ -141,6 +142,7 @@ class HandOverReturns
         return DB::transaction(function () use ($shipmentIds, $courier, $actor, $note) {
             $byMerchant = Shipment::query()
                 ->whereIn('id', $shipmentIds)
+                ->visibleTo($actor)
                 ->where('status', ShipmentStatus::Returning->value)
                 ->get(['id', 'merchant_id'])
                 ->groupBy('merchant_id');
@@ -170,9 +172,10 @@ class HandOverReturns
      * وما على رفّ فرعٍ آخر لا يظهر هنا بل في فرز الراجع — فالشاشتان
      * تقتسمان الرواجع المستلَمة، وكلُّ راجعٍ في واحدة منهما لا في كلتيهما.
      */
-    public function ready(?int $merchantId = null, ?int $pickupCourierId = null): Collection
+    public function ready(?int $merchantId = null, ?int $pickupCourierId = null, ?User $viewer = null): Collection
     {
         return Shipment::query()
+            ->visibleTo($viewer)
             ->with(['merchant:id,business_name,code,pickup_courier_id', 'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
             ->returnOnShelf()
             ->awayFromHomeBranch(false)

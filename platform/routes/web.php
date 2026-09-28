@@ -328,14 +328,14 @@ Route::middleware('tenant')->group(function () {
 
             // تسديد ديون الفروع واستلامها: نقدٌ يخرج من صندوقٍ ويدخل آخر
             Route::middleware('can:money.cash')->group(function () {
-                Route::post('/money/position', [FinancialPositionController::class, 'store'])->name('money.position.store');
+                Route::post('/money/position', [FinancialPositionController::class, 'store'])->middleware('main-branch')->name('money.position.store');
                 Route::post('/branch-accounts/remittances', [BranchRemittanceController::class, 'send'])->name('branch-accounts.remit');
                 Route::post('/branch-accounts/remittances/{remittance}/receive', [BranchRemittanceController::class, 'receive'])
                     ->whereNumber('remittance')->name('branch-accounts.receive');
             });
 
             // «إعلانات الصفحة الرئيسية بالتطبيق»: مع الإشعارات
-            Route::middleware('can:notify.send')->group(function () {
+            Route::middleware(['can:notify.send', 'main-branch'])->group(function () {
                 Route::get('/app-ads', [AppAdController::class, 'index'])->name('app-ads.index');
                 Route::post('/app-ads', [AppAdController::class, 'store'])->name('app-ads.store');
                 Route::put('/app-ads/{ad}', [AppAdController::class, 'update'])->whereNumber('ad')->name('app-ads.update');
@@ -352,13 +352,13 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:money.view')->group(function () {
                 Route::get('/money/accountants', AccountantAccountsController::class)->name('money.accountants');
                 Route::get('/money/position', [FinancialPositionController::class, 'index'])->name('money.position');
-                Route::get('/money/position/history', [FinancialPositionController::class, 'history'])->name('money.position.history');
+                Route::get('/money/position/history', [FinancialPositionController::class, 'history'])->middleware('main-branch')->name('money.position.history');
                 Route::get('/branch-accounts/debts', [BranchRemittanceController::class, 'debts'])->name('branch-accounts.debts');
                 Route::get('/branch-accounts/remittances', [BranchRemittanceController::class, 'inbox'])->name('branch-accounts.remittances');
                 Route::get('/branch-accounts', [BranchAccountController::class, 'index'])->name('branch-accounts.index');
                 Route::get('/branch-accounts/deposits', [BranchAccountController::class, 'deposits'])->name('branch-accounts.deposits');
                 Route::get('/branch-accounts/statement', [BranchAccountController::class, 'statement'])->name('branch-accounts.statement');
-                Route::get('/money/reconcile', ReconcileController::class)->name('money.reconcile');
+                Route::get('/money/reconcile', ReconcileController::class)->middleware('main-branch')->name('money.reconcile');
                 Route::get('/branch-accounts/statement/print', [BranchAccountController::class, 'statementPrint'])->name('branch-accounts.statement.print');
             });
             Route::post('/branch-accounts/deposits', [BranchAccountController::class, 'storeDeposit'])
@@ -431,7 +431,8 @@ Route::middleware('tenant')->group(function () {
             });
         });
 
-        Route::post('/quote', PricingQuoteController::class)->name('pricing.quote');
+        // تسعير شحنةٍ لتاجرٍ بعينه: لنموذج الموظّفين وحده — تاجرٌ لا يقرأ أسعار غيره برقمه
+        Route::post('/quote', PricingQuoteController::class)->middleware('staff')->name('pricing.quote');
 
         /*
         | شاشة المندوب: مصمَّمة للجوال، وأربعة إجراءات لا أكثر.

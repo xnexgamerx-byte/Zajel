@@ -46,7 +46,7 @@ class ConversationController extends Controller
                 'waiting' => $base()->where('status', 'open')->where('last_author', 'merchant')->count(),
                 'open'    => $base()->where('status', 'open')->count(),
             ],
-            'merchants'     => Merchant::where('status', 'active')->orderBy('business_name')->get(['id', 'business_name']),
+            'merchants'     => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
         ]);
     }
 
@@ -71,9 +71,9 @@ class ConversationController extends Controller
             'shipment_number' => ['nullable', 'string', 'max:40'],
         ], [], ['merchant_id' => 'التاجر', 'subject' => 'الموضوع', 'body' => 'الرسالة', 'attachment' => 'الملف', 'shipment_number' => 'رقم الوصل']);
 
-        $merchant = Merchant::find($data['merchant_id']);
+        $merchant = Merchant::visibleTo($request->user())->find($data['merchant_id']);
 
-        if (! $merchant || ($request->user()->isBranchLimited() && (int) $merchant->branch_id !== (int) $request->user()->branch_id)) {
+        if (! $merchant) {
             return back()->withErrors(['merchant_id' => 'التاجر غير موجود.'])->withInput();
         }
 

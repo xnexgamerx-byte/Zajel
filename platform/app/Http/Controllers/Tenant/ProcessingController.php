@@ -39,7 +39,7 @@ class ProcessingController extends Controller
             'tab'       => $tab,
             'pendingCount' => (clone $pending)->count(),
             'filtered'  => $request->filled('q') || $request->filled('courier_id'),
-            'couriers'  => $tab === 'pending' ? Courier::delivering()->orderBy('name')->get(['id', 'name']) : collect(),
+            'couriers'  => $tab === 'pending' ? Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']) : collect(),
             'shipments' => $tab === 'pending'
                 ? $found->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar',
                         'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])

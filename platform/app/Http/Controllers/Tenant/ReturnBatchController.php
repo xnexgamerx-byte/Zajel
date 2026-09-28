@@ -25,13 +25,13 @@ class ReturnBatchController extends Controller
     public function pickup(Request $request): View
     {
         $courierId = $request->integer('courier_id') ?: null;
-        $couriers = Courier::picking()->active()->orderBy('name')->get(['id', 'name', 'code']);
+        $couriers = Courier::picking()->active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name', 'code']);
 
         return view('tenant.returns.pickup', [
             'couriers'   => $couriers,
             'courier'    => $courierId ? $couriers->firstWhere('id', $courierId) : null,
-            'shipments'  => $courierId ? $this->handover->ready(pickupCourierId: $courierId) : collect(),
-            'perCourier' => $this->handover->ready()->filter(fn ($s) => $s->merchant?->pickup_courier_id)
+            'shipments'  => $courierId ? $this->handover->ready(pickupCourierId: $courierId, viewer: $request->user()) : collect(),
+            'perCourier' => $this->handover->ready(viewer: $request->user())->filter(fn ($s) => $s->merchant?->pickup_courier_id)
                 ->countBy(fn ($s) => $s->merchant->pickup_courier_id),
         ]);
     }
@@ -45,7 +45,7 @@ class ReturnBatchController extends Controller
             'note'           => ['nullable', 'string', 'max:255'],
         ], [], ['shipment_ids' => 'الشحنات', 'courier_id' => 'مندوب الاستلام']);
 
-        $courier = Courier::picking()->active()->find($data['courier_id']);
+        $courier = Courier::picking()->active()->visibleTo($request->user())->find($data['courier_id']);
 
         if (! $courier) {
             return back()->withErrors(['courier_id' => 'مندوب الاستلام غير موجود أو غير مفعّل.']);
@@ -68,6 +68,7 @@ class ReturnBatchController extends Controller
     public function index(Request $request): View
     {
         $batches = ReturnBatch::query()
+            ->visibleTo($request->user())
             ->with(['merchant:id,business_name,code', 'courier:id,name', 'handedBy:id,name'])
             ->when($request->integer('merchant_id'), fn ($q, $id) => $q->where('merchant_id', $id))
             ->when($request->integer('courier_id'), fn ($q, $id) => $q->where('courier_id', $id))
@@ -82,9 +83,9 @@ class ReturnBatchController extends Controller
 
         return view('tenant.returns.batches', [
             'batches'   => $batches,
-            'merchants' => Merchant::orderBy('business_name')->get(['id', 'business_name']),
-            'couriers'  => Courier::picking()->orderBy('name')->get(['id', 'name']),
-            'waiting'   => ReturnBatch::whereNull('received_at')->count(),
+            'merchants' => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
+            'couriers'  => Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
+            'waiting'   => ReturnBatch::visibleTo($request->user())->whereNull('received_at')->count(),
         ]);
     }
 
@@ -105,7 +106,7 @@ class ReturnBatchController extends Controller
     {
         $ids = array_map('intval', array_slice((array) $request->query('ids', []), 0, 100));
 
-        return $this->printView(ReturnBatch::whereIn('id', $ids)->orderBy('id')->get());
+        return $this->printView(ReturnBatch::whereIn('id', $ids)->visibleTo($request->user())->orderBy('id')->get());
     }
 
     private function printView($batches): View

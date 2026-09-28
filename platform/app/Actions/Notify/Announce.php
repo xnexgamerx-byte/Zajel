@@ -31,6 +31,8 @@ class Announce
 
         return Announcement::create([
             'audience'           => $audience,
+            // فرعٌ غير الرئيسي يبلغ تجّاره ومناديبه وحدهم؛ والرئيسي الشركة كلّها
+            'branch_id'          => $actor?->isBranchLimited() ? $actor->branch_id : null,
             'title'              => trim($title),
             'body'               => trim($body),
             'expires_at'         => $expiresAt,

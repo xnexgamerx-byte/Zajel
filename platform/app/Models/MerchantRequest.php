@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SeenByBranch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class MerchantRequest extends Model
 {
-    use BelongsToCompany;
+    use BelongsToCompany, SeenByBranch;
 
     public const TYPES = [
         'payment' => 'طلب دفع',
@@ -81,5 +82,11 @@ class MerchantRequest extends Model
     public function statusLabel(): string
     {
         return self::STATUSES[$this->status] ?? $this->status;
+    }
+
+    /** فرعه فرعُ تاجره — SeenByBranch */
+    protected function branchThrough(): ?string
+    {
+        return 'merchant';
     }
 }

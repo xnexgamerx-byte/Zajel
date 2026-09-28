@@ -28,7 +28,7 @@ class MyCashBoxController extends Controller
                 ->latest('id')->paginate(config('zajel.per_page'))->withQueryString(),
             'today'     => CashMovement::where('cash_box_id', $box->id)->whereOnDate('created_at', today())
                 ->selectRaw('direction, sum(amount) as total')->groupBy('direction')->pluck('total', 'direction'),
-            'targets'   => $this->targets($box),
+            'targets'   => $this->targets($box, $request),
         ]);
     }
 
@@ -43,7 +43,7 @@ class MyCashBoxController extends Controller
             'note'      => ['nullable', 'string', 'max:200'],
         ], [], ['to_box_id' => 'الصندوق المستلم', 'amount' => 'المبلغ']);
 
-        $to = $this->targets($box)->firstWhere('id', (int) $data['to_box_id']);
+        $to = $this->targets($box, $request)->firstWhere('id', (int) $data['to_box_id']);
 
         if (! $to) {
             return back()->withErrors(['to_box_id' => 'اختر القاصة أو صندوق فرعٍ مفعّلاً.']);
@@ -59,10 +59,10 @@ class MyCashBoxController extends Controller
         return back()->with('success', 'سُلّم '.number_format($data['amount'])." دينار إلى {$to->name}.");
     }
 
-    /** يُسلَّم إلى القاصة أو صندوق فرع — لا إلى صندوق موظّفٍ آخر */
-    private function targets(CashBox $box)
+    /** يُسلَّم إلى القاصة أو صندوق فرع — لا إلى صندوق موظّفٍ آخر، ولا إلى فرعٍ غير فرعه */
+    private function targets(CashBox $box, Request $request)
     {
-        return CashBox::active()->whereNull('user_id')->whereKeyNot($box->id)
+        return CashBox::active()->visibleTo($request->user())->whereNull('user_id')->whereKeyNot($box->id)
             ->orderByRaw("case when type = 'main' then 0 else 1 end")->orderBy('name')->get(['id', 'name', 'type', 'balance']);
     }
 }

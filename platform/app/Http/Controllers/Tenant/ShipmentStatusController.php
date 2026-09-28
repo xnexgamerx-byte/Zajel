@@ -56,7 +56,7 @@ class ShipmentStatusController extends Controller
             'courier_id'     => ['required', 'integer'],
         ], [], ['shipment_ids' => 'الشحنات', 'courier_id' => 'المندوب']);
 
-        $courier = Courier::delivering()->active()->find($data['courier_id']);
+        $courier = Courier::delivering()->active()->visibleTo($request->user())->find($data['courier_id']);
 
         if (! $courier) {
             return back()->withErrors(['courier_id' => 'المندوب غير موجود أو غير مفعّل أو ليس مندوب توصيل.']);
@@ -150,12 +150,16 @@ class ShipmentStatusController extends Controller
     public function cashBoard(Request $request)
     {
         $couriers = Courier::query()
+            ->visibleTo($request->user())
             ->where(fn ($q) => $q->where('cash_in_hand', '!=', 0)->orWhere('commission_balance', '!=', 0))
             ->orderByDesc('cash_in_hand')
             ->get();
 
-        $totals = DB::table('couriers')
-            ->where('company_id', $request->user()->company_id)
+        // المجموع من الجدول لا من القائمة، والمحذوف الذي بيده نقدٌ فيه — ومن فرعه
+        // وحده إن كان مقيَّداً بفرع
+        $totals = Courier::withTrashed()
+            ->visibleTo($request->user())
+            ->toBase()
             ->selectRaw('sum(cash_in_hand) as cash, sum(commission_balance) as commission')
             ->first();
 

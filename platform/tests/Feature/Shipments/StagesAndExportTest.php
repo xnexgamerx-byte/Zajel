@@ -113,16 +113,14 @@ class StagesAndExportTest extends TestCase
 
     public function test_the_board_counts_only_what_the_user_may_see(): void
     {
-        [$here, $there] = Tenancy::runFor($this->company, fn () => [
-            Branch::where('code', 'B1')->firstOrFail(),
-            Branch::create(['code' => 'B2', 'name' => 'فرع البصرة']),
-        ]);
+        $there = Tenancy::runFor($this->company, fn () => Branch::create(['code' => 'B2', 'name' => 'فرع البصرة']));
 
         $this->shipment(['status' => 'at_hub']);
         $this->shipment(['status' => 'at_hub', 'branch_id' => $there->id]);
 
+        // موظّف فرع البصرة: الفرع الرئيسي وحده يرى الفروع كلّها
         $clerk = $this->makeUser($this->company, UserRole::Operations);
-        Tenancy::runFor($this->company, fn () => $clerk->forceFill(['branch_id' => $here->id])->save());
+        Tenancy::runFor($this->company, fn () => $clerk->forceFill(['branch_id' => $there->id])->save());
 
         $html = $this->actingAs($clerk)->get($this->host().'/shipments?stage=in_store')->assertOk()->getContent();
         $this->assertStringContainsString('إجمالي النتائج: 1', $html);

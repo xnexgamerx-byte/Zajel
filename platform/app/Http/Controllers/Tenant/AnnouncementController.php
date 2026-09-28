@@ -17,15 +17,18 @@ class AnnouncementController extends Controller
 
     public function index(Request $request): View
     {
-        $announcements = Announcement::with('author:id,name')
+        // موظّف الفرع يرى ما أرسله فرعه، ويرسل لتجّاره ومناديبه وحدهم (Announce)
+        $announcements = Announcement::visibleTo($request->user())
+            ->with('author:id,name')
             ->withCount('reads')
             ->latest('id')
             ->paginate(config('zajel.per_page'));
 
         // البلوغ لكل جمهور مرّةً لا لكل إعلان
+        $branch = $request->user()->isBranchLimited() ? $request->user()->branch_id : null;
         $reach = collect(Announcement::AUDIENCES)
             ->keys()
-            ->mapWithKeys(fn ($audience) => [$audience => (new Announcement(['audience' => $audience]))->reach()]);
+            ->mapWithKeys(fn ($audience) => [$audience => (new Announcement(['audience' => $audience, 'branch_id' => $branch]))->reach()]);
 
         // «إرسال إشعار لكافة …» في الشريط يفتح الصفحة وقد اختير جمهورها
         $chosen = $request->query('audience');

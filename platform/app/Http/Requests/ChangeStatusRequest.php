@@ -62,7 +62,8 @@ class ChangeStatusRequest extends FormRequest
             | دورةٌ أخرى، فتوصيلةٌ باسمه لا تُحاسَب في أيّ منهما.
             */
             if ($this->courier_id) {
-                $courier = Courier::whereKey($this->courier_id)->first();
+                // ومندوبٌ من فرع الموظّف إن كان مقيَّداً بفرع
+                $courier = Courier::whereKey($this->courier_id)->visibleTo($this->user())->first();
 
                 if (! $courier) {
                     $validator->errors()->add('courier_id', 'المندوب غير موجود.');

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Models\Concerns\SeenByBranch;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PickupPayout extends Model
 {
-    use BelongsToCompany;
+    use BelongsToCompany, SeenByBranch;
 
     protected $guarded = ['id'];
 
@@ -43,5 +44,11 @@ class PickupPayout extends Model
             'amount'  => 'مبلغ ثابت',
             default   => 'بلا شراكة',
         };
+    }
+
+    /** فرعه فرعُ مندوبه — SeenByBranch */
+    protected function branchThrough(): ?string
+    {
+        return 'courier';
     }
 }

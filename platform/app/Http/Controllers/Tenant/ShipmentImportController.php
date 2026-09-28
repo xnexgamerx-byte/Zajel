@@ -18,7 +18,7 @@ class ShipmentImportController extends Controller
     public function create(): View
     {
         return view('tenant.shipments.import', [
-            'merchants' => Merchant::where('status', 'active')->orderBy('business_name')->get(['id', 'business_name']),
+            'merchants' => Merchant::where('status', 'active')->visibleTo(auth()->user())->orderBy('business_name')->get(['id', 'business_name']),
             'columns'   => ShipmentSheet::COLUMNS,
             'required'  => ShipmentSheet::REQUIRED,
         ]);
@@ -28,7 +28,7 @@ class ShipmentImportController extends Controller
     {
         $request->validate(['merchant_id' => ['required', 'integer']], [], ['merchant_id' => 'التاجر']);
 
-        $merchant = Merchant::find($request->integer('merchant_id'));
+        $merchant = Merchant::visibleTo($request->user())->find($request->integer('merchant_id'));
 
         if (! $merchant) {
             return back()->withErrors(['merchant_id' => 'التاجر غير موجود.']);
@@ -51,7 +51,7 @@ class ShipmentImportController extends Controller
             'skip_errors' => ['nullable', 'boolean'],
         ]);
 
-        $merchant = Merchant::findOrFail($data['merchant_id']);
+        $merchant = Merchant::visibleTo($request->user())->findOrFail($data['merchant_id']);
         $preview = $this->preview($request, $data['path'], $merchant, $sheet, $import);
         $rows = $preview['rows'];
 

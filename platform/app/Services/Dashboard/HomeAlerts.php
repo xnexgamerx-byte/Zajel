@@ -51,7 +51,7 @@ final class HomeAlerts
         if ($user->can('transport.manage')) {
             $cards[] = $this->betweenBranchesTooLong($user);
             $cards[] = $this->returnsNotReceived($user);
-            $cards[] = $this->manifestsSent();
+            $cards[] = $this->manifestsSent($user);
         }
 
         return $cards;
@@ -210,9 +210,10 @@ final class HomeAlerts
     }
 
     /** ٧ — كشوف النقل المرسلة خلال آخر ٢٤ ساعة: الكشف · وقته · الفرع المرسَل إليه · العدد */
-    private function manifestsSent(): array
+    private function manifestsSent(User $user): array
     {
         $query = fn () => Manifest::query()
+            ->visibleTo($user)
             ->whereNotNull('departed_at')
             ->where('departed_at', '>=', now()->subDay());
 

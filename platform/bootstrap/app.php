@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsurePlatformUser;
+use App\Http\Middleware\EnsureMainBranch;
 use App\Http\Middleware\EnsureCourier;
 use App\Http\Middleware\EnsureMerchant;
 use App\Http\Middleware\EnsureStaff;
@@ -67,6 +68,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'merchant'      => EnsureMerchant::class,
             'courier'       => EnsureCourier::class,
             'platform-user' => EnsurePlatformUser::class,
+            'main-branch'   => EnsureMainBranch::class,
         ]);
 
         // زائر لوحة النواة يُعاد إلى دخولها لا إلى دخول شركة لا وجود لها
