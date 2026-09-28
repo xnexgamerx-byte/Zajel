@@ -55,6 +55,22 @@
         </div>
     </div>
 
+    {{-- تسعيرة الفرع: يختارها الفرع الرئيسي، وتسري على تجّار الفرع ما لم تكن للتاجر تسعيرته --}}
+    <div>
+        <label class="field-label" for="price_list_id">تسعيرة الفرع</label>
+        <select id="price_list_id" name="price_list_id" class="field-input">
+            <option value="">افتراضية الشركة</option>
+            @foreach ($priceLists as $list)
+                @continue($list->is_default)
+                <option value="{{ $list->id }}" @selected((int) old('price_list_id', $branch->price_list_id) === $list->id)>{{ $list->name }}</option>
+            @endforeach
+        </select>
+        <p class="mt-1 text-xs text-ink-500">
+            تسري على تجّار الفرع، والفرع يراها ولا يعدّلها. أنشئ تسعيرةً من «التسعيرات» ثم اخترها هنا.
+        </p>
+        @error('price_list_id') <p class="field-error">{{ $message }}</p> @enderror
+    </div>
+
     <div class="flex flex-wrap gap-5">
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_main" value="1" @checked(old('is_main', $branch->is_main))
@@ -69,6 +85,57 @@
         </label>
     </div>
     @error('is_main') <p class="field-error">{{ $message }}</p> @enderror
+
+    {{-- حساب دخول الفرع: «صاحب الفرع» يعمل بالنظام كلّه في فرعه وحده --}}
+    <fieldset class="rounded-2xl border border-ink-100 p-4">
+        <legend class="px-1 text-sm font-bold">حساب دخول الفرع</legend>
+
+        @if ($owners->isNotEmpty())
+            <ul class="mb-3 space-y-1 text-sm">
+                @foreach ($owners as $owner)
+                    <li class="flex flex-wrap items-center justify-between gap-2">
+                        <span>{{ $owner->name }} · <span class="font-mono" dir="ltr">{{ $owner->username }}</span>
+                            @unless ($owner->is_active) <span class="text-xs text-ink-500">(موقوف)</span> @endunless</span>
+                        <a href="{{ route('users.edit', $owner) }}" class="text-xs font-semibold text-[var(--brand)] hover:underline">تغيير كلمة المرور</a>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+
+        <p class="mb-3 text-xs text-ink-500">
+            «صاحب الفرع» يدخل بهذا الاسم ويعمل بكل الصلاحيات في فرعه وحده: موظّفوه ومناديبه وتجّاره وشحناته
+            وماله. لا يرى الفروع الأخرى، ولا يغيّر التسعيرة ولا إعدادات الشركة.
+            {{ $owners->isNotEmpty() ? 'اكتب كلمة مرورٍ لتضيف حساباً آخر.' : 'اتركه فارغاً إن لم تُرد حساباً الآن.' }}
+        </p>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <label class="field-label" for="account_name">اسم صاحب الفرع</label>
+                <input id="account_name" name="account_name" class="field-input" value="{{ old('account_name') }}"
+                       placeholder="صاحب {{ $branch->name ?: 'الفرع' }}">
+                @error('account_name') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="field-label" for="account_phone">هاتفه</label>
+                <input id="account_phone" name="account_phone" class="field-input text-left" dir="ltr"
+                       placeholder="07xxxxxxxxx" value="{{ old('account_phone') }}">
+                @error('account_phone') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="field-label" for="account_username">اسم المستخدم</label>
+                <input id="account_username" name="account_username" class="field-input text-left" dir="ltr"
+                       autocomplete="off" value="{{ old('account_username') }}" placeholder="basra">
+                <p class="mt-1 text-xs text-ink-500">فارغاً: يدخل برقم هاتفه.</p>
+                @error('account_username') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="field-label" for="account_password">كلمة المرور</label>
+                <input id="account_password" name="account_password" type="password" class="field-input text-left" dir="ltr"
+                       autocomplete="new-password">
+                @error('account_password') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+        </div>
+    </fieldset>
 
     <button type="submit" class="btn-primary w-full sm:w-auto">
         {{ $branch->exists ? 'حفظ' : 'أضف الفرع' }}

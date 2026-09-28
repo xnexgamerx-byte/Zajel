@@ -150,7 +150,11 @@
                 </div>
                 <div class="flex justify-between gap-3 border-t border-ink-100 pt-2.5">
                     <dt class="text-ink-500">التسعيرة</dt>
-                    <dd class="text-end font-medium">{{ $merchant->priceList?->name ?? 'الافتراضية' }}</dd>
+                    {{-- الخاصة بالتاجر، وإلّا تسعيرة فرعه، وإلّا الافتراضية (Merchant::effectivePriceList) --}}
+                    <dd class="text-end font-medium">
+                        {{ $merchant->priceList?->name
+                            ?? ($merchant->branch?->priceList ? 'تسعيرة الفرع: '.$merchant->branch->priceList->name : 'الافتراضية') }}
+                    </dd>
                 </div>
                 <div class="flex justify-between gap-3">
                     <dt class="text-ink-500">دورة التسوية</dt>

@@ -16,11 +16,16 @@ class MerchantRequest extends FormRequest
         return $this->user() !== null;
     }
 
-    /** موظّف فرعٍ يضيف تجّاراً لفرعه وحده، ولا ينقل تاجراً إلى فرعٍ آخر. */
+    /**
+     * موظّف فرعٍ يضيف تجّاراً لفرعه وحده، ولا ينقل تاجراً إلى فرعٍ آخر — ولا يختار
+     * تسعيرته: يحدّدها الفرع الرئيسي (تسعيرة الفرع، أو ما خصّ به التاجر).
+     */
     protected function prepareForValidation(): void
     {
         if ($this->user()?->isBranchLimited()) {
             $this->merge(['branch_id' => $this->user()->branch_id]);
+            $this->request->remove('price_list_id');
+            $this->query->remove('price_list_id');
         }
     }
 

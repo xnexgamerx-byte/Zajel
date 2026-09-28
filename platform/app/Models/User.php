@@ -106,6 +106,8 @@ class User extends Authenticatable
         $base = match (true) {
             is_array($this->permissions)            => $this->permissions,
             $this->role === UserRole::CompanyOwner  => Ability::all(),
+            // صاحب الفرع كل شيء في فرعه: لا مرتبة تقيّده، وما للشركة كلّها يُنزَع أدناه
+            $this->role === UserRole::BranchOwner   => Ability::all(),
             $this->rank_id !== null && $this->rank !== null => $this->rank->abilities ?? [],
             default                                 => Ability::defaultsFor($this->role),
         };
@@ -122,6 +124,7 @@ class User extends Authenticatable
         return match (true) {
             is_array($this->permissions)                    => 'تخصيصٌ قديم',
             $this->role === UserRole::CompanyOwner          => 'صاحب الشركة: كل شيء',
+            $this->role === UserRole::BranchOwner           => 'صاحب الفرع: كل شيء في فرعه',
             $this->rank_id !== null && $this->rank !== null => $this->rank->name,
             default                                         => 'افتراضي «'.$this->role->label().'»',
         };

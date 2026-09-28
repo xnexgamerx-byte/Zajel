@@ -391,6 +391,9 @@ Route::middleware('tenant')->group(function () {
             Route::resource('branches', BranchController::class)->except(['destroy', 'show'])
                 ->middleware('can:settings.branches');
 
+            // تسعيرة الفرع: يراها موظّفوه ولا يعدّلونها — يختارها الفرع الرئيسي
+            Route::get('/pricing/branch', [PriceListController::class, 'branch'])->name('pricing.branch');
+
             Route::middleware('can:settings.pricing')->group(function () {
                 // أجور المناطق والأطراف، وإعدادات المحافظات: التسعير كما تراه الشركة
                 Route::get('/areas', [AreaController::class, 'index'])->name('areas.index');
@@ -401,8 +404,8 @@ Route::middleware('tenant')->group(function () {
 
                 Route::get('/pricing', [PriceListController::class, 'index'])->name('pricing.index');
                 Route::post('/pricing', [PriceListController::class, 'store'])->name('pricing.store');
-                Route::get('/pricing/{pricing}', [PriceListController::class, 'edit'])->name('pricing.edit');
-                Route::put('/pricing/{pricing}', [PriceListController::class, 'update'])->name('pricing.update');
+                Route::get('/pricing/{pricing}', [PriceListController::class, 'edit'])->whereNumber('pricing')->name('pricing.edit');
+                Route::put('/pricing/{pricing}', [PriceListController::class, 'update'])->whereNumber('pricing')->name('pricing.update');
             });
 
             Route::prefix('settlements')->name('settlements.')->group(function () {

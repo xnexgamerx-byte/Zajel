@@ -33,4 +33,10 @@ class Branch extends Model
     {
         return $this->belongsTo(City::class);
     }
+
+    /** تسعيرة الفرع: يختارها الفرع الرئيسي، وتسري على تجّاره ما لم تكن للتاجر تسعيرته */
+    public function priceList(): BelongsTo
+    {
+        return $this->belongsTo(PriceList::class);
+    }
 }

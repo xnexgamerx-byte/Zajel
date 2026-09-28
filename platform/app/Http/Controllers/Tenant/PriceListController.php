@@ -63,6 +63,24 @@ class PriceListController extends Controller
         return redirect()->route('pricing.edit', $list)->with('success', "أُنشئت تسعيرة {$list->name}.");
     }
 
+    /**
+     * «تسعيرة الفرع»: ما يسري على تجّار فرعه — يراها ولا يعدّلها. يختارها الفرع
+     * الرئيسي من شاشة الفرع، وفارغةً تسري افتراضية الشركة.
+     */
+    public function branch(Request $request): View
+    {
+        $branch = $request->user()->branch;
+        $list = ($branch?->priceList?->is_active ? $branch->priceList : null)
+            ?? PriceList::where('is_default', true)->where('is_active', true)->first();
+
+        return view('tenant.pricing.branch', [
+            'branch'       => $branch,
+            'list'         => $list,
+            'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(),
+            'rules'        => $list ? $list->rules()->get()->keyBy(fn (PriceListRule $r) => $r->to_governorate_id ?? 0) : collect(),
+        ]);
+    }
+
     public function edit(PriceList $pricing): View
     {
         $rules = $pricing->rules()->get()->keyBy(fn (PriceListRule $r) => $r->to_governorate_id ?? 0);

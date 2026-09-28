@@ -6,7 +6,7 @@
     <div>
         <h1 class="page-title">الفروع</h1>
         <p class="mt-1 text-sm text-ink-500">
-            كل شحنة تتبع فرعاً، والمستخدم المقيّد بفرع لا يرى غيره.
+            كل فرعٍ يرى فرعه وحده، والفرع الرئيسي يراها كلّها. ولكل فرعٍ تسعيرته وحساب دخول صاحبه.
         </p>
     </div>
     <a href="{{ route('branches.create') }}" class="btn-primary">+ فرع</a>
@@ -20,6 +20,8 @@
                 <th >الاسم</th>
                 <th >المحافظة</th>
                 <th >الهاتف</th>
+                <th >التسعيرة</th>
+                <th >حساب الفرع</th>
                 <th >مستخدمون</th>
                 <th >الحالة</th>
                 <th class="px-4 py-3"></th>
@@ -39,6 +41,8 @@
                     </td>
                     <td class="px-4 py-3 text-ink-600">{{ $branch->governorate?->name_ar ?? '—' }}</td>
                     <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $branch->phone ?? '—' }}</td>
+                    <td class="px-4 py-3 text-ink-600">{{ $branch->priceList?->name ?? 'افتراضية الشركة' }}</td>
+                    <td class="px-4 py-3 font-mono text-ink-600" dir="ltr">{{ $branch->users->pluck('username')->implode('، ') ?: '—' }}</td>
                     <td class="px-4 py-3" dir="ltr">{{ number_format($branch->users_count) }}</td>
                     <td class="px-4 py-3">
                         <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1
@@ -54,7 +58,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-16 text-center text-ink-500">لا فروع.</td></tr>
+                <tr><td colspan="9" class="px-4 py-16 text-center text-ink-500">لا فروع.</td></tr>
             @endforelse
         </tbody>
     </table>

@@ -11,6 +11,8 @@ enum UserRole: string
     // داخل شركة مستأجِرة
     case CompanyOwner    = 'company_owner';
     case CompanyAdmin    = 'company_admin';
+    /** صاحب فرعٍ غير الرئيسي: كل شيء، في فرعه وحده — يُنشئ حسابَه صاحبُ الشركة مع الفرع */
+    case BranchOwner     = 'branch_owner';
     case BranchManager   = 'branch_manager';
     case Operations      = 'operations';
     case CustomerService = 'customer_service';
@@ -25,6 +27,7 @@ enum UserRole: string
             self::PlatformSupport => 'دعم المنصّة',
             self::CompanyOwner    => 'صاحب الشركة',
             self::CompanyAdmin    => 'مدير الشركة',
+            self::BranchOwner     => 'صاحب فرع',
             self::BranchManager   => 'مدير فرع',
             self::Operations      => 'عمليات',
             self::CustomerService => 'خدمة العملاء',

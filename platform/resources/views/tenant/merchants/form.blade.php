@@ -184,15 +184,23 @@
             <div class="space-y-4">
                 <div>
                     <label class="field-label" for="price_list_id">قائمة التسعير</label>
-                    <select id="price_list_id" name="price_list_id" class="field-input">
-                        <option value="">الافتراضية للشركة</option>
-                        @foreach ($priceLists as $list)
-                            <option value="{{ $list->id }}"
-                                    @selected((int) old('price_list_id', $merchant->price_list_id) === $list->id)>
-                                {{ $list->name }}{{ $list->is_default ? ' (افتراضية)' : '' }}
-                            </option>
-                        @endforeach
-                    </select>
+                    @if (auth()->user()->isBranchLimited())
+                        {{-- التسعيرة يختارها الفرع الرئيسي: موظّف الفرع يراها ولا يغيّرها --}}
+                        <p id="price_list_id" class="field-input bg-ink-50 text-ink-600">
+                            {{ $merchant->priceList?->name ?? 'تسعيرة الفرع' }}
+                        </p>
+                        <p class="mt-1 text-xs text-ink-500">يحدّدها الفرع الرئيسي. <a href="{{ route('pricing.branch') }}" class="text-[var(--brand)] hover:underline">تسعيرة فرعك</a></p>
+                    @else
+                        <select id="price_list_id" name="price_list_id" class="field-input">
+                            <option value="">تسعيرة فرعه (وإلّا الافتراضية)</option>
+                            @foreach ($priceLists as $list)
+                                <option value="{{ $list->id }}"
+                                        @selected((int) old('price_list_id', $merchant->price_list_id) === $list->id)>
+                                    {{ $list->name }}{{ $list->is_default ? ' (افتراضية)' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @endif
                     @error('price_list_id') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 

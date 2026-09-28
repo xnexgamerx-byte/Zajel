@@ -305,10 +305,13 @@ class BranchIsolationTest extends TestCase
 
     // ── إعدادات الشركة للفرع الرئيسي ────────────────────────────────
 
-    /** الفروع والتسعيرات والمراتب والموظّفون وبيانات الشركة: لصاحب الشركة وفرعه الرئيسي */
+    /**
+     * الفروع والتسعيرات والمراتب وبيانات الشركة: لصاحب الشركة وفرعه الرئيسي. والموظّفون
+     * ليسوا منها: الفرع يُضيف موظّفيه في فرعه (BranchAccountsTest)، وقائمتهم في فحص الكناري.
+     */
     public function test_company_settings_are_the_main_branchs_even_with_every_permission(): void
     {
-        foreach (['/branches', '/pricing', '/areas', '/governorate-settings', '/permissions', '/users', '/settings/company'] as $uri) {
+        foreach (['/branches', '/pricing', '/areas', '/governorate-settings', '/permissions', '/settings/company'] as $uri) {
             $this->actingAs($this->clerk)->get($this->host().$uri)->assertForbidden();
             $this->actingAs($this->mainManager)->get($this->host().$uri)->assertOk();
         }

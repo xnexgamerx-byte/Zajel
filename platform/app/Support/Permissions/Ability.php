@@ -101,12 +101,15 @@ class Ability
     public const SETTINGS_COMPANY = 'settings.company';
 
     /**
-     * ما يسري على الشركة كلّها لا على فرعٍ بعينه: الموظّفون والمراتب والفروع
-     * والتسعيرات وبيانات الشركة. لصاحب الشركة ومديرها وموظّفي الفرع الرئيسي؛
-     * وموظّف فرعٍ آخر لا يملكه ولو كان في مرتبته — كل فرعٍ يُعدّه صاحب الشركة.
+     * ما يسري على الشركة كلّها لا على فرعٍ بعينه: المراتب والفروع والتسعيرات
+     * وبيانات الشركة. لصاحب الشركة ومديرها وموظّفي الفرع الرئيسي؛ وموظّف فرعٍ
+     * آخر لا يملكه ولو كان في مرتبته — كل فرعٍ يُعدّه صاحب الشركة ويختار تسعيرته.
+     *
+     * والموظّفون ليسوا منها: الفرع يُضيف موظّفيه بنفسه، في فرعه وحده وبأدوارٍ
+     * لا تعلو دوره (UserController).
      */
     public const COMPANY_WIDE = [
-        self::SETTINGS_USERS, self::SETTINGS_PERMISSIONS, self::SETTINGS_BRANCHES,
+        self::SETTINGS_PERMISSIONS, self::SETTINGS_BRANCHES,
         self::SETTINGS_PRICING, self::SETTINGS_COMPANY,
     ];
 
@@ -254,7 +257,8 @@ class Ability
         ];
 
         $abilities = match ($role) {
-            UserRole::CompanyOwner, UserRole::CompanyAdmin => static::all(),
+            // وصاحب الفرع مثلهما في فرعه: ما يسري على الشركة كلّها يُنزَع منه (COMPANY_WIDE)
+            UserRole::CompanyOwner, UserRole::CompanyAdmin, UserRole::BranchOwner => static::all(),
 
             // مدير الفرع يُدير العمليات ويرى المال ولا يُحرّكه؛ وله التقارير المالية كما في المعتاد
             UserRole::BranchManager => [

@@ -27,16 +27,27 @@ class UserController extends Controller
     public const ROLES = [
         UserRole::CompanyOwner->value    => 'صاحب الشركة',
         UserRole::CompanyAdmin->value    => 'مدير',
+        UserRole::BranchOwner->value     => 'صاحب فرع',
         UserRole::BranchManager->value   => 'مدير فرع',
         UserRole::Operations->value      => 'عمليات',
         UserRole::CustomerService->value => 'خدمة العملاء',
         UserRole::Accountant->value      => 'محاسب',
     ];
 
+    /**
+     * ما يُديره موظّف فرعٍ غير الرئيسي: موظّفو فرعه بأدوارٍ لا تعلو دوره. لا يُنشئ
+     * صاحب شركةٍ ولا مديرها ولا صاحب فرعٍ آخر — فيخرج بها من فرعه أو يعلو صاحبه.
+     */
+    public const BRANCH_ROLES = [
+        UserRole::BranchManager->value, UserRole::Operations->value,
+        UserRole::CustomerService->value, UserRole::Accountant->value,
+    ];
+
     public function index(Request $request): View
     {
         return view('tenant.users.index', [
             'users' => User::query()
+                ->visibleTo($request->user())
                 ->whereIn('role', array_keys(self::ROLES))
                 ->with(['branch:id,name', 'rank:id,name'])
                 ->when($request->query('q'), fn ($q, $term) => $q->where(
@@ -99,6 +110,11 @@ class UserController extends Controller
 
     protected function validated(Request $request, ?User $user = null): array
     {
+        // موظّف الفرع يُضيف لفرعه وحده
+        if ($request->user()->isBranchLimited()) {
+            $request->merge(['branch_id' => $request->user()->branch_id]);
+        }
+
         // اسمٌ فارغ: الحالي عند التعديل، ورقم الهاتف عند الإنشاء — ويُتحقَّق من
         // تفرّده كأيّ اسم، فلا يصطدم برقمٍ اختاره موظّفٌ آخر اسماً له
         $typed = Username::canonical($request->input('username'));
@@ -117,32 +133,46 @@ class UserController extends Controller
                                 ->where('company_id', $request->user()->company_id)
                                 ->ignore($user?->id)],
             'email'     => ['nullable', 'email', 'max:160'],
-            'role'      => ['required', Rule::in(array_keys(self::ROLES))],
+            'role'      => ['required', Rule::in(array_keys($this->roles($request->user())))],
             'rank_id'   => ['nullable', 'integer', Rule::exists('ranks', 'id')
                                 ->where('company_id', $request->user()->company_id)],
-            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')
+            // صاحب الفرع بلا فرعٍ يصير صاحب الشركة كلّها: فرعه شرطٌ لا اختيار
+            'branch_id' => [Rule::requiredIf($request->input('role') === UserRole::BranchOwner->value),
+                            'nullable', 'integer', Rule::exists('branches', 'id')
                                 ->where('company_id', $request->user()->company_id)],
             'password'  => [$user ? 'nullable' : 'required', 'string', 'min:6', 'max:72'],
         ], [
             'username.regex'  => Username::RULE_MESSAGE,
             'username.unique' => 'اسم المستخدم هذا لحسابٍ آخر في شركتك.',
+            'branch_id.required' => 'اختر فرع صاحب الفرع.',
         ], [
             'name' => 'الاسم', 'username' => 'اسم المستخدم', 'phone' => 'الهاتف', 'role' => 'الدور',
             'rank_id' => 'المرتبة', 'branch_id' => 'الفرع', 'password' => 'كلمة المرور',
         ]);
 
-        // صاحب الشركة يملك كل شيء: لا مرتبة تقيّده
-        if ($data['role'] === UserRole::CompanyOwner->value) {
+        // صاحب الشركة وصاحب الفرع يملكان كل شيء: لا مرتبة تقيّدهما
+        if (in_array($data['role'], [UserRole::CompanyOwner->value, UserRole::BranchOwner->value], true)) {
             $data['rank_id'] = null;
         }
 
         return $data;
     }
 
-    /** لا تُدار حسابات المندوبين والتجّار من هنا. */
+    /**
+     * لا تُدار حسابات المندوبين والتجّار من هنا. وموظّف الفرع لا يفتح حساب صاحب
+     * فرعه ولا صاحب الشركة: يُغيّر كلمة مروره فيملكه.
+     */
     protected function guardManageable(User $user): void
     {
-        abort_unless(array_key_exists($user->role->value, self::ROLES), 404);
+        abort_unless(array_key_exists($user->role->value, $this->roles(auth()->user())), 404);
+    }
+
+    /** @return array<string, string> ما يُسنده هذا الموظّف من أدوار */
+    protected function roles(User $actor): array
+    {
+        return $actor->isBranchLimited()
+            ? array_intersect_key(self::ROLES, array_flip(self::BRANCH_ROLES))
+            : self::ROLES;
     }
 
     protected function wouldRemoveLastOwner(User $user, array $data, Request $request): bool
@@ -165,10 +195,14 @@ class UserController extends Controller
 
     protected function formData(): array
     {
+        $user = auth()->user();
+
         return [
-            'roles'    => self::ROLES,
+            'roles'    => $this->roles($user),
             'ranks'    => Rank::orderBy('name')->get(['id', 'name']),
-            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'branches' => Branch::where('is_active', true)
+                ->when($user->isBranchLimited(), fn ($q) => $q->whereKey($user->branch_id))
+                ->orderBy('name')->get(['id', 'name']),
         ];
     }
 }

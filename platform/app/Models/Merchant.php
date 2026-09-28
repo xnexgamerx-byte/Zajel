@@ -89,10 +89,16 @@ class Merchant extends Model
         return $this->hasMany(Shipment::class);
     }
 
-    /** قائمة التسعير الفعّالة: الخاصة بالتاجر، وإلّا افتراضية الشركة. */
+    /**
+     * قائمة التسعير الفعّالة: الخاصة بالتاجر، وإلّا تسعيرة فرعه (يختارها الفرع
+     * الرئيسي)، وإلّا افتراضية الشركة.
+     */
     public function effectivePriceList(): ?PriceList
     {
+        $branchList = $this->branch?->priceList;
+
         return $this->priceList
+            ?? ($branchList?->is_active ? $branchList : null)
             ?? PriceList::where('is_default', true)->where('is_active', true)->first();
     }
 }
