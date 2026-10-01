@@ -9,6 +9,9 @@ import { initScanTable } from './scan-table';
 import { initQuickEntry } from './quick-entry';
 import { initNumberInputs, numberValue } from './number-inputs';
 import { initBulkBar, initDayPick } from './bulk-bar';
+import { initDailyChart } from './daily-chart';
+// السمات بدل المقابض المضمَّنة: data-confirm، data-print، data-dialog-open…
+import './behaviors';
 
 // المبالغ بفاصلٍ كل ثلاث خانات (60 000)، والهاتف ١١ رقماً — في كل نموذج
 initNumberInputs();
@@ -26,6 +29,9 @@ initSearchableSelects();
 // «كل مراحل النقل» على الهاتف: المرحلة المختارة تُرى في صفّها المُمرَّر أفقياً
 document.querySelector('[data-stage-strip] [aria-current="page"]')
     ?.scrollIntoView({ block: 'nearest', inline: 'center' });
+
+const dailyChart = document.getElementById('daily-chart');
+if (dailyChart) initDailyChart(dailyChart);
 
 const scanTable = document.querySelector('[data-scan-table]');
 if (scanTable) initScanTable(scanTable);

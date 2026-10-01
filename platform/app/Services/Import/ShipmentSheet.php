@@ -216,7 +216,9 @@ class ShipmentSheet
                 && $this->normalise($c->name_ar) === $this->normalise($value('city')));
 
             if (! $city) {
-                $errors[] = 'المنطقة «'.$value('city').'» ليست في '.$governorate->name_ar;
+                // اسمٌ لا نعرفه: إمّا خطأ كتابة، أو منطقةٌ تنقص القائمة فتُضاف مرّةً وتُعرف بعدها
+                $errors[] = 'المنطقة «'.$value('city').'» ليست في '.$governorate->name_ar
+                    .' — صحّح اسمها، أو أضفها من «أجور المناطق والأطراف»';
             }
 
             $data['city_id'] = $city?->id;

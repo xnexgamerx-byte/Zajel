@@ -39,7 +39,7 @@
                 </span>
                 <input id="file" name="file" type="file" accept=".xlsx,.xls,.csv" required
                        class="absolute inset-0 size-full cursor-pointer opacity-0"
-                       onchange="this.closest('label').querySelector('[data-file-name]').textContent = this.files[0]?.name ?? 'اختر ملفاً من جهازك'">
+                       data-file-label="اختر ملفاً من جهازك">
             </label>
 
             @error('file') <p class="field-error">{{ $message }}</p> @enderror

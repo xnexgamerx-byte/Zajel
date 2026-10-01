@@ -190,7 +190,9 @@ class ShipmentController extends Controller
             'shipment'     => $shipment->load('merchant:id,business_name'),
             'reroutable'   => UpdateShipment::reroutable($shipment),
             'governorates' => Governorate::offered()->orWhere('id', $shipment->governorate_id)->get(['id', 'name_ar']),
-            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+            // ومنطقتها ولو أُخفيت بعدها: التعديل لا يُسقط عنوانها الحاليّ
+            'cities'       => City::where(fn ($q) => $q->where('is_active', true)->orWhere('id', $shipment->city_id))
+                ->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
         ]);
     }
 

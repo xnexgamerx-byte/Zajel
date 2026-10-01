@@ -17,9 +17,10 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * سياسة المحتوى تحصر ما تحمّله الصفحة في النظام نفسه وخطوط Google:
  * سكربتٌ محقون من موقعٍ آخر لا يُحمَّل، وبيانات لا تُرسَل إلى خارج
- * النطاق بطلبٍ أو بصورة. تسمح بالسكربت المضمَّن لأن في الصفحات مقابضَ
- * onclick صغيرة — والحماية من حقنه أن Blade يهرّب كل مُخرَج (ولا {!!
- * في أي صفحة). نقلُ تلك المقابض إلى app.js يسمح بحذف 'unsafe-inline'.
+ * النطاق بطلبٍ أو بصورة. ولا سكربت مضمَّناً في الصفحة أصلاً: ما كان مقبضَ
+ * onclick صار سمةً تقرؤها resources/js/behaviors.js — فإن أفلت يوماً اسمٌ
+ * من التهريب (وBlade يهرّب كل مُخرَج، ولا {!! في أي صفحة) لم يعمل سكربته.
+ * وحارس ذلك SecurityHeadersTest: لا مقبض ولا <script> مضمَّن في أي قالب.
  */
 class SecurityHeaders
 {
@@ -73,7 +74,7 @@ class SecurityHeaders
 
         $directives = [
             'default-src'     => [$self],
-            'script-src'      => [$self, "'unsafe-inline'"],
+            'script-src'      => [$self],
             'style-src'       => [$self, "'unsafe-inline'", ...self::EXTERNAL['style-src']],
             'font-src'        => [$self, ...self::EXTERNAL['font-src']],
             'img-src'         => [$self, 'data:', 'blob:'],

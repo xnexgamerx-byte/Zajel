@@ -129,8 +129,7 @@
                                     @if ($expense->status === 'recorded' && $boxes->isNotEmpty())
                                         {{-- زرّ واحد ينادي نافذة واحدة مشتركة: قائمة صناديق في كل
                                              صفّ تُوسّع الجدول حتى يُقصّ عموده الأخير. --}}
-                                        <button type="button" class="btn-ghost px-3 py-1 text-xs"
-                                                onclick="payExpense(this)"
+                                        <button type="button" class="btn-ghost px-3 py-1 text-xs" data-pay-expense
                                                 data-url="{{ route('expenses.pay', $expense) }}"
                                                 data-number="{{ $expense->number }}"
                                                 data-amount="{{ number_format($expense->amount) }}"
@@ -198,23 +197,12 @@
                     </div>
 
                     <div class="modal-foot">
-                        <button type="button" class="btn-ghost"
-                                onclick="document.getElementById('pay-expense').close()">تراجع</button>
+                        <button type="button" class="btn-ghost" data-dialog-close="pay-expense">تراجع</button>
                         <button type="submit" class="btn-primary">ادفع الآن</button>
                     </div>
                 </form>
             </dialog>
 
-            <script>
-                function payExpense(button) {
-                    const dialog = document.getElementById('pay-expense');
-                    document.getElementById('pay-expense-form').action = button.dataset.url;
-                    dialog.querySelector('[data-pay-number]').textContent = button.dataset.number;
-                    dialog.querySelector('[data-pay-amount]').textContent = button.dataset.amount;
-                    dialog.querySelector('[data-pay-description]').textContent = button.dataset.description;
-                    dialog.showModal();
-                }
-            </script>
         @endif
 
         @if ($byCategory->isNotEmpty())
@@ -330,8 +318,7 @@
             @if ($boxes->isNotEmpty())
                 <div class="rounded-lg border border-ink-200 bg-ink-50 p-3">
                     <label class="flex items-start gap-2 text-sm">
-                        <input type="checkbox" name="pay_now" value="1" class="mt-0.5 size-4 accent-[var(--brand)]"
-                               onchange="document.getElementById('pay_box').hidden = ! this.checked">
+                        <input type="checkbox" name="pay_now" value="1" class="mt-0.5 size-4 accent-[var(--brand)]" data-toggle="pay_box">
                         <span>ادفعه الآن نقداً من الصندوق</span>
                     </label>
                     <div id="pay_box" hidden class="mt-3">

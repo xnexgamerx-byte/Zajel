@@ -406,6 +406,9 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/areas', [AreaController::class, 'index'])->name('areas.index');
                 Route::post('/areas', [AreaController::class, 'update'])->name('areas.update');
                 Route::post('/areas/peripheral', [AreaController::class, 'peripheral'])->name('areas.peripheral');
+                // منطقةٌ ناقصة تضيفها الشركة لنفسها، وتحذفها ما لم تُستعمل
+                Route::post('/areas/add', [AreaController::class, 'store'])->name('areas.store');
+                Route::delete('/areas/{city}', [AreaController::class, 'destroy'])->whereNumber('city')->name('areas.destroy');
                 Route::get('/governorate-settings', [GovernorateSettingController::class, 'index'])->name('governorate-settings.index');
                 Route::post('/governorate-settings', [GovernorateSettingController::class, 'update'])->name('governorate-settings.update');
 

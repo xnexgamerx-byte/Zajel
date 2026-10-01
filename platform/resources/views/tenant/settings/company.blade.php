@@ -64,7 +64,7 @@
             <div class="flex items-center gap-3">
                 <input id="primary_color" name="primary_color" type="color" class="h-10 w-16 cursor-pointer rounded-lg border border-ink-200"
                        value="{{ old('primary_color', $company->primary_color) }}"
-                       oninput="document.documentElement.style.setProperty('--company', this.value)">
+                       data-css-var="--company">
                 <span class="num text-sm text-ink-600">{{ old('primary_color', $company->primary_color) }}</span>
             </div>
             <p class="mt-1 text-xs text-ink-500">مربّع الشعار في أعلى كل صفحة: النظام، وبوّابة التاجر، وتطبيق المندوب، وصفحة التتبّع. يُعاين هنا قبل الحفظ.</p>

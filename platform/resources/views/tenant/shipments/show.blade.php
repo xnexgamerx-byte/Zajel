@@ -372,8 +372,7 @@
                     دخلت هذه الشحنة كشف تسوية، فالتصحيح يكون بحركة على الحساب لا بتعديل الوصل.
                 </p>
             @elseif ($confirmable)
-                <button type="button" class="btn-primary mt-4 w-full"
-                        onclick="document.getElementById('confirm-amount').showModal()">
+                <button type="button" class="btn-primary mt-4 w-full" data-dialog-open="confirm-amount">
                     تأكيد مبلغ الوصل
                 </button>
                 <p class="mt-2 text-center text-xs text-ink-500">يُراجَع الرقم مرّة واحدة ثم يُقفَل.</p>
@@ -420,8 +419,7 @@
                         </div>
 
                         <div class="modal-foot">
-                            <button type="button" class="btn-ghost"
-                                    onclick="document.getElementById('confirm-amount').close()">تراجع</button>
+                            <button type="button" class="btn-ghost" data-dialog-close="confirm-amount">تراجع</button>
                             <button type="submit" class="btn-primary">تأكيد نهائي</button>
                         </div>
                     </form>

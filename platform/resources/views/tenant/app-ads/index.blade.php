@@ -27,7 +27,7 @@
                         <label class="flex items-center gap-1 text-xs"><input type="checkbox" name="is_active" value="1" class="size-4 accent-[var(--brand)]" @checked($ad->is_active)> يظهر</label>
                         <button class="btn-ghost py-1 text-xs">احفظ</button>
                     </form>
-                    <form method="POST" action="{{ route('app-ads.destroy', $ad) }}" onsubmit="return confirm('يُحذف الإعلان وصورته؟')">
+                    <form method="POST" action="{{ route('app-ads.destroy', $ad) }}" data-confirm="يُحذف الإعلان وصورته؟">
                         @csrf @method('DELETE')
                         <button class="btn-ghost py-1 text-xs text-bad-700">احذف</button>
                     </form>

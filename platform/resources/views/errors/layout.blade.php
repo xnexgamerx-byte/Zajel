@@ -7,7 +7,7 @@
 
     @include('partials.fonts')
 
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/behaviors.js'])
 </head>
 <body class="grid min-h-screen place-items-center px-4 antialiased">
 
@@ -55,7 +55,7 @@
         <p class="mt-3 text-[15px] text-ink-600">{{ $message ?? trim($__env->yieldContent('message')) }}</p>
 
         <div class="mt-8 flex flex-wrap justify-center gap-3">
-            <button type="button" onclick="history.back()" class="btn-ghost">رجوع</button>
+            <button type="button" data-history-back class="btn-ghost">رجوع</button>
             <a href="{{ $home }}" class="btn-primary">الصفحة الرئيسية</a>
         </div>
     </div>

@@ -27,7 +27,7 @@
             @foreach (['out' => 'المُرسَل منه', 'in' => 'الوارد إليه'] as $value => $label)
                 <label class="chip cursor-pointer {{ $direction === $value ? 'chip-info' : 'chip-mute' }}">
                     <input type="radio" name="direction" value="{{ $value }}" class="sr-only" @checked($direction === $value)
-                           onchange="this.form.submit()">
+                           data-submit-on-change>
                     {{ $label }}
                 </label>
             @endforeach

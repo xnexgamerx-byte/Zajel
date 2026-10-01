@@ -7,7 +7,7 @@
 
     @include('partials.fonts')
 
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/behaviors.js'])
 
     @isset($company)
         <style>:root { --company: {{ $company->primary_color }}; }</style>
@@ -23,7 +23,7 @@
     <div class="mx-auto flex max-w-[210mm] flex-wrap items-center gap-3 px-4 py-3">
         <a href="{{ $back ?? url()->previous() }}" class="btn-ghost">رجوع</a>
         <span class="text-sm text-ink-500">@yield('title')</span>
-        <button type="button" onclick="window.print()" class="btn-primary ms-auto">اطبع</button>
+        <button type="button" data-print class="btn-primary ms-auto">اطبع</button>
     </div>
 </div>
 

@@ -31,6 +31,9 @@ class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString("frame-ancestors 'none'", $policy);
         $this->assertStringContainsString("object-src 'none'", $policy);
         $this->assertStringNotContainsString('unsafe-eval', $policy);
+        // ولا سكربت مضمَّن: سكربتٌ محقونٌ في اسمٍ أو ملاحظة لا يعمل (behaviors.js)
+        $this->assertMatchesRegularExpression("/script-src 'self'[^;]*(;|$)/", $policy);
+        $this->assertDoesNotMatchRegularExpression("/script-src[^;]*unsafe-inline/", $policy);
 
         // دخول المنصّة إلى شركة يُرسَل على نطاقٍ ويُحوَّل إلى آخر
         $this->assertStringContainsString("form-action 'self' *.".config('zajel.tenant_domain').':*', $policy);
@@ -55,6 +58,40 @@ class SecurityHeadersTest extends TestCase
         $this->get('http://nope.'.config('zajel.tenant_domain').'/shipments')
             ->assertNotFound()
             ->assertHeader('X-Frame-Options', 'DENY');
+    }
+
+    /**
+     * السياسة تمنع السكربت المضمَّن، فمقبض onclick أو <script> يُكتب في قالبٍ
+     * يتعطّل بصمت في المتصفّح ولا يراه اختبار HTTP: زرٌّ لا يفعل شيئاً، أو —
+     * أسوأ — «متأكّد؟» لا يظهر فيمضي الحذف بلا سؤال. السلوك سماتٌ تقرؤها
+     * resources/js/behaviors.js، والبيانات <script type="application/json">.
+     */
+    public function test_no_template_carries_an_inline_script_or_handler(): void
+    {
+        $found = [];
+
+        foreach (File::allFiles(resource_path('views')) as $file) {
+            $source = $file->getContents();
+
+            // مقبض حدثٍ مضمَّن: onclick= onchange= onsubmit= …
+            if (preg_match_all('/\son[a-z]+\s*=\s*["\']/i', $source, $handlers)) {
+                $found[] = $file->getRelativePathname().' — '.implode(' ', array_map('trim', $handlers[0]));
+            }
+
+            // سكربتٌ مضمَّن: كل <script> بلا src إلّا البيانات
+            foreach ($this->tags($source, 'script') as $tag) {
+                if ($this->attribute($tag, 'src') === null && ! str_contains($tag, 'type="application/json"')) {
+                    $found[] = $file->getRelativePathname().' — '.$tag;
+                }
+            }
+
+            // وروابط javascript:
+            if (preg_match('/href\s*=\s*["\']\s*javascript:/i', $source)) {
+                $found[] = $file->getRelativePathname().' — javascript:';
+            }
+        }
+
+        $this->assertSame([], $found, "سكربتٌ مضمَّن تمنعه السياسة:\n".implode("\n", $found));
     }
 
     /**

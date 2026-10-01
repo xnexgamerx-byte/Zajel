@@ -9,7 +9,7 @@
 
     @include('partials.fonts')
 
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/behaviors.js'])
     <style>:root { --company: {{ $company->primary_color }}; }</style>
 </head>
 <body class="min-h-screen antialiased">

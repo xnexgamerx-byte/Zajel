@@ -28,9 +28,7 @@
                     <tr>
                         <th class="w-10">
                             {{-- تحديد الكلّ: الراجع يُستلم بالجملة لا وصلاً وصلاً --}}
-                            <input type="checkbox" aria-label="تحديد الكل" class="size-4 accent-[var(--brand)]"
-                                   onchange="this.closest('table').querySelectorAll('tbody input[type=checkbox]')
-                                             .forEach(c => c.checked = this.checked)">
+                            <input type="checkbox" aria-label="تحديد الكل" class="size-4 accent-[var(--brand)]" data-check-all-in="table">
                         </th>
                         <th>الوصل</th>
                         <th>{{ $party === 'courier' ? 'المندوب' : 'التاجر' }}</th>

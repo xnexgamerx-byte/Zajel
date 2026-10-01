@@ -7,7 +7,7 @@
 
     @include('partials.fonts')
 
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/behaviors.js'])
 
     {{--
       الملصق بالمليمتر لا بالبكسل: يُطبع كما يُقاس. أسود على أبيض فقط — الطابعة
@@ -65,7 +65,7 @@
                class="tab-link h-10 {{ $size === 'a4' ? 'tab-link-active' : '' }}">A4 — أربعة في الورقة</a>
         </nav>
 
-        <button type="button" onclick="window.print()" class="btn-primary ms-auto">اطبع</button>
+        <button type="button" data-print class="btn-primary ms-auto">اطبع</button>
     </div>
 </div>
 

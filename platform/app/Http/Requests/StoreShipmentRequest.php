@@ -27,7 +27,7 @@ class StoreShipmentRequest extends FormRequest
             'governorate_id'      => ['required', 'integer', Rule::exists('governorates', 'id')->where('is_active', true)],
             // المحافظة والمنطقة والهاتف والمبلغ: هذا ما لا تخرج شحنةٌ بغيره. والمنطقة
             // تُلزَم ما دامت للمحافظة مناطق يُختار منها
-            'city_id'             => [Rule::requiredIf(fn () => $this->governorateHasAreas()), 'nullable', 'integer', Rule::exists('cities', 'id')],
+            'city_id'             => [Rule::requiredIf(fn () => $this->governorateHasAreas()), 'nullable', 'integer', \App\Models\City::existsRule()],
             // العنوان المفصّل لم يعد في النموذج: يبقى لما كُتب قبل ذلك وللملفّات القديمة
             'address'             => ['nullable', 'string', 'max:500'],
             // أقرب نقطة دالّة تساعد المندوب ولا تُلزِم: حرفٌ واحد أو لا شيء

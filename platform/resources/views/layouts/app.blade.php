@@ -226,39 +226,5 @@
 @endguest
 
 
-{{--
-  كشف رقم واحد في كل مرّة: أي كشف جديد يُخفي سابقه، ويعود الرقم مخفيّاً
-  بعد نصف دقيقة. الحماية هنا ليست تقنية — الرقم في الصفحة على أي حال —
-  بل جعل النسخ الجَماعيّ عملاً مقصوداً يُرى.
---}}
-<script>
-    let revealedPhone = null;
-    let revealTimer = null;
-
-    function revealPhone(button) {
-        const cell = button.closest('[data-phone]').querySelector('[data-phone-value]');
-
-        if (revealedPhone && revealedPhone !== cell) {
-            revealedPhone.textContent = revealedPhone.dataset.masked;
-        }
-
-        clearTimeout(revealTimer);
-
-        if (cell.textContent === cell.dataset.real) {
-            cell.textContent = cell.dataset.masked;
-            revealedPhone = null;
-
-            return;
-        }
-
-        cell.textContent = cell.dataset.real;
-        revealedPhone = cell;
-        revealTimer = setTimeout(() => {
-            cell.textContent = cell.dataset.masked;
-            revealedPhone = null;
-        }, 30000);
-    }
-</script>
-
 </body>
 </html>

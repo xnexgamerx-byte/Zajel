@@ -92,7 +92,7 @@
             <div>
                 <label class="field-label" for="kind">الحركة</label>
                 <select id="kind" name="kind" class="field-input" required
-                        onchange="document.getElementById('deposit-reason').required = this.value === 'forfeit'">
+                        data-require-when="forfeit" data-require-target="#deposit-reason">
                     <option value="deposit">إيداع تأمين</option>
                     <option value="refund">ردّ تأمين</option>
                     <option value="forfeit">خصم من التأمين</option>

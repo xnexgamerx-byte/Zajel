@@ -158,7 +158,8 @@ class BranchController extends Controller
                                      ->ignore($branch?->id)],
             'name'           => ['required', 'string', 'max:160'],
             'governorate_id' => ['nullable', 'integer', Rule::exists('governorates', 'id')],
-            'city_id'        => ['nullable', 'integer'],
+            // منطقةٌ موجودة يراها (لا رقمٌ يسقط به الحفظ على مفتاح القاعدة)
+            'city_id'        => ['nullable', 'integer', City::existsRule()],
             'address'        => ['nullable', 'string', 'max:255'],
             'phone'          => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
             // تسعيرة الفرع يختارها الفرع الرئيسي وتسري على تجّاره؛ فارغةً: افتراضية الشركة

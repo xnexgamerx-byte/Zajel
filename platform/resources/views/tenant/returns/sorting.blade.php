@@ -47,7 +47,7 @@
                     <tr>
                         <th class="w-10">
                             <input type="checkbox" checked aria-label="اختر الكل"
-                                   onchange="this.closest('[data-sort-group]').querySelectorAll('input[name=\'shipment_ids[]\']').forEach(c => c.checked = this.checked)">
+                                   data-check-all-in="[data-sort-group]" data-check-all-of="input[name='shipment_ids[]']">
                         </th>
                         <th>الوصل</th>
                         <th>التاجر</th>

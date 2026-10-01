@@ -160,6 +160,8 @@ class TenantIsolationTest extends TestCase
             \App\Models\FailureReason::class, // company_id = null يعني سبب عام
             \App\Models\ExpenseCategory::class, // company_id = null يعني باباً عاماً
             \App\Models\Setting::class,       // company_id = null يعني إعداد عام — ولا يُقرأ في أي مكان
+            // company_id = null منطقةٌ عامّة؛ وما أضافته شركةٌ يحدّه نطاق City نفسه (CompanyAreasTest)
+            \App\Models\City::class,
             // AuditLog كان هنا «يُقرأ في وضع النواة» — وذاك ما يجعله فخّاً:
             // أوّل قراءةٍ من داخل شركة تقرأ سجلّات الشركات كلّها. صار مقيَّداً.
         ];

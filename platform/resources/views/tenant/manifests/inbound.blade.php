@@ -37,9 +37,7 @@
                         <tr>
                             <th class="w-10">
                                 <input type="checkbox" aria-label="تحديد الكل" checked
-                                       class="size-4 accent-[var(--brand)]"
-                                       onchange="this.closest('table').querySelectorAll('tbody input[type=checkbox]')
-                                                 .forEach(c => c.checked = this.checked)">
+                                       class="size-4 accent-[var(--brand)]" data-check-all-in="table">
                             </th>
                             <th>الكيس</th>
                             <th>الشحنات</th>

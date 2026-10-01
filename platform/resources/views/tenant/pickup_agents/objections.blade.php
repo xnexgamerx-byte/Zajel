@@ -51,7 +51,7 @@
                     <div>
                         <label class="field-label" for="decision-{{ $share->id }}">القرار</label>
                         <select id="decision-{{ $share->id }}" name="decision" class="field-input" required
-                                onchange="this.closest('form').querySelector('[data-agreed]').hidden = this.value !== 'accept'">
+                                data-show-when="accept" data-show-target="[data-agreed]">
                             <option value="accept">أقبل — عدّل العدد</option>
                             <option value="reject">أرفض</option>
                         </select>

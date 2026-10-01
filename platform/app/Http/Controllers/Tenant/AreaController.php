@@ -3,11 +3,17 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\City;
 use App\Models\CitySetting;
 use App\Models\Courier;
 use App\Models\CourierZone;
 use App\Models\Governorate;
+use App\Models\Hub;
+use App\Models\Merchant;
+use App\Models\PriceListRule;
+use App\Models\Shipment;
+use App\Support\Arabic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -103,6 +109,66 @@ class AreaController extends Controller
         });
 
         return back()->with('success', 'حُفظت أجور المناطق وأطرافها. الشحنات الجديدة تُسعَّر بها فوراً.');
+    }
+
+    /**
+     * «منطقة ناقصة»: المنطقة إلزامية في الشحنة، والقائمة تنقصها حارةٌ جديدة أو
+     * قرية — فتضيفها الشركة لنفسها في المحافظة المعروضة، وتظهر لها وحدها في
+     * الشحنات والإدخال السريع والملفّات. واسمٌ موجود — ولو بكتابةٍ أخرى
+     * («الكراده» و«الكرادة») — لا يُكرَّر؛ وما أخفته الشركة من قبل يعود.
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'governorate_id' => ['required', 'integer'],
+            'name_ar'        => ['required', 'string', 'min:2', 'max:120'],
+        ], [], ['name_ar' => 'اسم المنطقة']);
+
+        $governorate = Governorate::offered()->findOrFail($data['governorate_id']);
+        $name = trim(preg_replace('/\s+/u', ' ', $data['name_ar']));
+        $companyId = $request->user()->company_id;
+
+        $same = City::where('governorate_id', $governorate->id)->get(['id', 'company_id', 'name_ar', 'is_active'])
+            ->filter(fn (City $city) => Arabic::fold($city->name_ar) === Arabic::fold($name))
+            ->sortByDesc('is_active')
+            ->first();
+
+        if ($same?->is_active) {
+            return back()->withInput()->withErrors(['name_ar' => "«{$same->name_ar}» موجودة سلفاً في {$governorate->name_ar}."]);
+        }
+
+        if ($same && $same->company_id === $companyId) {
+            $same->update(['is_active' => true]);
+            $name = $same->name_ar;
+        } else {
+            City::create(['governorate_id' => $governorate->id, 'company_id' => $companyId, 'name_ar' => $name, 'is_active' => true]);
+        }
+
+        return redirect()->route('areas.index', ['governorate_id' => $governorate->id, 'q' => $name])
+            ->with('success', "أُضيفت «{$name}» إلى مناطق {$governorate->name_ar}: تظهر الآن في الشحنات والإدخال السريع والملفّات.");
+    }
+
+    /**
+     * منطقةٌ أضافتها الشركة ولم تُستعمل: تُحذف. وإن حملتها شحنةٌ أو تاجرٌ أو فرعٌ
+     * أو قاعدة تسعير تُخفى من القوائم ولا تُحذف — حذفها يمحو عنوان تلك الشحنات،
+     * ويجعل قاعدة التسعير الخاصّة بها قاعدةً للمحافظة كلّها. والعامّة لا تُمسّ.
+     */
+    public function destroy(Request $request, City $city): RedirectResponse
+    {
+        abort_unless($city->company_id !== null && $city->company_id === $request->user()->company_id, 404);
+
+        $used = Shipment::withTrashed()->where('city_id', $city->id)->exists()
+            || Merchant::withTrashed()->where('city_id', $city->id)->exists()
+            || Branch::withTrashed()->where('city_id', $city->id)->exists()
+            || Hub::where('city_id', $city->id)->exists()
+            || PriceListRule::where('to_city_id', $city->id)->exists();
+
+        $used ? $city->update(['is_active' => false]) : $city->delete();
+
+        return redirect()->route('areas.index', ['governorate_id' => $city->governorate_id])
+            ->with('success', $used
+                ? "أُخفيت «{$city->name_ar}» من القوائم، وبقيت فيما يحملها من شحناتٍ وسجلّات."
+                : "حُذفت «{$city->name_ar}».");
     }
 
     /** «تعديل المناطق الطرفية وغير الطرفية» للمحافظة كلّها دفعةً واحدة */
