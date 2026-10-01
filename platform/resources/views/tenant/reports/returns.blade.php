@@ -1,8 +1,8 @@
 @extends('layouts.app')
-@section('title', 'لماذا ترجع شحناتي؟')
+@section('title', 'أسباب الراجع')
 
 @section('content')
-<x-report-shell title="لماذا ترجع شحناتي؟"
+<x-report-shell title="أسباب الراجع"
                 question="السؤال الذي يُصلح البيانات بدل أن يتّهم المندوب."
                 :period="$period"
                 basis="تُحسب بتاريخ آخر تغيّر في حالة الشحنة داخل المدّة.">

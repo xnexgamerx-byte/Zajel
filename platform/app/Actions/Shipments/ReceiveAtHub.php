@@ -68,7 +68,7 @@ class ReceiveAtHub
 
         if ($status === ShipmentStatus::Returning) {
             if ($shipment->return_received_at !== null) {
-                return 'راجعٌ مستلَمٌ سلفاً';
+                return 'راجع مستلَم سلفاً';
             }
 
             $this->returns->handle([$shipment->id], $actor, 'استلام بالمسح');
@@ -84,12 +84,12 @@ class ReceiveAtHub
         }
 
         if ($status === ShipmentStatus::AtHub) {
-            return 'في المخزن سلفاً';
+            return 'بالمخزن سلفاً';
         }
 
-        // ما بقي من التسليم الجزئي راجعٌ، يُستلم من «تصفيات الراجع» لا من هنا
+        // ما بقي من الواصل الجزئي راجعٌ، يُستلم من قائمة «الراجع» لا من هنا
         if ($status === ShipmentStatus::PartiallyDelivered) {
-            return 'تسليم جزئي — باقيها من «تصفيات الراجع»';
+            return 'واصل جزئي — باقيه من قائمة «الراجع»';
         }
 
         if (! $status->canMoveTo(ShipmentStatus::AtHub)) {

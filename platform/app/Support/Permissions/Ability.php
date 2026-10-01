@@ -19,11 +19,11 @@ use App\Support\StaffNavigation;
  */
 class Ability
 {
-    // الصفحة الرئيسية
+    // الرئيسية
     /** إعلانٌ واحد يبلغ كل المناديب أو كل التجّار */
     public const NOTIFY_SEND = 'notify.send';
 
-    // شحنات العميل
+    // الشحنات
     public const SHIPMENTS_VIEW = 'shipments.view';
 
     public const SHIPMENTS_CREATE = 'shipments.create';
@@ -44,14 +44,14 @@ class Ability
     /** مسح ما أُنشئ خطأً قبل أن يصلنا، واسترجاعه — «صلاحية تعديل وحذف الشحنات» في المعتاد */
     public const SHIPMENTS_DELETE = 'shipments.delete';
 
-    // عمليات التوصيل · طلبات شحن · تصفيات الراجع
+    // التوصيل · الاستلام والمخزن · الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
 
     public const PICKUPS_MANAGE = 'pickups.manage';
 
     public const RETURNS_MANAGE = 'returns.manage';
 
-    // النظام المصرفي · إيرادات ومصروفات · الدفعات
+    // الصندوق · الحسابات والمصاريف · المحاسبة
     public const MONEY_CASH = 'money.cash';
 
     public const MONEY_VIEW = 'money.view';
@@ -81,7 +81,7 @@ class Ability
     /** إجازة شحنات التاجر المعلَّق للمراجعة لتخرج مع المندوب */
     public const CONTROL_REVIEW = 'control.review';
 
-    // إعدادات الفروع
+    // الإعدادات
     public const SETTINGS_MERCHANTS = 'settings.merchants';
 
     public const SETTINGS_COURIERS = 'settings.couriers';
@@ -125,10 +125,10 @@ class Ability
     public static function groups(): array
     {
         return [
-            'home' => ['label' => 'الصفحة الرئيسية', 'abilities' => [
+            'home' => ['label' => 'الرئيسية', 'abilities' => [
                 self::NOTIFY_SEND => 'الإشعارات الجماعية',
             ]],
-            'shipments' => ['label' => 'شحنات العميل', 'abilities' => [
+            'shipments' => ['label' => 'الشحنات', 'abilities' => [
                 self::SHIPMENTS_VIEW   => 'عرض الشحنات',
                 self::SHIPMENTS_CREATE => 'إنشاء شحنة ورفع ملف',
                 self::SHIPMENTS_EDIT   => 'تعديل بيانات الشحنة',
@@ -137,26 +137,26 @@ class Ability
                 self::SHIPMENTS_EXPORT => 'تصدير القوائم (Excel وPDF) بأرقام الزبائن',
                 self::SHIPMENTS_DELETE => 'مسح الشحنات قبل استلامها، واسترجاعها',
             ]],
-            'delivery' => ['label' => 'عمليات التوصيل', 'abilities' => [
+            'delivery' => ['label' => 'التوصيل', 'abilities' => [
                 self::TRANSPORT_MANAGE => 'الأكياس وكشوف النقل والمناديب',
             ]],
-            'requests' => ['label' => 'طلبات شحن', 'abilities' => [
+            'requests' => ['label' => 'الاستلام والمخزن', 'abilities' => [
                 self::PICKUPS_MANAGE => 'طلبات الاستلام',
             ]],
-            'returns' => ['label' => 'تصفيات الراجع', 'abilities' => [
+            'returns' => ['label' => 'الراجع', 'abilities' => [
                 self::RETURNS_MANAGE => 'الراجع: استلاماً وفرزاً وتسليماً',
             ]],
-            'banking' => ['label' => 'النظام المصرفي', 'abilities' => [
+            'banking' => ['label' => 'الصندوق', 'abilities' => [
                 self::MONEY_CASH => 'القاصة والجرد والمناقلة',
             ]],
-            'accounts' => ['label' => 'إيرادات ومصروفات', 'abilities' => [
+            'accounts' => ['label' => 'الحسابات والمصاريف', 'abilities' => [
                 self::MONEY_VIEW     => 'عرض الحسابات والأرصدة',
                 self::MONEY_EXPENSES => 'المصروفات',
             ]],
-            'reports' => ['label' => 'تقارير', 'abilities' => [
+            'reports' => ['label' => 'التقارير', 'abilities' => [
                 self::REPORTS_VIEW => 'التقارير',
             ]],
-            'financial' => ['label' => 'تقارير مالية', 'abilities' => [
+            'financial' => ['label' => 'التقارير المالية', 'abilities' => [
                 self::REPORTS_FINANCIAL => 'أرباح الشحنات ومال الرواجع',
             ]],
             'review' => ['label' => 'المراجعة', 'abilities' => [
@@ -165,7 +165,7 @@ class Ability
                 self::CONTROL_FORCE      => 'التغيير الإجباري خارج المسار',
                 self::CONTROL_REVIEW     => 'إجازة الشحنات المعلّقة للمراجعة',
             ]],
-            'settings' => ['label' => 'إعدادات الفروع', 'abilities' => [
+            'settings' => ['label' => 'الإعدادات', 'abilities' => [
                 self::SETTINGS_MERCHANTS   => 'التجّار',
                 self::SETTINGS_COURIERS    => 'المندوبون',
                 self::SETTINGS_USERS       => 'المستخدمون',
@@ -175,7 +175,7 @@ class Ability
                 self::SETTINGS_PRICING     => 'التسعيرات',
                 self::SETTINGS_COMPANY     => 'بيانات الشركة وواتساب الدعم',
             ]],
-            'payments' => ['label' => 'الدفعات', 'abilities' => [
+            'payments' => ['label' => 'المحاسبة', 'abilities' => [
                 self::MONEY_SETTLE         => 'تسوية المندوبين ومندوبي الاستلام',
                 self::MONEY_PAY            => 'دفع كشوف التجّار',
                 self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',

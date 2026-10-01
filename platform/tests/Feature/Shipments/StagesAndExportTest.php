@@ -140,7 +140,7 @@ class StagesAndExportTest extends TestCase
         $html = $page->getContent();
 
         // اللوحة باقية بروابطها إلى الصفحة نفسها، والمختارة مضيئة
-        $page->assertSee('داخل المخزن')
+        $page->assertSee('بالمخزن')
             ->assertSee('href="'.route('shipments.stages', ['stage' => 'in_store']).'"', false)
             ->assertSee('aria-current="page"', false);
 
@@ -239,7 +239,7 @@ class StagesAndExportTest extends TestCase
         // الهاتف نصٌّ بصفره، والمبلغ رقم
         $this->assertSame('07701112233', (string) $sheet->getCell('H2')->getValue());
         $this->assertSame(125000, (int) $sheet->getCell('N2')->getValue());
-        $this->assertSame('داخل المخزن', ShipmentStages::find('in_store')['label']);
+        $this->assertSame('بالمخزن', ShipmentStages::find('in_store')['label']);
 
         Tenancy::runFor($this->company, function () {
             $log = AuditLog::where('action', 'shipments_exported')->sole();

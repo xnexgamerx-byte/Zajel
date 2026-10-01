@@ -61,7 +61,7 @@ final class RankTemplates
             ],
             'returns_clerk' => [
                 'name' => 'موظّف رواجع',
-                'hint' => 'تصفيات الراجع، والأكياس والكشوف، وطلبات الاستلام ومندوبوه.',
+                'hint' => 'الراجع، والأكياس والكشوف، وطلبات الاستلام ومندوبوه.',
                 'abilities' => [A::SHIPMENTS_VIEW, A::RETURNS_MANAGE, A::TRANSPORT_MANAGE, A::PICKUPS_MANAGE,
                     A::SETTINGS_COURIERS],
             ],

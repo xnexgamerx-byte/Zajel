@@ -81,7 +81,7 @@ class ScanReceiveTest extends TestCase
                 ->getJson($this->host().'/shipments/scan/lookup?number='.urlencode($typed))
                 ->assertOk()
                 ->assertJson([
-                    'id' => $shipment->id, 'number' => $shipment->number, 'status' => 'تم الإنشاء',
+                    'id' => $shipment->id, 'number' => $shipment->number, 'status' => 'جديد',
                     'amount' => 50000, 'phone' => '••••••••233',
                 ]);
         }
@@ -121,8 +121,8 @@ class ScanReceiveTest extends TestCase
             ])
             ->assertRedirect($this->host().'/shipments/scan')
             ->assertSessionHas('success', fn (string $m) => str_contains($m, 'استُلمت في المخزن 4 شحنات')
-                && str_contains($m, "{$shelf->number} (في المخزن سلفاً)")
-                && str_contains($m, "{$done->number} (تم التسليم)"));
+                && str_contains($m, "{$shelf->number} (بالمخزن سلفاً)")
+                && str_contains($m, "{$done->number} (واصل)"));
 
         Tenancy::runFor($this->company, function () use ($dropped, $picked, $back, $return, $done) {
             foreach ([$dropped, $picked, $back] as $s) {

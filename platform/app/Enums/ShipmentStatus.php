@@ -26,24 +26,28 @@ enum ShipmentStatus: string
     case Lost               = 'lost';
     case Damaged            = 'damaged';
 
+    /**
+     * بكلمات التوصيل اليومية كما يقولها الموظّف والمندوب والتاجر: «الطلب واصل،
+     * راجع، مؤجل، ملغي» — لا «تم التسليم» و«قيد الإرجاع».
+     */
     public function label(): string
     {
         return match ($this) {
-            self::Created            => 'تم الإنشاء',
-            self::PendingPickup      => 'بانتظار الاستلام',
-            self::PickedUp           => 'تم الاستلام',
-            self::AtHub              => 'في المخزن',
-            self::InTransit          => 'قيد النقل',
-            self::OutForDelivery     => 'مع المندوب',
-            self::Delivered          => 'تم التسليم',
-            self::PartiallyDelivered => 'تسليم جزئي',
-            self::FailedAttempt      => 'محاولة فاشلة',
-            self::Postponed          => 'مؤجَّلة',
-            self::Returning          => 'قيد الإرجاع',
-            self::Returned           => 'راجعة للتاجر',
-            self::Cancelled          => 'ملغاة',
-            self::Lost               => 'مفقودة',
-            self::Damaged            => 'تالفة',
+            self::Created            => 'جديد',
+            self::PendingPickup      => 'بانتظار المندوب',
+            self::PickedUp           => 'استلمه المندوب',
+            self::AtHub              => 'بالمخزن',
+            self::InTransit          => 'بالطريق بين الفروع',
+            self::OutForDelivery     => 'قيد التوصيل',
+            self::Delivered          => 'واصل',
+            self::PartiallyDelivered => 'واصل جزئي',
+            self::FailedAttempt      => 'لم يُسلَّم',
+            self::Postponed          => 'مؤجل',
+            self::Returning          => 'راجع',
+            self::Returned           => 'راجع للتاجر',
+            self::Cancelled          => 'ملغي',
+            self::Lost               => 'مفقود',
+            self::Damaged            => 'تالف',
         };
     }
 

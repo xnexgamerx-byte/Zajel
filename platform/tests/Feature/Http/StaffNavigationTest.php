@@ -25,9 +25,9 @@ class StaffNavigationTest extends TestCase
 
     /** شريط النظام المعتاد من اليمين إلى اليسار (docs/plan/10-live-system-analysis.md §٣) */
     private const ORDER = [
-        'الصفحة الرئيسية', 'شحنات العميل', 'عمليات التوصيل', 'طلبات شحن', 'تصفيات الراجع',
-        'النظام المصرفي', 'إيرادات ومصروفات', 'تقارير', 'تقارير مالية', 'المراجعة',
-        'إعدادات الفروع', 'الدفعات',
+        'الرئيسية', 'الشحنات', 'التوصيل', 'الاستلام والمخزن', 'الراجع',
+        'الصندوق', 'الحسابات والمصاريف', 'التقارير', 'التقارير المالية', 'المراجعة',
+        'الإعدادات', 'المحاسبة',
     ];
 
     /** شاشاتٌ تُفتح من داخل غيرها لا من الشريط: نماذج الإضافة، والطباعة، وقالب الاستيراد */
@@ -113,18 +113,18 @@ class StaffNavigationTest extends TestCase
 
         // والتقارير المالية لمن يرى أرباح الشركة وحده
         // ويرى «كل مراحل النقل»: عدّاداتٌ للقراءة
-        $this->assertSame(['الصفحة الرئيسية', 'شحنات العميل', 'عمليات التوصيل', 'طلبات شحن', 'تقارير', 'المراجعة'], $labels);
-        $delivery = $menus[array_search('عمليات التوصيل', $labels, true)];
+        $this->assertSame(['الرئيسية', 'الشحنات', 'التوصيل', 'الاستلام والمخزن', 'التقارير', 'المراجعة'], $labels);
+        $delivery = $menus[array_search('التوصيل', $labels, true)];
         $this->assertSame(['كل مراحل النقل'], array_column($delivery['links'], 'label'));
 
         // والقائمة الباقية لا تحمل من روابطها إلا ما يُفتح
-        $home = $menus[array_search('الصفحة الرئيسية', $labels, true)];
+        $home = $menus[array_search('الرئيسية', $labels, true)];
         $this->assertSame(['لوحة اليوم'], array_column($home['links'], 'label'));
 
         // مدير الفرع يرى الأرباح، ولا يرى كشف الحساب إلا بصلاحية المال
         $manager = $this->makeUser($this->company, UserRole::BranchManager);
         $menus = Tenancy::runFor($this->company, fn () => StaffNavigation::for($manager, Request::create('/')));
-        $finance = collect($menus)->firstWhere('label', 'تقارير مالية');
+        $finance = collect($menus)->firstWhere('label', 'التقارير المالية');
         $this->assertContains('أرباح الشحنات', array_column($finance['links'], 'label'));
     }
 
@@ -150,7 +150,7 @@ class StaffNavigationTest extends TestCase
         });
 
         $active = array_values(array_filter($menus, fn (array $menu) => $menu['active']));
-        $this->assertSame(['تصفيات الراجع'], array_column($active, 'label'));
+        $this->assertSame(['الراجع'], array_column($active, 'label'));
 
         $links = array_filter($active[0]['links'], fn (array $link) => $link['active']);
         $this->assertSame(['فرز الراجع للفروع'], array_column(array_values($links), 'label'));

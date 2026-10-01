@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'شحنات مشتبه بتكرارها')
+@section('title', 'شحنات مكرّرة')
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">شحنات مشتبه بتكرارها</h1>
+    <h1 class="page-title">شحنات مكرّرة</h1>
     <p class="mt-1 text-sm text-ink-500">
         نفس التاجر ونفس هاتف المستلم ونفس المبلغ خلال {{ \App\Support\Arabic::days($window) }}.
         تُحاسَب مرّتين وتُوزَّع مرّتين إن مرّت.

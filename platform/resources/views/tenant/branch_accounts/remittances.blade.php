@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'استلام المبالغ المسدّدة من الفروع')
+@section('title', 'استلام مبالغ الفروع')
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">استلام المبالغ المسدّدة من الفروع</h1>
+    <h1 class="page-title">استلام مبالغ الفروع</h1>
     <p class="mt-1 text-sm text-ink-500">
         ما أرسله فرعٌ تسديداً لما عليه. عُدَّه واستلمه بمبلغه الفعليّ في صندوق فرعك — والفرق عن المُرسَل يُكتب سببه.
     </p>

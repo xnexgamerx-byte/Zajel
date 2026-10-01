@@ -112,7 +112,7 @@
                 <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
             </div>
             <p class="mt-1 text-xs text-ink-500">
-                إن استلمت أقل، عدّل الرقم واختر "تسليم جزئي". الرقم لا يُعدَّل بعد الحفظ.
+                إن استلمت أقل، عدّل الرقم واختر «واصل جزئي». الرقم لا يُعدَّل بعد الحفظ.
             </p>
 
             {{-- تاجرٌ يطلب كود التسليم: الزبون يعطيه للمندوب عند الباب، ولا تسليم بدونه --}}
@@ -125,12 +125,12 @@
 
             <button type="submit" name="action" value="delivered"
                     class="mt-3 w-full rounded-xl bg-ok-700 px-4 py-4 text-lg font-bold text-white active:brightness-110">
-                تم التسليم
+                واصل
             </button>
 
             <button type="submit" name="action" value="partially_delivered"
                     class="mt-2 w-full rounded-xl bg-white px-4 py-3 text-base font-semibold text-ink-700 ring-1 ring-ink-300 active:bg-ink-50">
-                تسليم جزئي
+                واصل جزئي
             </button>
         </div>
 
@@ -153,11 +153,11 @@
             <div class="mt-3 grid grid-cols-2 gap-2">
                 <button type="submit" name="action" value="failed_attempt"
                         class="rounded-xl bg-bad-700 px-4 py-3.5 text-base font-bold text-white active:brightness-110">
-                    محاولة فاشلة
+                    لم يُسلَّم
                 </button>
                 <button type="submit" name="action" value="postponed"
                         class="rounded-xl bg-warn-500 px-4 py-3.5 text-base font-bold text-white active:brightness-110">
-                    تأجيل
+                    مؤجل
                 </button>
             </div>
         </div>

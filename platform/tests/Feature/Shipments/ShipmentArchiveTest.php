@@ -80,7 +80,7 @@ class ShipmentArchiveTest extends TestCase
 
         $this->actingAs($this->owner)->get($this->host().'/shipments')->assertOk()
             ->assertSee($live->number)->assertDontSee($returned->number)
-            ->assertSee('راجعة للتاجر (مؤرشفة)')
+            ->assertSee('راجع للتاجر (مؤرشف)')
             ->assertSee('href="'.route('shipments.archive').'"', false);
 
         // ويُعثر عليه برقمه، أو بحالته صراحةً

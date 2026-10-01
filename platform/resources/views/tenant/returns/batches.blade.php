@@ -1,10 +1,10 @@
 @extends('layouts.app')
-@section('title', 'دفعات الراجع')
+@section('title', 'إيصالات الراجع')
 
 @section('content')
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
     <div>
-        <h1 class="page-title">دفعات الراجع</h1>
+        <h1 class="page-title">إيصالات الراجع</h1>
         <p class="mt-1 text-sm text-ink-500">
             كل تسليمٍ لرواجع تاجرٍ بإيصاله: من المخزن، أو مع مندوب الاستلام — ومتى استلمها فعلاً.
         </p>

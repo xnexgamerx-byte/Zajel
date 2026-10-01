@@ -1,8 +1,8 @@
 @extends('layouts.app')
-@section('title', 'المعلّقة في المراحل')
+@section('title', 'شحنات متأخرة')
 
 @section('content')
-@include('tenant.reports.reference._head', ['title' => 'المعلّقة في المراحل', 'blurb' => '«المعلّقة في جميع المراحل» و«العالقة في فرعي»: ما لم تتحرّك مرحلته منذ أكثر من الساعات المختارة، الأقدم أوّلاً.'])
+@include('tenant.reports.reference._head', ['title' => 'شحنات متأخرة', 'blurb' => '«المعلّقة في جميع المراحل» و«العالقة في فرعي»: ما لم تتحرّك مرحلته منذ أكثر من الساعات المختارة، الأقدم أوّلاً.'])
 
 <x-report-period>
     <div>

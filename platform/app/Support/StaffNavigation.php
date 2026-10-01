@@ -11,9 +11,10 @@ use Illuminate\Support\Facades\Route;
 /**
  * الشريط العلوي لموظّفي الشركة.
  *
- * القوائم الاثنتا عشرة بأسمائها وترتيبها في النظام الذي يعمل عليه الموظّفون
- * اليوم (docs/plan/10-live-system-analysis.md §٣): الترتيب ذاكرةُ يدٍ لا ذوق،
- * ومَن ينتقل إلينا يجد «تصفيات الراجع» حيث تركها. وتحت كل قائمة شاشاتنا
+ * القوائم الاثنتا عشرة بترتيبها في النظام الذي يعمل عليه الموظّفون اليوم
+ * (docs/plan/10-live-system-analysis.md §٣): الترتيب ذاكرةُ يدٍ لا ذوق، فمَن
+ * ينتقل إلينا يجد «الراجع» حيث ترك «تصفيات الراجع». والأسماء كلماتٌ يومية
+ * بسيطة بطلب صاحب النظام (docs/plan/20 §٧). وتحت كل قائمة شاشاتنا
  * التي تقابلها — وكل شاشة كانت في الشريط الجانبي موجودةٌ هنا.
  *
  * كل رابط يحمل صلاحيته: ما لا يُفتح لا يظهر (قائمةٌ تُفضي إلى 403 أسوأ من
@@ -30,79 +31,79 @@ final class StaffNavigation
     public static function menus(): array
     {
         return [
-            ['الصفحة الرئيسية', 'home', [
+            ['الرئيسية', 'home', [
                 ['dashboard', 'لوحة اليوم', ['dashboard'], null],
                 // صفحة الإشعارات نفسها، وقد اختير جمهورها: ثلاثة أفعال كما في النظام المعتاد
-                ['announcements.index', 'إرسال إشعار لكافة مندوبي الاستلام', ['announcements.*'], 'notify.send', ['audience' => 'pickup_couriers']],
-                ['announcements.index', 'إرسال إشعار لكافة مندوبي التوصيل', ['announcements.*'], 'notify.send', ['audience' => 'delivery_couriers']],
-                ['announcements.index', 'إرسال إشعار لكافة التجّار', ['announcements.*'], 'notify.send', ['audience' => 'merchants']],
-                ['app-ads.index', 'إعلانات الصفحة الرئيسية بالتطبيق', ['app-ads.*'], 'notify.send'],
+                ['announcements.index', 'إشعار لمندوبي الاستلام', ['announcements.*'], 'notify.send', ['audience' => 'pickup_couriers']],
+                ['announcements.index', 'إشعار لمندوبي التوصيل', ['announcements.*'], 'notify.send', ['audience' => 'delivery_couriers']],
+                ['announcements.index', 'إشعار لكل التجّار', ['announcements.*'], 'notify.send', ['audience' => 'merchants']],
+                ['app-ads.index', 'إعلانات التطبيق', ['app-ads.*'], 'notify.send'],
             ]],
-            ['شحنات العميل', 'boxes', [
+            ['الشحنات', 'boxes', [
                 ['shipments.index', 'الشحنات', ['shipments.index', 'shipments.show'], 'shipments.view'],
                 ['shipments.create', 'شحنة جديدة', ['shipments.create'], 'shipments.create'],
                 ['shipments.quick', 'إدخال سريع (حتى ٣٠ شحنة)', ['shipments.quick*'], 'shipments.create'],
-                ['shipments.import', 'رفع من ملف', ['shipments.import*'], 'shipments.create'],
+                ['shipments.import', 'رفع ملف Excel', ['shipments.import*'], 'shipments.create'],
                 // ما رجع إلى تاجره: خرج من القائمة الجارية إلى أرشيفه، لكل تاجرٍ قائمته
                 ['shipments.archive', 'الشحنات المؤرشفة', ['shipments.archive'], 'shipments.view'],
             ]],
-            ['عمليات التوصيل', 'truck', [
+            ['التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],
-                ['shipments.scan', 'استلام وصولات في كل المراحل وإسنادها', ['shipments.scan'], 'shipments.status'],
+                ['shipments.scan', 'استلام بالمسح وإسناد', ['shipments.scan'], 'shipments.status'],
                 ['processing.index', 'شحنات للمعالجة', ['processing.*'], 'shipments.status'],
                 ['courier-manifests.index', 'كشوف المناديب', ['courier-manifests.*'], 'transport.manage'],
                 ['manifests.index', 'كشوف النقل', ['manifests.index', 'manifests.show'], 'transport.manage'],
-                ['manifests.inbound', 'وارد المراكز', ['manifests.inbound'], 'transport.manage'],
-                ['pickup-agents.objections', 'اعتراضات حصص الاستلام', ['pickup-agents.objections'], 'money.view'],
+                ['manifests.inbound', 'الواصل من الفروع', ['manifests.inbound'], 'transport.manage'],
+                ['pickup-agents.objections', 'اعتراضات مندوبي الاستلام', ['pickup-agents.objections'], 'money.view'],
             ]],
-            ['طلبات شحن', 'clipboard', [
+            ['الاستلام والمخزن', 'clipboard', [
                 ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
                 ['bags.index', 'الأكياس', ['bags.*'], 'transport.manage'],
                 ['shipments.passed', 'شحنات مرّت على مخزني', ['shipments.passed'], 'shipments.view'],
                 ['shipments.trash', 'شحنات ممسوحة', ['shipments.trash'], 'shipments.delete'],
             ]],
-            ['تصفيات الراجع', 'undo', [
-                ['returns.incoming', 'استلام الراجع', ['returns.incoming'], 'returns.manage'],
+            ['الراجع', 'undo', [
+                ['returns.incoming', 'استلام الراجع من المندوب', ['returns.incoming'], 'returns.manage'],
                 ['returns.sorting', 'فرز الراجع للفروع', ['returns.sorting'], 'returns.manage'],
                 ['returns.outgoing', 'تسليم الراجع للتاجر', ['returns.outgoing'], 'returns.manage'],
                 ['returns.pickup', 'تسليم الراجع لمندوب الاستلام', ['returns.pickup'], 'returns.manage'],
-                ['returns.requests', 'طلبات كشف راجع للتجّار', ['returns.requests'], 'returns.manage'],
+                ['returns.requests', 'طلبات التجّار لكشف الراجع', ['returns.requests'], 'returns.manage'],
                 ['manifests.archive', 'أرشيف الكشوف', ['manifests.archive', 'manifests.print'], 'transport.manage'],
             ]],
-            ['النظام المصرفي', 'bank', [
+            ['الصندوق', 'bank', [
                 ['cash.index', 'القاصة', ['cash.index'], 'money.cash'],
                 ['money.reconcile', 'مطابقة الدفتر', ['money.reconcile'], 'money.view'],
             ]],
-            ['إيرادات ومصروفات', 'cash', [
+            ['الحسابات والمصاريف', 'cash', [
                 ['couriers.cash', 'نقد المندوبين', ['couriers.cash'], 'money.view'],
                 ['pickup-agents.index', 'مندوبو الاستلام', ['pickup-agents.index', 'pickup-agents.show'], 'money.view'],
                 ['expenses.index', 'المصروفات', ['expenses.index'], 'money.expenses'],
                 ['money.accountants', 'حسابات المحاسب', ['money.accountants'], 'money.view'],
                 ['branch-accounts.index', 'محاسبة الفروع', ['branch-accounts.index'], 'money.view'],
                 ['branch-accounts.debts', 'ديون على الفروع', ['branch-accounts.debts'], 'money.view'],
-                ['branch-accounts.remittances', 'استلام المبالغ المسدّدة من الفروع', ['branch-accounts.remittances'], 'money.view'],
+                ['branch-accounts.remittances', 'استلام مبالغ الفروع', ['branch-accounts.remittances'], 'money.view'],
                 ['branch-accounts.deposits', 'التأمينات', ['branch-accounts.deposits'], 'money.view'],
-                ['merchant-requests.payments', 'طلبات حساب من التجّار', ['merchant-requests.payments'], 'money.view'],
+                ['merchant-requests.payments', 'طلبات محاسبة من التجّار', ['merchant-requests.payments'], 'money.view'],
             ]],
-            ['تقارير', 'chart', [
+            ['التقارير', 'chart', [
                 ['reports.index', 'كل التقارير', ['reports.index'], 'reports.view'],
-                ['reports.returns', 'لماذا ترجع شحناتي؟', ['reports.returns'], 'reports.view'],
+                ['reports.returns', 'أسباب الراجع', ['reports.returns'], 'reports.view'],
                 ['reports.couriers', 'أداء المندوبين', ['reports.couriers'], 'reports.view'],
                 ['reports.merchants', 'أداء التجّار', ['reports.merchants'], 'reports.view'],
                 ['reports.governorates', 'الأداء بالمحافظات', ['reports.governorates'], 'reports.view'],
                 ['reports.daily', 'الحركة اليومية', ['reports.daily'], 'reports.view'],
-                ['reports.dormant', 'عملاء منقطعون', ['reports.dormant'], 'reports.view'],
-                ['reports.debtors', 'أرصدة مدينة', ['reports.debtors'], 'reports.view'],
+                ['reports.dormant', 'تجّار انقطعوا', ['reports.dormant'], 'reports.view'],
+                ['reports.debtors', 'ديون لنا', ['reports.debtors'], 'reports.view'],
                 ['reports.changes', 'تتبّع التغييرات', ['reports.changes'], 'reports.view'],
-                ['reports.stuck', 'المعلّقة في المراحل', ['reports.stuck'], 'reports.view'],
+                ['reports.stuck', 'شحنات متأخرة', ['reports.stuck'], 'reports.view'],
                 ['reports.entries', 'عدد الشحنات المُدخلة', ['reports.entries'], 'reports.view'],
                 ['reports.portal', 'ما رفعه التجّار من بواباتهم', ['reports.portal'], 'reports.view'],
                 ['reports.processing', 'المتابعة والمراجعة', ['reports.processing'], 'reports.view'],
-                ['reports.special-prices', 'التجّار ذوو الأسعار الخاصّة', ['reports.special-prices'], 'reports.view'],
+                ['reports.special-prices', 'تجّار بأسعار خاصّة', ['reports.special-prices'], 'reports.view'],
                 ['reports.unconfirmed', 'دفعات لم يؤكَّد استلامها', ['reports.unconfirmed'], 'reports.view'],
                 ['reports.notifications', 'سجلّ الإشعارات', ['reports.notifications'], 'reports.view'],
             ]],
-            ['تقارير مالية', 'trend', [
+            ['التقارير المالية', 'trend', [
                 ['reports.profit', 'أرباح الشحنات', ['reports.profit'], 'reports.financial'],
                 ['branch-accounts.statement', 'كشف حساب الفرع', ['branch-accounts.statement*'], 'money.view'],
                 ['reports.returns-money', 'مال الرواجع', ['reports.returns-money'], 'reports.financial'],
@@ -113,11 +114,11 @@ final class StaffNavigation
             ]],
             ['المراجعة', 'review', [
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
-                ['control.duplicates', 'مشتبه بتكرارها', ['control.duplicates'], 'control.duplicates'],
+                ['control.duplicates', 'شحنات مكرّرة', ['control.duplicates'], 'control.duplicates'],
                 ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
                 ['control.review', 'تحت المراجعة', ['control.review*'], 'control.review'],
             ]],
-            ['إعدادات الفروع', 'building', [
+            ['الإعدادات', 'building', [
                 ['merchants.index', 'التجّار', ['merchants.*'], 'settings.merchants'],
                 ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit'], 'settings.couriers'],
                 ['users.index', 'المستخدمون', ['users.*'], 'settings.users'],
@@ -132,10 +133,10 @@ final class StaffNavigation
                 ['areas.index', 'أجور المناطق والأطراف', ['areas.*'], 'settings.pricing'],
                 ['settings.company', 'بيانات الشركة', ['settings.company*'], 'settings.company'],
             ]],
-            ['الدفعات', 'card', [
-                ['settlements.couriers.index', 'تسوية المندوبين', ['settlements.couriers.*'], 'money.view'],
-                ['settlements.merchants.index', 'تسوية التجّار', ['settlements.merchants.*'], 'money.view'],
-                ['return-batches.index', 'دفعات الراجع', ['return-batches.*'], 'returns.manage'],
+            ['المحاسبة', 'card', [
+                ['settlements.couriers.index', 'محاسبة المندوبين', ['settlements.couriers.*'], 'money.view'],
+                ['settlements.merchants.index', 'محاسبة التجّار', ['settlements.merchants.*'], 'money.view'],
+                ['return-batches.index', 'إيصالات الراجع', ['return-batches.*'], 'returns.manage'],
             ]],
         ];
     }

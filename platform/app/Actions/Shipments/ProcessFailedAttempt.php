@@ -20,8 +20,8 @@ class ProcessFailedAttempt
 {
     public const ACTIONS = [
         'redeliver' => 'إعادة توصيل',
-        'postpone'  => 'تأجيل',
-        'return'    => 'إرجاع للتاجر',
+        'postpone'  => 'مؤجل',
+        'return'    => 'راجع للتاجر',
     ];
 
     public function __construct(protected ChangeShipmentStatus $change) {}

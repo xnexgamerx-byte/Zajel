@@ -1,8 +1,8 @@
 @extends('layouts.app')
-@section('title', 'التجّار ذوو الأسعار الخاصّة')
+@section('title', 'تجّار بأسعار خاصّة')
 
 @section('content')
-@include('tenant.reports.reference._head', ['title' => 'التجّار ذوو الأسعار الخاصّة', 'blurb' => '«الزبائن ذوو الأسعار الخاصّة»: من على تسعيرةٍ غير الافتراضية، وأسعار التوصيل فيها.'])
+@include('tenant.reports.reference._head', ['title' => 'تجّار بأسعار خاصّة', 'blurb' => '«الزبائن ذوو الأسعار الخاصّة»: من على تسعيرةٍ غير الافتراضية، وأسعار التوصيل فيها.'])
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">

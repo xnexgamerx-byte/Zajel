@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'طلبات حساب من التجّار')
+@section('title', 'طلبات محاسبة من التجّار')
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">طلبات حساب من التجّار</h1>
+    <h1 class="page-title">طلبات محاسبة من التجّار</h1>
     <p class="mt-1 text-sm text-ink-500">
         ما طلبه التجّار من بواباتهم: «حاسبوني». يُغلق الطلب وحده حين يُبنى كشفه، ويُربط به.
     </p>

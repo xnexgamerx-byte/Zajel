@@ -211,7 +211,10 @@ class ReturnFlowTest extends TestCase
         $page = $this->actingAs($this->staff)->get($this->host().'/shipments/'.$shipment->id)->assertOk();
         preg_match('~<ol class="relative space-y-5.*?</ol>~s', $page->getContent(), $history);
 
-        $this->assertSame(1, substr_count($history[0], ShipmentStatus::Returning->label()));
+        // الحالة «راجع» كلمةً وحدها مرّةً واحدة؛ والاستلام سطرٌ باسمه («استلام راجع») لا يُعدّ معها
+        $label = preg_quote(ShipmentStatus::Returning->label(), '/');
+        $withoutReceipt = str_replace(ShipmentEvent::TYPES['return_received'], '', $history[0]);
+        $this->assertSame(1, preg_match_all('/(?<!\p{L})'.$label.'(?!\p{L})/u', $withoutReceipt));
         $this->assertStringContainsString(ShipmentEvent::TYPES['return_received'], $history[0]);
         $this->assertStringContainsString('استُلم الراجع من المندوب', $history[0]);
         $page->assertSee('المركز الحالي');

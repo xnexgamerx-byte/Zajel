@@ -8,9 +8,9 @@
     @foreach ([
         ['الكل', $totals['total'], 'text-ink-900', null],
         ['قيد التنفيذ', $totals['open'], 'text-info-700', null],
-        ['مسلَّمة', $totals['delivered'], 'text-ok-700', null],
+        ['واصل', $totals['delivered'], 'text-ok-700', null],
         // الراجع المسلَّم لتاجره لا يُعرض في القائمة: مكانه «الشحنات المؤرشفة»
-        ['راجعة للتاجر (مؤرشفة)', $totals['returned'], 'text-ink-600', route('shipments.archive')],
+        ['راجع للتاجر (مؤرشف)', $totals['returned'], 'text-ink-600', route('shipments.archive')],
     ] as [$label, $value, $tone, $url])
         @if ($url)
             <a href="{{ $url }}" class="card block p-4 hover:ring-1 hover:ring-primary-200">

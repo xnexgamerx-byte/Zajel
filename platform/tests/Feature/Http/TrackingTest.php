@@ -143,7 +143,7 @@ class TrackingTest extends TestCase
 
         $this->get($this->link($shipment))
             ->assertOk()
-            ->assertSee('تم الإنشاء')
+            ->assertSee('جديد')
             ->assertDontSee('تعديل البيانات')
             ->assertDontSee('ملاحظة داخلية للمندوب');
     }

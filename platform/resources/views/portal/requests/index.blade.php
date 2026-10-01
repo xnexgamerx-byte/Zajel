@@ -108,7 +108,7 @@
 </section>
 
 <section class="card overflow-hidden">
-    <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">دفعات الراجع — ما سُلّم لك بإيصال</h2>
+    <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">إيصالات الراجع — ما سُلّم لك</h2>
     <div class="overflow-x-auto">
         <table class="tbl">
             <thead>

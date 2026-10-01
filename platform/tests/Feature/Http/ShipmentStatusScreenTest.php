@@ -80,8 +80,8 @@ class ShipmentStatusScreenTest extends TestCase
             ->get($this->host().'/shipments/'.$shipment->id)
             ->assertOk()
             ->assertSee('الإجراء التالي')
-            ->assertSee('بانتظار الاستلام')
-            ->assertSee('تم الاستلام')
+            ->assertSee('بانتظار المندوب')
+            ->assertSee('استلمه المندوب')
             ->getContent();
 
         // القائمة العادية وحدها: لوحة الإجبار تعرض ما خرج عن المسار عمداً،
@@ -218,7 +218,7 @@ class ShipmentStatusScreenTest extends TestCase
                 'shipment_ids' => [$ready->id, $alsoReady->id, $cancelled->id],
                 'courier_id'   => $this->courier->id,
             ])
-            ->assertSessionHas('success', 'أُسندت شحنتان إلى أحمد الساعدي. تُخطّيت شحنة واحدة: '.$cancelled->number.' (ملغاة).');
+            ->assertSessionHas('success', 'أُسندت شحنتان إلى أحمد الساعدي. تُخطّيت شحنة واحدة: '.$cancelled->number.' (ملغي).');
 
         $this->assertSame(ShipmentStatus::OutForDelivery, $ready->fresh()->status);
         $this->assertSame(ShipmentStatus::OutForDelivery, $alsoReady->fresh()->status);
@@ -269,7 +269,7 @@ class ShipmentStatusScreenTest extends TestCase
             ])
             ->assertSessionMissing('success')
             ->assertSessionHasErrors(['shipment_ids' => 'لم تُسنَد أيّ شحنة إلى أحمد الساعدي. تُخطّيت شحنتان: '
-                .$delivered->number.' (تم التسليم)، '.$withHim->number.' (معه سلفاً).']);
+                .$delivered->number.' (واصل)، '.$withHim->number.' (معه سلفاً).']);
     }
 
     public function test_a_shipment_out_with_another_courier_names_him(): void

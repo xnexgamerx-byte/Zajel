@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'طلبات كشف راجع للتجّار')
+@section('title', 'طلبات التجّار لكشف الراجع')
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">طلبات كشف راجع للتجّار</h1>
+    <h1 class="page-title">طلبات التجّار لكشف الراجع</h1>
     <p class="mt-1 text-sm text-ink-500">
         تجّارٌ طلبوا رواجعهم من بواباتهم. سلّمها من المخزن أو مع مندوب استلامه — ويُغلق الطلب وحده بإيصالها.
         تنتظر الآن: {{ number_format($open) }}.

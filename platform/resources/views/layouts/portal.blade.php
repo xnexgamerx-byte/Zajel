@@ -22,7 +22,7 @@
         ['portal.dashboard', 'الرئيسية', 'portal.dashboard', 'home', 'الرئيسية'],
         ['portal.shipments.index', 'شحناتي', 'portal.shipments.index', 'box', 'شحناتي'],
         ['portal.shipments.create', 'شحنة جديدة', 'portal.shipments.create', 'plus', 'جديدة'],
-        ['portal.shipments.import', 'رفع من ملف', 'portal.shipments.import*', 'upload', 'رفع'],
+        ['portal.shipments.import', 'رفع ملف Excel', 'portal.shipments.import*', 'upload', 'رفع'],
         ['portal.pickups.index', 'طلبات الاستلام', 'portal.pickups.*', 'clipboard', 'استلام'],
         ['portal.statement', 'حسابي', 'portal.statement', 'wallet', 'حسابي'],
         ['portal.requests.index', 'طلباتي', 'portal.requests.*', 'card', 'طلباتي'],

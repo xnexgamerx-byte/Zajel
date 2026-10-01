@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">إعلانات الصفحة الرئيسية بالتطبيق</h1>
+    <h1 class="page-title">إعلانات التطبيق</h1>
     <p class="mt-1 text-sm text-ink-500">صورٌ تظهر أعلى بوابة التاجر أو تطبيق المندوب بترتيبها: عرضٌ، أو تغيير أسعار، أو فرعٌ جديد.</p>
 </div>
 

@@ -179,7 +179,7 @@ class TransportTest extends TestCase
             $result = $this->bagger()->add($bag, [$shipment->number], $this->staff);
 
             $this->assertCount(0, $result['added']);
-            $this->assertStringContainsString('تم التسليم', $result['errors'][$shipment->number]);
+            $this->assertStringContainsString('واصل', $result['errors'][$shipment->number]);
         });
     }
 

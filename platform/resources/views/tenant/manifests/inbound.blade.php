@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'وارد المراكز')
+@section('title', 'الواصل من الفروع')
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">وارد المراكز</h1>
+    <h1 class="page-title">الواصل من الفروع</h1>
     <p class="mt-1 text-sm text-ink-500">
         كشوف في الطريق إليك. حدّد الأكياس التي وصلت فعلاً — وما لم تحدّده يُسجَّل مفقوداً لا منسيّاً.
     </p>
