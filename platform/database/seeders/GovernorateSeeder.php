@@ -14,22 +14,23 @@ use Illuminate\Database\Seeder;
  * هو: محافظة + منطقة + أقرب نقطة دالّة + إحداثيات.
  *
  * ولبغداد فوق مناطقها هنا المناطق الـ٣٥٥ التي تعرفها شركات التوصيل
- * (database/data/baghdad-areas.php). ولا تُكرَّر منطقة موجودة بإعادة البذر:
+ * (database/data/baghdad-areas.php)، ولغيرها أحياء مراكزها وأقضيتها ونواحيها
+ * (database/data/governorate-areas.php). ولا تُكرَّر منطقة موجودة بإعادة البذر:
  * المقارنة بالاسم المطويّ، فـ«الأعظمية» هي «الاعظمية».
  */
 class GovernorateSeeder extends Seeder
 {
     public function run(): void
     {
+        $more = require database_path('data/governorate-areas.php');
+
         foreach ($this->data() as $order => [$code, $ar, $en, $cities]) {
             $gov = Governorate::updateOrCreate(
                 ['code' => $code],
                 ['name_ar' => $ar, 'name_en' => $en, 'sort_order' => $order, 'is_active' => true],
             );
 
-            if ($code === 'BGD') {
-                $cities = [...$cities, ...require database_path('data/baghdad-areas.php')];
-            }
+            $cities = [...$cities, ...($code === 'BGD' ? require database_path('data/baghdad-areas.php') : $more[$code] ?? [])];
 
             $taken = City::where('governorate_id', $gov->id)->pluck('name_ar')
                 ->mapWithKeys(fn (string $name) => [Arabic::fold($name) => true])
