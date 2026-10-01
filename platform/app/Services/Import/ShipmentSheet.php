@@ -4,6 +4,7 @@ namespace App\Services\Import;
 
 use App\Models\City;
 use App\Models\Governorate;
+use App\Models\Shipment;
 use App\Support\Arabic;
 use App\Support\Phone;
 use Illuminate\Support\Collection;
@@ -29,7 +30,6 @@ class ShipmentSheet
         'recipient_phone_alt' => 'هاتف بديل',
         'governorate'         => 'المحافظة',
         'city'                => 'المنطقة',
-        'address'             => 'العنوان',
         'landmark'            => 'أقرب نقطة دالّة',
         'cod_amount'          => 'المبلغ المطلوب',
         'pieces_count'        => 'عدد القطع',
@@ -40,7 +40,19 @@ class ShipmentSheet
         'fees_paid_by'        => 'الأجرة على (التاجر/الزبون)',
     ];
 
-    public const REQUIRED = ['recipient_name', 'recipient_phone', 'governorate', 'address', 'landmark', 'cod_amount'];
+    /**
+     * ما لا تخرج شحنةٌ بغيره: الهاتف والمحافظة والمنطقة والمبلغ. والمنطقة تُلزَم
+     * حيث للمحافظة مناطق يُختار منها؛ والاسم والنقطة الدالّة لا يُلزَم بهما أحد.
+     */
+    public const REQUIRED = ['recipient_phone', 'governorate', 'city', 'cod_amount'];
+
+    /**
+     * أعمدةٌ تُقرأ إن وُجدت ولا تُطبع في القالب: «العنوان» («تفاصيل العنوان» في
+     * ملفّات النظام المعتاد) يُضَمّ إلى أقرب نقطة دالّة، فلا يضيع ما كُتب فيه.
+     */
+    public const LEGACY_COLUMNS = [
+        'address' => 'العنوان',
+    ];
 
     /**
      * أسماءٌ تُكتب بدل اسم المحافظة: مراكزها («الموصل»، «الحلة»)، وكما يكتبها
@@ -105,7 +117,7 @@ class ShipmentSheet
         // المطابقة التامّة أولاً: عمود اسمه «هاتف بديل» يخصّ حقله،
         // ولا يخطفه «هاتف المستلم» لمجرّد أن أحدهما يحوي الآخر.
         foreach ([true, false] as $exact) {
-            foreach (self::COLUMNS as $field => $label) {
+            foreach (self::COLUMNS + self::LEGACY_COLUMNS as $field => $label) {
                 if (isset($map[$field])) {
                     continue;
                 }
@@ -148,22 +160,24 @@ class ShipmentSheet
         };
 
         // صفّ فارغ تماماً: تذييل الملف عادةً، يُتجاهل بلا خطأ
-        if (collect(array_keys(self::COLUMNS))->every(fn ($f) => $value($f) === '')) {
+        if (collect(array_keys(self::COLUMNS + self::LEGACY_COLUMNS))->every(fn ($f) => $value($f) === '')) {
             return null;
         }
 
         $errors = [];
         $data = [];
 
-        foreach (self::REQUIRED as $field) {
+        // المنطقة تُفحص بعد معرفة المحافظة: هل لها مناطق؟
+        foreach (array_diff(self::REQUIRED, ['city']) as $field) {
             if ($value($field) === '') {
                 $errors[] = self::COLUMNS[$field].' مطلوب';
             }
         }
 
-        $data['recipient_name'] = mb_substr($value('recipient_name'), 0, 160);
-        $data['address'] = mb_substr($value('address'), 0, 500);
-        $data['landmark'] = mb_substr($value('landmark'), 0, 255);
+        $data['recipient_name'] = mb_substr($value('recipient_name'), 0, 160) ?: Shipment::UNNAMED_RECIPIENT;
+        $data['landmark'] = mb_substr(
+            collect([$value('address'), $value('landmark')])->filter()->unique()->implode(' — '), 0, 255,
+        );
         $data['description'] = mb_substr($value('description'), 0, 2000) ?: null;
         $data['notes'] = mb_substr($value('notes'), 0, 2000) ?: null;
         $data['merchant_reference'] = mb_substr($value('merchant_reference'), 0, 60) ?: null;
@@ -192,6 +206,10 @@ class ShipmentSheet
 
         $data['governorate_id'] = $governorate?->id;
         $data['city_id'] = null;
+
+        if ($governorate && $value('city') === '' && $cities->contains('governorate_id', $governorate->id)) {
+            $errors[] = 'المنطقة مطلوبة';
+        }
 
         if ($governorate && $value('city') !== '') {
             $city = $cities->first(fn (City $c) => $c->governorate_id === $governorate->id
@@ -283,7 +301,7 @@ class ShipmentSheet
 
         foreach (self::COLUMNS as $field => $label) {
             $sheet->setCellValue($column.'1', $label.(in_array($field, self::REQUIRED, true) ? ' *' : ''));
-            $sheet->getColumnDimension($column)->setWidth(in_array($field, ['address', 'landmark'], true) ? 32 : 18);
+            $sheet->getColumnDimension($column)->setWidth($field === 'landmark' ? 32 : 18);
             $column++;
         }
 
@@ -296,8 +314,7 @@ class ShipmentSheet
 
         // صفّ مثال يوضّح الصيغة المتوقّعة أكثر من أي شرح
         $sheet->fromArray([
-            'علي حسين', '07801234567', '', 'بغداد', 'الكرادة',
-            'بغداد - الكرادة، شارع 62', 'مقابل جامع الشيخ معروف',
+            'علي حسين', '07801234567', '', 'بغداد', 'الكرادة', 'مقابل جامع الشيخ معروف',
             50000, 1, 1500, 'ملابس', 'اتصل قبل الوصول', 'ORD-1001', 'التاجر',
         ], null, 'A2');
 

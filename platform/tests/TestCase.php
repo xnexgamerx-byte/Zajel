@@ -101,4 +101,12 @@ abstract class TestCase extends BaseTestCase
     {
         return Governorate::where('code', 'BGD')->firstOrFail();
     }
+
+    /** منطقةٌ من مناطق المحافظة (بغداد إن لم تُذكر) — النموذج يُلزِم بها */
+    protected function area(string $name = 'الكرادة', ?Governorate $governorate = null): int
+    {
+        return (int) \App\Models\City::where('governorate_id', ($governorate ?? $this->baghdad())->id)
+            ->where('name_ar', $name)
+            ->valueOrFail('id');
+    }
 }

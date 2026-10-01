@@ -212,7 +212,7 @@ class ShipmentEditTest extends TestCase
             ->assertSee('value="07801234567"', false);
 
         $this->actingAs($this->owner)
-            ->put($this->host().'/shipments/'.$shipment->id, $this->form($shipment, ['recipient_name' => 'علي حسين جاسم']))
+            ->put($this->host().'/shipments/'.$shipment->id, $this->form($shipment, ['recipient_name' => 'علي حسين جاسم', 'city_id' => $this->area()]))
             ->assertRedirect($this->host().'/shipments/'.$shipment->id);
 
         $this->assertSame('علي حسين جاسم', Tenancy::runFor($this->company, fn () => $shipment->refresh()->recipient_name));
@@ -221,6 +221,33 @@ class ShipmentEditTest extends TestCase
             ->get($this->host().'/shipments/'.$shipment->id)
             ->assertSee('تعديل البيانات')
             ->assertSee('اسم المستلم: علي حسين ← علي حسين جاسم');
+    }
+
+    /**
+     * النموذج صار محافظةً ومنطقةً ونقطةً دالّة. وشحنةٌ كُتب لها عنوانٌ قبل ذلك
+     * يظهر عنوانها في التعديل ليُصحَّح أو يُمسح، وما لم يُرسَل يبقى كما هو.
+     */
+    public function test_an_address_written_before_stays_editable_and_is_kept_when_not_sent(): void
+    {
+        $old = $this->makeShipment(['city_id' => $this->area()]);
+        $new = $this->makeShipment(['address' => null, 'recipient_name' => null, 'city_id' => $this->area()]);
+
+        $this->actingAs($this->owner)->get($this->host().'/shipments/'.$old->id.'/edit')
+            ->assertOk()->assertSee('العنوان المكتوب سابقاً')->assertSee('value="بغداد - الكرادة"', false);
+
+        // «الزبون» اسمٌ يُحفظ حين لا يُكتب، ولا يظهر في الخانة كأنه كُتب
+        $this->actingAs($this->owner)->get($this->host().'/shipments/'.$new->id.'/edit')
+            ->assertOk()->assertDontSee('العنوان المكتوب سابقاً')->assertDontSee('value="الزبون"', false);
+
+        $form = $this->form($old, ['recipient_phone' => '07809998877']);
+        unset($form['address']);
+
+        $this->actingAs($this->owner)->put($this->host().'/shipments/'.$old->id, $form)->assertSessionHasNoErrors();
+        $this->assertSame('بغداد - الكرادة', Tenancy::runFor($this->company, fn () => $old->refresh()->address));
+
+        $this->actingAs($this->owner)->put($this->host().'/shipments/'.$old->id, $this->form($old->refresh(), ['address' => '']))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('', Tenancy::runFor($this->company, fn () => $old->refresh()->address));
     }
 
     public function test_editing_needs_its_own_permission(): void

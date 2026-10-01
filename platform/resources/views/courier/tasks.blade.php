@@ -63,10 +63,10 @@
                 </div>
 
                 <div class="mt-2 border-t border-ink-100 pt-2 text-sm">
-                    @if ($shipment->city)
-                        <span class="font-medium text-ink-700">{{ $shipment->city->name_ar }}</span> ·
+                    <span class="font-medium text-ink-700">{{ $shipment->city?->name_ar ?? $shipment->governorate?->name_ar }}</span>
+                    @if (filled($shipment->landmark))
+                        · <span class="text-ink-600">{{ $shipment->landmark }}</span>
                     @endif
-                    <span class="text-ink-600">{{ $shipment->landmark }}</span>
                 </div>
 
                 <div class="mt-2 flex items-center gap-2 text-xs">

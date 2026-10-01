@@ -92,8 +92,7 @@ class ShipmentImportTest extends TestCase
             'recipient_phone'     => '07801234567',
             'recipient_phone_alt' => '',
             'governorate'         => 'بغداد',
-            'city'                => '',
-            'address'             => 'الكرادة، شارع 62',
+            'city'                => 'الكرادة',
             'landmark'            => 'مقابل الجامع',
             'cod_amount'          => 50000,
             'pieces_count'        => 1,
@@ -118,7 +117,7 @@ class ShipmentImportTest extends TestCase
     {
         // التاجر يعيد ترتيب أعمدته ويضيف عموداً لا نعرفه — وهذا وارد دائماً
         $rows = $this->read(
-            ['المبلغ المطلوب', 'رقم الفاتورة عندي', 'اسم المستلم', 'المحافظة', 'العنوان', 'أقرب نقطة دالّة', 'هاتف المستلم'],
+            ['المبلغ المطلوب', 'رقم الفاتورة عندي', 'اسم المستلم', 'المحافظة', 'المنطقة', 'أقرب نقطة دالّة', 'هاتف المستلم'],
             [[75000, 'X-1', 'زينب كاظم', 'بغداد', 'الجادرية', 'قرب الكلية', '07701112233']],
         );
 
@@ -127,13 +126,42 @@ class ShipmentImportTest extends TestCase
         $this->assertSame('زينب كاظم', $rows[0]['data']['recipient_name']);
         $this->assertSame('07701112233', $rows[0]['data']['recipient_phone']);
         $this->assertSame(75000, $rows[0]['data']['cod_amount']);
+        $this->assertSame('قرب الكلية', $rows[0]['data']['landmark']);
+        $this->assertSame('الجادرية', Tenancy::runFor($this->company, fn () => \App\Models\City::find($rows[0]['data']['city_id'])?->name_ar));
+    }
+
+    /** الاسم والنقطة الدالّة لا يُلزَم بهما: الهاتف والمحافظة والمنطقة والمبلغ تكفي */
+    public function test_a_row_with_only_phone_governorate_area_and_amount_is_accepted(): void
+    {
+        $rows = $this->read($this->fullHeader(), [$this->row(['recipient_name' => '', 'landmark' => ''])]);
+
+        $this->assertSame([], $rows[0]['errors']);
+        $this->assertSame(Shipment::UNNAMED_RECIPIENT, $rows[0]['data']['recipient_name']);
+        $this->assertSame('', $rows[0]['data']['landmark']);
+    }
+
+    /** «تفاصيل العنوان» في ملفّات النظام المعتاد لا تضيع: تُضَمّ إلى النقطة الدالّة */
+    public function test_an_old_address_column_joins_the_landmark(): void
+    {
+        $rows = $this->read(
+            ['هاتف المستلم', 'المحافظة', 'المنطقة', 'تفاصيل العنوان', 'أقرب نقطة دالّة', 'المبلغ المطلوب'],
+            [
+                ['07701112233', 'بغداد', 'الكرادة', 'شارع 62', 'مقابل الجامع', 25000],
+                ['07701112244', 'بغداد', 'الكرادة', 'خلف المول', '', 25000],
+            ],
+        );
+
+        $this->assertSame([], $rows[0]['errors']);
+        $this->assertSame('شارع 62 — مقابل الجامع', $rows[0]['data']['landmark']);
+        $this->assertSame('خلف المول', $rows[1]['data']['landmark']);
+        $this->assertArrayNotHasKey('address', $rows[0]['data']);
     }
 
     public function test_a_shortened_header_does_not_steal_another_field_column(): void
     {
         // «هاتف» وحدها تحتمل الحقلين؛ المطابقة التامّة تحسم أيّهما
         $rows = $this->read(
-            ['اسم المستلم', 'هاتف بديل', 'هاتف', 'المحافظة', 'العنوان', 'أقرب نقطة دالّة', 'المبلغ المطلوب'],
+            ['اسم المستلم', 'هاتف بديل', 'هاتف', 'المحافظة', 'المنطقة', 'أقرب نقطة دالّة', 'المبلغ المطلوب'],
             [['علي', '07701112233', '07809998877', 'بغداد', 'الكرادة', 'قرب الجامع', 25000]],
         );
 
@@ -199,9 +227,10 @@ class ShipmentImportTest extends TestCase
     #[DataProvider('governorateSamples')]
     public function test_it_matches_governorates_written_many_ways(string $raw, string $code): void
     {
-        $rows = $this->read($this->fullHeader(), [$this->row(['governorate' => $raw])]);
+        // المنطقة فارغة: المطلوب هنا أن تُعرَف المحافظة، ومنطقتها تُسأل بعدها
+        $rows = $this->read($this->fullHeader(), [$this->row(['governorate' => $raw, 'city' => ''])]);
 
-        $this->assertSame([], $rows[0]['errors'], "المحافظة «{$raw}» لم تُقبل");
+        $this->assertSame(['المنطقة مطلوبة'], $rows[0]['errors'], "المحافظة «{$raw}» لم تُقبل");
         $this->assertSame(
             $code,
             Tenancy::runFor($this->company, fn () => \App\Models\Governorate::find($rows[0]['data']['governorate_id'])->code),
@@ -261,21 +290,22 @@ class ShipmentImportTest extends TestCase
     {
         $rows = $this->read($this->fullHeader(), [
             $this->row(),
-            $this->row(['landmark' => '']),
+            $this->row(['recipient_phone' => '']),
         ]);
 
         $this->assertSame(2, $rows[0]['row']);
         $this->assertSame(3, $rows[1]['row'], 'رقم الصفّ يجب أن يطابق ما يراه التاجر في Excel');
-        $this->assertStringContainsString('أقرب نقطة دالّة', $rows[1]['errors'][0]);
+        $this->assertStringContainsString('هاتف المستلم', $rows[1]['errors'][0]);
     }
 
     public function test_every_missing_required_field_is_reported_at_once(): void
     {
         $rows = $this->read($this->fullHeader(), [
-            $this->row(['recipient_name' => '', 'address' => '', 'landmark' => '']),
+            $this->row(['recipient_phone' => '', 'city' => '', 'cod_amount' => '']),
         ]);
 
         $this->assertCount(3, $rows[0]['errors'], 'التاجر يصحّح الملف مرّة واحدة لا ثلاثاً');
+        $this->assertContains('المنطقة مطلوبة', $rows[0]['errors']);
     }
 
     public function test_blank_rows_are_skipped_without_an_error(): void
@@ -322,7 +352,7 @@ class ShipmentImportTest extends TestCase
     {
         $file = $this->sheetFile($this->fullHeader(), [
             $this->row(['recipient_name' => 'أحمد']),
-            $this->row(['recipient_name' => 'سارة', 'governorate' => 'الموصل']),
+            $this->row(['recipient_name' => 'سارة', 'governorate' => 'الموصل', 'city' => 'الموصل']),
         ]);
 
         $preview = $this->actingAs($this->staff)

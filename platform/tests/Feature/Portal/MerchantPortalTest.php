@@ -78,7 +78,7 @@ class MerchantPortalTest extends TestCase
             'recipient_name'  => 'زينب كاظم',
             'recipient_phone' => '07712345678',
             'governorate_id'  => $this->baghdad()->id,
-            'address'         => 'بغداد - المنصور',
+            'city_id'         => $this->area('المنصور'),
             'landmark'        => 'قرب سوق المنصور',
             'pieces_count'    => 1,
             'weight_grams'    => 1000,
@@ -210,11 +210,23 @@ class MerchantPortalTest extends TestCase
         $this->assertSame(0, $shipment->discount);
     }
 
-    public function test_a_shipment_without_a_landmark_is_refused_in_the_portal_too(): void
+    public function test_a_shipment_without_an_area_is_refused_in_the_portal_too(): void
     {
         $this->actingAs($this->alphaUser)
-            ->post($this->host().'/portal/shipments', $this->payload(['landmark' => '']))
-            ->assertSessionHasErrors('landmark');
+            ->post($this->host().'/portal/shipments', $this->payload(['city_id' => '']))
+            ->assertSessionHasErrors(['city_id' => 'اختر المنطقة.']);
+    }
+
+    public function test_the_portal_needs_no_name_or_landmark(): void
+    {
+        $this->actingAs($this->alphaUser)
+            ->post($this->host().'/portal/shipments', $this->payload(['recipient_name' => '', 'landmark' => '']))
+            ->assertSessionHas('success');
+
+        $shipment = Tenancy::runFor($this->company, fn () => Shipment::firstOrFail());
+
+        $this->assertSame(Shipment::UNNAMED_RECIPIENT, $shipment->recipient_name);
+        $this->assertSame('', $shipment->landmark);
     }
 
     public function test_a_merchant_requests_a_pickup(): void

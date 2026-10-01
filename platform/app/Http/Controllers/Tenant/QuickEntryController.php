@@ -21,7 +21,8 @@ use Illuminate\View\View;
 /**
  * الإدخال السريع: جدولٌ حتى ثلاثين صفّاً، كما في «خلق شحنة جديدة – على أساس
  * المتجر» و«على مستوى المحافظة» في المعتاد. التاجر (أو المحافظة) أعلى الصفحة
- * مرّةً واحدة، وفي كل صفٍّ ما يختلف: المبلغ بالألف، والهاتف، والمنطقة، والعنوان.
+ * مرّةً واحدة، وفي كل صفٍّ ما يختلف: المبلغ بالألف، والهاتف، والمنطقة، وأقرب نقطة
+ * دالّة إن كُتبت.
  *
  * الجدول يُحفظ كلّه أو لا يُحفظ منه شيء: صفٌّ خاطئ يُصحَّح في مكانه والباقي
  * كما كُتب، فلا يُعاد إدخال ما حُفظ فيتكرّر.
@@ -79,6 +80,8 @@ class QuickEntryController extends Controller
         $merchants = Merchant::where('status', 'active')->visibleTo($request->user())->pluck('id')->flip();
         $cities = City::where('is_active', true)->get(['id', 'governorate_id'])->keyBy('id');
         $governorates = Governorate::offered()->pluck('id')->flip();
+        // المنطقة تُلزَم حيث للمحافظة مناطق يُختار منها
+        $withAreas = $cities->pluck('governorate_id')->map(fn ($id) => (int) $id)->flip();
 
         if ($header['mode'] === 'merchant' && ! $merchants->has((int) $header['merchant_id'])) {
             return back()->withInput()->withErrors(['merchant_id' => 'التاجر غير موجود أو موقوف.']);
@@ -109,7 +112,9 @@ class QuickEntryController extends Controller
             }
 
             $cityId = filled($row['city_id'] ?? null) ? (int) $row['city_id'] : null;
-            if ($cityId !== null && ($cities[$cityId]->governorate_id ?? null) !== $governorateId) {
+            if ($cityId === null && $withAreas->has($governorateId)) {
+                $errors[$at('city_id')] = 'اختر المنطقة.';
+            } elseif ($cityId !== null && (int) ($cities[$cityId]->governorate_id ?? 0) !== $governorateId) {
                 $errors[$at('city_id')] = 'المنطقة ليست في هذه المحافظة.';
             }
 
@@ -123,20 +128,16 @@ class QuickEntryController extends Controller
                 $errors[$at('amount')] = 'المبلغ بالألف: 25 لخمسةٍ وعشرين ألفاً، و0 للمدفوع مسبقاً.';
             }
 
-            $address = (string) ($row['address'] ?? '');
-            if (mb_strlen($address) < 3) {
-                $errors[$at('address')] = 'اكتب العنوان: المنطقة والشارع وأقرب نقطة دالّة.';
-            }
+            // أقرب نقطة دالّة اختيارية: حرفٌ واحد أو لا شيء
+            $landmark = (string) ($row['landmark'] ?? '');
 
             $shipments[$i] = [
                 'merchant_id'        => $merchantId,
-                'recipient_name'     => filled($row['recipient_name'] ?? null) ? mb_substr($row['recipient_name'], 0, 160) : 'الزبون',
+                'recipient_name'     => filled($row['recipient_name'] ?? null) ? mb_substr($row['recipient_name'], 0, 160) : null,
                 'recipient_phone'    => $phone,
                 'governorate_id'     => $governorateId,
                 'city_id'            => $cityId,
-                'address'            => mb_substr($address, 0, 500),
-                // عنوان الإدخال السريع سطرٌ واحد: هو العنوان ونقطته الدالّة معاً
-                'landmark'           => mb_substr($address, 0, 255),
+                'landmark'           => mb_substr($landmark, 0, 255),
                 'cod_amount'         => $amount,
                 'fees_paid_by'       => $header['fees_paid_by'],
                 'merchant_reference' => filled($row['merchant_reference'] ?? null) ? mb_substr($row['merchant_reference'], 0, 60) : null,

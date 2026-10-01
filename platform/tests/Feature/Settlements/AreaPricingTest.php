@@ -195,7 +195,7 @@ class AreaPricingTest extends TestCase
 
         $this->actingAs($this->owner)->post($this->host().'/shipments', [
             'merchant_id' => $this->merchant->id, 'recipient_name' => 'علي', 'recipient_phone' => '07801234567',
-            'governorate_id' => $basra->id, 'address' => 'البصرة', 'landmark' => 'قرب الجامع', 'pieces_count' => 1,
+            'governorate_id' => $basra->id, 'city_id' => $this->area('العشار', $basra), 'landmark' => 'قرب الجامع', 'pieces_count' => 1,
             'cod_amount' => 50_000, 'fees_paid_by' => 'merchant',
         ])->assertSessionHasErrors(['governorate_id' => 'شركتك لا تشحن إلى هذه المحافظة الآن.']);
 
@@ -206,7 +206,7 @@ class AreaPricingTest extends TestCase
         ], $this->owner));
         $this->actingAs($this->owner)->put($this->host().'/shipments/'.$existing->id, [
             'recipient_name' => 'علي حسن', 'recipient_phone' => '07801234567', 'governorate_id' => $basra->id,
-            'address' => 'البصرة', 'landmark' => 'قرب الجامع', 'pieces_count' => 1, 'cod_amount' => 50_000, 'fees_paid_by' => 'merchant',
+            'city_id' => $this->area('العشار', $basra), 'landmark' => 'قرب الجامع', 'pieces_count' => 1, 'cod_amount' => 50_000, 'fees_paid_by' => 'merchant',
         ])->assertSessionHasNoErrors();
 
         // والشركات الأخرى لا تتأثّر

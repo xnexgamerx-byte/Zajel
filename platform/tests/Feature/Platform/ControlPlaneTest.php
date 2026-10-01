@@ -138,7 +138,7 @@ class ControlPlaneTest extends TestCase
             'recipient_name'  => 'زبون أول',
             'recipient_phone' => '07801234567',
             'governorate_id'  => $this->baghdad()->id,
-            'address'         => 'بغداد',
+            'city_id'         => $this->area(),
             'landmark'        => 'قرب الجامع',
             'pieces_count'    => 1,
             'cod_amount'      => 50_000,

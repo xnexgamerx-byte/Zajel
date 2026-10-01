@@ -19,14 +19,19 @@ class StoreShipmentRequest extends FormRequest
             // التاجر يُتحقَّق منه عبر Rule::exists غير كافٍ وحده — التحقّق الحقيقي
             // في withValidator أدناه، لأن exists لا يعرف بالشركة الحالية.
             'merchant_id'         => ['required', 'integer'],
-            'recipient_name'      => ['required', 'string', 'max:160'],
+            // الاسم لا يُلزَم: يُحفظ «الزبون» إن تُرك (Shipment::UNNAMED_RECIPIENT)
+            'recipient_name'      => ['nullable', 'string', 'max:160'],
             'recipient_phone'     => ['required', 'string', 'regex:/^07[0-9]{9}$/'],
             'recipient_phone_alt' => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
 
             'governorate_id'      => ['required', 'integer', Rule::exists('governorates', 'id')->where('is_active', true)],
-            'city_id'             => ['nullable', 'integer', Rule::exists('cities', 'id')],
-            'address'             => ['required', 'string', 'max:500'],
-            'landmark'            => ['required', 'string', 'min:3', 'max:255'],
+            // المحافظة والمنطقة والهاتف والمبلغ: هذا ما لا تخرج شحنةٌ بغيره. والمنطقة
+            // تُلزَم ما دامت للمحافظة مناطق يُختار منها
+            'city_id'             => [Rule::requiredIf(fn () => $this->governorateHasAreas()), 'nullable', 'integer', Rule::exists('cities', 'id')],
+            // العنوان المفصّل لم يعد في النموذج: يبقى لما كُتب قبل ذلك وللملفّات القديمة
+            'address'             => ['nullable', 'string', 'max:500'],
+            // أقرب نقطة دالّة تساعد المندوب ولا تُلزِم: حرفٌ واحد أو لا شيء
+            'landmark'            => ['nullable', 'string', 'max:255'],
             'lat'                 => ['nullable', 'numeric', 'between:-90,90'],
             'lng'                 => ['nullable', 'numeric', 'between:-180,180'],
 
@@ -44,6 +49,13 @@ class StoreShipmentRequest extends FormRequest
             'fees_paid_by'        => ['required', Rule::in(['merchant', 'customer'])],
             'merchant_reference'  => ['nullable', 'string', 'max:60'],
         ];
+    }
+
+    /** محافظةٌ لها مناطق مفعّلة يُختار منها؛ وما لا مناطق له تكفي محافظته */
+    protected function governorateHasAreas(): bool
+    {
+        return filled($this->governorate_id) && is_numeric($this->governorate_id)
+            && \App\Models\City::where('governorate_id', (int) $this->governorate_id)->where('is_active', true)->exists();
     }
 
     public function withValidator($validator): void
@@ -100,8 +112,7 @@ class StoreShipmentRequest extends FormRequest
         return [
             'recipient_phone.regex'     => 'رقم الهاتف يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
             'recipient_phone_alt.regex' => 'الهاتف البديل يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
-            'landmark.required'         => 'أقرب نقطة دالّة مطلوبة — بلا رمز بريدي في العراق، هي ما يوصل المندوب.',
-            'landmark.min'              => 'اكتب نقطة دالّة واضحة (مثل: مقابل جامع، قرب مول).',
+            'city_id.required'          => 'اختر المنطقة.',
         ];
     }
 }

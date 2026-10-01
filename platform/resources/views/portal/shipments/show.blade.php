@@ -79,10 +79,12 @@
                          @if ($shipment->city) — {{ $shipment->city->name_ar }} @endif</dd></div>
                 <div><dt class="text-ink-500">القطع</dt>
                      <dd class="font-medium" dir="ltr">{{ $shipment->pieces_count }}</dd></div>
-                <div class="sm:col-span-2"><dt class="text-ink-500">العنوان</dt>
-                     <dd class="font-medium">{{ $shipment->address }}</dd></div>
+                @if (filled($shipment->address))
+                    <div class="sm:col-span-2"><dt class="text-ink-500">العنوان</dt>
+                         <dd class="font-medium">{{ $shipment->address }}</dd></div>
+                @endif
                 <div class="sm:col-span-2"><dt class="text-ink-500">نقطة دالّة</dt>
-                     <dd class="font-medium text-[var(--brand)]">{{ $shipment->landmark }}</dd></div>
+                     <dd class="font-medium text-[var(--brand)]">{{ $shipment->landmark ?: '—' }}</dd></div>
                 @if ($shipment->description)
                     <div class="sm:col-span-2"><dt class="text-ink-500">المحتوى</dt>
                          <dd class="font-medium">{{ $shipment->description }}</dd></div>

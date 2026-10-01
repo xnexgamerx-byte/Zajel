@@ -81,13 +81,13 @@ class CreateShipment
                 'merchant_reference'  => $data['merchant_reference'] ?? null,
                 'type'                => $data['type'] ?? 'delivery',
 
-                'recipient_name'      => $data['recipient_name'],
+                'recipient_name'      => filled($data['recipient_name'] ?? null) ? $data['recipient_name'] : Shipment::UNNAMED_RECIPIENT,
                 'recipient_phone'     => $data['recipient_phone'],
                 'recipient_phone_alt' => $data['recipient_phone_alt'] ?? null,
                 'governorate_id'      => $data['governorate_id'],
                 'city_id'             => $data['city_id'] ?? null,
-                'address'             => $data['address'],
-                'landmark'            => $data['landmark'],
+                'address'             => (string) ($data['address'] ?? ''),
+                'landmark'            => (string) ($data['landmark'] ?? ''),
                 'lat'                 => $data['lat'] ?? null,
                 'lng'                 => $data['lng'] ?? null,
 

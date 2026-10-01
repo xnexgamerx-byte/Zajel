@@ -20,16 +20,16 @@
             <h2 class="mb-4 text-sm font-bold">الزبون والعنوان</h2>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                    <label class="field-label" for="recipient_name">اسم الزبون <span class="text-red-500">*</span></label>
-                    <input id="recipient_name" name="recipient_name" class="field-input" required
-                           value="{{ old('recipient_name') }}">
-                    @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="field-label" for="recipient_phone">هاتفه <span class="text-red-500">*</span></label>
+                    <label class="field-label" for="recipient_phone">هاتف الزبون <span class="text-red-500">*</span></label>
                     <input id="recipient_phone" name="recipient_phone" class="field-input text-left" dir="ltr"
                            inputmode="numeric" placeholder="07xxxxxxxxx" required value="{{ old('recipient_phone') }}">
                     @error('recipient_phone') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="field-label" for="recipient_name">اسم الزبون</label>
+                    <input id="recipient_name" name="recipient_name" class="field-input" placeholder="اختياري"
+                           value="{{ old('recipient_name') }}">
+                    @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="field-label" for="recipient_phone_alt">هاتف بديل</label>
@@ -57,7 +57,7 @@
                     @error('governorate_id') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="field-label" for="city_id">المنطقة</label>
+                    <label class="field-label" for="city_id">المنطقة <span class="text-red-500">*</span></label>
                     <select id="city_id" name="city_id" class="field-input" data-searchable data-old="{{ old('city_id') }}">
                         <option value="">اختر المحافظة أولاً</option>
                     </select>
@@ -65,20 +65,10 @@
                 </div>
 
                 <div class="sm:col-span-2">
-                    <label class="field-label" for="address">العنوان <span class="text-red-500">*</span></label>
-                    <input id="address" name="address" class="field-input" required
-                           placeholder="المنطقة، الشارع، رقم الدار" value="{{ old('address') }}">
-                    @error('address') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-
-                <div class="sm:col-span-2">
-                    <label class="field-label" for="landmark">أقرب نقطة دالّة <span class="text-red-500">*</span></label>
-                    <input id="landmark" name="landmark" class="field-input" required
-                           placeholder="مقابل جامع الرحمن · قرب مول بابل · خلف صيدلية النور"
+                    <label class="field-label" for="landmark">أقرب نقطة دالّة</label>
+                    <input id="landmark" name="landmark" class="field-input"
+                           placeholder="اختياري — مثال: مقابل جامع الرحمن · قرب مول بابل"
                            value="{{ old('landmark') }}">
-                    <p class="mt-1 text-xs text-ink-500">
-                        هذه أهم خانة في النموذج: المندوب يصل بها لا بالعنوان.
-                    </p>
                     @error('landmark') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
             </div>

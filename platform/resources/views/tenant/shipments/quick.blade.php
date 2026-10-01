@@ -94,8 +94,8 @@
                         <th>هاتف المستلم *</th>
                         <th>اسم المستلم</th>
                         @if ($mode === 'merchant')<th>المحافظة *</th>@endif
-                        <th>المنطقة</th>
-                        <th>العنوان *</th>
+                        <th>المنطقة *</th>
+                        <th>أقرب نقطة دالّة</th>
                         <th>رقم الوصل</th>
                         <th>ملاحظات</th>
                         <th class="whitespace-nowrap">استبدال</th>

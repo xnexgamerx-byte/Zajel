@@ -57,13 +57,21 @@
 
     <dl class="mt-3 space-y-2 border-t border-ink-100 pt-3 text-sm">
         <div>
-            <dt class="text-xs text-ink-500">العنوان</dt>
-            <dd class="font-medium">{{ $shipment->address }}</dd>
+            <dt class="text-xs text-ink-500">المنطقة</dt>
+            <dd class="font-medium">{{ $shipment->governorate?->name_ar }}@if ($shipment->city) — {{ $shipment->city->name_ar }}@endif</dd>
         </div>
-        <div>
-            <dt class="text-xs text-ink-500">نقطة دالّة</dt>
-            <dd class="font-bold text-[var(--brand)]">{{ $shipment->landmark }}</dd>
-        </div>
+        @if (filled($shipment->address))
+            <div>
+                <dt class="text-xs text-ink-500">العنوان</dt>
+                <dd class="font-medium">{{ $shipment->address }}</dd>
+            </div>
+        @endif
+        @if (filled($shipment->landmark))
+            <div>
+                <dt class="text-xs text-ink-500">نقطة دالّة</dt>
+                <dd class="font-bold text-[var(--brand)]">{{ $shipment->landmark }}</dd>
+            </div>
+        @endif
         @if ($shipment->notes)
             <div class="rounded-lg bg-warn-50 px-3 py-2">
                 <dt class="text-xs text-warn-700">ملاحظة التاجر</dt>

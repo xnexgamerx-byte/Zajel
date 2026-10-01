@@ -58,10 +58,10 @@
         @if ($err('city_id')) <p class="field-error text-xs">{{ $err('city_id') }}</p> @endif
     </td>
     <td class="min-w-56 px-1 py-2">
-        <input name="rows[{{ $i }}][address]" value="{{ $old('address') }}" class="{{ $cell }}"
-               placeholder="الشارع وأقرب نقطة دالّة" aria-label="العنوان"
-               @if ($err('address')) aria-invalid="true" @endif>
-        @if ($err('address')) <p class="field-error text-xs">{{ $err('address') }}</p> @endif
+        <input name="rows[{{ $i }}][landmark]" value="{{ $old('landmark') }}" class="{{ $cell }}"
+               placeholder="اختياري" aria-label="أقرب نقطة دالّة"
+               @if ($err('landmark')) aria-invalid="true" @endif>
+        @if ($err('landmark')) <p class="field-error text-xs">{{ $err('landmark') }}</p> @endif
     </td>
     <td class="w-28 px-1 py-2">
         <input name="rows[{{ $i }}][merchant_reference]" value="{{ $old('merchant_reference') }}" class="{{ $cell }} text-left" dir="ltr"

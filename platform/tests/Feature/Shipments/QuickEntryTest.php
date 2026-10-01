@@ -54,7 +54,7 @@ class QuickEntryTest extends TestCase
     {
         return $overrides + [
             'amount' => '25', 'recipient_phone' => '07701234567', 'recipient_name' => '',
-            'governorate_id' => $this->baghdad()->id, 'city_id' => '', 'address' => 'الكرادة، قرب ساحة كهرمانة',
+            'governorate_id' => $this->baghdad()->id, 'city_id' => $this->city('الكرادة'), 'landmark' => 'قرب ساحة كهرمانة',
             'merchant_reference' => '', 'notes' => '',
         ];
     }
@@ -91,9 +91,9 @@ class QuickEntryTest extends TestCase
                 'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
                 'rows' => [
                     $this->row(['city_id' => $karrada, 'merchant_reference' => 'R-1', 'exchange' => '1']),
-                    ['governorate_id' => $this->baghdad()->id, 'amount' => '', 'recipient_phone' => '', 'address' => ''], // فارغ
+                    ['governorate_id' => $this->baghdad()->id, 'amount' => '', 'recipient_phone' => '', 'landmark' => ''], // فارغ
                     $this->row(['amount' => '٤٠', 'recipient_phone' => '0780 111 2233', 'governorate_id' => $basra,
-                                'recipient_name' => 'حسين', 'address' => 'العشار']),
+                                'city_id' => $this->city('العشار', 'BSR'), 'recipient_name' => 'حسين', 'landmark' => '']),
                 ],
             ])
             ->assertRedirect($this->host().'/shipments/quick?mode=merchant')
@@ -109,14 +109,29 @@ class QuickEntryTest extends TestCase
             $this->assertSame('R-1', $first->merchant_reference);
             $this->assertSame('exchange', $first->type);
             $this->assertSame('الزبون', $first->recipient_name);
-            $this->assertSame('الكرادة، قرب ساحة كهرمانة', $first->landmark);
+            $this->assertSame('قرب ساحة كهرمانة', $first->landmark);
+            $this->assertSame('', $first->address);
             $this->assertSame(ShipmentStatus::Created, $first->status);
 
             $this->assertSame(40_000, (int) $second->cod_amount);
             $this->assertSame('07801112233', $second->recipient_phone);
             $this->assertSame($basra, $second->governorate_id);
             $this->assertSame('حسين', $second->recipient_name);
+            $this->assertSame('', $second->landmark);
         });
+    }
+
+    /** المنطقة لا تُترك حيث للمحافظة مناطق؛ والنقطة الدالّة تُترك */
+    public function test_a_row_without_an_area_is_pointed_at(): void
+    {
+        $this->actingAs($this->owner)
+            ->from($this->host().'/shipments/quick')
+            ->post($this->host().'/shipments/quick', [
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
+                'rows' => [$this->row(['landmark' => '']), $this->row(['city_id' => ''])],
+            ])
+            ->assertSessionHasErrors(['rows.1.city_id' => 'اختر المنطقة.'])
+            ->assertSessionDoesntHaveErrors(['rows.0.city_id', 'rows.0.landmark']);
     }
 
     public function test_one_bad_row_saves_nothing_and_points_at_itself(): void
@@ -151,9 +166,9 @@ class QuickEntryTest extends TestCase
             ->post($this->host().'/shipments/quick', [
                 'mode' => 'governorate', 'governorate_id' => $mosul, 'fees_paid_by' => 'customer',
                 'rows' => [
-                    $this->row(['merchant_id' => $this->merchant->id, 'governorate_id' => null]),
-                    $this->row(['merchant_id' => $other->id, 'governorate_id' => null]),
-                    $this->row(['merchant_id' => '', 'governorate_id' => null]),
+                    $this->row(['merchant_id' => $this->merchant->id, 'governorate_id' => null, 'city_id' => $this->city('الموصل', 'NIN')]),
+                    $this->row(['merchant_id' => $other->id, 'governorate_id' => null, 'city_id' => $this->city('الموصل', 'NIN')]),
+                    $this->row(['merchant_id' => '', 'governorate_id' => null, 'city_id' => $this->city('الموصل', 'NIN')]),
                 ],
             ])
             ->assertSessionHasErrors(['rows.2.merchant_id']);
@@ -162,8 +177,8 @@ class QuickEntryTest extends TestCase
             ->post($this->host().'/shipments/quick', [
                 'mode' => 'governorate', 'governorate_id' => $mosul, 'fees_paid_by' => 'customer',
                 'rows' => [
-                    $this->row(['merchant_id' => $this->merchant->id]),
-                    $this->row(['merchant_id' => $other->id]),
+                    $this->row(['merchant_id' => $this->merchant->id, 'city_id' => $this->city('الموصل', 'NIN')]),
+                    $this->row(['merchant_id' => $other->id, 'city_id' => $this->city('تلعفر', 'NIN')]),
                 ],
             ])
             ->assertSessionHasNoErrors();

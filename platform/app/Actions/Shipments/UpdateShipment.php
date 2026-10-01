@@ -129,13 +129,14 @@ class UpdateShipment
             $returnFee = $rerouted ? $quote['return_fee'] : (int) $shipment->return_fee;
 
             $shipment->fill([
-                'recipient_name'      => $data['recipient_name'],
+                'recipient_name'      => filled($data['recipient_name'] ?? null) ? $data['recipient_name'] : Shipment::UNNAMED_RECIPIENT,
                 'recipient_phone'     => $data['recipient_phone'],
                 'recipient_phone_alt' => $data['recipient_phone_alt'] ?? null,
                 'governorate_id'      => $governorateId,
                 'city_id'             => $cityId,
-                'address'             => $data['address'],
-                'landmark'            => $data['landmark'],
+                // العنوان المفصّل في النموذج لشحنةٍ كُتب لها من قبل وحدها: وإن غاب بقي كما هو
+                'address'             => array_key_exists('address', $data) ? (string) ($data['address'] ?? '') : $shipment->address,
+                'landmark'            => (string) ($data['landmark'] ?? ''),
                 'description'         => $data['description'] ?? null,
                 'pieces_count'        => (int) ($data['pieces_count'] ?? 1),
                 'weight_grams'        => $weight,

@@ -50,7 +50,7 @@
                     <td class="max-w-56 text-xs">
                         <span class="font-medium">{{ $shipment->governorate?->name_ar }}</span>
                         @if ($shipment->city)<span class="text-ink-600"> — {{ $shipment->city->name_ar }}</span>@endif
-                        <span class="block text-ink-600">{{ $shipment->address }}</span>
+                        <span class="block text-ink-600">{{ collect([$shipment->address, $shipment->landmark])->filter()->implode(' — ') }}</span>
                     </td>
                     <td class="max-w-32 truncate text-xs text-ink-600">{{ $shipment->merchant?->business_name }}</td>
                     <td class="num font-semibold">{{ number_format($shipment->cod_amount) }}</td>

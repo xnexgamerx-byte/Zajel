@@ -59,14 +59,8 @@
         <section class="card p-5">
             <h2 class="mb-4 text-sm font-bold text-ink-900">المستلم والعنوان</h2>
 
+            {{-- ما لا تخرج شحنةٌ بغيره: الهاتف والمحافظة والمنطقة (والمبلغ في الطرد). والباقي اختياري --}}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                    <label class="field-label" for="recipient_name">اسم المستلم <span class="text-red-500">*</span></label>
-                    <input id="recipient_name" name="recipient_name" value="{{ old('recipient_name', $shipment?->recipient_name) }}"
-                           class="field-input" required>
-                    @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-
                 <div>
                     <label class="field-label" for="recipient_phone">هاتف المستلم <span class="text-red-500">*</span></label>
                     <input id="recipient_phone" name="recipient_phone" value="{{ old('recipient_phone', $shipment?->recipient_phone) }}"
@@ -76,13 +70,11 @@
                 </div>
 
                 <div>
-                    <label class="field-label" for="recipient_phone_alt">هاتف بديل</label>
-                    <input id="recipient_phone_alt" name="recipient_phone_alt" value="{{ old('recipient_phone_alt', $shipment?->recipient_phone_alt) }}"
-                           class="field-input text-left" dir="ltr" inputmode="numeric" placeholder="07xxxxxxxxx">
-                    @error('recipient_phone_alt') <p class="field-error">{{ $message }}</p> @enderror
+                    <label class="field-label" for="recipient_name">اسم المستلم</label>
+                    <input id="recipient_name" name="recipient_name" class="field-input" placeholder="اختياري"
+                           value="{{ old('recipient_name', $shipment?->recipient_name === \App\Models\Shipment::UNNAMED_RECIPIENT ? '' : $shipment?->recipient_name) }}">
+                    @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
-
-                <div></div>
 
                 <div>
                     <label class="field-label" for="governorate_id">المحافظة <span class="text-red-500">*</span></label>
@@ -102,7 +94,7 @@
                 </div>
 
                 <div>
-                    <label class="field-label" for="city_id">المنطقة</label>
+                    <label class="field-label" for="city_id">المنطقة <span class="text-red-500">*</span></label>
                     <select id="city_id" name="city_id" class="field-input" data-searchable data-old="{{ old('city_id', $shipment?->city_id) }}">
                         <option value="">اختر المحافظة أولاً</option>
                     </select>
@@ -110,22 +102,27 @@
                 </div>
 
                 <div class="sm:col-span-2">
-                    <label class="field-label" for="address">العنوان <span class="text-red-500">*</span></label>
-                    <input id="address" name="address" value="{{ old('address', $shipment?->address) }}" class="field-input"
-                           placeholder="المنطقة، الشارع، رقم الدار" required>
-                    @error('address') <p class="field-error">{{ $message }}</p> @enderror
+                    <label class="field-label" for="landmark">أقرب نقطة دالّة</label>
+                    <input id="landmark" name="landmark" value="{{ old('landmark', $shipment?->landmark) }}" class="field-input"
+                           placeholder="اختياري — مثال: مقابل جامع الرحمن · قرب مول بابل">
+                    @error('landmark') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
-                <div class="sm:col-span-2">
-                    <label class="field-label" for="landmark">
-                        أقرب نقطة دالّة <span class="text-red-500">*</span>
-                    </label>
-                    <input id="landmark" name="landmark" value="{{ old('landmark', $shipment?->landmark) }}" class="field-input"
-                           placeholder="مثال: مقابل جامع الرحمن · قرب مول بابل · خلف صيدلية النور" required>
-                    <p class="mt-1 text-xs text-ink-500">
-                        إلزامية — لا رموز بريدية في العراق، وهذه هي ما يوصل المندوب فعلاً.
-                    </p>
-                    @error('landmark') <p class="field-error">{{ $message }}</p> @enderror
+                @if ($editing && filled($shipment->address))
+                    {{-- عنوانٌ كُتب قبل أن يصير النموذج محافظةً ومنطقةً ونقطةً دالّة: يُصحَّح أو يُمسح --}}
+                    <div class="sm:col-span-2">
+                        <label class="field-label" for="address">العنوان المكتوب سابقاً</label>
+                        <input id="address" name="address" value="{{ old('address', $shipment->address) }}" class="field-input">
+                        <p class="field-hint">امسحه إن كانت المنطقة والنقطة الدالّة تكفيان.</p>
+                        @error('address') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+
+                <div>
+                    <label class="field-label" for="recipient_phone_alt">هاتف بديل</label>
+                    <input id="recipient_phone_alt" name="recipient_phone_alt" value="{{ old('recipient_phone_alt', $shipment?->recipient_phone_alt) }}"
+                           class="field-input text-left" dir="ltr" inputmode="numeric" placeholder="07xxxxxxxxx">
+                    @error('recipient_phone_alt') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
             </div>
         </section>

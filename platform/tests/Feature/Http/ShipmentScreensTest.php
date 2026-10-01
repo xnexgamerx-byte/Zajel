@@ -130,13 +130,35 @@ class ShipmentScreensTest extends TestCase
             ->assertSee($this->merchant->business_name);
     }
 
-    public function test_creating_a_shipment_without_a_landmark_is_rejected(): void
+    public function test_creating_a_shipment_without_an_area_is_rejected(): void
     {
         $this->actingInCompany()
-            ->post($this->host($this->company).'/shipments', $this->validPayload(['landmark' => '']))
-            ->assertSessionHasErrors('landmark');
+            ->post($this->host($this->company).'/shipments', $this->validPayload(['city_id' => '']))
+            ->assertSessionHasErrors(['city_id' => 'اختر المنطقة.']);
 
         Tenancy::runFor($this->company, fn () => $this->assertSame(0, Shipment::count()));
+    }
+
+    /** الهاتف والمحافظة والمنطقة والمبلغ تكفي: الاسم والنقطة الدالّة لا يُلزَم بهما، وحرفٌ واحد يكفي */
+    public function test_a_shipment_needs_only_phone_governorate_area_and_amount(): void
+    {
+        $this->actingInCompany()
+            ->post($this->host($this->company).'/shipments', $this->validPayload(['recipient_name' => '', 'landmark' => '']))
+            ->assertSessionHasNoErrors();
+
+        $this->actingInCompany()
+            ->post($this->host($this->company).'/shipments', $this->validPayload(['landmark' => 'ج']))
+            ->assertSessionHasNoErrors();
+
+        Tenancy::runFor($this->company, function () {
+            [$bare, $short] = Shipment::orderBy('id')->get()->all();
+
+            $this->assertSame(Shipment::UNNAMED_RECIPIENT, $bare->recipient_name);
+            $this->assertSame('', $bare->landmark);
+            $this->assertSame('', $bare->address);
+            $this->assertSame($this->area(), $bare->city_id);
+            $this->assertSame('ج', $short->landmark);
+        });
     }
 
     public function test_creating_a_shipment_with_a_malformed_phone_is_rejected(): void
@@ -233,7 +255,7 @@ class ShipmentScreensTest extends TestCase
             'recipient_name'  => 'علي حسين',
             'recipient_phone' => '07801234567',
             'governorate_id'  => $this->baghdad()->id,
-            'address'         => 'بغداد - الكرادة',
+            'city_id'         => $this->area(),
             'landmark'        => 'مقابل جامع الشيخ معروف',
             'pieces_count'    => 1,
             'weight_grams'    => 1000,

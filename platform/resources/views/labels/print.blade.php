@@ -106,8 +106,8 @@
                 <div class="mt-1 font-bold">
                     {{ $shipment->governorate->name_ar }}@if ($shipment->city) — {{ $shipment->city->name_ar }}@endif
                 </div>
-                <div>{{ $shipment->address }}</div>
-                <div>قرب: {{ $shipment->landmark }}</div>
+                @if (filled($shipment->address)) <div>{{ $shipment->address }}</div> @endif
+                @if (filled($shipment->landmark)) <div>قرب: {{ $shipment->landmark }}</div> @endif
             </section>
 
             <div class="amount flex items-center justify-between gap-2">
