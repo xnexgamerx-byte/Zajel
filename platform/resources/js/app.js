@@ -8,6 +8,7 @@ import { initSearchableSelects } from './searchable-select';
 import { initScanTable } from './scan-table';
 import { initQuickEntry } from './quick-entry';
 import { initNumberInputs, numberValue } from './number-inputs';
+import { initBulkBar, initDayPick } from './bulk-bar';
 
 // المبالغ بفاصلٍ كل ثلاث خانات (60 000)، والهاتف ١١ رقماً — في كل نموذج
 initNumberInputs();
@@ -176,60 +177,20 @@ if (statusForm) {
     refresh();
 }
 
-/** شريط الإجراء الجماعي في قائمة الشحنات. */
+/** شريط التحديث من القائمة: اختيارٌ، ثم حالةٌ جديدة بلا دخول كل شحنة (bulk-bar.js). */
 const bulkBar = document.querySelector('[data-bulk-bar]');
 
-// «الكلّ» في جدولٍ بلا شريط إجراء (تحت المراجعة): يحدّد صفوف نموذجه
-if (!bulkBar) {
+if (bulkBar) {
+    initBulkBar(bulkBar);
+} else {
+    // «الكلّ» في جدولٍ بلا شريط إجراء (تحت المراجعة): يحدّد صفوف نموذجه
     for (const all of document.querySelectorAll('[data-select-all]')) {
         const rows = [...(all.closest('form') ?? document).querySelectorAll('[data-row-select]')];
         all.addEventListener('change', () => rows.forEach((row) => { row.checked = all.checked; }));
     }
 }
 
-if (bulkBar) {
-    const rows = [...document.querySelectorAll('[data-row-select]')];
-    const selectAll = document.querySelector('[data-select-all]');
-    const counter = bulkBar.querySelector('[data-bulk-count]');
-
-    const refresh = () => {
-        const chosen = rows.filter((row) => row.checked).length;
-
-        counter.textContent = chosen;
-        bulkBar.hidden = chosen === 0;
-
-        if (selectAll) {
-            selectAll.checked = chosen > 0 && chosen === rows.length;
-            selectAll.indeterminate = chosen > 0 && chosen < rows.length;
-        }
-    };
-
-    for (const row of rows) row.addEventListener('change', refresh);
-
-    selectAll?.addEventListener('change', () => {
-        for (const row of rows) row.checked = selectAll.checked;
-        refresh();
-    });
-
-    const print = bulkBar.querySelector('[data-bulk-print]');
-
-    print?.addEventListener('click', () => {
-        const url = new URL(print.dataset.bulkPrint, location.href);
-
-        for (const row of rows) {
-            if (row.checked) url.searchParams.append('ids[]', row.value);
-        }
-
-        window.open(url, '_blank', 'noopener');
-    });
-
-    bulkBar.querySelector('[data-bulk-clear]')?.addEventListener('click', () => {
-        for (const row of rows) row.checked = false;
-        refresh();
-    });
-
-    refresh();
-}
+for (const input of document.querySelectorAll('[data-day-pick]')) initDayPick(input);
 
 /** خانة اختيار تُظهر كتلة حقول (مثل حساب الدخول في نماذج التاجر والمندوب). */
 for (const toggle of document.querySelectorAll('[data-toggle]')) {

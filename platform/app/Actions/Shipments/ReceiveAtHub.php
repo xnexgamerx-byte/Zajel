@@ -31,9 +31,10 @@ class ReceiveAtHub
 
     /**
      * @param  array<int>  $shipmentIds  ما يراه المستخدم وحده — يُصفّى قبل الاستدعاء
+     * @param  string  $note  ما يُكتب في سجلّ كل شحنة: بالمسح، أو من القائمة بالجملة
      * @return array{received: list<string>, skipped: array<string, string>}
      */
-    public function handle(array $shipmentIds, User $actor): array
+    public function handle(array $shipmentIds, User $actor, string $note = 'استلام بالمسح'): array
     {
         $hub = static::hubOf($actor);
         $received = [];
@@ -42,7 +43,7 @@ class ReceiveAtHub
         $shipments = Shipment::whereIn('id', $shipmentIds)->orderBy('id')->get();
 
         foreach ($shipments as $shipment) {
-            $options = ['note' => 'استلام بالمسح', 'hub_id' => $hub?->id];
+            $options = ['note' => $note, 'hub_id' => $hub?->id];
 
             try {
                 $reason = $this->receive($shipment, $actor, $options);
@@ -71,7 +72,7 @@ class ReceiveAtHub
                 return 'راجع مستلَم سلفاً';
             }
 
-            $this->returns->handle([$shipment->id], $actor, 'استلام بالمسح');
+            $this->returns->handle([$shipment->id], $actor, $options['note']);
 
             return null;
         }

@@ -156,6 +156,10 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.status'])->name('shipments.status');
         Route::post('/shipments/assign', [ShipmentStatusController::class, 'assign'])
             ->middleware(['staff', 'can:shipments.assign'])->name('shipments.assign');
+        // تحديث الحالة من القائمة: لمن يرى الشحنات، ثم صلاحية كل هدفٍ في BulkStatusRequest —
+        // الإخراج مع مندوبٍ إسناد (shipments.assign)، وما عداه تغيير حالة (shipments.status)
+        Route::post('/shipments/bulk-status', [ShipmentStatusController::class, 'bulk'])
+            ->middleware(['staff', 'can:shipments.view'])->name('shipments.bulk-status');
         Route::post('/shipments/{shipment}/amount', [ShipmentAmountController::class, 'update'])
             ->middleware(['staff', 'can:money.confirm_amount'])->name('shipments.amount');
 

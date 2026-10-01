@@ -1,8 +1,47 @@
 {{--
-  جدول الشحنات بخانة الاختيار لشريط الإسناد: قائمة الشحنات وقسم كل مرحلةٍ في
-  «كل مراحل النقل» — جدولٌ واحد لا نسختان تختلفان. $empty رسالة القائمة الفارغة،
-  و$sinceStage يجعل عمود التاريخ «في المرحلة منذ» بدل تاريخ الإنشاء.
+  جدول الشحنات بخانة الاختيار لشريط التحديث (_bulk_bar): قائمة الشحنات وقسم كل
+  مرحلةٍ في «كل مراحل النقل» — جدولٌ واحد لا نسختان تختلفان. $empty رسالة القائمة
+  الفارغة، و$sinceStage يجعل عمود التاريخ «في المرحلة منذ» بدل تاريخ الإنشاء.
+
+  وفوقه «اليوم»: شحنات يومٍ واحد بضغطة — يوم إنشائها في القائمة، ويوم دخولها
+  المرحلة في «كل مراحل النقل» — و«تحديث الكل» لكل نتائج البحث.
 --}}
+@php
+    $byStage = $sinceStage ?? false;
+    [$fromKey, $toKey] = $byStage ? ['stage_from', 'stage_to'] : ['from', 'to'];
+    $filters ??= [];
+    $pickedDay = isset($filters[$fromKey]) && $filters[$fromKey] === ($filters[$toKey] ?? null) ? $filters[$fromKey] : null;
+    $anyDay = ! isset($filters[$fromKey]) && ! isset($filters[$toKey]);
+    $dayUrl = fn (?string $date) => url()->current().'?'.\Illuminate\Support\Arr::query(
+        \Illuminate\Support\Arr::except($filters, [$fromKey, $toKey]) + ($date ? [$fromKey => $date, $toKey => $date] : [])
+    );
+    $today = today()->toDateString();
+    $yesterday = today()->subDay()->toDateString();
+    $canBulk = auth()->user()->isStaff() && ($bulkTargets ?? []) !== [];
+    $bulkMax = \App\Actions\Shipments\ChangeStatusInBulk::MAX;
+@endphp
+<div class="mb-3 flex flex-wrap items-center gap-2">
+    <span class="text-sm text-ink-500">{{ $byStage ? 'دخلت المرحلة:' : 'أُنشئت:' }}</span>
+    @foreach ([[null, 'كل الأيام', $anyDay], [$today, 'اليوم', $pickedDay === $today], [$yesterday, 'أمس', $pickedDay === $yesterday]] as [$date, $label, $on])
+        <a href="{{ $dayUrl($date) }}" @class(['tab-link h-8 px-3', 'tab-link-active' => $on, 'bg-white' => ! $on])
+           @if ($on) aria-current="true" @endif>{{ $label }}</a>
+    @endforeach
+    <label class="flex items-center gap-1.5 text-sm text-ink-500">
+        يوم
+        <input type="date" class="field-input h-8 w-auto py-0" value="{{ $pickedDay }}" max="{{ $today }}"
+               data-day-pick="{{ $dayUrl('__DAY__') }}" aria-label="شحنات يومٍ بعينه">
+    </label>
+
+    @if ($canBulk && $shipments->total() > $bulkMax)
+        {{-- أكثر من دفعةٍ واحدة: يُضيَّق البحث أوّلاً، لا يُعرض زرٌّ يرفضه الخادم --}}
+        <span class="ms-auto text-xs text-ink-500">لتحديث الكل اختر يوماً أو مندوباً — الحدّ {{ number_format($bulkMax) }} شحنة في المرّة.</span>
+    @elseif ($canBulk && $shipments->total() > 0)
+        <button type="button" class="btn-ghost ms-auto h-9" data-bulk-everything>
+            تحديث الكل ({{ number_format($shipments->total()) }})
+        </button>
+    @endif
+</div>
+
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
         <table class="tbl">
@@ -29,7 +68,8 @@
                         <td class="px-4 py-3">
                             @if (auth()->user()->isStaff())
                                 <input type="checkbox" form="assign-form" name="shipment_ids[]"
-                                       value="{{ $shipment->id }}" data-row-select
+                                       value="{{ $shipment->id }}" data-row-select data-status="{{ $shipment->status->value }}"
+                                       aria-label="اختيار {{ $shipment->number }}"
                                        class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                             @endif
                         </td>

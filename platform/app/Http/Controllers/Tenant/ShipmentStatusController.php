@@ -3,16 +3,19 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Shipments\ChangeShipmentStatus;
+use App\Actions\Shipments\ChangeStatusInBulk;
+use App\Actions\Shipments\SendOutForDelivery;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BulkStatusRequest;
 use App\Http\Requests\ChangeStatusRequest;
 use App\Models\Courier;
 use App\Models\Shipment;
+use App\Services\Shipments\ShipmentFilters;
 use App\Support\Arabic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Arr;
 
 class ShipmentStatusController extends Controller
 {
@@ -39,24 +42,18 @@ class ShipmentStatusController extends Controller
     }
 
     /**
-     * إسناد مجموعة شحنات إلى مندوب دفعة واحدة.
-     *
-     * هذه العملية اليومية الأكثر تكراراً في شركة توصيل: صباحاً يوزَّع
-     * ما في المخزن على المندوبين. شحنة شحنة يعني ساعة عمل كل يوم.
-     *
-     * وما لم يُستلم بعد («تم الإنشاء» أو «بانتظار الاستلام») يُسجَّل استلامه
-     * ثم يخرج — من يُسندها بيده الطرد، كما في الإدخال السريع ومسح «مندوب
-     * توصيل للكل» في المعتاد. وما عدا ذلك يُتخطّى ويُقال لماذا، شحنةً شحنة.
+     * إسناد مجموعة شحنات إلى مندوب دفعة واحدة (SendOutForDelivery) — وهو
+     * «قيد التوصيل — مع مندوب» في تحديث الحالة من القائمة.
      */
-    public function assign(Request $request): RedirectResponse
+    public function assign(Request $request, SendOutForDelivery $sendOut): RedirectResponse
     {
         $data = $request->validate([
-            'shipment_ids'   => ['required', 'array', 'min:1', 'max:500'],
+            'shipment_ids'   => ['required', 'array', 'min:1', 'max:'.ChangeStatusInBulk::MAX],
             'shipment_ids.*' => ['integer'],
             'courier_id'     => ['required', 'integer'],
         ], [], ['shipment_ids' => 'الشحنات', 'courier_id' => 'المندوب']);
 
-        $courier = Courier::delivering()->active()->visibleTo($request->user())->find($data['courier_id']);
+        $courier = $this->courier($request, $data['courier_id']);
 
         if (! $courier) {
             return back()->withErrors(['courier_id' => 'المندوب غير موجود أو غير مفعّل أو ليس مندوب توصيل.']);
@@ -68,82 +65,106 @@ class ShipmentStatusController extends Controller
             ->orderBy('id')
             ->get();
 
-        $moved = [];
-        $received = [];
-        $skipped = [];
+        return $this->outcome(
+            $sendOut->handle($shipments, $courier, $request->user()),
+            'أُسندت :count إلى '.$courier->name,
+            "لم تُسنَد أيّ شحنة إلى {$courier->name}.",
+        );
+    }
 
-        foreach ($shipments as $shipment) {
-            if ($reason = $this->cannotGoOut($shipment, $courier)) {
-                $skipped[$shipment->number] = $reason;
+    /**
+     * تحديث الحالة من القائمة بلا دخول كل شحنة: المختارة بأرقامها، أو «الكل»
+     * — كل ما يطابق بحث القائمة (يومٌ، مندوب، مرحلة) حتى ChangeStatusInBulk::MAX.
+     *
+     * «الكل» يُعاد بحثه هنا بالفلاتر نفسها، ويُقارَن عدده بما رآه الموظّف:
+     * شحنةٌ دخلت القائمة بعد فتحها (أُسندت للمندوب نفسه مثلاً) لا تُعلَن
+     * «واصل» وهو لم يرَها.
+     */
+    public function bulk(BulkStatusRequest $request, ChangeStatusInBulk $bulk): RedirectResponse
+    {
+        $user = $request->user();
+        $to = ShipmentStatus::from($request->validated('status'));
 
-                continue;
+        $query = Shipment::query()->visibleTo($user)->with('deliveryCourier:id,name')->orderBy('shipments.id');
+
+        if ($request->boolean('all')) {
+            $filters = Arr::only((array) $request->validated('filters', []), ShipmentFilters::KEYS);
+            ShipmentFilters::apply($query, Request::create('/', 'GET', $filters));
+
+            $count = (clone $query)->count();
+            $expected = (int) $request->validated('expected');
+
+            if ($count !== $expected) {
+                return back()->withErrors(['shipment_ids' => 'تغيّرت القائمة منذ فتحتها: كانت '.number_format($expected)
+                    .' وصارت '.number_format($count).'. راجعها ثم أعد التحديث.']);
             }
 
-            try {
-                // الخطوتان معاً أو لا شيء: لا تبقى «مستلَمة» بلا مندوب إن سقطت الثانية
-                $wasReceived = DB::transaction(function () use ($shipment, $courier, $request) {
-                    $notYet = in_array($shipment->status, [ShipmentStatus::Created, ShipmentStatus::PendingPickup], true);
-
-                    if ($notYet) {
-                        $this->changeStatus->handle($shipment, ShipmentStatus::PickedUp, $request->user(), [
-                            'note' => 'استُلمت عند الإسناد إلى '.$courier->name,
-                        ]);
-                    }
-
-                    $this->changeStatus->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, $request->user(), [
-                        'courier_id' => $courier->id,
-                        'note'       => 'إسناد جماعي',
-                    ]);
-
-                    return $notYet;
-                });
-            } catch (ValidationException $e) {
-                // سبقه أحدٌ إليها بين الاختيار والحفظ: تُتخطّى بسببها ولا يسقط الباقي
-                $skipped[$shipment->number] = collect($e->errors())->flatten()->first();
-
-                continue;
+            if ($count > ChangeStatusInBulk::MAX) {
+                return back()->withErrors(['shipment_ids' => 'في القائمة '.number_format($count).' شحنة، والحدّ '
+                    .ChangeStatusInBulk::MAX.' في المرّة — اختر يوماً أو مندوباً ثم أعد.']);
             }
+        } else {
+            $query->whereIn('shipments.id', $request->validated('shipment_ids'));
+        }
 
-            $moved[] = $shipment->number;
+        $courier = null;
 
-            if ($wasReceived) {
-                $received[] = $shipment->number;
+        if ($to === ShipmentStatus::OutForDelivery) {
+            $courier = $this->courier($request, (int) $request->validated('courier_id'));
+
+            if (! $courier) {
+                return back()->withErrors(['courier_id' => 'المندوب غير موجود أو غير مفعّل أو ليس مندوب توصيل.']);
             }
         }
+
+        // ألف شحنة تمرّ كلٌّ منها بمدخلها وقيودها: مهلةٌ تكفيها، لا مهلة الطلب العاديّ
+        set_time_limit(180);
+
+        $result = $bulk->handle($query->get(), $to, $user, [
+            'courier'           => $courier,
+            'failure_reason_id' => $request->validated('failure_reason_id'),
+            'note'              => $request->validated('note'),
+        ]);
+
+        $label = ChangeStatusInBulk::targets()[$to->value];
+
+        return $to === ShipmentStatus::OutForDelivery
+            ? $this->outcome($result, 'أُسندت :count إلى '.$courier->name, "لم تُسنَد أيّ شحنة إلى {$courier->name}.")
+            : $this->outcome($result, 'حُدّثت :count إلى «'.$to->label().'»', "لم تُحدَّث أيّ شحنة إلى «{$label}».");
+    }
+
+    /** مندوب توصيلٍ مفعّل يراه الموظّف (من فرعه إن كان مقيَّداً بفرع) */
+    protected function courier(Request $request, int $id): ?Courier
+    {
+        return Courier::delivering()->active()->visibleTo($request->user())->find($id);
+    }
+
+    /**
+     * رسالة الدفعة: كم تحرّك، وما استُلم أوّلاً، وما تُخطّي ولماذا — شحنةً شحنة.
+     * ولا شيء تحرّك: رسالةٌ حمراء لا خضراء.
+     *
+     * @param  array{moved: list<string>, received: list<string>, skipped: array<string, string>}  $result
+     * @param  string  $done  جملة النجاح، و:count مكان العدد
+     */
+    protected function outcome(array $result, string $done, string $none): RedirectResponse
+    {
+        ['moved' => $moved, 'received' => $received, 'skipped' => $skipped] = $result;
 
         $list = fn (array $numbers) => implode('، ', array_slice($numbers, 0, 5)).(count($numbers) > 5 ? '…' : '');
 
         $message = $moved
-            ? 'أُسندت '.Arabic::shipments(count($moved))." إلى {$courier->name}"
+            ? str_replace(':count', Arabic::shipments(count($moved)), $done)
                 .($received ? ' (استُلمت من التاجر أوّلاً: '.$list($received).')' : '').'.'
-            : "لم تُسنَد أيّ شحنة إلى {$courier->name}.";
+            : $none;
 
         if ($skipped) {
             $message .= ' تُخطّيت '.Arabic::shipments(count($skipped)).': '
                 .$list(array_map(fn ($number, $reason) => "{$number} ({$reason})", array_keys($skipped), $skipped)).'.';
         }
 
-        // لا شيء خرج: رسالةٌ حمراء لا خضراء
         return $moved
             ? back()->with('success', $message)
             : back()->withErrors(['shipment_ids' => $message]);
-    }
-
-    /** لماذا لا تخرج هذه الشحنة مع هذا المندوب — أو null إن كانت تخرج */
-    protected function cannotGoOut(Shipment $shipment, Courier $courier): ?string
-    {
-        $status = $shipment->status;
-
-        return match (true) {
-            // والمعلَّقة للمراجعة لا تخرج حتى تُجاز
-            $shipment->isHeldForReview()                  => 'تحت المراجعة',
-            $status === ShipmentStatus::OutForDelivery    => (int) $shipment->delivery_courier_id === (int) $courier->id
-                ? 'معه سلفاً'
-                : 'مع '.($shipment->deliveryCourier?->name ?? 'مندوبٍ آخر'),
-            in_array($status, [ShipmentStatus::Created, ShipmentStatus::PendingPickup], true) => null,
-            ! $status->canMoveTo(ShipmentStatus::OutForDelivery) => $status->label(),
-            default                                        => null,
-        };
     }
 
     /** ملخّص نقد المندوبين — من يحمل كم، ومن تجاوز سقفه. */

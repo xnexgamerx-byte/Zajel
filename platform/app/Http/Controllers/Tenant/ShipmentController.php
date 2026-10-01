@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\Shipments\ChangeStatusInBulk;
 use App\Actions\Shipments\CreateShipment;
 use App\Actions\Shipments\UpdateShipment;
 use App\Enums\ShipmentStatus;
@@ -17,9 +18,11 @@ use App\Models\Governorate;
 use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\Shipment;
+use App\Models\User;
 use App\Services\Shipments\ShipmentFilters;
 use App\Services\Shipments\ShipmentStages;
 use App\Support\StaffNavigation;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -41,9 +44,11 @@ class ShipmentController extends Controller
 
         ShipmentFilters::apply($query, $request);
 
+        // نسخةٌ قبل الترقيم: عدّ «الكل» على البحث كلّه لا على الصفحة
+        $everything = clone $query;
         $shipments = $query->latest('id')->paginate(config('zajel.per_page'))->withQueryString();
 
-        return view('tenant.shipments.index', [
+        return view('tenant.shipments.index', $this->bulkBar($everything, $request->user(), $shipments->total()) + [
             'shipments'    => $shipments,
             'statuses'     => ShipmentStatus::cases(),
             'stage'        => ShipmentStages::find($request->query('stage')),
@@ -54,7 +59,7 @@ class ShipmentController extends Controller
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'pickupCouriers' => Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             'branches'     => Branch::orderBy('name')->get(['id', 'name']),
-            'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(['id', 'name_ar']),
+            'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(['id', 'name_ar', 'requires_note']),
             'advanced'     => ShipmentFilters::hasAdvanced($request),
             'filters'      => ShipmentFilters::active($request),
             'totals'       => $this->totals($request),
@@ -103,13 +108,16 @@ class ShipmentController extends Controller
 
         ShipmentFilters::apply($query, $request);
 
-        return view('tenant.shipments.stages', [
+        $everything = clone $query;
+        // ما ينتظر أطول أوّلاً: القسم لمتابعة المرحلة لا لأرشيفها
+        $shipments = $query->orderBy('shipments.status_changed_at')->orderBy('shipments.id')
+            ->paginate(config('zajel.per_page'))->withQueryString();
+
+        return view('tenant.shipments.stages', $this->bulkBar($everything, $user, $shipments->total()) + [
             'groups'       => $groups,
             'stage'        => $stage,
             'stageKey'     => $key,
-            // ما ينتظر أطول أوّلاً: القسم لمتابعة المرحلة لا لأرشيفها
-            'shipments'    => $query->orderBy('shipments.status_changed_at')->orderBy('shipments.id')
-                ->paginate(config('zajel.per_page'))->withQueryString(),
+            'shipments'    => $shipments,
             'links'        => collect($stage['links'] ?? [])
                 ->filter(fn (array $link) => StaffNavigation::allows($user, $link[0], $link[2]))
                 ->map(fn (array $link) => ['url' => route($link[0]), 'label' => $link[1]])
@@ -119,7 +127,35 @@ class ShipmentController extends Controller
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             'couriers'     => Courier::delivering()->active()->visibleTo($user)->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
+            'reasons'      => FailureReason::availableFor($user->company_id)->get(['id', 'name_ar', 'requires_note']),
         ]);
+    }
+
+    /**
+     * ما يحتاجه شريط التحديث من القائمة (_bulk_bar): الحالات التي يملكها
+     * الموظّف، ومن أين تنتقل كلٌّ منها، وعدد كل حالٍ في البحث كلّه — فيُعرف
+     * كم سيتحرّك قبل الضغط، في الصفحة وفي «الكل».
+     *
+     * والعدّ لِما يُتاح فيه «الكل» وحده (حتى ChangeStatusInBulk::MAX): القائمة
+     * كلّها بلا بحث ١٣٢ مللي ثانية على ١٦١ ألف شحنة، ولا «كل» فيها يُحسب له.
+     *
+     * @return array{bulkTargets: array<string, string>, bulkSources: array<string, list<string>>, statusCounts: array<string, int>}
+     */
+    private function bulkBar(Builder $query, User $user, int $total): array
+    {
+        $targets = ChangeStatusInBulk::targetsFor($user);
+        $countable = $targets !== [] && $total > 0 && $total <= ChangeStatusInBulk::MAX;
+
+        return [
+            'bulkTargets'  => $targets,
+            'bulkSources'  => collect($targets)
+                ->map(fn (string $label, string $value) => ChangeStatusInBulk::sources(ShipmentStatus::from($value)))
+                ->all(),
+            'statusCounts' => ! $countable ? [] : $query->reorder()->toBase()
+                ->select('shipments.status')->selectRaw('count(*) as total')
+                ->groupBy('shipments.status')
+                ->pluck('total', 'status')->map(fn ($total) => (int) $total)->all(),
+        ];
     }
 
     public function create(Request $request): View
