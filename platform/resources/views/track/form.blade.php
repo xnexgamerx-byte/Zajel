@@ -15,7 +15,7 @@
 
     <div>
         <label class="field-label" for="phone">آخر أربعة أرقام من هاتفك</label>
-        <input id="phone" name="phone" value="{{ old('phone') }}" required maxlength="4"
+        <input id="phone" name="phone" value="{{ old('phone') }}" required maxlength="4" data-plain
                class="field-input text-left" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="4567"
                @error('number') aria-invalid="true" @enderror>
         <p class="field-hint">هاتف المستلم المكتوب على الشحنة — حتى لا يرى شحنتك غيرُك.</p>

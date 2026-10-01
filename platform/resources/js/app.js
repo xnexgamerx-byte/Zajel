@@ -7,6 +7,10 @@
 import { initSearchableSelects } from './searchable-select';
 import { initScanTable } from './scan-table';
 import { initQuickEntry } from './quick-entry';
+import { initNumberInputs, numberValue } from './number-inputs';
+
+// المبالغ بفاصلٍ كل ثلاث خانات (60 000)، والهاتف ١١ رقماً — في كل نموذج
+initNumberInputs();
 
 const form = document.getElementById('shipment-form');
 
@@ -73,12 +77,12 @@ function initLiveQuote() {
     const render = (quote, manualFee) => {
         const deliveryFee = manualFee ?? quote.delivery_fee;
         const totalFees = Math.max(0, deliveryFee + quote.extra_fee + quote.cod_fee
-            - Number(form.elements.discount?.value || 0));
+            - numberValue(form.elements.discount));
 
         const paidByCustomer = form.elements.fees_paid_by?.value === 'customer';
-        const cod = Number(form.elements.cod_amount?.value || 0);
+        const cod = numberValue(form.elements.cod_amount);
         const merchantDue = paidByCustomer
-            ? cod - quote.cod_fee + Number(form.elements.discount?.value || 0)
+            ? cod - quote.cod_fee + numberValue(form.elements.discount)
             : cod - totalFees;
 
         box.querySelector('[data-quote="delivery_fee"]').textContent = format(deliveryFee);
@@ -98,11 +102,13 @@ function initLiveQuote() {
         if (!merchantId || !governorateId) return;
 
         const manualRaw = form.elements.delivery_fee?.value;
-        let manualFee = manualRaw === '' ? null : Number(manualRaw);
+        let manualFee = (manualRaw ?? '').trim() === '' ? null : numberValue(form.elements.delivery_fee);
 
         // في التعديل: الأجرة الفارغة تبقى كما هي ما لم تتغيّر المحافظة أو المنطقة أو الوزن
         const rerouted = original && ['governorate_id', 'city_id', 'weight_grams']
-            .some((name) => String(form.elements[name]?.value ?? '') !== String(original[name] ?? ''));
+            .some((name) => name === 'weight_grams'
+                ? numberValue(form.elements[name]) !== Number(original[name] ?? 0)
+                : String(form.elements[name]?.value ?? '') !== String(original[name] ?? ''));
         if (manualFee === null && original && !rerouted) manualFee = original.delivery_fee;
 
         try {
@@ -117,11 +123,11 @@ function initLiveQuote() {
                     merchant_id: Number(merchantId),
                     governorate_id: Number(governorateId),
                     city_id: form.elements.city_id?.value ? Number(form.elements.city_id.value) : null,
-                    weight_grams: Number(form.elements.weight_grams?.value || 0),
-                    cod_amount: Number(form.elements.cod_amount?.value || 0),
+                    weight_grams: numberValue(form.elements.weight_grams),
+                    cod_amount: numberValue(form.elements.cod_amount),
                     fees_paid_by: form.elements.fees_paid_by?.value || 'merchant',
-                    extra_fee: Number(form.elements.extra_fee?.value || 0),
-                    discount: Number(form.elements.discount?.value || 0),
+                    extra_fee: numberValue(form.elements.extra_fee),
+                    discount: numberValue(form.elements.discount),
                 }),
             });
 

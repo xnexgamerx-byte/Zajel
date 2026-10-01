@@ -70,6 +70,13 @@ return [
     'uploaded'    => 'فشل رفع :attribute.',
     'url'         => 'صيغة :attribute غير صحيحة.',
 
-    'custom'     => [],
+    /*
+    | الهاتف في كل نموذج: رسالةٌ واحدة تقول ما المطلوب لا «صيغة غير صحيحة».
+    */
+    'custom'     => array_fill_keys([
+        'phone', 'phone_alt', 'recipient_phone', 'recipient_phone_alt', 'account_phone', 'owner_phone',
+        'contact_phone', 'driver_phone', 'support_whatsapp', 'support_complaints',
+        'rows.*.recipient_phone', 'rows.*.whatsapp',
+    ], ['regex' => 'رقم الهاتف يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.']),
     'attributes' => [],
 ];

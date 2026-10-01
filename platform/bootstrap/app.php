@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\IdentifyPlatform;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\IdentifyTenant;
+use App\Http\Middleware\NormaliseDigits;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -24,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // على كل ردّ، صفحةً كان أو ملفاً أو خطأً
         $middleware->append(SecurityHeaders::class);
+        // «60 000» و«٦٠٬٠٠٠» تصل 60000، والهاتف 07 وتسعة أرقام — قبل أيّ تحقّق
+        $middleware->append(NormaliseDigits::class);
 
         /*
          | من الوكيل (إن صُدِّق — config/trustedproxy.php) عنوانُ الزائر

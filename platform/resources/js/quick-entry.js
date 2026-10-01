@@ -1,4 +1,5 @@
 import { initSearchableSelects } from './searchable-select';
+import { initNumberInputs } from './number-inputs';
 
 /**
  * الإدخال السريع: صفوفٌ تُضاف خمسةً خمسة حتى الثلاثين، ومنطقة كل صفٍّ تتبع
@@ -51,6 +52,8 @@ export function initQuickEntry(form) {
     const wire = (row) => {
         fillCities(row);
         initSearchableSelects(row);
+        // صفوف «أضف خمسة» من قالب: هاتفها ١١ رقماً كالصفوف الأولى
+        initNumberInputs(row);
         preview(row);
         row.querySelector('[data-quick-governorate]')?.addEventListener('change', () => fillCities(row));
         row.querySelector('[data-quick-amount]')?.addEventListener('input', () => preview(row));

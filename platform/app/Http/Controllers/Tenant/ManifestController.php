@@ -51,10 +51,10 @@ class ManifestController extends Controller
             'from_hub_id'    => ['required', 'integer'],
             'to_hub_id'      => ['required', 'integer', 'different:from_hub_id'],
             'driver_name'    => ['nullable', 'string', 'max:160'],
-            'driver_phone'   => ['nullable', 'string', 'max:20'],
+            'driver_phone'   => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
             'vehicle_number' => ['nullable', 'string', 'max:40'],
             'notes'          => ['nullable', 'string', 'max:500'],
-        ], [], ['from_hub_id' => 'مركز الانطلاق', 'to_hub_id' => 'مركز الوصول']);
+        ], [], ['from_hub_id' => 'مركز الانطلاق', 'to_hub_id' => 'مركز الوصول', 'driver_phone' => 'هاتف السائق']);
 
         $from = Hub::find($data['from_hub_id']);
         $to = Hub::find($data['to_hub_id']);
