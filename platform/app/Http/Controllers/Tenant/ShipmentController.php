@@ -19,6 +19,7 @@ use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Services\Shipments\ShipmentFilters;
 use App\Services\Shipments\ShipmentStages;
+use App\Support\StaffNavigation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -61,7 +62,10 @@ class ShipmentController extends Controller
     }
 
     /**
-     * كل مراحل النقل: عدّادٌ لكل مرحلة، وأقدم ما فيها — والعدّاد يفتح قائمته.
+     * كل مراحل النقل: عدّادٌ لكل مرحلة، وأقدم ما فيها — والعدّاد يفتح قائمته
+     * في مكانه: اللوحة تبقى أعلى الصفحة والمرحلة المختارة مضيئةٌ فيها، وتحتها
+     * قسمها كلّه — شحناتها (الأقدم في المرحلة أوّلاً) وبحثها والإسناد والطباعة
+     * وشاشاتها. فلا يخرج الموظّف من «كل مراحل النقل» ليعمل بمرحلةٍ منها.
      *
      * استعلامٌ لكل مرحلة لا استعلامٌ واحد: شروط المراحل ليست كلّها حالة
      * (الراجع على الرفّ، والفرع البعيد، والواصل غير المحاسَب عليه)، وكلٌّ منها
@@ -69,6 +73,9 @@ class ShipmentController extends Controller
      */
     public function stages(Request $request): View
     {
+        $key = (string) $request->query('stage');
+        $stage = ShipmentStages::find($key);
+
         $groups = collect(ShipmentStages::groups())->map(function (array $group) use ($request) {
             $group['stages'] = collect($group['stages'])->map(function (array $stage) use ($request) {
                 $row = ($stage['apply'])(Shipment::query()->visibleTo($request->user()))
@@ -85,7 +92,34 @@ class ShipmentController extends Controller
             return $group;
         })->all();
 
-        return view('tenant.shipments.stages', ['groups' => $groups]);
+        if ($stage === null) {
+            return view('tenant.shipments.stages', ['groups' => $groups, 'stage' => null, 'stageKey' => null]);
+        }
+
+        $user = $request->user();
+        $query = Shipment::query()
+            ->with(['merchant:id,business_name,is_vip', 'governorate:id,name_ar', 'city:id,name_ar', 'deliveryCourier:id,name'])
+            ->visibleTo($user);
+
+        ShipmentFilters::apply($query, $request);
+
+        return view('tenant.shipments.stages', [
+            'groups'       => $groups,
+            'stage'        => $stage,
+            'stageKey'     => $key,
+            // ما ينتظر أطول أوّلاً: القسم لمتابعة المرحلة لا لأرشيفها
+            'shipments'    => $query->orderBy('shipments.status_changed_at')->orderBy('shipments.id')
+                ->paginate(config('zajel.per_page'))->withQueryString(),
+            'links'        => collect($stage['links'] ?? [])
+                ->filter(fn (array $link) => StaffNavigation::allows($user, $link[0], $link[2]))
+                ->map(fn (array $link) => ['url' => route($link[0]), 'label' => $link[1]])
+                ->values()->all(),
+            'filters'      => ShipmentFilters::active($request),
+            'merchants'    => Merchant::visibleTo($user)->orderBy('business_name')->get(['id', 'business_name']),
+            'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
+            'couriers'     => Courier::delivering()->active()->visibleTo($user)->orderBy('name')
+                ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
+        ]);
     }
 
     public function create(Request $request): View

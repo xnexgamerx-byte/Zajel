@@ -105,10 +105,10 @@ final class HomeAlerts
             'rows'  => $rows->take(self::ROWS)->map(fn ($r) => $this->row(
                 // الشحنة باسم الفرعيّ، والمسؤول عنها أبوه
                 [$r->parent_name ?? $r->name, $r->parent_name ? $r->name : '—', \App\Support\Arabic::shipments((int) $r->total)],
-                route('shipments.index', ['stage' => 'out_for_delivery', 'courier_id' => $r->courier_id,
+                route('shipments.stages', ['stage' => 'out_for_delivery', 'courier_id' => $r->courier_id,
                     'stage_to' => now()->subDays(3)->toDateString()]),
             )),
-            'link'  => route('shipments.index', ['stage' => 'out_for_delivery', 'stage_to' => now()->subDays(3)->toDateString()]),
+            'link'  => route('shipments.stages', ['stage' => 'out_for_delivery', 'stage_to' => now()->subDays(3)->toDateString()]),
         ];
     }
 
@@ -180,7 +180,7 @@ final class HomeAlerts
             'hint'  => 'في كيسٍ على كشف نقل ولم تصل',
             'total' => (int) $rows->sum('total'),
             'rows'  => $rows->take(self::ROWS)->map(fn ($r) => $this->row([$r->name, \App\Support\Arabic::shipments((int) $r->total)])),
-            'link'  => route('shipments.index', ['stage' => 'in_transit', 'stage_to' => now()->subDay()->toDateString()]),
+            'link'  => route('shipments.stages', ['stage' => 'in_transit', 'stage_to' => now()->subDay()->toDateString()]),
         ];
     }
 
@@ -205,7 +205,7 @@ final class HomeAlerts
             'hint'  => 'كُيِّست إلى فرع تاجرها ولم يفتح كيسها بعد',
             'total' => (int) $rows->sum('total'),
             'rows'  => $rows->take(self::ROWS)->map(fn ($r) => $this->row([$r->name, \App\Support\Arabic::shipments((int) $r->total)])),
-            'link'  => route('shipments.index', ['stage' => 'returns_on_the_way']),
+            'link'  => route('shipments.stages', ['stage' => 'returns_on_the_way']),
         ];
     }
 

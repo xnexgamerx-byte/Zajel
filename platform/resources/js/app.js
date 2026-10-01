@@ -22,6 +22,10 @@ if (document.getElementById('cities-data')) {
 // بعد ربط المناطق: الحقل يقرأ خياراتها الأولى
 initSearchableSelects();
 
+// «كل مراحل النقل» على الهاتف: المرحلة المختارة تُرى في صفّها المُمرَّر أفقياً
+document.querySelector('[data-stage-strip] [aria-current="page"]')
+    ?.scrollIntoView({ block: 'nearest', inline: 'center' });
+
 const scanTable = document.querySelector('[data-scan-table]');
 if (scanTable) initScanTable(scanTable);
 

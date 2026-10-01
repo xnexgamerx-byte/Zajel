@@ -126,6 +126,60 @@ class StagesAndExportTest extends TestCase
         $this->assertStringContainsString('إجمالي النتائج: 1', $html);
     }
 
+    /**
+     * المرحلة تُفتح في مكانها: اللوحة تبقى أعلى الصفحة والمختارة مضيئة، وتحتها
+     * قسمها — شحناتها وحدها (الأقدم في المرحلة أوّلاً) وبحثها وشاشاتها.
+     */
+    public function test_a_stage_opens_its_list_in_place_under_the_board(): void
+    {
+        $old = $this->shipment(['status' => 'out_for_delivery', 'status_changed_at' => now()->subDays(4)]);
+        $new = $this->shipment(['status' => 'out_for_delivery']);
+        $elsewhere = $this->shipment(['status' => 'at_hub']);
+
+        $page = $this->actingAs($this->owner)->get($this->host().'/shipments/stages?stage=out_for_delivery')->assertOk();
+        $html = $page->getContent();
+
+        // اللوحة باقية بروابطها إلى الصفحة نفسها، والمختارة مضيئة
+        $page->assertSee('داخل المخزن')
+            ->assertSee('href="'.route('shipments.stages', ['stage' => 'in_store']).'"', false)
+            ->assertSee('aria-current="page"', false);
+
+        // القسم: شحنات المرحلة وحدها، الأقدم فيها أوّلاً، ومنذ متى فيها، وشاشاتها
+        $this->assertStringContainsString($old->number, $html);
+        $this->assertStringContainsString($new->number, $html);
+        $this->assertStringNotContainsString($elsewhere->number, $html);
+        $this->assertLessThan(strpos($html, $new->number), strpos($html, $old->number), 'الأقدم في المرحلة أوّلاً');
+        $page->assertSee('في المرحلة منذ')->assertSee('4 أيام')
+            ->assertSee('إجمالي النتائج: 2')
+            ->assertSee('href="'.route('courier-manifests.index').'"', false)
+            ->assertSee('data-bulk-bar', false);
+
+        // البحث يبقى في المرحلة
+        $this->actingAs($this->owner)->get($this->host().'/shipments/stages?stage=out_for_delivery&q='.$new->number)
+            ->assertOk()->assertSee('إجمالي النتائج: 1')->assertSee('name="stage" value="out_for_delivery"', false);
+
+        // مرحلةٌ لا تُعرف: اللوحة وحدها
+        $this->actingAs($this->owner)->get($this->host().'/shipments/stages?stage=nothing')
+            ->assertOk()->assertDontSee('إجمالي النتائج');
+    }
+
+    public function test_a_stage_list_shows_only_what_the_user_may_see_and_open(): void
+    {
+        $there = Tenancy::runFor($this->company, fn () => Branch::create(['code' => 'B2', 'name' => 'فرع البصرة']));
+
+        $mine = $this->shipment(['status' => 'at_hub', 'branch_id' => $there->id]);
+        $theirs = $this->shipment(['status' => 'at_hub']);
+
+        $clerk = $this->makeUser($this->company, UserRole::CustomerService);
+        Tenancy::runFor($this->company, fn () => $clerk->forceFill(['branch_id' => $there->id])->save());
+
+        $page = $this->actingAs($clerk)->get($this->host().'/shipments/stages?stage=in_store')->assertOk();
+
+        $page->assertSee($mine->number)->assertDontSee($theirs->number)->assertSee('إجمالي النتائج: 1');
+        // خدمة العملاء لا تُدير النقل: «كشوف المناديب» لا تظهر رابطاً يُفضي إلى 403
+        $page->assertDontSee('href="'.route('courier-manifests.index').'"', false);
+    }
+
     // ── الفلاتر ─────────────────────────────────────────────────────
 
     public function test_the_wide_filters_narrow_the_list(): void

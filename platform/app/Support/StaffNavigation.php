@@ -152,7 +152,6 @@ final class StaffNavigation
             : 0;
 
         $menus = [];
-        $limited = $user->isBranchLimited();
 
         foreach (static::menus() as [$label, $icon, $links]) {
             $visible = [];
@@ -161,17 +160,12 @@ final class StaffNavigation
                 [$route, $text, $patterns, $ability] = $link;
                 $params = $link[4] ?? [];
 
-                if ($ability !== null && ! $user->can($ability)) {
+                if (! static::allows($user, $route, $ability)) {
                     continue;
                 }
 
                 // «تسعيرة الفرع» لمن لا يُدير التسعيرات: من يُديرها يراها كلّها في «التسعيرات»
                 if ($route === 'pricing.branch' && $user->can('settings.pricing')) {
-                    continue;
-                }
-
-                // شاشة الشركة كلّها (main-branch) تغيب عن موظّف فرعٍ غير الرئيسي
-                if ($limited && in_array('main-branch', Route::getRoutes()->getByName($route)?->gatherMiddleware() ?? [], true)) {
                     continue;
                 }
 
@@ -201,5 +195,19 @@ final class StaffNavigation
         }
 
         return $menus;
+    }
+
+    /**
+     * يفتح $user هذه الشاشة؟ صلاحيتها، وليست للشركة كلّها (main-branch) وهو في
+     * فرعٍ غير الرئيسي. ما لا يُفتح لا يُعرَض رابطاً — في الشريط وفي غيره.
+     */
+    public static function allows(User $user, string $route, ?string $ability): bool
+    {
+        if ($ability !== null && ! $user->can($ability)) {
+            return false;
+        }
+
+        return ! ($user->isBranchLimited()
+            && in_array('main-branch', Route::getRoutes()->getByName($route)?->gatherMiddleware() ?? [], true));
     }
 }

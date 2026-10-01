@@ -70,9 +70,9 @@
                     @endforeach
                 </div>
                 @if ($openCount > $open->count())
-                    <a href="{{ route('shipments.index', ['stage' => 'out_for_delivery', 'courier_id' => $courier->id]) }}"
+                    <a href="{{ route('shipments.stages', ['stage' => 'out_for_delivery', 'courier_id' => $courier->id]) }}"
                        class="mt-3 inline-block text-xs font-semibold text-[var(--brand)] hover:underline">
-                        هذه أحدث {{ number_format($open->count()) }} من {{ number_format($openCount) }} — بقيّتها في قائمة الشحنات
+                        هذه أحدث {{ number_format($open->count()) }} من {{ number_format($openCount) }} — بقيّتها في «قيد التوصيل»
                     </a>
                 @endif
             @endif
