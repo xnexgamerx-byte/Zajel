@@ -101,7 +101,7 @@ class CourierController extends Controller
     {
         return view('tenant.couriers.form', $this->formData() + [
             'courier' => $courier,
-            // المحافظات كلّها وحدها: المنطقة داخل محافظةٍ تُسند من «المناطق»
+            // المحافظات كلّها وحدها: المنطقة داخل محافظةٍ تُسند من «مناطق المندوبين»
             'zones'   => $courier->zones()->whereNull('city_id')->pluck('governorate_id')->all(),
         ]);
     }
@@ -120,7 +120,7 @@ class CourierController extends Controller
 
     /**
      * مناطق التغطية على مستوى المحافظة — تكفي للتوزيع اليومي. ولا تمسّ ما
-     * أُسند من «المناطق» لمنطقةٍ بعينها: تعديل هاتف المندوب لا يمحو مناطقه.
+     * أُسند من «مناطق المندوبين» لمنطقةٍ بعينها: تعديل هاتف المندوب لا يمحو مناطقه.
      */
     protected function syncZones(Courier $courier, array $governorateIds): void
     {

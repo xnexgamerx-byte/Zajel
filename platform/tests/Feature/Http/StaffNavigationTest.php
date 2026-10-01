@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
- * الشريط العلوي: بترتيب النظام الذي اعتاده الموظّفون، ولكل شاشةٍ مكانٌ فيه،
- * ولكل رابطٍ صلاحيته.
+ * الشريط العلوي: مرتّبٌ بما تفعله كل شاشة، ولكل شاشةٍ مكانٌ فيه (أو في «كل
+ * التقارير»)، ولكل رابطٍ صلاحيته.
  *
  * الشريط هو الطريق الوحيد إلى أكثر الشاشات. شاشةٌ سقطت منه عند إعادة
  * ترتيبه لا يُبلغ عنها أحد — تختفي فحسب، ويظنّها الموظّف غير موجودة.
@@ -23,11 +23,16 @@ class StaffNavigationTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** شريط النظام المعتاد من اليمين إلى اليسار (docs/plan/10-live-system-analysis.md §٣) */
+    /** من اليمين إلى اليسار بعمل الشاشات (docs/plan/21 §١) */
     private const ORDER = [
-        'الرئيسية', 'الشحنات', 'التوصيل', 'الاستلام والمخزن', 'الراجع',
-        'الصندوق', 'الحسابات والمصاريف', 'التقارير', 'التقارير المالية', 'المراجعة',
-        'الإعدادات', 'المحاسبة',
+        'الرئيسية', 'الشحنات', 'التوصيل', 'الراجع', 'المال', 'الحسابات', 'التقارير', 'المتابعة', 'الإعدادات',
+    ];
+
+    /** تقاريرٌ تُفتح من «كل التقارير» لا من الشريط: القائمة تحمل الأكثر سؤالاً وحده */
+    private const FROM_REPORTS_PAGE = [
+        'reports.returns-money', 'reports.dormant', 'reports.debtors', 'reports.changes', 'reports.entries',
+        'reports.portal', 'reports.processing', 'reports.merchant-profit', 'reports.courier-overcharge',
+        'reports.special-prices', 'reports.unconfirmed', 'reports.notifications',
     ];
 
     /** شاشاتٌ تُفتح من داخل غيرها لا من الشريط: نماذج الإضافة، والطباعة، وقالب الاستيراد */
@@ -61,7 +66,7 @@ class StaffNavigationTest extends TestCase
         return 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain');
     }
 
-    public function test_menus_follow_the_familiar_order(): void
+    public function test_menus_follow_the_work_order(): void
     {
         $this->assertSame(self::ORDER, array_column(StaffNavigation::menus(), 0));
     }
@@ -96,11 +101,24 @@ class StaffNavigationTest extends TestCase
         $this->assertGreaterThan(30, $screens->count());
 
         $missing = $screens
-            ->reject(fn (string $name) => $linked->contains($name) || in_array($name, self::OPENED_FROM_ELSEWHERE, true))
+            ->reject(fn (string $name) => $linked->contains($name)
+                || in_array($name, self::OPENED_FROM_ELSEWHERE, true)
+                || in_array($name, self::FROM_REPORTS_PAGE, true))
             ->values()
             ->all();
 
         $this->assertSame([], $missing, "شاشات لا يبلغها الشريط:\n".implode("\n", $missing));
+    }
+
+    /** وما لا يحمله الشريط من التقارير تحمله صفحة «كل التقارير» — لمن يملكها */
+    public function test_every_report_left_out_of_the_bar_is_on_the_reports_page(): void
+    {
+        $owner = $this->makeUser($this->company);
+        $page = $this->actingAs($owner)->get($this->host().'/reports')->assertOk();
+
+        foreach (self::FROM_REPORTS_PAGE as $route) {
+            $page->assertSee(Tenancy::runFor($this->company, fn () => route($route)), false);
+        }
     }
 
     public function test_a_link_shows_only_to_whoever_can_open_it(): void
@@ -111,24 +129,29 @@ class StaffNavigationTest extends TestCase
         $menus = Tenancy::runFor($this->company, fn () => StaffNavigation::for($agent, Request::create('/')));
         $labels = array_column($menus, 'label');
 
-        // والتقارير المالية لمن يرى أرباح الشركة وحده
-        // ويرى «كل مراحل النقل»: عدّاداتٌ للقراءة
-        $this->assertSame(['الرئيسية', 'الشحنات', 'التوصيل', 'الاستلام والمخزن', 'التقارير', 'المراجعة'], $labels);
+        // لا مال ولا راجع ولا إعدادات؛ ويرى «كل مراحل النقل»: عدّاداتٌ للقراءة
+        $this->assertSame(['الرئيسية', 'الشحنات', 'التوصيل', 'التقارير', 'المتابعة'], $labels);
         $delivery = $menus[array_search('التوصيل', $labels, true)];
         $this->assertSame(['كل مراحل النقل'], array_column($delivery['links'], 'label'));
 
-        // والقائمة الباقية لا تحمل من روابطها إلا ما يُفتح
+        // والقائمة التي بقي فيها رابطٌ واحد رابطٌ مباشر: لا قائمة تنسدل بسطرٍ واحد
+        $this->assertSame($delivery['links'][0]['url'], $delivery['url']);
         $home = $menus[array_search('الرئيسية', $labels, true)];
         $this->assertSame(['لوحة اليوم'], array_column($home['links'], 'label'));
+        $this->assertNotNull($home['url']);
 
-        // مدير الفرع يرى الأرباح، ولا يرى كشف الحساب إلا بصلاحية المال
+        // والتقارير: أرباح الشحنات لمن يرى أرباح الشركة وحده
+        $reports = $menus[array_search('التقارير', $labels, true)];
+        $this->assertNotContains('أرباح الشحنات', array_column($reports['links'], 'label'));
+        $this->assertNull($reports['url']);
+
         $manager = $this->makeUser($this->company, UserRole::BranchManager);
         $menus = Tenancy::runFor($this->company, fn () => StaffNavigation::for($manager, Request::create('/')));
-        $finance = collect($menus)->firstWhere('label', 'التقارير المالية');
-        $this->assertContains('أرباح الشحنات', array_column($finance['links'], 'label'));
+        $reports = collect($menus)->firstWhere('label', 'التقارير');
+        $this->assertContains('أرباح الشحنات', array_column($reports['links'], 'label'));
     }
 
-    public function test_the_owner_sees_the_twelve_menus_in_order(): void
+    public function test_the_owner_sees_every_menu_in_order(): void
     {
         $owner = $this->makeUser($this->company);
 

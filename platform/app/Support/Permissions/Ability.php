@@ -13,13 +13,12 @@ use App\Support\StaffNavigation;
  * كشف تاجر وتعديل جرد القاصة. الدور بلا صلاحيات لافتةٌ على الباب.
  *
  * والقائمة مغلقة عمداً: صلاحية تُضاف بالكود لا من الشاشة، حتى لا يصير
- * الجدول مفتوحاً على أسماء لا يحرسها شيء. وتُعرض مجمّعةً بالقوائم الاثنتي
- * عشرة كما يعرفها الموظّف — «اسم القائمة» ثم ما تفتحه منها — فالمرتبة
- * تُبنى كما كانت تُبنى في النظام الذي تعمل عليه الشركات (docs/plan/17 §٥).
+ * الجدول مفتوحاً على أسماء لا يحرسها شيء. وتُعرض مجمّعةً بقوائم الشريط
+ * كما يراها الموظّف — «اسم القائمة» ثم ما تفتحه منها (docs/plan/21 §١).
  */
 class Ability
 {
-    // الرئيسية
+    // المتابعة
     /** إعلانٌ واحد يبلغ كل المناديب أو كل التجّار */
     public const NOTIFY_SEND = 'notify.send';
 
@@ -44,14 +43,14 @@ class Ability
     /** مسح ما أُنشئ خطأً قبل أن يصلنا، واسترجاعه — «صلاحية تعديل وحذف الشحنات» في المعتاد */
     public const SHIPMENTS_DELETE = 'shipments.delete';
 
-    // التوصيل · الاستلام والمخزن · الراجع
+    // التوصيل · الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
 
     public const PICKUPS_MANAGE = 'pickups.manage';
 
     public const RETURNS_MANAGE = 'returns.manage';
 
-    // الصندوق · الحسابات والمصاريف · المحاسبة
+    // المال والحسابات
     public const MONEY_CASH = 'money.cash';
 
     public const MONEY_VIEW = 'money.view';
@@ -64,13 +63,13 @@ class Ability
 
     public const MONEY_CONFIRM_AMOUNT = 'money.confirm_amount';
 
-    // تقارير · تقارير مالية
+    // التقارير
     public const REPORTS_VIEW = 'reports.view';
 
     /** أرباح الشركة ومال رواجعها: للمدير والمحاسب، لا لكل من يقرأ تقريراً */
     public const REPORTS_FINANCIAL = 'reports.financial';
 
-    // المراجعة
+    // المتابعة
     /** الردّ على محادثات التجّار */
     public const SUPPORT_REPLY = 'support.reply';
 
@@ -125,9 +124,6 @@ class Ability
     public static function groups(): array
     {
         return [
-            'home' => ['label' => 'الرئيسية', 'abilities' => [
-                self::NOTIFY_SEND => 'الإشعارات الجماعية',
-            ]],
             'shipments' => ['label' => 'الشحنات', 'abilities' => [
                 self::SHIPMENTS_VIEW   => 'عرض الشحنات',
                 self::SHIPMENTS_CREATE => 'إنشاء شحنة ورفع ملف',
@@ -138,32 +134,30 @@ class Ability
                 self::SHIPMENTS_DELETE => 'مسح الشحنات قبل استلامها، واسترجاعها',
             ]],
             'delivery' => ['label' => 'التوصيل', 'abilities' => [
-                self::TRANSPORT_MANAGE => 'الأكياس وكشوف النقل والمناديب',
-            ]],
-            'requests' => ['label' => 'الاستلام والمخزن', 'abilities' => [
-                self::PICKUPS_MANAGE => 'طلبات الاستلام',
+                self::PICKUPS_MANAGE   => 'طلبات الاستلام',
+                self::TRANSPORT_MANAGE => 'كشوف المناديب والأكياس والنقل بين الفروع',
             ]],
             'returns' => ['label' => 'الراجع', 'abilities' => [
                 self::RETURNS_MANAGE => 'الراجع: استلاماً وفرزاً وتسليماً',
             ]],
-            'banking' => ['label' => 'الصندوق', 'abilities' => [
-                self::MONEY_CASH => 'القاصة والجرد والمناقلة',
-            ]],
-            'accounts' => ['label' => 'الحسابات والمصاريف', 'abilities' => [
-                self::MONEY_VIEW     => 'عرض الحسابات والأرصدة',
-                self::MONEY_EXPENSES => 'المصروفات',
+            'money' => ['label' => 'المال والحسابات', 'abilities' => [
+                self::MONEY_VIEW           => 'عرض المال والحسابات والأرصدة',
+                self::MONEY_CASH           => 'الصندوق والجرد والمناقلة',
+                self::MONEY_EXPENSES       => 'المصروفات',
+                self::MONEY_SETTLE         => 'محاسبة المندوبين ومندوبي الاستلام',
+                self::MONEY_PAY            => 'دفع كشوف التجّار',
+                self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
             ]],
             'reports' => ['label' => 'التقارير', 'abilities' => [
-                self::REPORTS_VIEW => 'التقارير',
-            ]],
-            'financial' => ['label' => 'التقارير المالية', 'abilities' => [
+                self::REPORTS_VIEW      => 'التقارير',
                 self::REPORTS_FINANCIAL => 'أرباح الشحنات ومال الرواجع',
             ]],
-            'review' => ['label' => 'المراجعة', 'abilities' => [
+            'review' => ['label' => 'المتابعة', 'abilities' => [
                 self::SUPPORT_REPLY      => 'محادثات التجّار',
+                self::NOTIFY_SEND        => 'الإشعارات وإعلانات التطبيق',
+                self::CONTROL_REVIEW     => 'إجازة الشحنات المعلّقة للمراجعة',
                 self::CONTROL_DUPLICATES => 'حسم الشحنات المكرّرة',
                 self::CONTROL_FORCE      => 'التغيير الإجباري خارج المسار',
-                self::CONTROL_REVIEW     => 'إجازة الشحنات المعلّقة للمراجعة',
             ]],
             'settings' => ['label' => 'الإعدادات', 'abilities' => [
                 self::SETTINGS_MERCHANTS   => 'التجّار',
@@ -174,11 +168,6 @@ class Ability
                 self::SETTINGS_ZONES       => 'المناطق',
                 self::SETTINGS_PRICING     => 'التسعيرات',
                 self::SETTINGS_COMPANY     => 'بيانات الشركة وواتساب الدعم',
-            ]],
-            'payments' => ['label' => 'المحاسبة', 'abilities' => [
-                self::MONEY_SETTLE         => 'تسوية المندوبين ومندوبي الاستلام',
-                self::MONEY_PAY            => 'دفع كشوف التجّار',
-                self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
             ]],
         ];
     }

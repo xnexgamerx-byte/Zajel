@@ -44,9 +44,9 @@
 
 {{--
   رأس «وهج»: الشعار والبحث والحساب على خلفية الصفحة، ثم شريط القوائم حبّاتٍ
-  في شريطٍ أبيض. القوائم بترتيب النظام الذي اعتاده الموظّفون (StaffNavigation):
-  البحث أوّلاً، ثم الصفحة الرئيسية … حتى الدفعات. من ١٠٢٤ بكسل صفٌّ (أو صفّان)
-  تنسدل منه القوائم، وعلى الهاتف قائمةٌ عمودية يفتحها زرّ القائمة.
+  في شريطٍ أبيض. القوائم بما تفعله كل شاشة (StaffNavigation): البحث أوّلاً، ثم
+  الرئيسية … حتى الإعدادات. من ١٠٢٤ بكسل صفٌّ تنسدل منه القوائم، وعلى الهاتف
+  قائمةٌ عمودية يفتحها زرّ القائمة. والقائمة ذات الرابط الواحد رابطٌ مباشر.
 --}}
 <header class="ds-header">
     <div class="shell flex flex-wrap items-center gap-x-3 gap-y-2.5 py-3">
@@ -121,6 +121,19 @@
                     </li>
 
                     @foreach ($menus as $i => $menu)
+                        @if ($menu['url'])
+                            <li>
+                                <a href="{{ $menu['url'] }}" class="nav-item {{ $menu['active'] ? 'nav-item-active' : '' }}"
+                                   @if ($menu['active']) aria-current="page" @endif>
+                                    <x-icon :name="$menu['icon']" class="nav-item-icon"/>
+                                    <span>{{ $menu['label'] }}</span>
+                                    @if ($menu['badge'])
+                                        <span class="nav-badge">{{ $menu['badge'] }}</span>
+                                    @endif
+                                </a>
+                            </li>
+                            @continue
+                        @endif
                         <li class="relative" data-menu>
                             <button type="button" class="nav-item {{ $menu['active'] ? 'nav-item-active' : '' }}"
                                     data-menu-toggle aria-expanded="false" aria-controls="menu-{{ $i }}">

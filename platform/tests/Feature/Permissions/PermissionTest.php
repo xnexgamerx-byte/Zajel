@@ -275,7 +275,7 @@ class PermissionTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('الشحنات', $html);
-        $this->assertStringNotContainsString('القاصة', $html);
+        $this->assertStringNotContainsString('الصندوق', $html);
         $this->assertStringNotContainsString('المصروفات', $html);
         $this->assertStringNotContainsString('الصلاحيات', $html);
     }

@@ -28,7 +28,7 @@
         <div class="card mb-5 border-bad-200 bg-bad-50 p-4 text-sm text-bad-700">
             الختاميّ <span class="num">{{ number_format($totals->closing) }}</span>
             وما في الصناديق <span class="num">{{ number_format($check->held) }}</span> —
-            فرقٌ بمقدار <strong class="num">{{ number_format($check->drift) }}</strong>. راجِع جرد الصناديق من القاصة.
+            فرقٌ بمقدار <strong class="num">{{ number_format($check->drift) }}</strong>. راجِع جرد الصناديق من شاشة «الصندوق».
         </div>
     @endif
 @endif

@@ -105,7 +105,7 @@
             <div class="mt-5">
                 <span class="field-label">مناطق التغطية</span>
                 <p class="mb-2 text-xs text-ink-500">
-                    تُستخدم في اقتراح المندوب عند التوزيع اليومي. والمنطقة داخل المحافظة تُسند من شاشة «المناطق».
+                    تُستخدم في اقتراح المندوب عند التوزيع اليومي. والمنطقة داخل المحافظة تُسند من شاشة «مناطق المندوبين» في الإعدادات.
                 </p>
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                     @foreach ($governorates as $gov)
