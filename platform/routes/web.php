@@ -29,6 +29,7 @@ use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\ReconcileController;
 use App\Http\Controllers\Tenant\PassedThroughController;
+use App\Http\Controllers\Tenant\ShipmentArchiveController;
 use App\Http\Controllers\Tenant\ProcessingController;
 use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
@@ -127,6 +128,8 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.stages');
         Route::get('/shipments/passed', [PassedThroughController::class, 'index'])
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.passed');
+        Route::get('/shipments/archive', [ShipmentArchiveController::class, 'index'])
+            ->middleware(['staff', 'can:shipments.view'])->name('shipments.archive');
         Route::middleware(['staff', 'can:shipments.view'])->group(function () {
             Route::get('/shipments/scan', [ShipmentScanController::class, 'index'])->name('shipments.scan');
             Route::get('/shipments/scan/lookup', [ShipmentScanController::class, 'lookup'])->name('shipments.scan.lookup');

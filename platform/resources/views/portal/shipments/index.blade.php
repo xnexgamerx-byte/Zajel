@@ -14,25 +14,39 @@
     </div>
 </div>
 
+{{-- الجارية، و«المؤرشفة»: ما رجع إليك وسُلّم لك --}}
+<nav class="tab-nav mb-3" aria-label="شحناتي">
+    <a href="{{ route('portal.shipments.index') }}" @class(['tab-link', 'tab-link-active' => ! $archive])>شحناتي</a>
+    <a href="{{ route('portal.shipments.index', ['tab' => 'archive']) }}" @class(['tab-link', 'tab-link-active' => $archive])>
+        المؤرشفة — راجعٌ سُلّم لك
+        <span class="nav-badge">{{ number_format($archived) }}</span>
+    </a>
+</nav>
+
 <form method="GET" class="card mb-4 flex flex-wrap items-end gap-3 p-4">
+    @if ($archive)
+        <input type="hidden" name="tab" value="archive">
+    @endif
     <div class="min-w-56 flex-1">
         <label class="field-label" for="q">بحث</label>
         <input id="q" name="q" value="{{ request('q') }}" class="field-input"
                placeholder="رقم وصل · هاتف الزبون · رقم طلبك">
     </div>
+    @unless ($archive)
+        <div>
+            <label class="field-label" for="status">الحالة</label>
+            <select id="status" name="status" class="field-input">
+                <option value="">الكل</option>
+                @foreach ($statuses as $status)
+                    <option value="{{ $status->value }}" @selected(request('status') === $status->value)>
+                        {{ $status->label() }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    @endunless
     <div>
-        <label class="field-label" for="status">الحالة</label>
-        <select id="status" name="status" class="field-input">
-            <option value="">الكل</option>
-            @foreach ($statuses as $status)
-                <option value="{{ $status->value }}" @selected(request('status') === $status->value)>
-                    {{ $status->label() }}
-                </option>
-            @endforeach
-        </select>
-    </div>
-    <div>
-        <label class="field-label" for="from">من</label>
+        <label class="field-label" for="from">{{ $archive ? 'سُلّم لك من' : 'من' }}</label>
         <input id="from" name="from" type="date" class="field-input" value="{{ request('from') }}">
     </div>
     <div>
@@ -40,7 +54,7 @@
         <input id="to" name="to" type="date" class="field-input" value="{{ request('to') }}">
     </div>
     <button type="submit" class="btn-primary">تطبيق</button>
-    <a href="{{ route('portal.shipments.index') }}" class="btn-ghost">مسح</a>
+    <a href="{{ route('portal.shipments.index', $archive ? ['tab' => 'archive'] : []) }}" class="btn-ghost">مسح</a>
 </form>
 
 <div class="card overflow-hidden">
@@ -52,10 +66,17 @@
                     <th >الزبون</th>
                     <th >الوجهة</th>
                     <th >المطلوب</th>
-                    <th >الأجرة</th>
-                    <th >لك</th>
-                    <th >الحالة</th>
-                    <th >التاريخ</th>
+                    @if ($archive)
+                        <th >أجرة الراجع</th>
+                        <th >سبب الراجع</th>
+                        <th >سُلّم لك</th>
+                        <th >الإيصال</th>
+                    @else
+                        <th >الأجرة</th>
+                        <th >لك</th>
+                        <th >الحالة</th>
+                        <th >التاريخ</th>
+                    @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-ink-100">
@@ -81,20 +102,31 @@
                             @endif
                         </td>
                         <td class="px-4 py-3 font-semibold" dir="ltr">{{ number_format($shipment->cod_amount) }}</td>
-                        <td class="px-4 py-3 text-ink-600" dir="ltr">{{ number_format($shipment->total_fees) }}</td>
-                        <td class="px-4 py-3 font-bold text-[var(--brand)]" dir="ltr">
-                            {{ number_format($shipment->merchant_due) }}
-                        </td>
-                        <td class="px-4 py-3"><x-status-badge :status="$shipment->status" /></td>
-                        <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
-                            {{ $shipment->created_at->format('Y-m-d') }}
-                        </td>
+                        @if ($archive)
+                            <td class="px-4 py-3 text-ink-600" dir="ltr">{{ number_format($shipment->return_fee) }}</td>
+                            <td class="px-4 py-3 text-ink-700">{{ $shipment->lastFailureReason?->name_ar ?? '—' }}</td>
+                            <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">{{ $shipment->returned_at?->format('Y-m-d') ?? '—' }}</td>
+                            <td class="px-4 py-3 font-mono text-xs" dir="ltr">{{ $shipment->returnBatch?->number ?? '—' }}</td>
+                        @else
+                            <td class="px-4 py-3 text-ink-600" dir="ltr">{{ number_format($shipment->total_fees) }}</td>
+                            <td class="px-4 py-3 font-bold text-[var(--brand)]" dir="ltr">
+                                {{ number_format($shipment->merchant_due) }}
+                            </td>
+                            <td class="px-4 py-3"><x-status-badge :status="$shipment->status" /></td>
+                            <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
+                                {{ $shipment->created_at->format('Y-m-d') }}
+                            </td>
+                        @endif
                     </tr>
                 @empty
                     <tr>
                         <td colspan="8" class="px-4 py-16 text-center">
-                            <div class="text-ink-500">لا شحنات مطابقة.</div>
-                            <a href="{{ route('portal.shipments.create') }}" class="btn-primary mt-4">شحنة جديدة</a>
+                            @if ($archive)
+                                <div class="text-ink-500">لم يُسلَّم لك راجعٌ يطابق البحث.</div>
+                            @else
+                                <div class="text-ink-500">لا شحنات مطابقة.</div>
+                                <a href="{{ route('portal.shipments.create') }}" class="btn-primary mt-4">شحنة جديدة</a>
+                            @endif
                         </td>
                     </tr>
                 @endforelse

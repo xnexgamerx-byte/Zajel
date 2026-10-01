@@ -112,6 +112,12 @@ class Shipment extends Model
         return $this->belongsTo(FailureReason::class, 'last_failure_reason_id');
     }
 
+    /** دفعة الراجع التي سُلّمت بها لتاجرها: إيصالها */
+    public function returnBatch(): BelongsTo
+    {
+        return $this->belongsTo(ReturnBatch::class);
+    }
+
     public function events(): HasMany
     {
         return $this->hasMany(ShipmentEvent::class)->orderBy('id');

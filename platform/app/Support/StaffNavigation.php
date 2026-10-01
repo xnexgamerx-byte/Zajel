@@ -43,6 +43,8 @@ final class StaffNavigation
                 ['shipments.create', 'شحنة جديدة', ['shipments.create'], 'shipments.create'],
                 ['shipments.quick', 'إدخال سريع (حتى ٣٠ شحنة)', ['shipments.quick*'], 'shipments.create'],
                 ['shipments.import', 'رفع من ملف', ['shipments.import*'], 'shipments.create'],
+                // ما رجع إلى تاجره: خرج من القائمة الجارية إلى أرشيفه، لكل تاجرٍ قائمته
+                ['shipments.archive', 'الشحنات المؤرشفة', ['shipments.archive'], 'shipments.view'],
             ]],
             ['عمليات التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],

@@ -2,6 +2,7 @@
 
 namespace App\Services\Shipments;
 
+use App\Enums\ShipmentStatus;
 use App\Models\Hub;
 use App\Support\Phone;
 use Illuminate\Database\Eloquent\Builder;
@@ -38,6 +39,12 @@ final class ShipmentFilters
         $query->search($value('q'));
 
         ShipmentStages::apply($query, $value('stage'));
+
+        // ما رجع إلى تاجره وسُلّم له مؤرشف («الشحنات المؤرشفة»): لا يُزاحم الجارية،
+        // إلّا إن طُلب بحالته، أو بُحث عنه برقمه أو هاتفه، أو فُتحت مرحلة
+        if ($value('status') === null && $value('q') === null && $value('stage') === null) {
+            $query->where('shipments.status', '!=', ShipmentStatus::Returned->value);
+        }
 
         foreach ([
             'status'            => 'shipments.status',

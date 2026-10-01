@@ -6,15 +6,23 @@
 {{-- ملخّص اليوم --}}
 <div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
     @foreach ([
-        ['الكل', $totals['total'], 'text-ink-900'],
-        ['قيد التنفيذ', $totals['open'], 'text-info-700'],
-        ['مسلَّمة', $totals['delivered'], 'text-ok-700'],
-        ['راجعة', $totals['returned'], 'text-ink-600'],
-    ] as [$label, $value, $tone])
-        <div class="card p-4">
-            <div class="text-xs font-medium text-ink-500">{{ $label }}</div>
-            <div class="mt-1 text-2xl font-bold {{ $tone }}">{{ number_format($value) }}</div>
-        </div>
+        ['الكل', $totals['total'], 'text-ink-900', null],
+        ['قيد التنفيذ', $totals['open'], 'text-info-700', null],
+        ['مسلَّمة', $totals['delivered'], 'text-ok-700', null],
+        // الراجع المسلَّم لتاجره لا يُعرض في القائمة: مكانه «الشحنات المؤرشفة»
+        ['راجعة للتاجر (مؤرشفة)', $totals['returned'], 'text-ink-600', route('shipments.archive')],
+    ] as [$label, $value, $tone, $url])
+        @if ($url)
+            <a href="{{ $url }}" class="card block p-4 hover:ring-1 hover:ring-primary-200">
+                <div class="text-xs font-medium text-ink-500">{{ $label }}</div>
+                <div class="mt-1 text-2xl font-bold {{ $tone }}">{{ number_format($value) }}</div>
+            </a>
+        @else
+            <div class="card p-4">
+                <div class="text-xs font-medium text-ink-500">{{ $label }}</div>
+                <div class="mt-1 text-2xl font-bold {{ $tone }}">{{ number_format($value) }}</div>
+            </div>
+        @endif
     @endforeach
 
     <div class="card p-4">
