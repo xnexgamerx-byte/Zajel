@@ -148,8 +148,8 @@
 
                 <div>
                     <label class="field-label" for="weight_grams">الوزن (غرام)</label>
-                    <input id="weight_grams" name="weight_grams" type="number" min="0"
-                           value="{{ old('weight_grams', $shipment?->weight_grams ?? 0) }}" class="field-input" dir="ltr">
+                    <input id="weight_grams" name="weight_grams" type="number" min="0" placeholder="اختياري"
+                           value="{{ old('weight_grams', $shipment?->weight_grams) }}" class="field-input" dir="ltr">
                     @error('weight_grams') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
@@ -187,11 +187,12 @@
                         المبلغ المطلوب من الزبون <span class="text-red-500">*</span>
                     </label>
                     <div class="relative">
-                        <input id="cod_amount" name="cod_amount" type="number" min="0" step="1"
-                               value="{{ old('cod_amount', $shipment?->cod_amount ?? 0) }}" class="field-input ps-12 text-left" dir="ltr" required>
+                        {{-- فارغةٌ لا صفر: يُكتب المبلغ مباشرةً بلا مسح، والصفر يُكتب قصداً للمدفوع مسبقاً --}}
+                        <input id="cod_amount" name="cod_amount" type="number" min="0" step="1" placeholder="مثلاً 5 000"
+                               value="{{ old('cod_amount', $shipment?->cod_amount) }}" class="field-input ps-12 text-left" dir="ltr" required>
                         <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                     </div>
-                    <p class="mt-1 text-xs text-ink-500">صفر = مدفوع مسبقاً.</p>
+                    <p class="mt-1 text-xs text-ink-500">اكتب 0 إن كان مدفوعاً مسبقاً.</p>
                     @error('cod_amount') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
@@ -229,13 +230,13 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="field-label" for="extra_fee">رسوم إضافية</label>
-                        <input id="extra_fee" name="extra_fee" type="number" min="0" step="1"
-                               value="{{ old('extra_fee', $shipment?->extra_fee ?? 0) }}" class="field-input text-left" dir="ltr">
+                        <input id="extra_fee" name="extra_fee" type="number" min="0" step="1" placeholder="0"
+                               value="{{ old('extra_fee', $shipment?->extra_fee) }}" class="field-input text-left" dir="ltr">
                     </div>
                     <div>
                         <label class="field-label" for="discount">خصم</label>
-                        <input id="discount" name="discount" type="number" min="0" step="1"
-                               value="{{ old('discount', $shipment?->discount ?? 0) }}" class="field-input text-left" dir="ltr">
+                        <input id="discount" name="discount" type="number" min="0" step="1" placeholder="0"
+                               value="{{ old('discount', $shipment?->discount) }}" class="field-input text-left" dir="ltr">
                     </div>
                 </div>
 

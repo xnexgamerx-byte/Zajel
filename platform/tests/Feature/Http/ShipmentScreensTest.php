@@ -130,6 +130,32 @@ class ShipmentScreensTest extends TestCase
             ->assertSee($this->merchant->business_name);
     }
 
+    /** المبلغ يبدأ فارغاً بنصٍّ شفاف لا بصفرٍ يُمسح قبل الكتابة — والصفر يُكتب قصداً */
+    public function test_the_amount_starts_empty_with_a_hint_and_is_still_required(): void
+    {
+        $html = $this->actingInCompany()->get($this->host($this->company).'/shipments/create')->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression('/<input id="cod_amount"[^>]*placeholder="مثلاً 5 000"[^>]*value=""/u', $html);
+        foreach (['extra_fee', 'discount', 'weight_grams'] as $field) {
+            $this->assertMatchesRegularExpression('/<input id="'.$field.'"[^>]*value=""/u', $html, $field);
+        }
+
+        $this->actingInCompany()
+            ->post($this->host($this->company).'/shipments', $this->validPayload(['cod_amount' => '']))
+            ->assertSessionHasErrors(['cod_amount' => 'اكتب المبلغ المطلوب من الزبون — 0 إن كان مدفوعاً مسبقاً.']);
+
+        // والرسوم والخصم والوزن الفارغة صفرٌ عند الحفظ
+        $this->actingInCompany()
+            ->post($this->host($this->company).'/shipments', $this->validPayload(['extra_fee' => '', 'discount' => '', 'weight_grams' => '']))
+            ->assertSessionHasNoErrors();
+
+        Tenancy::runFor($this->company, function () {
+            $shipment = Shipment::latest('id')->firstOrFail();
+            $this->assertSame(0, (int) $shipment->discount);
+            $this->assertSame(0, (int) $shipment->weight_grams);
+        });
+    }
+
     public function test_creating_a_shipment_without_an_area_is_rejected(): void
     {
         $this->actingInCompany()

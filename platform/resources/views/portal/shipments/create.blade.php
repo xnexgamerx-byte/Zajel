@@ -91,7 +91,7 @@
                 <div>
                     <label class="field-label" for="weight_grams">الوزن (غرام)</label>
                     <input id="weight_grams" name="weight_grams" type="number" min="0" class="field-input text-left"
-                           dir="ltr" value="{{ old('weight_grams', 0) }}">
+                           dir="ltr" placeholder="اختياري" value="{{ old('weight_grams') }}">
                 </div>
                 <div class="flex items-end gap-4 pb-2">
                     <label class="flex items-center gap-2 text-sm">
@@ -123,11 +123,11 @@
                     المطلوب من الزبون <span class="text-red-500">*</span>
                 </label>
                 <div class="relative">
-                    <input id="cod_amount" name="cod_amount" type="number" min="0" step="1" required
-                           class="field-input ps-12 text-left" dir="ltr" value="{{ old('cod_amount', 0) }}">
+                    <input id="cod_amount" name="cod_amount" type="number" min="0" step="1" required placeholder="مثلاً 5 000"
+                           class="field-input ps-12 text-left" dir="ltr" value="{{ old('cod_amount') }}">
                     <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
                 </div>
-                <p class="mt-1 text-xs text-ink-500">صفر = الزبون دفع لك مسبقاً.</p>
+                <p class="mt-1 text-xs text-ink-500">اكتب 0 إن كان الزبون دفع لك مسبقاً.</p>
                 @error('cod_amount') <p class="field-error">{{ $message }}</p> @enderror
             </div>
 

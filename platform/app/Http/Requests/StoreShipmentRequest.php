@@ -113,6 +113,7 @@ class StoreShipmentRequest extends FormRequest
             'recipient_phone.regex'     => 'رقم الهاتف يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
             'recipient_phone_alt.regex' => 'الهاتف البديل يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
             'city_id.required'          => 'اختر المنطقة.',
+            'cod_amount.required'       => 'اكتب المبلغ المطلوب من الزبون — 0 إن كان مدفوعاً مسبقاً.',
         ];
     }
 }
