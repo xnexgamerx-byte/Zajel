@@ -88,6 +88,14 @@ class ChangeShipmentStatus
             ]);
         }
 
+        // أجرةٌ قُبضت مقدّماً لا تُلغى شحنتها: الإلغاء لا يُرجع للتاجر شيئاً، والراجع
+        // يُرجع له ما دفع بعد أجرته (ReceivePrepaidFees)
+        if ($to === ShipmentStatus::Cancelled && (int) $shipment->prepaid_amount > 0) {
+            throw ValidationException::withMessages([
+                'status' => "قُبضت أجرة الشحنة {$shipment->number} مقدّماً، فلا تُلغى — تُرجَع لتاجرها راجعاً فيُحسب له ما دفع.",
+            ]);
+        }
+
         // «راجعة للتاجر» تعني أن التاجر استلمها، وعندها تُقيَّد أجرة الراجع
         // عليه. تسليم طرد ما زال في حقيبة المندوب هو الخلاف نفسه الذي
         // يُبنى هذا المسار لمنعه.
@@ -157,15 +165,24 @@ class ChangeShipmentStatus
                 $courier = $shipment->deliveryCourier;
                 $attributes['courier_commission'] = $courier?->payForDelivery($shipment) ?? 0;
 
-                $attributes['merchant_due'] = $shipment->fees_paid_by === 'customer'
+                // وما دفعه التاجر مقدّماً من الأجور يعود إليه هنا: لا تُخصم أجرةٌ دُفعت
+                $attributes['merchant_due'] = ($shipment->fees_paid_by === 'customer'
                     ? $attributes['collected_amount'] - $shipment->cod_fee + $shipment->discount
-                    : $attributes['collected_amount'] - $shipment->total_fees;
+                    : $attributes['collected_amount'] - $shipment->total_fees) + (int) $shipment->prepaid_amount;
             }
 
             if ($to === ShipmentStatus::Returned) {
                 $courier = $shipment->deliveryCourier;
                 $attributes['courier_commission'] = $courier?->commission_per_return ?? 0;
-                $attributes['merchant_due'] = -$shipment->return_fee;
+                /*
+                | أجرة الراجع عليه، فوق ما قُيِّد له عن الشحنة من قبل — وما دفعه مقدّماً
+                | إن لم يُقيَّد بعد. والمعتاد ألّا يكون قبلها شيء؛ أمّا باقي الواصل الجزئي
+                | فقد قُيِّد له ما بيع منه عند التسليم: كان يُمحى هنا من مستحقّه فتدفع
+                | تسويته أجرة الراجع وحدها والدفتر يحفظ له ما بيع.
+                */
+                $attributes['merchant_due'] = $this->ledger->postedForShipment($shipment)
+                    - $shipment->return_fee
+                    + ($this->ledger->prepaidPosted($shipment) ? 0 : (int) $shipment->prepaid_amount);
             }
 
             $shipment->fill($attributes)->save();

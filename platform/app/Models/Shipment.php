@@ -50,6 +50,7 @@ class Shipment extends Model
             'allow_open'        => 'boolean',
             'is_invoiced'       => 'boolean',
             'is_forced'         => 'boolean',
+            'fee_prepaid'       => 'boolean',
             'duplicate_cleared_at' => 'datetime',
         ];
     }
@@ -90,6 +91,12 @@ class Shipment extends Model
     public function deliveryCourier(): BelongsTo
     {
         return $this->belongsTo(Courier::class, 'delivery_courier_id');
+    }
+
+    /** إيصال ما قُبض من أجورها مقدّماً (ReceivePrepaidFees) */
+    public function prepaidReceipt(): BelongsTo
+    {
+        return $this->belongsTo(PrepaidReceipt::class);
     }
 
     public function pickupCourier(): BelongsTo

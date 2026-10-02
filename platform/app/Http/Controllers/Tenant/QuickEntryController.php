@@ -94,7 +94,7 @@ class QuickEntryController extends Controller
             $row = array_map(fn ($v) => is_string($v) ? trim($v) : $v, (array) $row);
 
             // الصفّ الفارغ يُترك: الجدول يُفتح بصفوفٍ أكثر ممّا يُملأ
-            if (collect($row)->except(['governorate_id', 'exchange'])->filter(fn ($v) => filled($v))->isEmpty()) {
+            if (collect($row)->except(['governorate_id', 'exchange', 'prepaid'])->filter(fn ($v) => filled($v))->isEmpty()) {
                 continue;
             }
 
@@ -143,6 +143,8 @@ class QuickEntryController extends Controller
                 'merchant_reference' => filled($row['merchant_reference'] ?? null) ? mb_substr($row['merchant_reference'], 0, 60) : null,
                 'notes'              => filled($row['notes'] ?? null) ? mb_substr($row['notes'], 0, 2000) : null,
                 'type'               => ! empty($row['exchange']) ? 'exchange' : 'delivery',
+                // «مقدّماً؟» معلَّمةً تُلزم، وغير معلَّمةٍ تتبع التاجر (يُحاسَب مقدّماً)
+                'fee_prepaid'        => ! empty($row['prepaid']) ? '1' : null,
                 'pieces_count'       => 1,
             ];
         }

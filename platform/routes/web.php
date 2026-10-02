@@ -49,6 +49,7 @@ use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\FlowReportController;
+use App\Http\Controllers\Tenant\PrepaidFeeController;
 use App\Http\Controllers\Tenant\ManifestController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
@@ -342,6 +343,9 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/cash', [CashBoxController::class, 'store'])->name('cash.store');
                 Route::post('/cash/transfer', [CashBoxController::class, 'transfer'])->name('cash.transfer');
                 Route::post('/cash/{box}/adjust', [CashBoxController::class, 'adjust'])->name('cash.adjust');
+                // أجورٌ يدفعها التاجر حين يُرسل («يُحاسَب مقدّماً»): تُقبض في صندوقٍ بإيصال
+                Route::get('/prepaid-fees', [PrepaidFeeController::class, 'index'])->name('prepaid-fees.index');
+                Route::post('/prepaid-fees', [PrepaidFeeController::class, 'store'])->name('prepaid-fees.store');
             });
 
             // تسديد ديون الفروع واستلامها: نقدٌ يخرج من صندوقٍ ويدخل آخر

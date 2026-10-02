@@ -74,6 +74,10 @@
         <input type="checkbox" name="rows[{{ $i }}][exchange]" value="1" class="size-4 accent-[var(--brand)]"
                aria-label="استبدال أو استرجاع بضاعة" @checked($old('exchange'))>
     </td>
+    <td class="px-2 py-3 text-center">
+        <input type="checkbox" name="rows[{{ $i }}][prepaid]" value="1" class="size-4 accent-[var(--brand)]"
+               aria-label="مدفوع التوصيل مقدّماً" @checked($old('prepaid'))>
+    </td>
     <td class="px-2 py-3">
         <button type="button" class="text-bad-700 hover:underline" data-quick-remove aria-label="احذف الصفّ">×</button>
     </td>

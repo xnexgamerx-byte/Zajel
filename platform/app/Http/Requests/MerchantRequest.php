@@ -57,6 +57,7 @@ class MerchantRequest extends FormRequest
             'requires_delivery_code' => ['sometimes', 'boolean'],
             'hold_for_review'  => ['sometimes', 'boolean'],
             'can_process'      => ['sometimes', 'boolean'],
+            'prepaid_billing'  => ['sometimes', 'boolean'],
             'pickup_courier_id' => ['nullable', 'integer'],
             'sales_user_id'    => ['nullable', 'integer'],
             'notes'            => ['nullable', 'string', 'max:500'],

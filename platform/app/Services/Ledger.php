@@ -26,21 +26,28 @@ use Illuminate\Support\Facades\DB;
  */
 class Ledger
 {
+    /** ما يُقيَّد في حساب التاجر عن شحنةٍ بعينها: مجموعه مستحقّها (merchant_due) */
+    public const SHIPMENT_CATEGORIES = ['shipment_due', 'return_fee', 'amount_correction', 'prepaid_fee'];
+
     /** الشحنة سُلِّمت: التاجر يستحقّ، والمندوب صار بيده نقد الشركة. */
     public function recordDelivery(Shipment $shipment, ?User $actor = null): void
     {
         DB::transaction(function () use ($shipment, $actor) {
             $merchant = $shipment->merchant;
+            $prepaid = (int) $shipment->prepaid_amount;
 
+            // سطران لا سطر: مستحقّ الشحنة بعد أجورها، ثم ما دفعه مقدّماً منها
             $this->post(
                 merchant: $merchant,
                 direction: 'credit',
                 category: 'shipment_due',
-                amount: $shipment->merchant_due,
+                amount: $shipment->merchant_due - $prepaid,
                 shipment: $shipment,
                 description: "مستحقّ الشحنة {$shipment->number}",
                 actor: $actor,
             );
+
+            $this->postPrepaid($shipment, $actor);
 
             if ($courier = $shipment->deliveryCourier) {
                 // النقد المحصَّل بيد المندوب وهو أمانة الشركة
@@ -164,7 +171,7 @@ class Ledger
         });
     }
 
-    /** الشحنة رجعت: لا تحصيل، وأجرة الراجع على التاجر. */
+    /** الشحنة رجعت: لا تحصيل، وأجرة الراجع على التاجر — وله ما دفعه مقدّماً. */
     public function recordReturn(Shipment $shipment, ?User $actor = null): void
     {
         DB::transaction(function () use ($shipment, $actor) {
@@ -180,6 +187,8 @@ class Ledger
                 );
             }
 
+            $this->postPrepaid($shipment, $actor);
+
             if (($courier = $shipment->deliveryCourier) && $shipment->courier_commission > 0) {
                 $this->post(
                     courier: $courier,
@@ -192,6 +201,50 @@ class Ledger
                 );
             }
         });
+    }
+
+    /**
+     * أجورٌ قبضناها من التاجر مقدّماً (ReceivePrepaidFees) تعود إلى حسابه حين
+     * تتحرّك الشحنة بالمال — تسليماً أو رجوعاً — فتدفعها تسويته مع مستحقّها.
+     * وقبل ذلك هي نقدٌ في الصندوق لا قيدٌ في حسابه: لو أُلغيت الشحنة أو بقيت
+     * عالقة لما دخل حسابَه مالٌ لا تراه تسويته.
+     */
+    protected function postPrepaid(Shipment $shipment, ?User $actor): void
+    {
+        // مرّةً للشحنة: باقي الواصل الجزئي يرجع بعد أن قُيِّد له ما دفع عند تسليمه
+        if ($this->prepaidPosted($shipment)) {
+            return;
+        }
+
+        $this->post(
+            merchant: $shipment->merchant,
+            direction: 'credit',
+            category: 'prepaid_fee',
+            amount: (int) $shipment->prepaid_amount,
+            shipment: $shipment,
+            description: "أجور الشحنة {$shipment->number} المدفوعة مقدّماً",
+            actor: $actor,
+        );
+    }
+
+    /** ما قُيِّد في حساب التاجر عن هذه الشحنة حتى الآن — ما تطابقه offLedgerQuery بمستحقّها */
+    public function postedForShipment(Shipment $shipment): int
+    {
+        return (int) Transaction::query()
+            ->where('account_type', 'merchant')
+            ->where('shipment_id', $shipment->id)
+            ->whereIn('category', self::SHIPMENT_CATEGORIES)
+            ->selectRaw("coalesce(sum(case when direction = 'credit' then amount else -amount end), 0) as total")
+            ->value('total');
+    }
+
+    public function prepaidPosted(Shipment $shipment): bool
+    {
+        return Transaction::query()
+            ->where('account_type', 'merchant')
+            ->where('shipment_id', $shipment->id)
+            ->where('category', 'prepaid_fee')
+            ->exists();
     }
 
     /**
@@ -357,7 +410,7 @@ class Ledger
      * له كشفٌ عن آلاف الشحنات المسلَّمة، ولم يُقيَّد لأيٍّ منها مستحقّ.
      *
      * والثابت هنا لكل شحنة: ما قُيِّد عليها في حساب تاجرها (مستحقّ،
-     * أجرة رجوع، تصحيح مبلغ) يساوي merchant_due إن كانت في حالٍ يتحرّك
+     * أجرة رجوع، تصحيح مبلغ، أجورٌ دُفعت مقدّماً) يساوي merchant_due إن كانت في حالٍ يتحرّك
      * فيها المال (مسلَّمة، مسلَّمة جزئياً، راجعة)، وصفراً فيما عداها.
      *
      * @return \Illuminate\Support\Collection<int, object{id:int, number:string, merchant_id:int, status:string, expected:int, posted:int}>
@@ -404,7 +457,7 @@ class Ledger
             ->select('shipment_id')
             ->selectRaw("sum(case when direction = 'credit' then amount else -amount end) as posted")
             ->where('account_type', 'merchant')
-            ->whereIn('category', ['shipment_due', 'return_fee', 'amount_correction'])
+            ->whereIn('category', self::SHIPMENT_CATEGORIES)
             ->whereNotNull('shipment_id')
             ->groupBy('shipment_id');
 

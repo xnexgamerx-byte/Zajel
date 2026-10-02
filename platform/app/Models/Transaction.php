@@ -26,6 +26,7 @@ class Transaction extends Model
         'shipment_due'      => 'مستحقّ شحنة',
         'return_fee'        => 'أجرة راجع',
         'amount_correction' => 'تصحيح مبلغ',
+        'prepaid_fee'       => 'أجور مدفوعة مقدّماً',
         'payout'            => 'دفع للتاجر',
         'cod_collected'     => 'تحصيل نقد',
         'commission'        => 'عمولة',

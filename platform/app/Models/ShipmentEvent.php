@@ -49,6 +49,7 @@ class ShipmentEvent extends Model
         'restored'         => 'استرجاع من الممسوحة',
         'processed'        => 'معالجة',
         'reviewed'         => 'إجازة بعد المراجعة',
+        'prepaid_fee'      => 'قبض أجرة مقدّماً',
     ];
 
     /** @var array<string, string> */

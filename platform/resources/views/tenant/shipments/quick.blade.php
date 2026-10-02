@@ -99,6 +99,7 @@
                         <th>رقم الوصل</th>
                         <th>ملاحظات</th>
                         <th class="whitespace-nowrap">استبدال</th>
+                        <th class="whitespace-nowrap" title="مدفوع التوصيل مقدّماً: لا تُخصم أجرته من المبلغ — ولمن يُحاسَب مقدّماً تكون كذلك وحدها">مقدّماً</th>
                         <th></th>
                     </tr>
                 </thead>

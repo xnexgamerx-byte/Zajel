@@ -336,6 +336,18 @@
                     <dt class="text-ink-600">مجموع الأجور</dt>
                     <dd class="font-semibold" dir="ltr">{{ number_format($shipment->total_fees) }}</dd>
                 </div>
+                @if ($shipment->prepaid_receipt_id)
+                    {{-- قُبضت من التاجر مقدّماً: تعود إليه في مستحقّه (ReceivePrepaidFees) --}}
+                    <div class="flex justify-between text-ok-700">
+                        <dt>دفعها التاجر مقدّماً ({{ $shipment->prepaidReceipt?->number }})</dt>
+                        <dd dir="ltr">+{{ number_format($shipment->prepaid_amount) }}</dd>
+                    </div>
+                @elseif ($shipment->fee_prepaid)
+                    <div class="flex justify-between text-warn-700">
+                        <dt>مدفوعة التوصيل مقدّماً</dt>
+                        <dd>لم تُقبض بعد</dd>
+                    </div>
+                @endif
                 @if (in_array($shipment->status, [\App\Enums\ShipmentStatus::Returning, \App\Enums\ShipmentStatus::Returned], true))
                     {{-- الراجع يُقيَّد على التاجر بأجرته بدل أجرة التوصيل --}}
                     <div class="flex justify-between text-bad-700">

@@ -65,6 +65,7 @@ class SequenceGenerator
             'return_batch'        => 'RB',
             'pickup_payout'       => 'PP',
             'branch_remittance'   => 'BR',
+            'prepaid_receipt'     => 'PR',
             'merchant_request'    => '',
             default               => '',
         };

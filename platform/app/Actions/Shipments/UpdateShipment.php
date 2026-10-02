@@ -53,6 +53,7 @@ class UpdateShipment
         'return_fee'          => 'أجرة الراجع',
         'total_fees'          => 'مجموع الأجور',
         'merchant_due'        => 'مستحقّ التاجر',
+        'fee_prepaid'         => 'مدفوع التوصيل مقدّماً',
     ];
 
     public function __construct(
@@ -128,6 +129,17 @@ class UpdateShipment
             $codFee = $recharged ? $quote['cod_fee'] : (int) $shipment->cod_fee;
             $returnFee = $rerouted ? $quote['return_fee'] : (int) $shipment->return_fee;
 
+            // ما قُبض مقدّماً من الأجور يبقى في مستحقّه وإن تغيّرت الأجور: الفرق وحده
+            // يُخصم عند التسليم. وما لم يُقبض يُعلَّم أو يُرفع بالاختيار، ولا يكون على الزبون
+            $totals = PricingService::totals($cod, $feesPaidBy, $deliveryFee, $extraFee, $codFee, $discount);
+            $totals['merchant_due'] += (int) $shipment->prepaid_amount;
+
+            $feePrepaid = $shipment->prepaid_receipt_id !== null || ($feesPaidBy === 'merchant' && match (true) {
+                ! array_key_exists('fee_prepaid', $data)                 => (bool) $shipment->fee_prepaid,
+                $data['fee_prepaid'] === null || $data['fee_prepaid'] === '' => (bool) $shipment->merchant->prepaid_billing,
+                default                                                  => (bool) $data['fee_prepaid'],
+            });
+
             $shipment->fill([
                 'recipient_name'      => filled($data['recipient_name'] ?? null) ? $data['recipient_name'] : Shipment::UNNAMED_RECIPIENT,
                 'recipient_phone'     => $data['recipient_phone'],
@@ -151,7 +163,8 @@ class UpdateShipment
                 'discount'            => $discount,
                 'cod_fee'             => $codFee,
                 'return_fee'          => $returnFee,
-                ...PricingService::totals($cod, $feesPaidBy, $deliveryFee, $extraFee, $codFee, $discount),
+                ...$totals,
+                'fee_prepaid'         => $feePrepaid,
             ]);
 
             $changes = [];
@@ -224,7 +237,7 @@ class UpdateShipment
             $field === 'governorate_id' => (string) Governorate::whereKey($value)->value('name_ar'),
             $field === 'city_id'        => (string) City::whereKey($value)->value('name_ar'),
             $field === 'fees_paid_by'   => $value === 'customer' ? 'الزبون' : 'التاجر',
-            in_array($field, ['is_fragile', 'allow_open'], true) => $value ? 'نعم' : 'لا',
+            in_array($field, ['is_fragile', 'allow_open', 'fee_prepaid'], true) => $value ? 'نعم' : 'لا',
             in_array($field, ['cod_amount', 'delivery_fee', 'extra_fee', 'discount', 'merchant_due'], true)
                 => number_format((int) $value),
             default => mb_strimwidth((string) $value, 0, 40, '…'),

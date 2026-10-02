@@ -18,7 +18,9 @@
         || $errors->has('pieces_count') || (int) old('pieces_count', $shipment?->pieces_count ?? 1) !== 1
         || old('is_fragile', $shipment?->is_fragile) || old('allow_open', $shipment?->allow_open);
     $feesOpen = $filled('delivery_fee') || $filled('extra_fee', $shipment?->extra_fee ?: null)
-        || $filled('discount', $shipment?->discount ?: null);
+        || $filled('discount', $shipment?->discount ?: null) || $filled('fee_prepaid');
+    // «أجرة التوصيل»: فارغٌ يتبع حساب التاجر (يُحاسَب مقدّماً)، وفي التعديل حالها
+    $prepaidChoice = (string) old('fee_prepaid', $editing ? ($shipment->fee_prepaid ? '1' : '0') : '');
 @endphp
 
 <form method="POST" action="{{ $editing ? route('shipments.update', $shipment) : route('shipments.store') }}" id="shipment-form"
@@ -217,8 +219,26 @@
 
                 {{-- الأجرة تُحسب من التسعيرة: تعديلها يدوياً والرسوم والخصم استثناءٌ لا خطوة --}}
                 <details class="rounded-xl border border-ink-200 px-4 py-3" @if ($feesOpen) open @endif>
-                    <summary class="cursor-pointer text-sm font-medium text-ink-700">تعديل الأجرة، رسوم إضافية، خصم</summary>
+                    <summary class="cursor-pointer text-sm font-medium text-ink-700">تعديل الأجرة، الدفع مقدّماً، رسوم إضافية، خصم</summary>
                     <div class="mt-3 space-y-4">
+                <div>
+                    <label class="field-label" for="fee_prepaid">أجرة التوصيل على التاجر</label>
+                    @if ($shipment?->prepaid_receipt_id)
+                        <p class="rounded-lg bg-ok-50 px-3 py-2 text-xs text-ok-700">
+                            قُبضت مقدّماً (<span class="num">{{ number_format($shipment->prepaid_amount) }}</span> د.ع بإيصال
+                            {{ $shipment->prepaidReceipt?->number }}) — لا تُخصم من مبلغها.
+                        </p>
+                    @else
+                        <select id="fee_prepaid" name="fee_prepaid" class="field-input">
+                            <option value="" @selected($prepaidChoice === '')>كما في حساب التاجر</option>
+                            <option value="1" @selected($prepaidChoice === '1')>يدفعها مقدّماً — لا تُخصم من المبلغ</option>
+                            <option value="0" @selected($prepaidChoice === '0')>تُخصم من المبلغ عند التسليم</option>
+                        </select>
+                        <p class="mt-1 text-xs text-ink-500">المقدّمة تُقبض من «المال ← استلام أجور مدفوعة مقدّماً».</p>
+                    @endif
+                    @error('fee_prepaid') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+
                 <div>
                     <label class="field-label" for="delivery_fee">أجرة التوصيل</label>
                     <div class="relative">

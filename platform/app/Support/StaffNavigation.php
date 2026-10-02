@@ -69,6 +69,7 @@ final class StaffNavigation
             // مال اليوم: ما يدخل الصندوق وما يُدفع، والمحاسبة مع المناديب والتجّار
             ['المال', 'cash', [
                 ['cash.index', 'الصندوق', ['cash.index'], 'money.cash'],
+                ['prepaid-fees.index', 'استلام أجور مدفوعة مقدّماً', ['prepaid-fees.*'], 'money.cash'],
                 ['couriers.cash', 'نقد المندوبين', ['couriers.cash'], 'money.view'],
                 ['settlements.couriers.index', 'محاسبة المندوبين', ['settlements.couriers.*'], 'money.view'],
                 ['settlements.merchants.index', 'محاسبة التجّار', ['settlements.merchants.*'], 'money.view'],

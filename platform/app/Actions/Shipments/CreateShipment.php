@@ -107,6 +107,10 @@ class CreateShipment
                 'total_fees'          => $totalFees,
                 'merchant_due'        => $merchantDue,
                 'fees_paid_by'        => $feesPaidBy,
+                // التاجر الذي يُحاسَب مقدّماً يدفع الأجور حين يُرسل، ما لم يُقَل غير ذلك
+                // صراحةً — ولا معنى لها إن كانت الأجرة على الزبون
+                'fee_prepaid'         => $feesPaidBy === 'merchant'
+                    && (isset($data['fee_prepaid']) && $data['fee_prepaid'] !== '' ? (bool) $data['fee_prepaid'] : $merchant->prepaid_billing),
                 'payment_type'        => $cod > 0 ? 'cod' : ($data['payment_type'] ?? 'prepaid'),
 
                 'status'              => ShipmentStatus::Created,

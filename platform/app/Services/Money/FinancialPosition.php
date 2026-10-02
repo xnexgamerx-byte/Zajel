@@ -2,10 +2,12 @@
 
 namespace App\Services\Money;
 
+use App\Enums\ShipmentStatus;
 use App\Models\BranchRemittance;
 use App\Models\CashBox;
 use App\Models\Courier;
 use App\Models\Merchant;
+use App\Models\Shipment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -29,6 +31,7 @@ final class FinancialPosition
         'merchant_payables'   => ['دفوعات مستحقّة للتجّار', 'liability'],
         'courier_commissions' => ['عمولات مستحقّة للمناديب', 'liability'],
         'deposits_held'       => ['تأمينات التجّار عندنا', 'liability'],
+        'prepaid_held'        => ['أجورٌ قُبضت مقدّماً لشحناتٍ لم تكتمل', 'liability'],
     ];
 
     /**
@@ -68,6 +71,11 @@ final class FinancialPosition
             'merchant_payables'   => (int) ($merchants->payables ?? 0),
             'courier_commissions' => (int) ($couriers->commissions ?? 0),
             'deposits_held'       => (int) ($merchants->deposits ?? 0),
+            // في الصندوق ولم تدخل حساب التاجر بعد (Ledger::postPrepaid): تُردّ له إن رجعت
+            'prepaid_held'        => (int) Shipment::query()->visibleTo($viewer)
+                ->where('shipments.prepaid_amount', '>', 0)
+                ->whereNotIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value, ShipmentStatus::Returned->value])
+                ->sum('shipments.prepaid_amount'),
         ];
 
         $total = 0;

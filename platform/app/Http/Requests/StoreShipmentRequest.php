@@ -47,6 +47,8 @@ class StoreShipmentRequest extends FormRequest
             'extra_fee'           => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'discount'            => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'fees_paid_by'        => ['required', Rule::in(['merchant', 'customer'])],
+            // فارغٌ: كما في حساب التاجر (يُحاسَب مقدّماً أو لا)
+            'fee_prepaid'         => ['nullable', Rule::in(['0', '1'])],
             'merchant_reference'  => ['nullable', 'string', 'max:60'],
         ];
     }
@@ -104,6 +106,7 @@ class StoreShipmentRequest extends FormRequest
             'cod_amount'      => 'المبلغ المطلوب',
             'delivery_fee'    => 'أجرة التوصيل',
             'fees_paid_by'    => 'من يدفع الأجرة',
+            'fee_prepaid'     => 'أجرة التوصيل',
         ];
     }
 
