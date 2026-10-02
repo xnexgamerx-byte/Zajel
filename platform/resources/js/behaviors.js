@@ -132,6 +132,49 @@ document.addEventListener('click', (event) => {
     }, 30000);
 });
 
+/*
+ * تلميح علامات الرسوم: data-tip على العمود أو الشريط، سطراً في كل سطر. يُكتب
+ * نصّاً لا HTML، ويظهر بالمرور وبالتركيز — وما فيه مكتوبٌ في جدول الرسم أيضاً،
+ * فلا يُحجب رقمٌ خلف التحويم.
+ */
+let chartTip = null;
+
+const showChartTip = (mark) => {
+    if (!chartTip) {
+        chartTip = document.createElement('div');
+        chartTip.className = 'chart-tip';
+        chartTip.setAttribute('role', 'tooltip');
+        document.body.append(chartTip);
+    }
+
+    chartTip.textContent = mark.dataset.tip;
+    chartTip.hidden = false;
+
+    // فوق العلامة في وسطها، ولا يخرج من الشاشة يميناً ولا يساراً
+    const box = mark.getBoundingClientRect();
+    const left = Math.min(Math.max(8, box.left + box.width / 2 - chartTip.offsetWidth / 2), window.innerWidth - chartTip.offsetWidth - 8);
+    const above = box.top - chartTip.offsetHeight - 8;
+    chartTip.style.left = `${left + window.scrollX}px`;
+    chartTip.style.top = `${(above < 8 ? box.bottom + 8 : above) + window.scrollY}px`;
+};
+
+const hideChartTip = () => {
+    if (chartTip) chartTip.hidden = true;
+};
+
+document.addEventListener('pointerover', (event) => {
+    const mark = event.target instanceof Element ? event.target.closest('[data-tip]') : null;
+    mark ? showChartTip(mark) : hideChartTip();
+});
+
+document.addEventListener('focusin', (event) => {
+    const mark = event.target instanceof Element ? event.target.closest('[data-tip]') : null;
+    mark ? showChartTip(mark) : hideChartTip();
+});
+
+document.addEventListener('focusout', hideChartTip);
+window.addEventListener('scroll', hideChartTip, { passive: true });
+
 /** «ادفع» في المصروفات: زرٌّ في كل صفّ ونافذةٌ واحدة مشتركة تحمل بياناته */
 document.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-pay-expense]') : null;

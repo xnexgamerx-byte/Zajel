@@ -33,6 +33,8 @@ class StaffNavigationTest extends TestCase
         'reports.returns-money', 'reports.dormant', 'reports.debtors', 'reports.changes', 'reports.entries',
         'reports.portal', 'reports.processing', 'reports.merchant-profit', 'reports.courier-overcharge',
         'reports.special-prices', 'reports.unconfirmed', 'reports.notifications',
+        'reports.pickup-received', 'reports.pickup-performance', 'reports.unsettled', 'reports.repriced',
+        'reports.distribution', 'reports.branch-traffic',
     ];
 
     /** شاشاتٌ تُفتح من داخل غيرها لا من الشريط: نماذج الإضافة، والطباعة، وقالب الاستيراد */

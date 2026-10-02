@@ -489,6 +489,12 @@ summary:focus-visible,
     .alert-ok  { @apply bg-aegreen-50 text-aegreen-800; }
     .alert-bad { @apply bg-aered-50   text-aered-800; }
 
+    /* تلميح علامات الرسوم (data-tip في behaviors.js): سطرٌ لكل قيمة، بحبر النصّ */
+    .chart-tip {
+        @apply pointer-events-none absolute z-50 max-w-64 rounded-xl border border-ink-200 bg-white px-3 py-2 text-xs
+               leading-5 whitespace-pre-line text-ink-800 shadow-lg;
+    }
+
     /* ------------------------------------------------------------ الوعاء
        عرض الرأس والشريط والمحتوى معاً، فتصطفّ حوافّها. وعلى شاشة ١٩٢٠ أعرض:
        القوائم الاثنتا عشرة بأيقوناتها تحتاج نحو ١٧٠٠ بكسل. */

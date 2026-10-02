@@ -37,9 +37,10 @@ class ReportPeriod
         return [$this->from->toDateTimeString(), $this->to->toDateTimeString()];
     }
 
+    /** أيام المدّة بحدّيها. Carbon يُرجع الفرق كسراً (٣٠٫٩٩ من أوّل يومٍ إلى آخر لحظةٍ في الثلاثين) */
     public function days(): int
     {
-        return max(1, $this->from->diffInDays($this->to) + 1);
+        return max(1, (int) $this->from->diffInDays($this->to) + 1);
     }
 
     public function label(): string

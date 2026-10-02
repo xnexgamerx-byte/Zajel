@@ -48,6 +48,7 @@ use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\ExpenseController;
+use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\ManifestController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
@@ -273,6 +274,13 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/special-prices', [ReferenceReportController::class, 'specialPrices'])->name('reports.special-prices');
             Route::get('/reports/unconfirmed', [ReferenceReportController::class, 'unconfirmed'])->name('reports.unconfirmed');
             Route::get('/reports/notifications', [ReferenceReportController::class, 'notifications'])->name('reports.notifications');
+            // تتبّع الدفق: من مندوب الاستلام إلى تسوية التاجر، ومن فرعٍ إلى فرع
+            Route::get('/reports/pickup-received', [FlowReportController::class, 'pickupReceived'])->name('reports.pickup-received');
+            Route::get('/reports/pickup-performance', [FlowReportController::class, 'pickupPerformance'])->name('reports.pickup-performance');
+            Route::get('/reports/unsettled', [FlowReportController::class, 'unsettled'])->name('reports.unsettled');
+            Route::get('/reports/repriced', [FlowReportController::class, 'repriced'])->name('reports.repriced');
+            Route::get('/reports/distribution', [FlowReportController::class, 'distribution'])->name('reports.distribution');
+            Route::get('/reports/branch-traffic', [FlowReportController::class, 'branchTraffic'])->name('reports.branch-traffic');
             });
 
             // المحادثات مع التجّار: للشركة لا لموظّفٍ بعينه
