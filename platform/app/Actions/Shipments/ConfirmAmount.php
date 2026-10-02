@@ -2,7 +2,6 @@
 
 namespace App\Actions\Shipments;
 
-use App\Enums\ShipmentStatus;
 use App\Models\CourierSettlementShipment;
 use App\Models\MerchantSettlementShipment;
 use App\Models\Shipment;
@@ -72,7 +71,8 @@ class ConfirmAmount
             ]);
         }
 
-        if (! in_array($shipment->status, [ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered], true)) {
+        // سُلِّمت كلّها أو بعضها — والواصل الجزئي يُؤكَّد ولو مضى باقيه راجعاً
+        if (! $shipment->wasDelivered()) {
             throw ValidationException::withMessages([
                 'amount' => 'يُؤكَّد المبلغ بعد تسليم الشحنة فقط.',
             ]);

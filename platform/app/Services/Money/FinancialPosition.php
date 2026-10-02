@@ -75,6 +75,8 @@ final class FinancialPosition
             'prepaid_held'        => (int) Shipment::query()->visibleTo($viewer)
                 ->where('shipments.prepaid_amount', '>', 0)
                 ->whereNotIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value, ShipmentStatus::Returned->value])
+                // الواصل الجزئي قُيِّد ما دفعه عند تسليمه ولو مضى باقيه راجعاً
+                ->whereNull('shipments.delivered_at')
                 ->sum('shipments.prepaid_amount'),
         ];
 

@@ -348,7 +348,13 @@
                         <dd>لم تُقبض بعد</dd>
                     </div>
                 @endif
-                @if (in_array($shipment->status, [\App\Enums\ShipmentStatus::Returning, \App\Enums\ShipmentStatus::Returned], true))
+                @if ($shipment->wasDelivered() && in_array($shipment->status, [\App\Enums\ShipmentStatus::Returning, \App\Enums\ShipmentStatus::Returned], true))
+                    {{-- باقي الواصل الجزئي: أجرة التوصيل كاملةً أعلاه، وباقيه راجعٌ بلا أجرةٍ ولا عمولة (الوثيقة ٢٤) --}}
+                    <div class="flex justify-between text-ink-600">
+                        <dt>رجع باقيها لتاجرها بلا أجرة</dt>
+                        <dd dir="ltr">0</dd>
+                    </div>
+                @elseif (in_array($shipment->status, [\App\Enums\ShipmentStatus::Returning, \App\Enums\ShipmentStatus::Returned], true))
                     {{-- الراجع يُقيَّد على التاجر بأجرته بدل أجرة التوصيل --}}
                     <div class="flex justify-between text-bad-700">
                         <dt>{{ $shipment->status === \App\Enums\ShipmentStatus::Returned ? 'أجرة الراجع (بدل أجرة التوصيل)' : 'أجرة الراجع عند تسليمه للتاجر' }}</dt>
@@ -368,9 +374,8 @@
 
             @php
                 $settled = $shipment->courier_settlement_id || $shipment->merchant_settlement_id;
-                $confirmable = auth()->user()->isStaff()
-                    && in_array($shipment->status, [\App\Enums\ShipmentStatus::Delivered,
-                                                    \App\Enums\ShipmentStatus::PartiallyDelivered], true);
+                // سُلِّمت كلّها أو بعضها — والواصل الجزئي يُؤكَّد ولو مضى باقيه راجعاً
+                $confirmable = auth()->user()->isStaff() && $shipment->wasDelivered();
             @endphp
 
             @if ($confirmable && $shipment->amount_confirmed)
@@ -384,7 +389,7 @@
                     دخلت هذه الشحنة كشف تسوية، فالتصحيح يكون بحركة على الحساب لا بتعديل الوصل.
                 </p>
             @elseif ($confirmable)
-                @if ($shipment->status === \App\Enums\ShipmentStatus::PartiallyDelivered || (int) $shipment->collected_amount !== (int) $shipment->cod_amount)
+                @if ($shipment->status !== \App\Enums\ShipmentStatus::Delivered || (int) $shipment->collected_amount !== (int) $shipment->cod_amount)
                     {{-- كما في «كل مراحل النقل»: ShipmentStages::awaitingApproval --}}
                     <p class="mt-4 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-700">
                         بانتظار موافقة التسليم: سُلّمت بغير ما طُلب، فيُراجَع مبلغها ويُعتمد قبل التسوية.

@@ -97,15 +97,12 @@ class ReportController extends Controller
             ])
             ->selectRaw("couriers.name as name, couriers.id as courier_id,
                 count(*) as total,
-                sum(case when shipments.status in (?, ?) then 1 else 0 end) as delivered,
-                sum(case when shipments.status = ? then 1 else 0 end) as returned,
+                sum(case when ".Shipment::sqlDelivered()." then 1 else 0 end) as delivered,
+                sum(case when ".Shipment::sqlPlainReturn()." then 1 else 0 end) as returned,
                 sum(case when shipments.status = ? then 1 else 0 end) as failed,
-                sum(case when shipments.status in (?, ?) then shipments.collected_amount else 0 end) as collected,
+                sum(case when ".Shipment::sqlDelivered()." then shipments.collected_amount else 0 end) as collected,
                 sum(shipments.courier_commission) as commission", [
-                ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value,
-                ShipmentStatus::Returned->value,
                 ShipmentStatus::FailedAttempt->value,
-                ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value,
             ])
             ->groupBy('couriers.id', 'couriers.name')
             ->orderByDesc('delivered')
@@ -127,13 +124,11 @@ class ReportController extends Controller
             ->whereBetween('shipments.created_at', [$from, $to])
             ->selectRaw("merchants.business_name as name, merchants.id as merchant_id,
                 count(*) as total,
-                sum(case when shipments.status in (?, ?) then 1 else 0 end) as delivered,
-                sum(case when shipments.status = ? then 1 else 0 end) as returned,
-                sum(case when shipments.status not in (?, ?, ?, ?, ?) then 1 else 0 end) as still_open,
+                sum(case when ".Shipment::sqlDelivered()." then 1 else 0 end) as delivered,
+                sum(case when ".Shipment::sqlPlainReturn()." then 1 else 0 end) as returned,
+                sum(case when shipments.status not in (?, ?, ?, ?, ?) and shipments.delivered_at is null then 1 else 0 end) as still_open,
                 sum(shipments.cod_amount) as cod,
                 sum(shipments.total_fees) as fees", [
-                ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value,
-                ShipmentStatus::Returned->value,
                 ...array_map(fn (ShipmentStatus $s) => $s->value, ShipmentStatus::terminal()),
             ])
             ->groupBy('merchants.id', 'merchants.business_name')
@@ -156,12 +151,9 @@ class ReportController extends Controller
             ->whereBetween('shipments.created_at', [$from, $to])
             ->selectRaw("governorates.name_ar as name,
                 count(*) as total,
-                sum(case when shipments.status in (?, ?) then 1 else 0 end) as delivered,
-                sum(case when shipments.status = ? then 1 else 0 end) as returned,
-                sum(shipments.delivery_fee) as fees", [
-                ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value,
-                ShipmentStatus::Returned->value,
-            ])
+                sum(case when ".Shipment::sqlDelivered()." then 1 else 0 end) as delivered,
+                sum(case when ".Shipment::sqlPlainReturn()." then 1 else 0 end) as returned,
+                sum(shipments.delivery_fee) as fees")
             ->groupBy('governorates.id', 'governorates.name_ar')
             ->orderByDesc('total')
             ->toBase()
@@ -224,8 +216,8 @@ class ReportController extends Controller
             ->whereIn('status', $closed)
             ->selectRaw(SqlDate::month('status_changed_at')." as month,
                 count(*) as total,
-                sum(case when status = ? then return_fee else total_fees end) as revenue,
-                sum(courier_commission) as commission", [ShipmentStatus::Returned->value])
+                sum(".Shipment::sqlRevenue().") as revenue,
+                sum(courier_commission) as commission")
             ->groupBy('month')
             ->orderBy('month')
             ->toBase()

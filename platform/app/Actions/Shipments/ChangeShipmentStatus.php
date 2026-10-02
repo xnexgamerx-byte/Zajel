@@ -56,6 +56,17 @@ class ChangeShipmentStatus
         }
 
         /*
+        | ما سُلِّم بعضه لا يُسلَّم ثانيةً: باقي الواصل الجزئي راجعٌ لتاجره (الوثيقة ٢٤).
+        | تسليمٌ ثانٍ يقيّد مستحقّ الشحنة وعمولتها مرّتين — ولا يفتحه الإجبار.
+        */
+        if ($shipment->wasDelivered()
+            && in_array($to, [ShipmentStatus::OutForDelivery, ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered], true)) {
+            throw ValidationException::withMessages([
+                'status' => "سُلِّم بعض الشحنة {$shipment->number} من قبل، وباقيها راجعٌ لتاجرها فلا يخرج للتوصيل ثانيةً.",
+            ]);
+        }
+
+        /*
         | «واصل إجباري»: تسليم من غير مسار الحالات الطبيعي.
         |
         | أشيع تلاعب في هذا المجال أن يُعلَن التسليم من غير تسليم، ثم
@@ -113,7 +124,8 @@ class ChangeShipmentStatus
 
             match ($to) {
                 ShipmentStatus::PickedUp      => $attributes['picked_up_at'] = now(),
-                ShipmentStatus::Delivered     => $attributes['delivered_at'] = now(),
+                ShipmentStatus::Delivered,
+                ShipmentStatus::PartiallyDelivered => $attributes['delivered_at'] = now(),
                 ShipmentStatus::Returned      => $attributes['returned_at'] = now(),
                 ShipmentStatus::Cancelled     => $attributes['cancelled_at'] = now(),
                 default                       => null,
@@ -169,16 +181,26 @@ class ChangeShipmentStatus
                 $attributes['merchant_due'] = ($shipment->fees_paid_by === 'customer'
                     ? $attributes['collected_amount'] - $shipment->cod_fee + $shipment->discount
                     : $attributes['collected_amount'] - $shipment->total_fees) + (int) $shipment->prepaid_amount;
+
+                // الواصل الجزئي: أجرة التوصيل كاملةً (أعلاه)، وباقيه يرجع لتاجره راجعاً عاديّاً
+                // بلا أجرة راجع — قرار الشركة (الوثيقة ٢٤)
+                if ($to === ShipmentStatus::PartiallyDelivered) {
+                    $attributes['return_fee'] = 0;
+                }
             }
 
             if ($to === ShipmentStatus::Returned) {
-                $courier = $shipment->deliveryCourier;
-                $attributes['courier_commission'] = $courier?->commission_per_return ?? 0;
+                // باقي الواصل الجزئي يرجع بلا عمولة إرجاع: عمولة التوصيل قُيِّدت كاملةً
+                // عند التسليم وتبقى عمولةَ الشحنة (الوثيقة ٢٤)
+                if (! $shipment->wasDelivered()) {
+                    $courier = $shipment->deliveryCourier;
+                    $attributes['courier_commission'] = $courier?->commission_per_return ?? 0;
+                }
                 /*
                 | أجرة الراجع عليه، فوق ما قُيِّد له عن الشحنة من قبل — وما دفعه مقدّماً
                 | إن لم يُقيَّد بعد. والمعتاد ألّا يكون قبلها شيء؛ أمّا باقي الواصل الجزئي
-                | فقد قُيِّد له ما بيع منه عند التسليم: كان يُمحى هنا من مستحقّه فتدفع
-                | تسويته أجرة الراجع وحدها والدفتر يحفظ له ما بيع.
+                | فقد قُيِّد له ما بيع منه عند التسليم وأجرة رجوعه صفر: يبقى مستحقّه كما كان.
+                | (كان يُمحى هنا ما بيع فتدفع تسويته أجرة الراجع وحدها والدفتر يحفظ له ما بيع.)
                 */
                 $attributes['merchant_due'] = $this->ledger->postedForShipment($shipment)
                     - $shipment->return_fee

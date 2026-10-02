@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Platform;
 
 use App\Actions\Billing\ChangeSubscription;
 use App\Actions\Platform\RegisterCompany;
-use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegisterCompanyRequest;
 use App\Models\AuditLog;
@@ -85,7 +84,8 @@ class CompanyController extends Controller
         $stats = Tenancy::runFor($company, fn () => [
             'shipments'  => Shipment::count(),
             'this_month' => Shipment::where('created_at', '>=', now()->startOfMonth())->count(),
-            'delivered'  => Shipment::where('status', ShipmentStatus::Delivered->value)->count(),
+            // سُلِّمت كلّها أو بعضها — كما تُحسب في فاتورة الشركة (GenerateInvoice)
+            'delivered'  => Shipment::whereNotNull('delivered_at')->count(),
             'merchants'  => Merchant::count(),
             'couriers'   => Courier::count(),
             'users'      => User::count(),

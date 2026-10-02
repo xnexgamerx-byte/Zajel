@@ -89,6 +89,8 @@ class SendOutForDelivery
                 : 'مع '.($shipment->deliveryCourier?->name ?? 'مندوبٍ آخر'),
             in_array($status, [ShipmentStatus::Created, ShipmentStatus::PendingPickup], true) => null,
             ! $status->canMoveTo(ShipmentStatus::OutForDelivery) => $status->label(),
+            // وباقي الواصل الجزئي راجعٌ لتاجره (الوثيقة ٢٤)
+            $shipment->wasDelivered()                      => 'واصل جزئي — باقيه راجعٌ لتاجره',
             default                                        => null,
         };
     }

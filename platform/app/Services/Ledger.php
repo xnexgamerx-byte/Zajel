@@ -171,7 +171,11 @@ class Ledger
         });
     }
 
-    /** الشحنة رجعت: لا تحصيل، وأجرة الراجع على التاجر — وله ما دفعه مقدّماً. */
+    /**
+     * الشحنة رجعت: لا تحصيل، وأجرة الراجع على التاجر — وله ما دفعه مقدّماً.
+     * وباقي الواصل الجزئي يرجع بلا شيء: أجرة رجوعه صفر، وعمولة مندوبه عمولة
+     * التوصيل وقد قُيِّدت عند التسليم (الوثيقة ٢٤).
+     */
     public function recordReturn(Shipment $shipment, ?User $actor = null): void
     {
         DB::transaction(function () use ($shipment, $actor) {
@@ -189,7 +193,7 @@ class Ledger
 
             $this->postPrepaid($shipment, $actor);
 
-            if (($courier = $shipment->deliveryCourier) && $shipment->courier_commission > 0) {
+            if (! $shipment->wasDelivered() && ($courier = $shipment->deliveryCourier) && $shipment->courier_commission > 0) {
                 $this->post(
                     courier: $courier,
                     direction: 'credit',
@@ -461,8 +465,10 @@ class Ledger
             ->whereNotNull('shipment_id')
             ->groupBy('shipment_id');
 
-        // عناصر نائبة لا قيم: لا شيء من المُدخَل يدخل نصّ الاستعلام
-        $expected = 'case when shipments.status in ('.implode(',', array_fill(0, count($states), '?')).') then shipments.merchant_due else 0 end';
+        // عناصر نائبة لا قيم: لا شيء من المُدخَل يدخل نصّ الاستعلام. وباقي الواصل الجزئي
+        // في طريقه لتاجره قُيِّد ماله عند التسليم: يُطابَق بمستحقّه أيّاً كانت حالته
+        $expected = 'case when shipments.status in ('.implode(',', array_fill(0, count($states), '?')).')'
+            .' or '.Shipment::sqlDelivered().' then shipments.merchant_due else 0 end';
 
         $query = Shipment::query()
             ->leftJoinSub($posted, 'posted', 'posted.shipment_id', '=', 'shipments.id')

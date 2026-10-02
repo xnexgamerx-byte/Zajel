@@ -87,13 +87,15 @@ class TaskController extends Controller
 
         $done = Shipment::query()
             ->where('delivery_courier_id', $courier->id)
-            ->whereOnDate('status_changed_at', today())
-            ->whereIn('status', [
-                ShipmentStatus::Delivered->value,
-                ShipmentStatus::PartiallyDelivered->value,
-                ShipmentStatus::FailedAttempt->value,
-                ShipmentStatus::Postponed->value,
-            ])
+            ->where(fn ($q) => $q->where(fn ($w) => $w->whereOnDate('status_changed_at', today())
+                ->whereIn('status', [
+                    ShipmentStatus::Delivered->value,
+                    ShipmentStatus::PartiallyDelivered->value,
+                    ShipmentStatus::FailedAttempt->value,
+                    ShipmentStatus::Postponed->value,
+                ]))
+                // واصلٌ جزئي سلّمه اليوم ولو مضى باقيه راجعاً: نقده بيده ويُسلَّم معه
+                ->orWhere(fn ($w) => $w->whereOnDate('delivered_at', today())))
             ->with(['governorate:id,name_ar', 'lastFailureReason:id,name_ar'])
             ->latest('status_changed_at')
             ->get();

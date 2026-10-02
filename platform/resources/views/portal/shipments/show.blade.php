@@ -124,6 +124,12 @@
                         <dt>أجرة الراجع</dt>
                         <dd dir="ltr">{{ number_format($shipment->return_fee) }}</dd>
                     </div>
+                @elseif ($shipment->wasDelivered() && in_array($shipment->status, [\App\Enums\ShipmentStatus::Returning, \App\Enums\ShipmentStatus::Returned], true))
+                    {{-- باقي الواصل الجزئي يرجع إليك بلا أجرة (الوثيقة ٢٤) --}}
+                    <div class="flex justify-between text-ink-600">
+                        <dt>باقيها راجعٌ إليك بلا أجرة</dt>
+                        <dd dir="ltr">0</dd>
+                    </div>
                 @endif
                 <div class="flex justify-between border-t-2 border-ink-300 pt-2">
                     <dt class="font-bold">{{ $shipment->merchant_due >= 0 ? 'لك' : 'عليك' }}</dt>

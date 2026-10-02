@@ -199,7 +199,7 @@ class ReferenceReportController extends Controller
         [$from, $to] = $period->bounds();
 
         $query = fn () => Shipment::query()->visibleTo($request->user())
-            ->whereIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
+            ->whereNotNull('shipments.delivered_at')
             ->whereBetween('shipments.status_changed_at', [$from, $to])
             ->whereRaw('shipments.courier_commission > shipments.delivery_fee + shipments.extra_fee')
             ->when($request->integer('courier_id'), fn ($q, $id) => $q->where('shipments.delivery_courier_id', $id))
@@ -227,15 +227,14 @@ class ReferenceReportController extends Controller
         $rows = Shipment::query()->visibleTo($request->user())
             ->whereIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value, ShipmentStatus::Returned->value])
             ->whereBetween('shipments.status_changed_at', [$from, $to])
+            // باقي الواصل الجزئي مسلَّمٌ بأجوره كاملةً (Shipment::sqlRevenue)
             ->selectRaw('shipments.merchant_id,
-                sum(case when shipments.status = ? then 0 else 1 end) as delivered,
-                sum(case when shipments.status = ? then 1 else 0 end) as returned,
-                sum(case when shipments.status = ? then shipments.return_fee else shipments.total_fees end) as revenue,
-                sum(shipments.courier_commission) as commission',
-                [ShipmentStatus::Returned->value, ShipmentStatus::Returned->value, ShipmentStatus::Returned->value])
+                sum(case when '.Shipment::sqlPlainReturn().' then 0 else 1 end) as delivered,
+                sum(case when '.Shipment::sqlPlainReturn().' then 1 else 0 end) as returned,
+                sum('.Shipment::sqlRevenue().') as revenue,
+                sum(shipments.courier_commission) as commission')
             ->groupBy('shipments.merchant_id')
-            ->orderByRaw('sum(case when shipments.status = ? then shipments.return_fee else shipments.total_fees end) - sum(shipments.courier_commission) desc',
-                [ShipmentStatus::Returned->value])
+            ->orderByRaw('sum('.Shipment::sqlRevenue().') - sum(shipments.courier_commission) desc')
             ->toBase()
             ->paginate(config('zajel.per_page'))
             ->withQueryString();

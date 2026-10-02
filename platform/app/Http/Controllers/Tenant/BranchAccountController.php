@@ -10,6 +10,7 @@ use App\Models\CashBox;
 use App\Models\CashMovement;
 use App\Models\Merchant;
 use App\Models\MerchantDeposit;
+use App\Models\Shipment;
 use App\Services\Reports\ReportPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,9 +46,10 @@ class BranchAccountController extends Controller
             ->whereNull('deleted_at')
             ->whereIn('status', $closed)
             ->whereBetween('status_changed_at', [$from, $to])
+            // باقي الواصل الجزئي بأجوره كاملةً لا بأجرة رجوعه (Shipment::sqlRevenue)
             ->selectRaw('branch_id, count(*) as shipments,
-                sum(case when status = ? then return_fee else total_fees end) as revenue,
-                sum(courier_commission) as commission', [ShipmentStatus::Returned->value])
+                sum('.Shipment::sqlRevenue().') as revenue,
+                sum(courier_commission) as commission')
             ->groupBy('branch_id')
             ->get()
             ->keyBy('branch_id');
@@ -86,7 +88,8 @@ class BranchAccountController extends Controller
             ->join('merchants', 'merchants.id', '=', 'shipments.merchant_id')
             ->where('shipments.company_id', $request->user()->company_id)
             ->whereNull('shipments.deleted_at')
-            ->where('shipments.status', ShipmentStatus::Delivered->value)
+            // ما حُصِّل: سُلِّمت كلّها أو بعضها — كما في «ديون الفروع» (BranchRemittanceController)
+            ->whereNotNull('shipments.delivered_at')
             ->whereBetween('shipments.status_changed_at', [$from, $to])
             ->whereNotNull('shipments.branch_id')
             ->whereNotNull('merchants.branch_id')

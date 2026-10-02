@@ -124,8 +124,8 @@ class FlowReportController extends Controller
             ->when($courierId, fn ($q) => $q->where('shipments.pickup_courier_id', $courierId))
             ->selectRaw('shipments.pickup_courier_id as courier_id,
                 count(*) as total,
-                sum(case when shipments.status in ('.$in(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered).') then 1 else 0 end) as delivered,
-                sum(case when shipments.status in ('.$in(ShipmentStatus::Returning, ShipmentStatus::Returned).') then 1 else 0 end) as returned,
+                sum(case when '.Shipment::sqlDelivered().' then 1 else 0 end) as delivered,
+                sum(case when shipments.status in ('.$in(ShipmentStatus::Returning, ShipmentStatus::Returned).') and shipments.delivered_at is null then 1 else 0 end) as returned,
                 sum(case when shipments.status = '.$in(ShipmentStatus::OutForDelivery).' then 1 else 0 end) as in_delivery,
                 sum(case when shipments.status = '.$in(ShipmentStatus::Postponed).' then 1 else 0 end) as postponed')
             ->groupBy('shipments.pickup_courier_id')
@@ -311,15 +311,15 @@ class FlowReportController extends Controller
         $merchant = $merchantId ? Merchant::visibleTo($user)->find($merchantId) : null;
 
         $list = fn (ShipmentStatus ...$statuses) => implode(',', array_map(fn (ShipmentStatus $s) => "'{$s->value}'", $statuses));
-        $delivered = $list(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered);
         $returned = $list(ShipmentStatus::Returning, ShipmentStatus::Returned);
         $other = $list(ShipmentStatus::Cancelled, ShipmentStatus::Lost, ShipmentStatus::Damaged);
 
-        // الحالات من التعداد لا من المستخدم: تُدرَج في الاستعلام نصّاً ثابتاً
+        // الحالات من التعداد لا من المستخدم: تُدرَج في الاستعلام نصّاً ثابتاً. وما سُلِّم
+        // بعضه «وصل» ولو رجع باقيه (Shipment::sqlDelivered) — فالباقي لا يُعدّ مرّتين
         $sums = "count(*) as total,
-            sum(case when shipments.status in ({$delivered}) then 1 else 0 end) as delivered,
-            sum(case when shipments.status in ({$returned}) then 1 else 0 end) as returned,
-            sum(case when shipments.status in ({$other}) then 1 else 0 end) as other";
+            sum(case when ".Shipment::sqlDelivered()." then 1 else 0 end) as delivered,
+            sum(case when shipments.status in ({$returned}) and shipments.delivered_at is null then 1 else 0 end) as returned,
+            sum(case when shipments.status in ({$other}) and shipments.delivered_at is null then 1 else 0 end) as other";
 
         // تاجرٌ بعينه يجد فهرس التاجر وحده؛ والكلّ يحتاج تلميحاً إلى فهرس التاريخ (انظر أعلى الصنف)
         $base = fn () => Shipment::query()->when(! $merchant, fn ($q) => $q->useIndex('sh_created_idx'))

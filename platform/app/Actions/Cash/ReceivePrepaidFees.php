@@ -47,7 +47,9 @@ class ReceivePrepaidFees
             ->whereNull('shipments.prepaid_receipt_id')
             ->where('shipments.fees_paid_by', 'merchant')
             ->where('shipments.total_fees', '>', 0)
-            ->whereIn('shipments.status', array_map(fn (ShipmentStatus $s) => $s->value, self::OPEN));
+            ->whereIn('shipments.status', array_map(fn (ShipmentStatus $s) => $s->value, self::OPEN))
+            // وما سُلِّم بعضه خُصمت أجرته من محصَّله، ولو مضى باقيه راجعاً: لا تُقبض ثانيةً
+            ->whereNull('shipments.delivered_at');
     }
 
     /** @param  list<int>  $shipmentIds */

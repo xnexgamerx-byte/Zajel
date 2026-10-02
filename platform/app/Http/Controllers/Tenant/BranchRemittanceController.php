@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Cash\RemitBetweenBranches;
-use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\BranchRemittance;
@@ -32,7 +31,8 @@ class BranchRemittanceController extends Controller
             ->join('merchants', 'merchants.id', '=', 'shipments.merchant_id')
             ->where('shipments.company_id', $request->user()->company_id)
             ->whereNull('shipments.deleted_at')
-            ->whereIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
+            // ما حُصِّل: سُلِّمت كلّها أو بعضها (وباقي الواصل الجزئي يرجع بلا مال)
+            ->whereNotNull('shipments.delivered_at')
             ->whereNotNull('shipments.branch_id')
             ->whereNotNull('merchants.branch_id')
             ->whereColumn('shipments.branch_id', '!=', 'merchants.branch_id')

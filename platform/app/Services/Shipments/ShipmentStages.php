@@ -3,6 +3,7 @@
 namespace App\Services\Shipments;
 
 use App\Enums\ShipmentStatus;
+use App\Models\Shipment;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -84,8 +85,10 @@ final class ShipmentStages
                 'partial_or_exchange' => ['label' => 'واصل جزئي أو تبديل', 'tone' => 'green',
                     'links' => [['settlements.merchants.index', 'تسوية التجّار', 'money.view']],
                     'hint' => 'سُلّم بعضها، أو بُدّلت بطردٍ آخر',
+                    // والواصل الجزئي يبقى هنا حتى يُحاسَب ولو كان باقيه راجعاً في طريقه
                     'apply' => $unsettled(fn (Builder $q) => $q->where(fn (Builder $w) => $w
-                        ->where('shipments.status', ShipmentStatus::PartiallyDelivered->value)
+                        ->where(fn (Builder $x) => $x->whereIn('shipments.status', Shipment::partialStatuses())
+                            ->whereNotNull('shipments.delivered_at'))
                         ->orWhere(fn (Builder $x) => $x->where('shipments.status', ShipmentStatus::Delivered->value)
                             ->where('shipments.type', 'exchange'))))],
                 'amount_changed' => ['label' => 'واصل بتغيير المبلغ', 'tone' => 'amber',
@@ -132,13 +135,16 @@ final class ShipmentStages
      */
     public static function awaitingApproval(Builder $q): Builder
     {
-        return $q->whereIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
-            ->where('shipments.amount_confirmed', false)
+        // الواصل الجزئي يبقى ينتظر الموافقة ولو مضى باقيه راجعاً: مبلغه هو ما يُعتمد
+        return $q->where('shipments.amount_confirmed', false)
             ->whereNull('shipments.courier_settlement_id')
             ->whereNull('shipments.merchant_settlement_id')
             ->whereNull('shipments.merchant_settled_at')
-            ->where(fn (Builder $w) => $w->where('shipments.status', ShipmentStatus::PartiallyDelivered->value)
-                ->orWhereColumn('shipments.collected_amount', '!=', 'shipments.cod_amount'));
+            ->where(fn (Builder $w) => $w
+                ->where(fn (Builder $x) => $x->where('shipments.status', ShipmentStatus::Delivered->value)
+                    ->whereColumn('shipments.collected_amount', '!=', 'shipments.cod_amount'))
+                ->orWhere(fn (Builder $x) => $x->whereIn('shipments.status', Shipment::partialStatuses())
+                    ->whereNotNull('shipments.delivered_at')));
     }
 
     /** يقصر الاستعلام على المرحلة؛ والمرحلة المجهولة لا تقصر شيئاً. */

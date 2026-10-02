@@ -58,7 +58,9 @@ class StagesAndExportTest extends TestCase
                 'address' => 'بغداد', 'landmark' => 'قرب الجامع', 'cod_amount' => 50_000,
             ], $this->owner);
 
-            $shipment->forceFill($state + ['status_changed_at' => now()])->save();
+            // المسلَّمة لها ساعة تسليمها دائماً (ChangeShipmentStatus) — والمراحل تعرفها بها
+            $delivered = in_array($state['status'] ?? null, ['delivered', 'partially_delivered'], true);
+            $shipment->forceFill($state + ['status_changed_at' => now()] + ($delivered ? ['delivered_at' => now()] : []))->save();
 
             return $shipment->refresh();
         });

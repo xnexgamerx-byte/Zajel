@@ -2,7 +2,6 @@
 
 namespace App\Actions\Billing;
 
-use App\Enums\ShipmentStatus;
 use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -137,7 +136,8 @@ class GenerateInvoice
 
         $billable = Shipment::query()
             ->where('is_invoiced', false)
-            ->whereIn('status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
+            // سُلِّمت كلّها أو بعضها في الشهر — ولو رجع باقي الواصل الجزئي بعدها
+            ->whereNotNull('delivered_at')
             ->whereBetween('delivered_at', [$start, $end]);
 
         $count = (clone $billable)->count();

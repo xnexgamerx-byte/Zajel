@@ -187,8 +187,8 @@ class PrepaidFeesTest extends TestCase
     }
 
     /**
-     * باقي الواصل الجزئي يرجع لتاجره: ما بيع منه قُيِّد له عند التسليم ويبقى، وتُضاف
-     * أجرة الراجع — وما دفعه مقدّماً لا يُقيَّد له مرّتين. وتسويته تدفع ما في دفتره.
+     * باقي الواصل الجزئي يرجع لتاجره: ما بيع منه قُيِّد له عند التسليم ويبقى، ولا أجرة
+     * راجعٍ عليه (الوثيقة ٢٤) — وما دفعه مقدّماً لا يُقيَّد له مرّتين. وتسويته تدفع ما في دفتره.
      */
     public function test_the_rest_of_a_partial_delivery_returns_without_losing_what_was_sold(): void
     {
@@ -208,7 +208,7 @@ class PrepaidFeesTest extends TestCase
             $returned = $this->move($shipment, ShipmentStatus::Returned);
 
             $this->assertSame(30_000 - (int) $shipment->total_fees + ($prepaid ? (int) $shipment->total_fees : 0), $sold);
-            $this->assertSame($sold - (int) $shipment->return_fee, (int) $returned->merchant_due, $prepaid ? 'مقدّماً' : 'عاديّة');
+            $this->assertSame($sold, (int) $returned->merchant_due, $prepaid ? 'مقدّماً' : 'عاديّة');
             $this->assertBooksBalance();
         }
     }

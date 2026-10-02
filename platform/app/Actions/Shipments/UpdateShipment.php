@@ -61,10 +61,10 @@ class UpdateShipment
         protected DuplicateDetector $duplicates,
     ) {}
 
-    /** تُعدَّل ما دامت مفتوحة ولم يُقيَّد منها مال: التسليم الجزئي قُيِّد. */
+    /** تُعدَّل ما دامت مفتوحة ولم يُقيَّد منها مال: التسليم الجزئي قُيِّد، ولو مضى باقيه راجعاً. */
     public static function editable(Shipment $shipment): bool
     {
-        return $shipment->status->isOpen() && $shipment->status !== ShipmentStatus::PartiallyDelivered;
+        return $shipment->status->isOpen() && ! $shipment->wasDelivered();
     }
 
     /** المحافظة تتغيّر قبل المخزن: بعده الشحنة في كيسٍ أو كشفٍ إلى وجهتها. */

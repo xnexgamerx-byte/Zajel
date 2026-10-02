@@ -66,13 +66,16 @@ class BuildMerchantSettlement
             $returned = 0;
 
             foreach ($shipments as $shipment) {
-                $isReturn = $shipment->status === ShipmentStatus::Returned;
+                // باقي الواصل الجزئي سطرُ تسليمٍ بما حُصِّل وأجوره كاملةً، لا سطرُ راجع
+                $isReturn = $shipment->isPlainReturn();
                 $returned += $isReturn ? 1 : 0;
 
                 MerchantSettlementShipment::create([
                     'merchant_settlement_id' => $settlement->id,
                     'shipment_id'            => $shipment->id,
-                    'shipment_status'        => $shipment->status->value,
+                    'shipment_status'        => $shipment->wasDelivered() && $shipment->status !== ShipmentStatus::Delivered
+                        ? ShipmentStatus::PartiallyDelivered->value
+                        : $shipment->status->value,
                     'collected_amount'       => $isReturn ? 0 : $shipment->collected_amount,
                     'delivery_fee'           => $isReturn ? 0 : $shipment->delivery_fee + $shipment->extra_fee,
                     'return_fee'             => $isReturn ? $shipment->return_fee : 0,
@@ -81,7 +84,7 @@ class BuildMerchantSettlement
                 ]);
             }
 
-            $delivered = $shipments->reject(fn (Shipment $s) => $s->status === ShipmentStatus::Returned);
+            $delivered = $shipments->reject(fn (Shipment $s) => $s->isPlainReturn());
 
             $settlement->forceFill([
                 'shipments_count'     => $shipments->count(),
@@ -90,7 +93,7 @@ class BuildMerchantSettlement
                 'delivery_fees_total' => (int) $delivered->sum(fn (Shipment $s) => $s->delivery_fee + $s->extra_fee),
                 'cod_fees_total'      => (int) $delivered->sum('cod_fee'),
                 'return_fees_total'   => (int) $shipments
-                    ->filter(fn (Shipment $s) => $s->status === ShipmentStatus::Returned)
+                    ->filter(fn (Shipment $s) => $s->isPlainReturn())
                     ->sum('return_fee'),
                 'net_amount'          => (int) $shipments->sum('merchant_due'),
             ])->save();
@@ -111,17 +114,17 @@ class BuildMerchantSettlement
         });
     }
 
-    /** المسلَّم والراجع الذي لم يدخل كشفاً بعد. */
+    /** المسلَّم والراجع الذي لم يدخل كشفاً بعد — والواصل الجزئي منذ تسليمه، وباقيه في طريقه. */
     public function eligible(Merchant $merchant, array $options = [])
     {
         return Shipment::query()
             ->where('merchant_id', $merchant->id)
             ->whereNull('merchant_settlement_id')
-            ->whereIn('status', [
+            ->where(fn ($q) => $q->whereIn('status', [
                 ShipmentStatus::Delivered->value,
                 ShipmentStatus::PartiallyDelivered->value,
                 ShipmentStatus::Returned->value,
-            ])
+            ])->orWhereNotNull('delivered_at'))
             ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
             ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
             ->orderBy('id')

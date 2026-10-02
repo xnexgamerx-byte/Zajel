@@ -311,6 +311,63 @@ class Shipment extends Model
         return ! $this->status->isOpen();
     }
 
+    /*
+    | الواصل الجزئي (الوثيقة ٢٤): يُسلَّم بعضه فتُؤخذ أجرة التوصيل كاملةً وتُقيَّد عمولة
+    | المندوب، ثم يرجع باقيه لتاجره راجعاً عاديّاً بلا أجرة راجعٍ ولا عمولة إرجاع. فما
+    | سُلِّم بعضه يبقى «مسلَّماً» في المال والتقارير ولو صارت حالته «راجع»: تُعرف بساعة
+    | تسليمه، والراجع حقّاً ما رجع ولم يُسلَّم منه شيء.
+    */
+
+    /** سُلِّمت كلّها أو بعضها: قُيِّد مالها، ولا يُعدَّل ولا يُسلَّم ثانيةً */
+    public function wasDelivered(): bool
+    {
+        return $this->delivered_at !== null;
+    }
+
+    /** راجعٌ لم يُسلَّم منه شيء — تُقيَّد عليه أجرة الراجع */
+    public function isPlainReturn(): bool
+    {
+        return $this->status === ShipmentStatus::Returned && $this->delivered_at === null;
+    }
+
+    /**
+     * حالات ما سُلِّم بعضه: «واصل جزئي»، أو باقيه بعدها في طريقه لتاجره أو عنده —
+     * لا يخرج للتوصيل ثانيةً (ChangeShipmentStatus). تُقرن بساعة التسليم فيُستعمل فهرس الحالة.
+     *
+     * @return list<string>
+     */
+    public static function partialStatuses(): array
+    {
+        return array_map(fn (ShipmentStatus $s) => $s->value, [
+            ShipmentStatus::PartiallyDelivered, ShipmentStatus::AtHub, ShipmentStatus::InTransit,
+            ShipmentStatus::Returning, ShipmentStatus::Returned, ShipmentStatus::Lost, ShipmentStatus::Damaged,
+        ]);
+    }
+
+    /** في SQL: سُلِّمت كلّها أو بعضها */
+    public static function sqlDelivered(): string
+    {
+        return 'shipments.delivered_at is not null';
+    }
+
+    /** في SQL: راجعٌ لم يُسلَّم منه شيء */
+    public static function sqlPlainReturn(): string
+    {
+        return "(shipments.status = '".ShipmentStatus::Returned->value."' and shipments.delivered_at is null)";
+    }
+
+    /**
+     * في SQL: ما دخل الشركة من أجور شحنةٍ أُغلقت — الراجع أجرة رجوعه، والمسلَّم أجوره،
+     * والواصل الجزئي أجوره كاملةً وأجرة رجوع باقيه (صفرٌ بالقرار؛ وما رجع قبله قُيِّدت عليه).
+     * والحالات من التعداد لا من المستخدم: تُدرَج نصّاً ثابتاً.
+     */
+    public static function sqlRevenue(): string
+    {
+        return 'case when '.static::sqlPlainReturn().' then shipments.return_fee'
+            ." when shipments.status = '".ShipmentStatus::Delivered->value."' then shipments.total_fees"
+            .' else shipments.total_fees + shipments.return_fee end';
+    }
+
     /** ما يستحقّه التاجر عن هذه الشحنة بعد كل الخصومات. */
     public function computeMerchantDue(): int
     {

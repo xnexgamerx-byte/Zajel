@@ -84,17 +84,20 @@ class BuildCourierSettlement
         });
     }
 
-    /** شحنات وصلت حالة نهائية على يد هذا المندوب ولم تُسوَّ بعد. */
+    /**
+     * شحنات وصلت حالة نهائية على يد هذا المندوب ولم تُسوَّ بعد — والواصل الجزئي منذ
+     * تسليمه: نقده بيد المندوب وعمولته ثبتت، وباقيه في طريقه لتاجره لا مال فيه.
+     */
     public function eligible(Courier $courier, array $options = [])
     {
         return Shipment::query()
             ->where('delivery_courier_id', $courier->id)
             ->whereNull('courier_settlement_id')
-            ->whereIn('status', [
+            ->where(fn ($q) => $q->whereIn('status', [
                 ShipmentStatus::Delivered->value,
                 ShipmentStatus::PartiallyDelivered->value,
                 ShipmentStatus::Returned->value,
-            ])
+            ])->orWhereNotNull('delivered_at'))
             ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
             ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
             ->orderBy('id')

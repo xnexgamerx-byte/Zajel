@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Merchant;
@@ -39,7 +38,8 @@ class MerchantRequestController extends Controller
             'gross'    => (int) Shipment::query()
                 ->whereIn('shipments.merchant_id', $waiting)
                 ->whereNull('shipments.merchant_settlement_id')
-                ->whereIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
+                // سُلِّمت كلّها أو بعضها — وباقي الواصل الجزئي في طريقه لا يُسقط ما بيع منه
+                ->whereNotNull('shipments.delivered_at')
                 ->sum('shipments.collected_amount'),
             'net'      => (int) Merchant::query()->whereIn('id', $waiting)->where('balance', '>', 0)->sum('balance'),
             'open'     => MerchantRequest::query()->visibleTo($request->user())->open()->ofType('payment')->count(),
