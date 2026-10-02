@@ -8,7 +8,8 @@
  */
 export function initBulkBar(bar) {
     const rows = [...document.querySelectorAll('[data-row-select]')];
-    const selectAll = document.querySelector('[data-select-all]');
+    // «الكل» في رأس الجدول، وبديله على الهاتف حيث الرأس مخفيّ
+    const selectAlls = [...document.querySelectorAll('[data-select-all]')];
     const counter = bar.querySelector('[data-bulk-count]');
     const scope = bar.querySelector('[data-bulk-scope]');
     const allFields = bar.querySelector('[data-bulk-all]');
@@ -80,7 +81,7 @@ export function initBulkBar(bar) {
         // الطباعة للصفحة المعروضة: في «الكل» لا تُوهم بطباعة ما لم يُعرض
         if (print) print.hidden = everything;
 
-        if (selectAll) {
+        for (const selectAll of selectAlls) {
             const on = checked().length;
             selectAll.checked = on > 0 && on === rows.length;
             selectAll.indeterminate = on > 0 && on < rows.length;
@@ -116,7 +117,9 @@ export function initBulkBar(bar) {
         });
     }
 
-    selectAll?.addEventListener('change', () => choosePage(selectAll.checked));
+    for (const selectAll of selectAlls) {
+        selectAll.addEventListener('change', () => choosePage(selectAll.checked));
+    }
 
     allToggle?.addEventListener('click', () => {
         everything = true;

@@ -5,6 +5,20 @@
 --}}
 @php
     $editing = $shipment !== null;
+
+    // ما يُطوى تحت «تفاصيل إضافية» يُفتح إن كان فيه ما كُتب أو ما رُفض: لا يُخفى خطأٌ ولا قيمة
+    $filled = fn (string $field, $saved = null) => $errors->has($field) || filled(old($field, $saved));
+    $extrasOpen = collect([
+        'merchant_reference'  => $shipment?->merchant_reference,
+        'recipient_phone_alt' => $shipment?->recipient_phone_alt,
+        'description'         => $shipment?->description,
+        'weight_grams'        => $shipment?->weight_grams ?: null,
+        'notes'               => $shipment?->notes,
+    ])->contains(fn ($saved, $field) => $filled($field, $saved))
+        || $errors->has('pieces_count') || (int) old('pieces_count', $shipment?->pieces_count ?? 1) !== 1
+        || old('is_fragile', $shipment?->is_fragile) || old('allow_open', $shipment?->allow_open);
+    $feesOpen = $filled('delivery_fee') || $filled('extra_fee', $shipment?->extra_fee ?: null)
+        || $filled('discount', $shipment?->discount ?: null);
 @endphp
 
 <form method="POST" action="{{ $editing ? route('shipments.update', $shipment) : route('shipments.store') }}" id="shipment-form"
@@ -19,9 +33,9 @@
 
     <div class="space-y-5 lg:col-span-2">
 
-        {{-- التاجر --}}
+        {{-- ما لا تخرج شحنةٌ بغيره: التاجر والهاتف والمحافظة والمنطقة (والمبلغ بجانبها). والباقي اختياري --}}
         <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold text-ink-900">التاجر</h2>
+            <h2 class="mb-4 text-sm font-bold text-ink-900">الشحنة</h2>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 @if ($editing)
@@ -47,33 +61,11 @@
                 @endif
 
                 <div>
-                    <label class="field-label" for="merchant_reference">رقم الطلب عند التاجر</label>
-                    <input id="merchant_reference" name="merchant_reference" value="{{ old('merchant_reference', $shipment?->merchant_reference) }}"
-                           class="field-input" placeholder="اختياري">
-                    @error('merchant_reference') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-            </div>
-        </section>
-
-        {{-- المستلم --}}
-        <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold text-ink-900">المستلم والعنوان</h2>
-
-            {{-- ما لا تخرج شحنةٌ بغيره: الهاتف والمحافظة والمنطقة (والمبلغ في الطرد). والباقي اختياري --}}
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
                     <label class="field-label" for="recipient_phone">هاتف المستلم <span class="text-red-500">*</span></label>
                     <input id="recipient_phone" name="recipient_phone" value="{{ old('recipient_phone', $shipment?->recipient_phone) }}"
                            class="field-input text-left" dir="ltr" inputmode="numeric"
                            placeholder="07xxxxxxxxx" required>
                     @error('recipient_phone') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-
-                <div>
-                    <label class="field-label" for="recipient_name">اسم المستلم</label>
-                    <input id="recipient_name" name="recipient_name" class="field-input" placeholder="اختياري"
-                           value="{{ old('recipient_name', $shipment?->recipient_name === \App\Models\Shipment::UNNAMED_RECIPIENT ? '' : $shipment?->recipient_name) }}">
-                    @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
@@ -108,6 +100,13 @@
                     @error('landmark') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
+                <div>
+                    <label class="field-label" for="recipient_name">اسم المستلم</label>
+                    <input id="recipient_name" name="recipient_name" class="field-input" placeholder="اختياري"
+                           value="{{ old('recipient_name', $shipment?->recipient_name === \App\Models\Shipment::UNNAMED_RECIPIENT ? '' : $shipment?->recipient_name) }}">
+                    @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+
                 @if ($editing && filled($shipment->address))
                     {{-- عنوانٌ كُتب قبل أن يصير النموذج محافظةً ومنطقةً ونقطةً دالّة: يُصحَّح أو يُمسح --}}
                     <div class="sm:col-span-2">
@@ -117,21 +116,29 @@
                         @error('address') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
                 @endif
+            </div>
+        </section>
 
+        {{-- ما يُكتب أحياناً: مطويٌّ حتى يُحتاج — ومفتوحٌ إن كان فيه ما كُتب أو ما رُفض --}}
+        <details class="card p-5" @if ($extrasOpen) open @endif>
+            <summary class="cursor-pointer text-sm font-bold text-ink-900">
+                تفاصيل إضافية
+                <span class="font-normal text-ink-500">— اختيارية: رقم الطلب، هاتف بديل، المحتوى، القطع والوزن، ملاحظة للمندوب</span>
+            </summary>
+
+            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                    <label class="field-label" for="merchant_reference">رقم الطلب عند التاجر</label>
+                    <input id="merchant_reference" name="merchant_reference" value="{{ old('merchant_reference', $shipment?->merchant_reference) }}"
+                           class="field-input" placeholder="اختياري">
+                    @error('merchant_reference') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
                 <div>
                     <label class="field-label" for="recipient_phone_alt">هاتف بديل</label>
                     <input id="recipient_phone_alt" name="recipient_phone_alt" value="{{ old('recipient_phone_alt', $shipment?->recipient_phone_alt) }}"
                            class="field-input text-left" dir="ltr" inputmode="numeric" placeholder="07xxxxxxxxx">
                     @error('recipient_phone_alt') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
-            </div>
-        </section>
-
-        {{-- الطرد --}}
-        <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold text-ink-900">الطرد</h2>
-
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div class="sm:col-span-3">
                     <label class="field-label" for="description">وصف المحتوى</label>
                     <input id="description" name="description" value="{{ old('description', $shipment?->description) }}"
@@ -173,7 +180,7 @@
                     @error('notes') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
             </div>
-        </section>
+        </details>
     </div>
 
     {{-- المال — عمود ثابت --}}
@@ -208,6 +215,10 @@
                     </select>
                 </div>
 
+                {{-- الأجرة تُحسب من التسعيرة: تعديلها يدوياً والرسوم والخصم استثناءٌ لا خطوة --}}
+                <details class="rounded-xl border border-ink-200 px-4 py-3" @if ($feesOpen) open @endif>
+                    <summary class="cursor-pointer text-sm font-medium text-ink-700">تعديل الأجرة، رسوم إضافية، خصم</summary>
+                    <div class="mt-3 space-y-4">
                 <div>
                     <label class="field-label" for="delivery_fee">أجرة التوصيل</label>
                     <div class="relative">
@@ -239,6 +250,8 @@
                                value="{{ old('discount', $shipment?->discount) }}" class="field-input text-left" dir="ltr">
                     </div>
                 </div>
+                    </div>
+                </details>
 
                 {{-- الحساب الحيّ --}}
                 <div class="rounded-lg bg-ink-50 p-4 text-sm ring-1 ring-ink-200" id="quote-box">

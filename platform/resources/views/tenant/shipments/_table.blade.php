@@ -32,6 +32,14 @@
                data-day-pick="{{ $dayUrl('__DAY__') }}" aria-label="شحنات يومٍ بعينه">
     </label>
 
+    @if (auth()->user()->isStaff() && $shipments->count() > 0)
+        {{-- رأس الجدول مخفيٌّ على الهاتف، و«الكل» فيه: هنا بدله --}}
+        <label class="flex items-center gap-1.5 text-sm text-ink-600 md:hidden">
+            <input type="checkbox" data-select-all class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
+            الصفحة كلّها
+        </label>
+    @endif
+
     @if ($canBulk && $shipments->total() > $bulkMax)
         {{-- أكثر من دفعةٍ واحدة: يُضيَّق البحث أوّلاً، لا يُعرض زرٌّ يرفضه الخادم --}}
         <span class="ms-auto text-xs text-ink-500">لتحديث الكل اختر يوماً أو مندوباً — الحدّ {{ number_format($bulkMax) }} شحنة في المرّة.</span>
@@ -44,7 +52,8 @@
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="tbl">
+        {{-- على الهاتف بطاقةٌ لكل شحنة (tbl-cards في app.css)، والخانات هي نفسها --}}
+        <table class="tbl tbl-cards">
             <thead>
                 <tr>
                     <th class="w-10 px-4 py-3 text-start">
@@ -65,7 +74,7 @@
             <tbody>
                 @forelse ($shipments as $shipment)
                     <tr>
-                        <td class="px-4 py-3">
+                        <td class="cell-check px-4 py-3">
                             @if (auth()->user()->isStaff())
                                 <input type="checkbox" form="assign-form" name="shipment_ids[]"
                                        value="{{ $shipment->id }}" data-row-select data-status="{{ $shipment->status->value }}"
@@ -73,7 +82,7 @@
                                        class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
                             @endif
                         </td>
-                        <td class="px-4 py-3">
+                        <td class="cell-number px-4 py-3">
                             <a href="{{ route('shipments.show', $shipment) }}"
                                class="font-mono font-semibold text-[var(--brand)] hover:underline" dir="ltr">
                                 {{ $shipment->number }}
@@ -84,44 +93,44 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-ink-700">
+                        <td class="cell-merchant px-4 py-3 text-ink-700" data-label="التاجر">
                             {{ $shipment->merchant->business_name }}
                             @if ($shipment->merchant->is_vip)<span class="chip chip-info ms-1">مميّز</span>@endif
                         </td>
-                        <td class="px-4 py-3">
+                        <td class="cell-recipient px-4 py-3">
                             <div class="font-medium">{{ $shipment->recipient_name }}</div>
                             <div class="text-xs text-ink-500">
                                 <x-phone :number="$shipment->recipient_phone" :name="$shipment->recipient_name" />
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-ink-700">
+                        <td class="cell-dest px-4 py-3 text-ink-700">
                             {{ $shipment->governorate->name_ar }}
                             @if ($shipment->city)
                                 <span class="text-ink-400">·</span>
                                 <span class="text-xs text-ink-500">{{ $shipment->city->name_ar }}</span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 font-semibold" dir="ltr">{{ number_format($shipment->cod_amount) }}</td>
-                        <td class="px-4 py-3 text-ink-600" dir="ltr">{{ number_format($shipment->total_fees) }}</td>
-                        <td class="px-4 py-3 text-ink-700">
+                        <td class="cell-amount px-4 py-3 font-semibold" dir="ltr">{{ number_format($shipment->cod_amount) }}</td>
+                        <td class="cell-fee px-4 py-3 text-ink-600" dir="ltr">{{ number_format($shipment->total_fees) }}</td>
+                        <td class="cell-courier px-4 py-3 text-ink-700" data-label="المندوب">
                             {{ $shipment->deliveryCourier?->name ?? '—' }}
                         </td>
-                        <td class="px-4 py-3">
+                        <td class="cell-status px-4 py-3">
                             <x-status-badge :status="$shipment->status" />
                         </td>
                         @if ($sinceStage ?? false)
                             @php
                                 $inStage = $shipment->status_changed_at ? (int) $shipment->status_changed_at->copy()->startOfDay()->diffInDays(today()) : null;
                             @endphp
-                            <td class="px-4 py-3 text-xs">
+                            <td class="cell-date px-4 py-3 text-xs" data-label="في المرحلة منذ">
                                 <span @class(['font-semibold text-bad-700' => $inStage >= 3, 'text-ink-700' => $inStage < 3])>
                                     {{ $inStage === null ? '—' : ($inStage === 0 ? 'اليوم' : \App\Support\Arabic::days($inStage)) }}
                                 </span>
-                                <div class="text-ink-500" dir="ltr">{{ $shipment->status_changed_at?->format('Y-m-d H:i') }}</div>
+                                <span class="text-ink-500 md:block" dir="ltr">{{ $shipment->status_changed_at?->format('Y-m-d H:i') }}</span>
                             </td>
                         @else
-                            <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
-                                {{ $shipment->created_at->format('Y-m-d H:i') }}
+                            <td class="cell-date px-4 py-3 text-xs text-ink-500" data-label="أُنشئت">
+                                <span dir="ltr">{{ $shipment->created_at->format('Y-m-d H:i') }}</span>
                             </td>
                         @endif
                     </tr>

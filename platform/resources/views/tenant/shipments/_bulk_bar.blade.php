@@ -70,9 +70,9 @@
         {{-- الطباعة رابطٌ لا نموذج: نموذج GET كان سيحمل رمز الحماية في العنوان --}}
         <button type="button" class="btn-ghost" data-bulk-print="{{ route('shipments.labels') }}">
             <x-icon name="printer" class="size-5"/>
-            طباعة الوصولات
+            طباعة<span class="max-sm:hidden"> الوصولات</span>
         </button>
-        <button type="button" class="btn-ghost" data-bulk-clear>إلغاء الاختيار</button>
+        <button type="button" class="btn-ghost" data-bulk-clear aria-label="إلغاء الاختيار">إلغاء<span class="max-sm:hidden"> الاختيار</span></button>
     </div>
 
     @if ($bulkTargets !== [])

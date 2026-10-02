@@ -79,6 +79,15 @@ document.addEventListener('change', (event) => {
     }
 });
 
+/**
+ * حقلٌ يرفضه المتصفّح داخل «تفاصيل» مطويّة يفتحها قبل أن يُطلب تصحيحه: الحقل
+ * المخفيّ لا يُركَّز عليه، فيُمنع الإرسال بلا رسالةٍ تُرى.
+ */
+document.addEventListener('invalid', (event) => {
+    const field = event.target;
+    if (field instanceof Element) field.closest('details:not([open])')?.setAttribute('open', '');
+}, true);
+
 /** لونٌ يُعاين قبل الحفظ: data-css-var="--company" */
 document.addEventListener('input', (event) => {
     const field = event.target;

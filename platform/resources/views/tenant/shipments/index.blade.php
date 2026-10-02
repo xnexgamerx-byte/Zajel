@@ -3,51 +3,44 @@
 
 @section('content')
 
-{{-- ملخّص اليوم --}}
-<div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+{{-- الأرقام في سطرٍ واحد: على الهاتف يُمرَّر أفقياً بدل ثلاثة صفوفٍ تدفع القائمة إلى الأسفل --}}
+<div class="mb-4 flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
     @foreach ([
-        ['الكل', $totals['total'], 'text-ink-900', null],
-        ['قيد التنفيذ', $totals['open'], 'text-info-700', null],
-        ['واصل', $totals['delivered'], 'text-ok-700', null],
+        ['الكل', number_format($totals['total']), 'text-ink-900', null],
+        ['قيد التنفيذ', number_format($totals['open']), 'text-info-700', null],
+        ['واصل', number_format($totals['delivered']), 'text-ok-700', null],
         // الراجع المسلَّم لتاجره لا يُعرض في القائمة: مكانه «الشحنات المؤرشفة»
-        ['راجع للتاجر (مؤرشف)', $totals['returned'], 'text-ink-600', route('shipments.archive')],
+        ['راجع للتاجر (مؤرشف)', number_format($totals['returned']), 'text-ink-600', route('shipments.archive')],
+        ['مبالغ لم تُحصَّل', number_format($totals['cod_open']).' د.ع', 'text-warn-700', null],
     ] as [$label, $value, $tone, $url])
         @if ($url)
-            <a href="{{ $url }}" class="card block p-4 hover:ring-1 hover:ring-primary-200">
-                <div class="text-xs font-medium text-ink-500">{{ $label }}</div>
-                <div class="mt-1 text-2xl font-bold {{ $tone }}">{{ number_format($value) }}</div>
+            <a href="{{ $url }}" class="card block min-w-36 shrink-0 px-4 py-3 hover:ring-1 hover:ring-primary-200">
+                <div class="text-xs font-medium whitespace-nowrap text-ink-500">{{ $label }}</div>
+                <div class="num mt-0.5 text-lg font-bold whitespace-nowrap {{ $tone }}">{{ $value }}</div>
             </a>
         @else
-            <div class="card p-4">
-                <div class="text-xs font-medium text-ink-500">{{ $label }}</div>
-                <div class="mt-1 text-2xl font-bold {{ $tone }}">{{ number_format($value) }}</div>
+            <div class="card min-w-36 shrink-0 px-4 py-3">
+                <div class="text-xs font-medium whitespace-nowrap text-ink-500">{{ $label }}</div>
+                <div class="num mt-0.5 text-lg font-bold whitespace-nowrap {{ $tone }}">{{ $value }}</div>
             </div>
         @endif
     @endforeach
-
-    <div class="card p-4">
-        <div class="text-xs font-medium text-ink-500">مبالغ لم تُحصَّل</div>
-        <div class="mt-1 text-2xl font-bold text-warn-700">
-                <span class="num">{{ number_format($totals['cod_open']) }}</span>
-                <span class="text-sm font-medium text-ink-500">د.ع</span>
-        </div>
-    </div>
 </div>
 
-{{-- البحث والتصفية — كما في «عرض كل شحنات العميل» في المعتاد --}}
+{{-- البحث في سطرٍ واحد: ما يُسأل عنه كل يوم ظاهر، والباقي تحت «بحث متقدّم» --}}
 <form method="GET" class="card mb-4 p-4">
     @if ($stage)
         <input type="hidden" name="stage" value="{{ request('stage') }}">
     @endif
 
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-4 lg:grid-cols-6">
-        <div class="lg:col-span-2">
+    <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-60 flex-[2]">
             <label class="field-label" for="q">بحث</label>
             <input id="q" name="q" value="{{ request('q') }}" class="field-input"
                    placeholder="رقم وصل · باركود · هاتف المستلم · رقم طلب التاجر">
         </div>
 
-        <div>
+        <div class="min-w-36 flex-1">
             <label class="field-label" for="status">الحالة</label>
             <select id="status" name="status" class="field-input">
                 <option value="">الكل</option>
@@ -59,31 +52,7 @@
             </select>
         </div>
 
-        <div>
-            <label class="field-label" for="merchant_id">التاجر</label>
-            <select id="merchant_id" name="merchant_id" class="field-input" data-searchable>
-                <option value="">الكل</option>
-                @foreach ($merchants as $merchant)
-                    <option value="{{ $merchant->id }}" @selected((int) request('merchant_id') === $merchant->id)>
-                        {{ $merchant->business_name }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        <div>
-            <label class="field-label" for="governorate_id">المحافظة</label>
-            <select id="governorate_id" name="governorate_id" class="field-input">
-                <option value="">الكل</option>
-                @foreach ($governorates as $gov)
-                    <option value="{{ $gov->id }}" @selected((int) request('governorate_id') === $gov->id)>
-                        {{ $gov->name_ar }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        <div>
+        <div class="min-w-36 flex-1">
             <label class="field-label" for="courier_id">مندوب التوصيل</label>
             <select id="courier_id" name="courier_id" class="field-input">
                 <option value="">الكل</option>
@@ -94,11 +63,51 @@
                 @endforeach
             </select>
         </div>
+
+        <div class="flex gap-2">
+            <button type="submit" class="btn-primary">بحث</button>
+            @if ($filters !== [])
+                <a href="{{ route('shipments.index') }}" class="btn-ghost">مسح</a>
+            @endif
+        </div>
+
+        @can('shipments.export')
+            <span class="ms-auto flex gap-2">
+                <a href="{{ route('shipments.export', $filters) }}" class="btn-ghost" title="ما في القائمة الآن، ملفَّ Excel">
+                    <x-icon name="download" class="size-5"/> Excel
+                </a>
+                <a href="{{ route('shipments.export.print', $filters) }}" class="btn-ghost" target="_blank" rel="noopener" title="ما في القائمة الآن، للطباعة">
+                    <x-icon name="printer" class="size-5"/> PDF
+                </a>
+            </span>
+        @endcan
     </div>
 
     <details class="mt-3" @if ($advanced) open @endif>
         <summary class="cursor-pointer text-sm font-medium text-[var(--brand)]">بحث متقدّم</summary>
-        <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4 lg:grid-cols-6">
+        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+            <div>
+                <label class="field-label" for="merchant_id">التاجر</label>
+                <select id="merchant_id" name="merchant_id" class="field-input" data-searchable>
+                    <option value="">الكل</option>
+                    @foreach ($merchants as $merchant)
+                        <option value="{{ $merchant->id }}" @selected((int) request('merchant_id') === $merchant->id)>
+                            {{ $merchant->business_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="field-label" for="governorate_id">المحافظة</label>
+                <select id="governorate_id" name="governorate_id" class="field-input">
+                    <option value="">الكل</option>
+                    @foreach ($governorates as $gov)
+                        <option value="{{ $gov->id }}" @selected((int) request('governorate_id') === $gov->id)>
+                            {{ $gov->name_ar }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
             <div>
                 <label class="field-label" for="city_id">المنطقة</label>
                 <select id="city_id" name="city_id" class="field-input" data-searchable
@@ -171,6 +180,14 @@
                 <input id="amount" name="amount" value="{{ request('amount') }}" class="field-input" inputmode="numeric" dir="ltr">
             </div>
             <div>
+                <label class="field-label" for="from">أُنشئت من</label>
+                <input id="from" type="date" name="from" value="{{ request('from') }}" class="field-input">
+            </div>
+            <div>
+                <label class="field-label" for="to">أُنشئت إلى</label>
+                <input id="to" type="date" name="to" value="{{ request('to') }}" class="field-input">
+            </div>
+            <div>
                 <label class="field-label" for="stage_from">دخل المرحلة من</label>
                 <input id="stage_from" type="date" name="stage_from" value="{{ request('stage_from') }}" class="field-input">
             </div>
@@ -180,31 +197,6 @@
             </div>
         </div>
     </details>
-
-    <div class="mt-3 flex flex-wrap items-end gap-3">
-        <div>
-            <label class="field-label" for="from">أُنشئت من</label>
-            <input id="from" type="date" name="from" value="{{ request('from') }}" class="field-input">
-        </div>
-        <div>
-            <label class="field-label" for="to">إلى</label>
-            <input id="to" type="date" name="to" value="{{ request('to') }}" class="field-input">
-        </div>
-
-        <button type="submit" class="btn-primary">تطبيق</button>
-        <a href="{{ route('shipments.index') }}" class="btn-ghost">مسح</a>
-
-        @can('shipments.export')
-            <span class="ms-auto flex flex-wrap gap-2">
-                <a href="{{ route('shipments.export', $filters) }}" class="btn-ghost">
-                    <x-icon name="download" class="size-5"/> Excel
-                </a>
-                <a href="{{ route('shipments.export.print', $filters) }}" class="btn-ghost" target="_blank" rel="noopener">
-                    <x-icon name="printer" class="size-5"/> PDF
-                </a>
-            </span>
-        @endcan
-    </div>
 </form>
 
 @if ($stage)

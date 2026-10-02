@@ -25,10 +25,13 @@ final class ShipmentFilters
         'amount', 'vip',
     ];
 
-    /** ما يُطوى تحت «بحث متقدّم»: إن وُجد أحدها يُفتح. */
+    /**
+     * ما يُطوى تحت «بحث متقدّم»: إن وُجد أحدها يُفتح. والظاهر في سطر البحث
+     * البحث والحالة والمندوب وحدها؛ واليوم الواحد من أزرار «اليوم» فوق الجدول.
+     */
     public const ADVANCED = [
-        'city_id', 'pickup_courier_id', 'stage_from', 'stage_to', 'settled', 'reason_id', 'type', 'branch_id',
-        'current_branch_id', 'amount', 'vip',
+        'merchant_id', 'governorate_id', 'city_id', 'pickup_courier_id', 'stage_from', 'stage_to', 'settled',
+        'reason_id', 'type', 'branch_id', 'current_branch_id', 'amount', 'vip',
     ];
 
     public static function apply(Builder $query, Request $request): Builder
@@ -123,7 +126,11 @@ final class ShipmentFilters
 
     public static function hasAdvanced(Request $request): bool
     {
-        return (bool) array_intersect(array_keys(static::active($request)), self::ADVANCED);
+        $active = static::active($request);
+
+        // يومٌ واحد تُظهره أزرار «اليوم»؛ والمدّة (من ≠ إلى) في «بحث متقدّم» وحده
+        return (bool) array_intersect(array_keys($active), self::ADVANCED)
+            || ($active['from'] ?? null) !== ($active['to'] ?? null);
     }
 
     private static function isDate(mixed $value): bool

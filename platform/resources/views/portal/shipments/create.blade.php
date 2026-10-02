@@ -17,6 +17,7 @@
 
     <div class="space-y-5 lg:col-span-2">
         <section class="card p-5">
+            {{-- ما لا تخرج شحنةٌ بغيره: الهاتف والمحافظة والمنطقة (والمبلغ بجانبها). والباقي اختياري --}}
             <h2 class="mb-4 text-sm font-bold">الزبون والعنوان</h2>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
@@ -31,23 +32,11 @@
                            value="{{ old('recipient_name') }}">
                     @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
-                <div>
-                    <label class="field-label" for="recipient_phone_alt">هاتف بديل</label>
-                    <input id="recipient_phone_alt" name="recipient_phone_alt" class="field-input text-left" dir="ltr"
-                           placeholder="07xxxxxxxxx" value="{{ old('recipient_phone_alt') }}">
-                    <p class="mt-1 text-xs text-ink-500">رقم ثانٍ يقلّل الرواجع كثيراً.</p>
-                    @error('recipient_phone_alt') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="field-label" for="merchant_reference">رقم الطلب عندك</label>
-                    <input id="merchant_reference" name="merchant_reference" class="field-input"
-                           placeholder="اختياري" value="{{ old('merchant_reference') }}">
-                </div>
 
                 <div>
                     <label class="field-label" for="governorate_id">المحافظة <span class="text-red-500">*</span></label>
                     <select id="governorate_id" name="governorate_id" class="field-input" required>
-                        <option value="">اختر</option>
+                        <option value="">اختر المحافظة</option>
                         @foreach ($governorates as $gov)
                             <option value="{{ $gov->id }}" @selected((int) old('governorate_id') === $gov->id)>
                                 {{ $gov->name_ar }}
@@ -74,9 +63,31 @@
             </div>
         </section>
 
-        <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold">الطرد</h2>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        @php
+            $extrasOpen = $errors->hasAny(['recipient_phone_alt', 'merchant_reference', 'pieces_count', 'weight_grams'])
+                || collect(['recipient_phone_alt', 'merchant_reference', 'description', 'weight_grams', 'notes', 'is_fragile', 'allow_open'])
+                    ->contains(fn ($field) => filled(old($field)))
+                || (int) old('pieces_count', 1) !== 1;
+        @endphp
+        {{-- ما يُكتب أحياناً: مطويٌّ حتى يُحتاج — ومفتوحٌ إن كان فيه ما كُتب أو ما رُفض --}}
+        <details class="card p-5" @if ($extrasOpen) open @endif>
+            <summary class="cursor-pointer text-sm font-bold">
+                تفاصيل إضافية
+                <span class="font-normal text-ink-500">— اختيارية: هاتف بديل، رقم طلبك، المحتوى، القطع والوزن، ملاحظة للمندوب</span>
+            </summary>
+            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                    <label class="field-label" for="recipient_phone_alt">هاتف بديل</label>
+                    <input id="recipient_phone_alt" name="recipient_phone_alt" class="field-input text-left" dir="ltr"
+                           placeholder="07xxxxxxxxx" value="{{ old('recipient_phone_alt') }}">
+                    <p class="mt-1 text-xs text-ink-500">رقم ثانٍ يقلّل الرواجع كثيراً.</p>
+                    @error('recipient_phone_alt') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="field-label" for="merchant_reference">رقم الطلب عندك</label>
+                    <input id="merchant_reference" name="merchant_reference" class="field-input"
+                           placeholder="اختياري" value="{{ old('merchant_reference') }}">
+                </div>
                 <div class="sm:col-span-3">
                     <label class="field-label" for="description">المحتوى</label>
                     <input id="description" name="description" class="field-input"
@@ -111,7 +122,7 @@
                               placeholder="مثال: اتصل قبل الوصول بنصف ساعة">{{ old('notes') }}</textarea>
                 </div>
             </div>
-        </section>
+        </details>
     </div>
 
     <div>

@@ -312,7 +312,7 @@ class BulkStatusTest extends TestCase
             ->assertSee('data-bulk-bar', false)
             ->assertDontSee('data-bulk-status', false)
             ->assertDontSee('تحديث الكل')
-            ->assertSee('طباعة الوصولات');
+            ->assertSee('data-bulk-print', false);
     }
 
     private function staff(array $abilities): User

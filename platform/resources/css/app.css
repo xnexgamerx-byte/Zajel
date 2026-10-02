@@ -340,6 +340,109 @@ summary:focus-visible,
         @apply border-t border-aeblack-200 bg-ink-50 font-semibold;
     }
 
+    /*
+     * جدول الشحنات على الهاتف: كل صفٍّ بطاقةٌ لا عشرة أعمدةٍ تُمرَّر أفقياً.
+     * السطر الأوّل الاختيار والرقم والحالة، ثم المستلم، ثم الوجهة والمبلغ،
+     * ثم التاجر والمندوب والتاريخ صغاراً بأسمائها. الخانات هي نفسها في
+     * الجدول — لا نسخةٌ ثانية تختلف، ولا اختيارٌ يُعدّ مرّتين.
+     */
+    @media (width < 48rem) {
+        .tbl-cards thead {
+            display: none;
+        }
+
+        .tbl-cards,
+        .tbl-cards tbody {
+            display: block;
+        }
+
+        .tbl-cards tbody tr {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 0.25rem 0.75rem;
+            padding: 0.875rem 1rem;
+        }
+
+        .tbl-cards tbody td {
+            display: block;
+            padding: 0 !important;
+        }
+
+        .tbl-cards td[colspan] {
+            grid-column: 1 / -1;
+        }
+
+        .tbl-cards .cell-check {
+            grid-row: 1;
+            grid-column: 1;
+        }
+
+        .tbl-cards .cell-number {
+            grid-row: 1;
+            grid-column: 2;
+        }
+
+        .tbl-cards .cell-status {
+            grid-row: 1;
+            grid-column: 3;
+        }
+
+        .tbl-cards .cell-recipient,
+        .tbl-cards .cell-merchant,
+        .tbl-cards .cell-courier,
+        .tbl-cards .cell-date {
+            grid-column: 2 / 4;
+        }
+
+        /* المستلم بهاتفه في سطر، ثم الوجهة والمبلغ، ثم التاجر والمندوب والتاريخ */
+        .tbl-cards .cell-recipient {
+            order: 1;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0 0.5rem;
+        }
+
+        .tbl-cards .cell-dest {
+            order: 2;
+            grid-column: 2;
+        }
+
+        .tbl-cards .cell-amount {
+            order: 2;
+            grid-column: 3;
+            text-align: end;
+        }
+
+        .tbl-cards .cell-merchant {
+            order: 3;
+        }
+
+        .tbl-cards .cell-courier {
+            order: 4;
+        }
+
+        .tbl-cards .cell-date {
+            order: 5;
+        }
+
+        .tbl-cards .cell-fee {
+            display: none !important;
+        }
+
+        .tbl-cards .cell-merchant,
+        .tbl-cards .cell-courier,
+        .tbl-cards .cell-date {
+            @apply text-xs;
+        }
+
+        .tbl-cards td[data-label]::before {
+            content: attr(data-label) ': ';
+            @apply text-ink-500;
+        }
+    }
+
     /* رقم أو مبلغ: لاتيني، ثابت العرض، غير قابل للالتباس */
     .num {
         @apply font-mono tabular-nums;
