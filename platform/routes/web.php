@@ -163,6 +163,9 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.bulk-status');
         Route::post('/shipments/{shipment}/amount', [ShipmentAmountController::class, 'update'])
             ->middleware(['staff', 'can:money.confirm_amount'])->name('shipments.amount');
+        // «اعتماد التسليم» دفعةً من «انتظار موافقة التسليم»: تأكيد المبلغ نفسه، لمن يملكه
+        Route::post('/shipments/approve-delivery', [ShipmentAmountController::class, 'approve'])
+            ->middleware(['staff', 'can:money.confirm_amount'])->name('shipments.approve-delivery');
 
         Route::middleware('staff')->group(function () {
             // الراجع خطوتان: من المندوب إلى المخزن، ومن المخزن إلى التاجر

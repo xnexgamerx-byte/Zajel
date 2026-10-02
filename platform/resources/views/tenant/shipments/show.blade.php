@@ -372,6 +372,12 @@
                     دخلت هذه الشحنة كشف تسوية، فالتصحيح يكون بحركة على الحساب لا بتعديل الوصل.
                 </p>
             @elseif ($confirmable)
+                @if ($shipment->status === \App\Enums\ShipmentStatus::PartiallyDelivered || (int) $shipment->collected_amount !== (int) $shipment->cod_amount)
+                    {{-- كما في «كل مراحل النقل»: ShipmentStages::awaitingApproval --}}
+                    <p class="mt-4 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-700">
+                        بانتظار موافقة التسليم: سُلّمت بغير ما طُلب، فيُراجَع مبلغها ويُعتمد قبل التسوية.
+                    </p>
+                @endif
                 <button type="button" class="btn-primary mt-4 w-full" data-dialog-open="confirm-amount">
                     تأكيد مبلغ الوصل
                 </button>

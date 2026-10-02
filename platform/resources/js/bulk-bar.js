@@ -151,18 +151,39 @@ export function initBulkBar(bar) {
         });
     }
 
+    // مرّةً واحدة: الضغطة الثانية لا تُرسل الدفعة ثانيةً وهي تُحفظ
+    let sending = false;
+
     bar.addEventListener('submit', (event) => {
+        if (sending) {
+            event.preventDefault();
+            return;
+        }
+
+        const overCap = () => {
+            if (!(everything && total > max)) return false;
+            event.preventDefault();
+            window.alert(`في البحث ${shipments(total)}، والحدّ ${number.format(max)} في المرّة — اختر يوماً أو مندوباً ثم أعد.`);
+            return true;
+        };
+
+        // «اعتماد التسليم» زرٌّ آخر في الشريط يُرسل المختار نفسه إلى مساره (formaction)،
+        // وسؤاله في data-confirm قبل الإرسال — لا «الحالة الجديدة»
+        const approve = event.submitter?.closest('[data-bulk-approve]');
+        if (approve) {
+            if (overCap()) return;
+            sending = true;
+            approve.textContent = 'جارٍ الاعتماد…';
+            return;
+        }
+
         const option = status?.selectedOptions[0];
         if (!option?.value) return;
 
         const chosen = chosenCount();
         const n = movable(option.value);
 
-        if (everything && total > max) {
-            event.preventDefault();
-            window.alert(`في البحث ${shipments(total)}، والحدّ ${number.format(max)} في المرّة — اختر يوماً أو مندوباً ثم أعد.`);
-            return;
-        }
+        if (overCap()) return;
 
         const lines = [`تحديث ${shipments(n)} إلى «${option.dataset.label}»؟`];
         if (option.value === 'delivered') lines.push('يُسجَّل لكلٍّ منها مبلغها كاملاً بذمّة مندوبها.');
@@ -173,8 +194,8 @@ export function initBulkBar(bar) {
             return;
         }
 
-        // مرّةً واحدة: الضغطة الثانية لا تُرسل الدفعة ثانيةً وهي تُحفظ
-        const submit = bar.querySelector('button[type="submit"]');
+        sending = true;
+        const submit = bar.querySelector('[data-bulk-submit]');
         submit.disabled = true;
         submit.textContent = 'جارٍ التحديث…';
     });

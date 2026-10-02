@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Actions\Shipments\ChangeStatusInBulk;
 use App\Enums\ShipmentStatus;
 use App\Models\FailureReason;
+use App\Services\Shipments\BulkSelection;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -31,12 +32,7 @@ class BulkStatusRequest extends FormRequest
     {
         return [
             'status'            => ['required', Rule::in(array_keys(ChangeStatusInBulk::targets()))],
-            'all'               => ['nullable', 'boolean'],
-            'expected'          => ['exclude_unless:all,1', 'required', 'integer', 'min:1'],
-            'filters'           => ['exclude_unless:all,1', 'nullable', 'array'],
-            'filters.*'         => ['nullable', 'string', 'max:200'],
-            'shipment_ids'      => ['exclude_if:all,1', 'required', 'array', 'min:1', 'max:'.ChangeStatusInBulk::MAX],
-            'shipment_ids.*'    => ['integer'],
+            ...BulkSelection::rules(),
             'courier_id'        => ['exclude_unless:status,out_for_delivery', 'required', 'integer'],
             'failure_reason_id' => ['exclude_unless:status,failed_attempt', 'required', 'integer'],
             'note'              => ['nullable', 'string', 'max:500'],
@@ -77,8 +73,7 @@ class BulkStatusRequest extends FormRequest
         return [
             'status.required'            => 'اختر الحالة الجديدة.',
             'status.in'                  => 'هذه الحالة لا تُحدَّث بالجملة — غيّرها من صفحة الشحنة.',
-            'shipment_ids.required'      => 'اختر شحنةً واحدة على الأقل.',
-            'shipment_ids.max'           => 'الحدّ '.ChangeStatusInBulk::MAX.' شحنة في المرّة — ضيّق البحث بيومٍ أو مندوب.',
+            ...BulkSelection::messages(),
             'courier_id.required'        => 'اختر المندوب.',
             'failure_reason_id.required' => 'اختر سبب عدم التسليم.',
         ];

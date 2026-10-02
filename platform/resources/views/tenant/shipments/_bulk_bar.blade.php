@@ -5,7 +5,8 @@
 
   $bulkTargets ما يملكه الموظّف من حالات، و$bulkSources من أين تنتقل كلٌّ منها،
   و$statusCounts عدد كل حالٍ في البحث كلّه — فيُعرض على كل حالةٍ كم سيتحرّك.
-  $couriers مندوبو التوصيل بمناطقهم، و$reasons أسباب عدم التسليم.
+  $couriers مندوبو التوصيل بمناطقهم، و$reasons أسباب عدم التسليم. و$approvable
+  في «انتظار موافقة التسليم» لمن يؤكّد المبالغ: زرّ «اعتماد التسليم».
 --}}
 @if (auth()->user()->isStaff())
 <form method="POST" action="{{ route('shipments.bulk-status') }}" id="assign-form"
@@ -64,7 +65,15 @@
             <input name="note" maxlength="500" class="field-input w-auto min-w-48" placeholder="ملاحظة (اختيارية)"
                    data-bulk-when="failed_attempt postponed returning cancelled" hidden disabled aria-label="ملاحظة">
 
-            <button type="submit" class="btn-primary">تحديث</button>
+            <button type="submit" class="btn-primary" data-bulk-submit>تحديث</button>
+        @endif
+
+        {{-- «انتظار موافقة التسليم»: المختار نفسه إلى الاعتماد، بلا «الحالة الجديدة» --}}
+        @if ($approvable ?? false)
+            <button type="submit" class="btn-primary" data-bulk-approve formaction="{{ route('shipments.approve-delivery') }}" formnovalidate
+                    data-confirm="اعتماد تسليم المختارة بالمبالغ التي سجّلها المندوب؟ تُقفَل المبالغ ولا تُعدَّل بعدها — وما يحتاج مبلغاً آخر صحّحه من صفحته أوّلاً.">
+                اعتماد التسليم
+            </button>
         @endif
 
         {{-- الطباعة رابطٌ لا نموذج: نموذج GET كان سيحمل رمز الحماية في العنوان --}}

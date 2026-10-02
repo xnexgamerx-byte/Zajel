@@ -48,7 +48,7 @@ class ShipmentController extends Controller
         $everything = clone $query;
         $shipments = $query->latest('id')->paginate(config('zajel.per_page'))->withQueryString();
 
-        return view('tenant.shipments.index', $this->bulkBar($everything, $request->user(), $shipments->total()) + [
+        return view('tenant.shipments.index', $this->bulkBar($everything, $request->user(), $shipments->total(), $request->query('stage')) + [
             'shipments'    => $shipments,
             'statuses'     => ShipmentStatus::cases(),
             'stage'        => ShipmentStages::find($request->query('stage')),
@@ -113,7 +113,7 @@ class ShipmentController extends Controller
         $shipments = $query->orderBy('shipments.status_changed_at')->orderBy('shipments.id')
             ->paginate(config('zajel.per_page'))->withQueryString();
 
-        return view('tenant.shipments.stages', $this->bulkBar($everything, $user, $shipments->total()) + [
+        return view('tenant.shipments.stages', $this->bulkBar($everything, $user, $shipments->total(), $key) + [
             'groups'       => $groups,
             'stage'        => $stage,
             'stageKey'     => $key,
@@ -139,9 +139,11 @@ class ShipmentController extends Controller
      * والعدّ لِما يُتاح فيه «الكل» وحده (حتى ChangeStatusInBulk::MAX): القائمة
      * كلّها بلا بحث ١٣٢ مللي ثانية على ١٦١ ألف شحنة، ولا «كل» فيها يُحسب له.
      *
-     * @return array{bulkTargets: array<string, string>, bulkSources: array<string, list<string>>, statusCounts: array<string, int>}
+     * و«اعتماد التسليم» في «انتظار موافقة التسليم» وحدها، لمن يؤكّد المبالغ.
+     *
+     * @return array{bulkTargets: array<string, string>, bulkSources: array<string, list<string>>, statusCounts: array<string, int>, approvable: bool}
      */
-    private function bulkBar(Builder $query, User $user, int $total): array
+    private function bulkBar(Builder $query, User $user, int $total, mixed $stage = null): array
     {
         $targets = ChangeStatusInBulk::targetsFor($user);
         $countable = $targets !== [] && $total > 0 && $total <= ChangeStatusInBulk::MAX;
@@ -155,6 +157,7 @@ class ShipmentController extends Controller
                 ->select('shipments.status')->selectRaw('count(*) as total')
                 ->groupBy('shipments.status')
                 ->pluck('total', 'status')->map(fn ($total) => (int) $total)->all(),
+            'approvable'   => $stage === 'awaiting_approval' && $user->can('money.confirm_amount'),
         ];
     }
 

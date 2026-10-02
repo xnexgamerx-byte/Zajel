@@ -6,19 +6,20 @@ use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Actions\Shipments\ChangeStatusInBulk;
 use App\Actions\Shipments\SendOutForDelivery;
 use App\Enums\ShipmentStatus;
+use App\Http\Controllers\Concerns\ReportsBulkOutcome;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BulkStatusRequest;
 use App\Http\Requests\ChangeStatusRequest;
 use App\Models\Courier;
 use App\Models\Shipment;
-use App\Services\Shipments\ShipmentFilters;
-use App\Support\Arabic;
+use App\Services\Shipments\BulkSelection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 
 class ShipmentStatusController extends Controller
 {
+    use ReportsBulkOutcome;
+
     public function __construct(protected ChangeShipmentStatus $changeStatus) {}
 
     /** تغيير حالة شحنة واحدة من صفحة تفاصيلها. */
@@ -76,7 +77,7 @@ class ShipmentStatusController extends Controller
      * تحديث الحالة من القائمة بلا دخول كل شحنة: المختارة بأرقامها، أو «الكل»
      * — كل ما يطابق بحث القائمة (يومٌ، مندوب، مرحلة) حتى ChangeStatusInBulk::MAX.
      *
-     * «الكل» يُعاد بحثه هنا بالفلاتر نفسها، ويُقارَن عدده بما رآه الموظّف:
+     * «الكل» يُعاد بحثه بالفلاتر نفسها ويُقارَن عدده بما رآه الموظّف (BulkSelection):
      * شحنةٌ دخلت القائمة بعد فتحها (أُسندت للمندوب نفسه مثلاً) لا تُعلَن
      * «واصل» وهو لم يرَها.
      */
@@ -85,26 +86,13 @@ class ShipmentStatusController extends Controller
         $user = $request->user();
         $to = ShipmentStatus::from($request->validated('status'));
 
-        $query = Shipment::query()->visibleTo($user)->with('deliveryCourier:id,name')->orderBy('shipments.id');
+        $query = BulkSelection::resolve(
+            Shipment::query()->visibleTo($user)->with('deliveryCourier:id,name')->orderBy('shipments.id'),
+            $request->validated(),
+        );
 
-        if ($request->boolean('all')) {
-            $filters = Arr::only((array) $request->validated('filters', []), ShipmentFilters::KEYS);
-            ShipmentFilters::apply($query, Request::create('/', 'GET', $filters));
-
-            $count = (clone $query)->count();
-            $expected = (int) $request->validated('expected');
-
-            if ($count !== $expected) {
-                return back()->withErrors(['shipment_ids' => 'تغيّرت القائمة منذ فتحتها: كانت '.number_format($expected)
-                    .' وصارت '.number_format($count).'. راجعها ثم أعد التحديث.']);
-            }
-
-            if ($count > ChangeStatusInBulk::MAX) {
-                return back()->withErrors(['shipment_ids' => 'في القائمة '.number_format($count).' شحنة، والحدّ '
-                    .ChangeStatusInBulk::MAX.' في المرّة — اختر يوماً أو مندوباً ثم أعد.']);
-            }
-        } else {
-            $query->whereIn('shipments.id', $request->validated('shipment_ids'));
+        if (is_string($query)) {
+            return back()->withErrors(['shipment_ids' => $query]);
         }
 
         $courier = null;
@@ -137,34 +125,6 @@ class ShipmentStatusController extends Controller
     protected function courier(Request $request, int $id): ?Courier
     {
         return Courier::delivering()->active()->visibleTo($request->user())->find($id);
-    }
-
-    /**
-     * رسالة الدفعة: كم تحرّك، وما استُلم أوّلاً، وما تُخطّي ولماذا — شحنةً شحنة.
-     * ولا شيء تحرّك: رسالةٌ حمراء لا خضراء.
-     *
-     * @param  array{moved: list<string>, received: list<string>, skipped: array<string, string>}  $result
-     * @param  string  $done  جملة النجاح، و:count مكان العدد
-     */
-    protected function outcome(array $result, string $done, string $none): RedirectResponse
-    {
-        ['moved' => $moved, 'received' => $received, 'skipped' => $skipped] = $result;
-
-        $list = fn (array $numbers) => implode('، ', array_slice($numbers, 0, 5)).(count($numbers) > 5 ? '…' : '');
-
-        $message = $moved
-            ? str_replace(':count', Arabic::shipments(count($moved)), $done)
-                .($received ? ' (استُلمت من التاجر أوّلاً: '.$list($received).')' : '').'.'
-            : $none;
-
-        if ($skipped) {
-            $message .= ' تُخطّيت '.Arabic::shipments(count($skipped)).': '
-                .$list(array_map(fn ($number, $reason) => "{$number} ({$reason})", array_keys($skipped), $skipped)).'.';
-        }
-
-        return $moved
-            ? back()->with('success', $message)
-            : back()->withErrors(['shipment_ids' => $message]);
     }
 
     /** ملخّص نقد المندوبين — من يحمل كم، ومن تجاوز سقفه. */

@@ -55,6 +55,11 @@ final class ShipmentStages
                 'to_process' => ['label' => 'شحنات للمعالجة', 'tone' => 'amber',
                     'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
                     'hint' => 'محاولة فاشلة: تُعاد أو تؤجَّل أو تُرجع', 'apply' => $status(ShipmentStatus::FailedAttempt)],
+                // المعتاد يسمّيها ولا يصفها (docs/plan/22 §٢): ما سلّمه المندوب بغير ما طُلب
+                // ينتظر من يعتمد مبلغه قبل أن يُبنى عليه حساب — والاعتماد تأكيد المبلغ نفسه
+                'awaiting_approval' => ['label' => 'انتظار موافقة التسليم', 'tone' => 'amber',
+                    'hint' => 'سُلّمت جزئياً أو بمبلغٍ غير المطلوب: يُعتمد مبلغها قبل التسوية',
+                    'apply' => fn (Builder $q) => self::awaitingApproval($q)],
                 'postponed' => ['label' => 'مؤجل', 'tone' => 'amber',
                     'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
                     'hint' => 'بطلب الزبون إلى موعدٍ آخر', 'apply' => $status(ShipmentStatus::Postponed)],
@@ -118,6 +123,22 @@ final class ShipmentStages
         }
 
         return null;
+    }
+
+    /**
+     * «انتظار موافقة التسليم»: سلّمها المندوب جزئياً أو بمبلغٍ غير المطلوب، ولم يُعتمد
+     * مبلغها (ConfirmAmount) ولم تدخل تسويةً بعد. تخرج حين يُعتمد — من القائمة دفعةً
+     * (ShipmentAmountController::approve) أو من صفحتها بمبلغٍ مصحَّح.
+     */
+    public static function awaitingApproval(Builder $q): Builder
+    {
+        return $q->whereIn('shipments.status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
+            ->where('shipments.amount_confirmed', false)
+            ->whereNull('shipments.courier_settlement_id')
+            ->whereNull('shipments.merchant_settlement_id')
+            ->whereNull('shipments.merchant_settled_at')
+            ->where(fn (Builder $w) => $w->where('shipments.status', ShipmentStatus::PartiallyDelivered->value)
+                ->orWhereColumn('shipments.collected_amount', '!=', 'shipments.cod_amount'));
     }
 
     /** يقصر الاستعلام على المرحلة؛ والمرحلة المجهولة لا تقصر شيئاً. */
