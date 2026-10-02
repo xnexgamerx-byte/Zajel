@@ -5,6 +5,8 @@
 --}}
 @php
     $editing = $shipment !== null;
+    // وصلٌ مطبوع مسبقاً تُدخَل شحنته (ShipmentController::create): رقمه، وتاجر دفتره إن أُسند
+    $waybill = $editing ? null : ($waybill ?? null);
 
     // ما يُطوى تحت «تفاصيل إضافية» يُفتح إن كان فيه ما كُتب أو ما رُفض: لا يُخفى خطأٌ ولا قيمة
     $filled = fn (string $field, $saved = null) => $errors->has($field) || filled(old($field, $saved));
@@ -32,6 +34,7 @@
       class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     @csrf
     @if ($editing) @method('PUT') @endif
+    @if ($waybill) <input type="hidden" name="waybill" value="{{ $waybill->code }}"> @endif
 
     <div class="space-y-5 lg:col-span-2">
 
@@ -46,6 +49,14 @@
                         <span class="field-label">التاجر</span>
                         <div class="rounded-lg bg-ink-50 px-4 py-2.5 text-sm font-medium">{{ $shipment->merchant->business_name }}</div>
                         <input type="hidden" name="merchant_id" value="{{ $shipment->merchant_id }}">
+                    </div>
+                @elseif ($waybill?->merchant)
+                    {{-- وصلٌ من دفتر تاجر: شحنته لصاحب الدفتر --}}
+                    <div>
+                        <span class="field-label">التاجر</span>
+                        <div class="rounded-lg bg-ink-50 px-4 py-2.5 text-sm font-medium">{{ $waybill->merchant->business_name }}</div>
+                        <input type="hidden" name="merchant_id" value="{{ $waybill->merchant->id }}">
+                        @error('merchant_id') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
                 @else
                     <div>

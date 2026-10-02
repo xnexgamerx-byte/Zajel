@@ -42,7 +42,7 @@
 
     @if ($canBulk && $shipments->total() > $bulkMax)
         {{-- أكثر من دفعةٍ واحدة: يُضيَّق البحث أوّلاً، لا يُعرض زرٌّ يرفضه الخادم --}}
-        <span class="ms-auto text-xs text-ink-500">لتحديث الكل اختر يوماً أو مندوباً — الحدّ {{ number_format($bulkMax) }} شحنة في المرّة.</span>
+        <span class="ms-auto text-xs text-ink-500">لتحديث الكل اختر يوماً أو مندوباً — الحدّ {{ \App\Support\Arabic::shipments($bulkMax) }} في المرّة.</span>
     @elseif ($canBulk && $shipments->total() > 0)
         <button type="button" class="btn-ghost ms-auto h-9" data-bulk-everything>
             تحديث الكل ({{ number_format($shipments->total()) }})

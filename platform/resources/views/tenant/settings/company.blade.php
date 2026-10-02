@@ -56,6 +56,17 @@
                 <a href="{{ $link }}" target="_blank" rel="noopener" class="mt-3 inline-block text-sm text-[var(--brand)] hover:underline">جرّب الرابط ←</a>
             @endif
         </div>
+
+        <div class="rounded-xl border border-ink-200 p-4">
+            <label class="card-title block" for="waybill_terms">شروط الوصل المطبوع</label>
+            <p class="card-hint mb-3">
+                تُطبع بخطٍّ صغير أسفل الوصولات التي يطبعها التجّار ويكتبون عليها بأيديهم: سطرٌ لكلّ شرط، وأربعة أسطرٍ قصيرة تكفي.
+                وإن تُركت فارغةً طُبعت الشروط المعتادة الظاهرة في الحقل.
+            </p>
+            <textarea id="waybill_terms" name="waybill_terms" rows="4" maxlength="600" class="field-input"
+                      placeholder="{{ implode("\n", \App\Models\WaybillBook::DEFAULT_TERMS) }}">{{ old('waybill_terms', $company->setting('waybill.terms')) }}</textarea>
+            @error('waybill_terms') <p class="field-error">{{ $message }}</p> @enderror
+        </div>
     </section>
 
     <section class="card space-y-4 p-5">

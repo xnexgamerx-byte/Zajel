@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Shipments\ReceiveAtHub;
+use App\Actions\Waybills\CreateFromWaybill;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Shipment;
@@ -47,7 +48,12 @@ class ShipmentScanController extends Controller
             ->first();
 
         if (! $shipment) {
-            return response()->json(['error' => "لا وصل برقم {$number}."], 404);
+            // وصلٌ مطبوعٌ مسبقاً لم تُدخَل شحنته بعد: يُدلّ على مكان إدخاله
+            $error = CreateFromWaybill::problem($number) === null
+                ? "الوصل المطبوع {$number} لم تُدخَل شحنته بعد — أدخِلها من «شحنة من وصلٍ مطبوع»."
+                : "لا وصل برقم {$number}.";
+
+            return response()->json(['error' => $error], 404);
         }
 
         $phone = (string) $shipment->recipient_phone;

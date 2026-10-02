@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Actions\Shipments\ChangeStatusInBulk;
 use App\Actions\Shipments\CreateShipment;
 use App\Actions\Shipments\UpdateShipment;
+use App\Actions\Waybills\CreateFromWaybill;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreShipmentRequest;
@@ -19,6 +20,7 @@ use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Models\WaybillBook;
 use App\Services\Shipments\ShipmentFilters;
 use App\Services\Shipments\ShipmentStages;
 use App\Support\StaffNavigation;
@@ -161,17 +163,40 @@ class ShipmentController extends Controller
         ];
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse
     {
+        // من «شحنة من وصلٍ مطبوع»: الرقم الممسوح وتاجر دفتره — وما لا يصحّ يُعاد إلى المسح بسببه
+        $waybill = null;
+        if (filled($code = WaybillBook::fromInput($request->query('waybill')))) {
+            if (CreateFromWaybill::problem($code, $request->user())) {
+                return redirect()->route('shipments.waybill', ['code' => $code]);
+            }
+
+            $book = WaybillBook::forCode($code);
+            $waybill = (object) [
+                'code'     => WaybillBook::codeFor(WaybillBook::serialOf($code)),
+                'merchant' => $book->merchant,
+            ];
+        }
+
         return view('tenant.shipments.create', [
             'merchants'    => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name', 'phone']),
             'governorates' => Governorate::offered()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+            'waybill'      => $waybill,
         ]);
     }
 
-    public function store(StoreShipmentRequest $request, CreateShipment $action): RedirectResponse
+    public function store(StoreShipmentRequest $request, CreateShipment $action, CreateFromWaybill $fromWaybill): RedirectResponse
     {
+        // وصلٌ مطبوع: يُحفظ برقمه، ثم يعود الموظّف إلى المسح للوصل التالي
+        if (filled($code = $request->validated('waybill'))) {
+            $shipment = $fromWaybill->handle($code, $request->validated(), $request->user());
+
+            return redirect()->route('shipments.waybill')->with('success',
+                "حُفظت الشحنة {$shipment->number} من الوصل المطبوع {$shipment->barcode} — امسح الوصل التالي.");
+        }
+
         $shipment = $action->handle($request->validated(), $request->user());
 
         return redirect()

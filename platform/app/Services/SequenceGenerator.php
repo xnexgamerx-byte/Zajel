@@ -46,6 +46,45 @@ class SequenceGenerator
         });
     }
 
+    /**
+     * يحجز $count رقماً متتالياً دفعةً ويُرجع أوّلها — لدفتر وصولاتٍ مطبوعة
+     * (WaybillBook): مدىً واحد لا أرقامٌ تُطلب واحداً واحداً.
+     */
+    public function reserve(string $key, int $count, ?int $companyId = null): int
+    {
+        $companyId ??= Tenancy::id();
+
+        abort_if($companyId === null, 500, 'حجز أرقامٍ متسلسلة بلا سياق شركة.');
+        abort_if($count < 1, 500, 'الحجز لرقمٍ واحد على الأقل.');
+
+        return DB::transaction(function () use ($key, $count, $companyId) {
+            $row = DB::table('sequences')
+                ->where('company_id', $companyId)
+                ->where('key', $key)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $row) {
+                DB::table('sequences')->insert([
+                    'company_id' => $companyId,
+                    'key'        => $key,
+                    'prefix'     => $this->defaultPrefix($key),
+                    'next_value' => $count + 1,
+                    'pad'        => 6,
+                    'updated_at' => now(),
+                ]);
+
+                return 1;
+            }
+
+            DB::table('sequences')
+                ->where('id', $row->id)
+                ->update(['next_value' => $row->next_value + $count, 'updated_at' => now()]);
+
+            return (int) $row->next_value;
+        });
+    }
+
     protected function format(string $prefix, int $value, int $pad): string
     {
         return $prefix.str_pad((string) $value, $pad, '0', STR_PAD_LEFT);

@@ -36,7 +36,7 @@ class PassedThroughController extends Controller
             ->whereIn('shipments.id', ShipmentEvent::query()->select('shipment_id')->whereIn('hub_id', $hubs))
             ->when($request->query('status'), fn ($q, $status) => $q->where('shipments.status', $status))
             ->when($request->query('q'), fn ($q, $term) => $q->where(fn ($w) => $w->where('shipments.number', $term)
-                ->orWhere('shipments.recipient_phone', $term)))
+                ->orWhere('shipments.barcode', $term)->orWhere('shipments.recipient_phone', $term)))
             ->when($request->integer('created_in'), fn ($q, $id) => $q->where('shipments.branch_id', $id))
             ->when($request->date('from'), fn ($q, $d) => $q->where('shipments.created_at', '>=', $d->startOfDay()))
             ->when($request->date('to'), fn ($q, $d) => $q->where('shipments.created_at', '<', $d->startOfDay()->addDay()));

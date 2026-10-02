@@ -50,6 +50,9 @@ use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\PrepaidFeeController;
+use App\Http\Controllers\Tenant\ShipmentWaybillController;
+use App\Http\Controllers\Tenant\WaybillBookController;
+use App\Http\Controllers\Portal\WaybillController as PortalWaybillController;
 use App\Http\Controllers\Tenant\ManifestController;
 use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
@@ -122,6 +125,12 @@ Route::middleware('tenant')->group(function () {
             Route::get('/shipments/import/template', [ShipmentImportController::class, 'template'])->name('shipments.import.template');
             Route::post('/shipments/import', [ShipmentImportController::class, 'store'])->name('shipments.import.store');
             Route::post('/shipments/import/confirm', [ShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
+            // الوصولات المطبوعة مسبقاً: شحنةٌ من وصلٍ مُسح، ودفاتر الأرقام (قبل /shipments/{shipment})
+            Route::get('/shipments/waybill', [ShipmentWaybillController::class, 'show'])->name('shipments.waybill');
+            Route::get('/waybill-books', [WaybillBookController::class, 'index'])->name('waybill-books.index');
+            Route::post('/waybill-books', [WaybillBookController::class, 'store'])->name('waybill-books.store');
+            Route::post('/waybill-books/{book}/assign', [WaybillBookController::class, 'assign'])->whereNumber('book')->name('waybill-books.assign');
+            Route::get('/waybill-books/{book}/print', [WaybillBookController::class, 'print'])->whereNumber('book')->name('waybill-books.print');
         });
         // قبل /shipments/{shipment}: وإلا قُرئت «labels» رقمَ شحنة
         Route::get('/shipments/labels', [ShipmentLabelController::class, 'staff'])
@@ -497,6 +506,10 @@ Route::middleware('tenant')->group(function () {
             Route::post('/shipments/import/confirm', [PortalShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
             Route::post('/shipments', [PortalShipmentController::class, 'store'])->name('shipments.store');
             Route::get('/shipments/labels', [ShipmentLabelController::class, 'portal'])->name('shipments.labels');
+            // وصولاتٌ يطبعها التاجر ويكتب عليها بيده (بحدٍّ للدفاتر في الساعة)
+            Route::get('/waybills', [PortalWaybillController::class, 'index'])->name('waybills.index');
+            Route::post('/waybills', [PortalWaybillController::class, 'store'])->middleware('throttle:20,60')->name('waybills.store');
+            Route::get('/waybills/{book}/print', [PortalWaybillController::class, 'print'])->whereNumber('book')->name('waybills.print');
             Route::get('/shipments/{shipment}', [PortalShipmentController::class, 'show'])->name('shipments.show');
 
             Route::get('/statement', StatementController::class)->name('statement');

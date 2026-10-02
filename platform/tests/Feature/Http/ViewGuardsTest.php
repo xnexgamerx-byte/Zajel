@@ -83,7 +83,9 @@ class ViewGuardsTest extends TestCase
 
         foreach ([resource_path('views'), app_path()] as $root) {
             foreach (File::allFiles($root) as $file) {
-                foreach (preg_split('/\R/', $file->getContents()) as $n => $line) {
+                // بوضع u: بدونه يَعُدّ \R البايت 0x85 سطراً جديداً — وهو نصف حرف «م» —
+                // فيتكسّر كل سطرٍ فيه ميم ويسقط من الفحص بلا إنذار
+                foreach (preg_split('/\R/u', $file->getContents()) as $n => $line) {
                     if (str_contains($line, 'Arabic::') || preg_match('/^\s*(\/\/|\*|\||\{\{--)/', $line)) {
                         continue;
                     }

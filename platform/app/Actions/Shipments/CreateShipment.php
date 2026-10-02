@@ -78,6 +78,8 @@ class CreateShipment
                 'merchant_id'         => $merchant->id,
                 'number'              => $number,
                 'barcode'             => $data['barcode'] ?? $number,
+                // دفتر الوصل المطبوع مسبقاً إن أُدخلت منه (CreateFromWaybill)
+                'waybill_book_id'     => $data['waybill_book_id'] ?? null,
                 'merchant_reference'  => $data['merchant_reference'] ?? null,
                 'type'                => $data['type'] ?? 'delivery',
 
@@ -148,7 +150,7 @@ class CreateShipment
                 'actor_type'  => $actor ? 'user' : 'system',
                 'actor_id'    => $actor?->id,
                 'actor_name'  => $actor?->name,
-                'note'        => 'إنشاء الشحنة',
+                'note'        => $shipment->waybill_book_id ? "إنشاء الشحنة من الوصل المطبوع {$shipment->barcode}" : 'إنشاء الشحنة',
                 'meta'        => ['price_rule_id' => $quote['rule_id'], 'price_matched' => $quote['matched']],
                 'ip'          => request()->ip(),
             ]);

@@ -49,6 +49,8 @@ class StoreShipmentRequest extends FormRequest
             'fees_paid_by'        => ['required', Rule::in(['merchant', 'customer'])],
             // فارغٌ: كما في حساب التاجر (يُحاسَب مقدّماً أو لا)
             'fee_prepaid'         => ['nullable', Rule::in(['0', '1'])],
+            // رقم الوصل المطبوع مسبقاً إن أُدخلت منه (CreateFromWaybill يتحقّق منه)
+            'waybill'             => ['nullable', 'string', 'max:20'],
             'merchant_reference'  => ['nullable', 'string', 'max:60'],
         ];
     }

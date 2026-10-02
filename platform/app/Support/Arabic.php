@@ -45,6 +45,12 @@ class Arabic
         return static::count($n, ['طرد واحد', 'طردان', 'طرود', 'طرداً']);
     }
 
+    /** وصولاتٌ مطبوعة مسبقاً (WaybillBook) */
+    public static function waybills(int $n): string
+    {
+        return static::count($n, ['وصل واحد', 'وصلان', 'وصولات', 'وصلاً']);
+    }
+
     public static function hours(int $n): string
     {
         return static::count($n, ['ساعة واحدة', 'ساعتان', 'ساعات', 'ساعة']);

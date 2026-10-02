@@ -40,12 +40,13 @@ class CompanySettingsController extends Controller
             'support_whatsapp' => ['nullable', 'string', 'max:30', $iraqi],
             'support_complaints' => ['nullable', 'string', 'max:30', $iraqi],
             'support_hours'    => ['nullable', 'string', 'max:120'],
+            'waybill_terms'    => ['nullable', 'string', 'max:600'],
             'primary_color'    => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ], [
             'primary_color.regex' => 'اللون بصيغة #RRGGBB.',
         ], [
             'phone' => 'الهاتف', 'email' => 'البريد', 'support_whatsapp' => 'واتساب الدعم', 'support_complaints' => 'هاتف الشكاوى',
-            'support_hours' => 'ساعات الدعم', 'primary_color' => 'اللون',
+            'support_hours' => 'ساعات الدعم', 'waybill_terms' => 'شروط الوصل المطبوع', 'primary_color' => 'اللون',
         ]);
 
         // والرقم يُحفظ بصيغةٍ واحدة أيّاً كان شكل إدخاله
@@ -62,12 +63,16 @@ class CompanySettingsController extends Controller
             'support_whatsapp' => $company->setting('support.whatsapp'),
             'support_complaints' => $company->setting('support.complaints'),
             'support_hours'    => $company->setting('support.hours'),
+            'waybill_terms'    => $company->setting('waybill.terms'),
         ];
 
         $settings = $company->settings ?? [];
         data_set($settings, 'support.whatsapp', $phones['support_whatsapp']);
         data_set($settings, 'support.complaints', $phones['support_complaints']);
         data_set($settings, 'support.hours', filled($data['support_hours'] ?? null) ? trim($data['support_hours']) : null);
+        // شروط الوصل المطبوع: سطرٌ لكلّ شرط، بلا أسطرٍ فارغة (WaybillBook::terms)
+        $terms = collect(preg_split('/\R/u', (string) ($data['waybill_terms'] ?? '')))->map(fn ($line) => trim($line))->filter()->implode("\n");
+        data_set($settings, 'waybill.terms', $terms === '' ? null : $terms);
 
         $company->forceFill([
             'phone'         => $phones['phone'],
@@ -83,6 +88,7 @@ class CompanySettingsController extends Controller
             'support_whatsapp' => $company->setting('support.whatsapp'),
             'support_complaints' => $company->setting('support.complaints'),
             'support_hours'    => $company->setting('support.hours'),
+            'waybill_terms'    => $company->setting('waybill.terms'),
         ];
 
         // ما تغيّر وحده، وبمَن غيّره: رقمُ دعمٍ تبدّل يُسأل عنه يوم يشكو تاجر

@@ -12,7 +12,7 @@ class UpdateShipmentRequest extends StoreShipmentRequest
     {
         $rules = parent::rules();
 
-        unset($rules['merchant_id']);
+        unset($rules['merchant_id'], $rules['waybill']);
 
         return $rules;
     }
