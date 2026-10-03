@@ -11,7 +11,8 @@
 <section class="card" aria-labelledby="login-title">
     <div class="card-head">
         <h2 id="login-title">تسجيل الدخول</h2>
-        <p>أهلاً بك، سجّل دخولك للمتابعة</p>
+        {{-- خرج من حسابه وصفحته مفتوحة (ExpiredForm): يعود إليها بعد الدخول --}}
+        <p @if (session('relogin')) role="status" @endif>{{ session('relogin') ?? 'أهلاً بك، سجّل دخولك للمتابعة' }}</p>
     </div>
 
     <form method="POST" action="{{ route('login') }}">

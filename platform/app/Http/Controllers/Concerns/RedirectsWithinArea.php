@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Support\ExpiredForm;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -20,6 +21,9 @@ trait RedirectsWithinArea
         $intended = (string) $request->session()->pull('url.intended');
         $path = ltrim((string) parse_url($intended, PHP_URL_PATH), '/');
 
-        return redirect()->to($intended !== '' && Str::is(['admin', 'admin/*'], $path) === $platform ? $intended : $home);
+        $target = $intended !== '' && Str::is(['admin', 'admin/*'], $path) === $platform ? $intended : $home;
+
+        // صفحةٌ انتهت جلستها وفيها ما كُتب: يعود إليها ما كتبه
+        return ExpiredForm::restore($request, redirect()->to($target));
     }
 }

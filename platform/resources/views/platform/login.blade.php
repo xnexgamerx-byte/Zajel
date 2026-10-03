@@ -12,7 +12,7 @@
 <section class="card" aria-labelledby="login-title">
     <div class="card-head">
         <h2 id="login-title">تسجيل الدخول</h2>
-        <p>لمدراء المنصّة فقط</p>
+        <p @if (session('relogin')) role="status" @endif>{{ session('relogin') ?? 'لمدراء المنصّة فقط' }}</p>
     </div>
 
     <form method="POST" action="{{ route('admin.login') }}">
