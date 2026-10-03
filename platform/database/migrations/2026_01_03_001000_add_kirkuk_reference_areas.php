@@ -1,0 +1,19 @@
+<?php
+
+use App\Support\AreaImport;
+use Illuminate\Database\Migrations\Migration;
+
+/**
+ * مناطق كركوك من قائمة «المناطق» في النظام الذي تعمل عليه الشركة
+ * (database/data/reference-areas.php) — كما أُضيفت المحافظات قبلها، ما نقص وحده.
+ */
+return new class extends Migration
+{
+    public function up(): void
+    {
+        AreaImport::run('KIR', (require database_path('data/reference-areas.php'))['KIR']);
+    }
+
+    /** لا رجوع، كترحيل بغداد: المضاف قد تحمله شحناتٌ منذ التحديث */
+    public function down(): void {}
+};
