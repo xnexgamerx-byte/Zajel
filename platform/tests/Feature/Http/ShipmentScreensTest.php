@@ -218,6 +218,51 @@ class ShipmentScreensTest extends TestCase
             ->assertSessionHasErrors('merchant_id');
     }
 
+    /**
+     * النموذج كما تُكتب ورقة الطلب: الاسم أوّلاً، ثم الهاتف، ثم المحافظة والمنطقة والنقطة
+     * الدالّة، ثم المبلغ والعدد والملاحظة، و«حفظ الشحنة» تحتها — بلا «من يدفع الأجرة»
+     * وبلا حساب الأجور والعمولات.
+     */
+    public function test_the_form_reads_like_an_order_slip_without_fees(): void
+    {
+        $html = $this->actingInCompany()->get($this->host($this->company).'/shipments/create')->assertOk()->getContent();
+
+        $at = fn (string $needle) => mb_strpos($html, $needle);
+        $order = ['id="recipient_name"', 'id="recipient_phone"', 'id="governorate_id"', 'id="city_id"',
+                  'id="landmark"', 'id="cod_amount"', 'id="pieces_count"', 'id="notes"', 'حفظ الشحنة'];
+
+        foreach ($order as $needle) {
+            $this->assertNotFalse($at($needle), $needle);
+        }
+        $this->assertSame($order, collect($order)->sortBy($at)->values()->all());
+
+        // الاسم أوّل ما يُكتب
+        $this->assertMatchesRegularExpression('/<input id="recipient_name"[^>]*autofocus/u', $html);
+
+        foreach (['من يدفع الأجرة', 'fees_paid_by', 'عمولة التحصيل', 'مستحقّ التاجر', 'مجموع الأجور'] as $gone) {
+            $this->assertStringNotContainsString($gone, $html);
+        }
+    }
+
+    public function test_without_who_pays_the_merchant_pays_and_the_next_form_keeps_the_merchant(): void
+    {
+        $payload = $this->validPayload();
+        unset($payload['fees_paid_by']);
+
+        $this->actingInCompany()->post($this->host($this->company).'/shipments', $payload)->assertSessionHasNoErrors();
+
+        Tenancy::runFor($this->company, function () {
+            $shipment = Shipment::latest('id')->firstOrFail();
+            $this->assertSame('merchant', $shipment->fees_paid_by);
+            $this->assertSame(45_000, (int) $shipment->merchant_due);
+        });
+
+        // النموذج التالي: التاجر نفسه مختار، والحقول فارغة
+        $html = $this->actingInCompany()->get($this->host($this->company).'/shipments/create')->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/<option value="'.$this->merchant->id.'"\s+selected/u', $html);
+        $this->assertMatchesRegularExpression('/<input id="recipient_phone"[^>]*value=""/u', $html);
+    }
+
     public function test_a_valid_shipment_is_created_priced_and_shown(): void
     {
         $response = $this->actingInCompany()
@@ -225,8 +270,16 @@ class ShipmentScreensTest extends TestCase
 
         $shipment = Tenancy::runFor($this->company, fn () => Shipment::firstOrFail());
 
-        $response->assertRedirect($this->host($this->company).'/shipments/'.$shipment->id)
-            ->assertSessionHas('success');
+        // الطلبات تُدخَل متتابعة: يعود النموذج فارغاً للتالية، وبطاقة المحفوظة فوقه
+        $response->assertRedirect($this->host($this->company).'/shipments/create')
+            ->assertSessionHas('created', $shipment->id);
+
+        $this->actingInCompany()
+            ->get($this->host($this->company).'/shipments/create')
+            ->assertOk()
+            ->assertSee('حُفظت الشحنة')
+            ->assertSee('000001')
+            ->assertSee('اطبع الوصل');
 
         $this->assertSame('000001', $shipment->number);
         $this->assertSame(ShipmentStatus::Created, $shipment->status);

@@ -179,7 +179,11 @@ class ShipmentController extends Controller
             ];
         }
 
+        // الشحنة المحفوظة للتوّ: رقمها ورابط طباعتها، وتاجرها يبقى مختاراً للتالية
+        $created = $waybill ? null : Shipment::visibleTo($request->user())->find($request->session()->get('created'));
+
         return view('tenant.shipments.create', [
+            'created'      => $created,
             'merchants'    => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name', 'phone']),
             'governorates' => Governorate::offered()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
@@ -199,9 +203,8 @@ class ShipmentController extends Controller
 
         $shipment = $action->handle($request->validated(), $request->user());
 
-        return redirect()
-            ->route('shipments.show', $shipment)
-            ->with('success', "تم إنشاء الشحنة برقم وصل {$shipment->number}.");
+        // الطلبات تُدخَل متتابعةً: نموذجٌ فارغ للتالية، وتاجرها مختارٌ، وبطاقةٌ بالمحفوظة
+        return redirect()->route('shipments.create')->with('created', $shipment->id);
     }
 
     public function edit(Request $request, Shipment $shipment): View

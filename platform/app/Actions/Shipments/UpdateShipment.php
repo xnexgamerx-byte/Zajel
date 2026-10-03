@@ -98,7 +98,7 @@ class UpdateShipment
             $cityId = isset($data['city_id']) && $data['city_id'] !== '' ? (int) $data['city_id'] : null;
             $weight = (int) ($data['weight_grams'] ?? 0);
             $cod = (int) $data['cod_amount'];
-            $feesPaidBy = $data['fees_paid_by'];
+            $feesPaidBy = $data['fees_paid_by'] ?? $shipment->fees_paid_by;
             $extraFee = (int) ($data['extra_fee'] ?? 0);
             $discount = (int) ($data['discount'] ?? 0);
 

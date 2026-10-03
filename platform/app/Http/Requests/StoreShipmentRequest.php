@@ -46,7 +46,8 @@ class StoreShipmentRequest extends FormRequest
             'delivery_fee'        => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'extra_fee'           => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'discount'            => ['nullable', 'integer', 'min:0', 'max:10000000'],
-            'fees_paid_by'        => ['required', Rule::in(['merchant', 'customer'])],
+            // ليس في نموذج الشحنة: الأجرة على التاجر (CreateShipment)، والتعديل يُبقي ما كان
+            'fees_paid_by'        => ['nullable', Rule::in(['merchant', 'customer'])],
             // فارغٌ: كما في حساب التاجر (يُحاسَب مقدّماً أو لا)
             'fee_prepaid'         => ['nullable', Rule::in(['0', '1'])],
             // رقم الوصل المطبوع مسبقاً إن أُدخلت منه (CreateFromWaybill يتحقّق منه)

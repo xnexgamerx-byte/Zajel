@@ -201,6 +201,25 @@ class ShipmentEditTest extends TestCase
             ->where('event_type', 'edited')->count()));
     }
 
+    /** «من يدفع الأجرة» لم يعد في النموذج: التعديل يُبقي ما كان عليه */
+    public function test_editing_keeps_who_pays_when_the_form_does_not_send_it(): void
+    {
+        $shipment = $this->makeShipment(['fees_paid_by' => 'customer']);
+        $form = $this->form($shipment, ['recipient_name' => 'علي حسين جاسم', 'city_id' => $this->area()]);
+        unset($form['fees_paid_by']);
+
+        $this->actingAs($this->owner)
+            ->put($this->host().'/shipments/'.$shipment->id, $form)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect($this->host().'/shipments/'.$shipment->id);
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $fresh = $shipment->refresh();
+            $this->assertSame('customer', $fresh->fees_paid_by);
+            $this->assertSame('علي حسين جاسم', $fresh->recipient_name);
+        });
+    }
+
     public function test_the_screen_edits_through_http(): void
     {
         $shipment = $this->makeShipment();

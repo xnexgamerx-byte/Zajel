@@ -77,37 +77,23 @@ function initCityLinking() {
     refresh();
 }
 
-/** يعرض الأجرة ومستحقّ التاجر قبل الحفظ. */
+/**
+ * تنبيهٌ قبل الحفظ إن لم تطابق تسعيرةُ التاجر الوجهة.
+ *
+ * الأجرة تُحسب على الخادم عند الحفظ، والنموذج لا يعرضها؛ لكن إن لم تطابق قاعدةٌ
+ * صارت صفراً بلا خبر. فيُسأل عنها والحقول تُملأ: يظهر التنبيه، وتنفتح «خيارات
+ * إضافية» حيث تُكتب الأجرة يدوياً.
+ */
 function initLiveQuote() {
     const url = form.dataset.quoteUrl;
+    const warning = form.querySelector('[data-quote-warning]');
+
+    if (!url || !warning) return;
+
     const original = form.dataset.original ? JSON.parse(form.dataset.original) : null;
     const token = document.querySelector('meta[name="csrf-token"]')?.content;
-    const box = document.getElementById('quote-box');
-    const warning = box?.querySelector('[data-quote-warning]');
-
-    const fields = ['merchant_id', 'governorate_id', 'city_id', 'weight_grams',
-                    'cod_amount', 'fees_paid_by', 'extra_fee', 'discount', 'delivery_fee'];
-
-    const format = (n) => new Intl.NumberFormat('en-US').format(n) + ' د.ع';
-
-    const render = (quote, manualFee) => {
-        const deliveryFee = manualFee ?? quote.delivery_fee;
-        const totalFees = Math.max(0, deliveryFee + quote.extra_fee + quote.cod_fee
-            - numberValue(form.elements.discount));
-
-        const paidByCustomer = form.elements.fees_paid_by?.value === 'customer';
-        const cod = numberValue(form.elements.cod_amount);
-        const merchantDue = paidByCustomer
-            ? cod - quote.cod_fee + numberValue(form.elements.discount)
-            : cod - totalFees;
-
-        box.querySelector('[data-quote="delivery_fee"]').textContent = format(deliveryFee);
-        box.querySelector('[data-quote="cod_fee"]').textContent = format(quote.cod_fee);
-        box.querySelector('[data-quote="total_fees"]').textContent = format(totalFees);
-        box.querySelector('[data-quote="merchant_due"]').textContent = format(merchantDue);
-
-        warning?.classList.toggle('hidden', quote.matched || manualFee !== null);
-    };
+    const extras = form.querySelector('[data-extras]');
+    const fields = ['merchant_id', 'governorate_id', 'city_id', 'weight_grams', 'cod_amount', 'delivery_fee'];
 
     let timer;
 
@@ -115,17 +101,19 @@ function initLiveQuote() {
         const merchantId = form.elements.merchant_id?.value;
         const governorateId = form.elements.governorate_id?.value;
 
-        if (!merchantId || !governorateId) return;
+        if (!merchantId || !governorateId) {
+            warning.hidden = true;
+            return;
+        }
 
-        const manualRaw = form.elements.delivery_fee?.value;
-        let manualFee = (manualRaw ?? '').trim() === '' ? null : numberValue(form.elements.delivery_fee);
+        let manual = (form.elements.delivery_fee?.value ?? '').trim() !== '';
 
         // في التعديل: الأجرة الفارغة تبقى كما هي ما لم تتغيّر المحافظة أو المنطقة أو الوزن
         const rerouted = original && ['governorate_id', 'city_id', 'weight_grams']
             .some((name) => name === 'weight_grams'
                 ? numberValue(form.elements[name]) !== Number(original[name] ?? 0)
                 : String(form.elements[name]?.value ?? '') !== String(original[name] ?? ''));
-        if (manualFee === null && original && !rerouted) manualFee = original.delivery_fee;
+        if (!manual && original && !rerouted) manual = true;
 
         try {
             const response = await fetch(url, {
@@ -141,22 +129,23 @@ function initLiveQuote() {
                     city_id: form.elements.city_id?.value ? Number(form.elements.city_id.value) : null,
                     weight_grams: numberValue(form.elements.weight_grams),
                     cod_amount: numberValue(form.elements.cod_amount),
-                    fees_paid_by: form.elements.fees_paid_by?.value || 'merchant',
-                    extra_fee: numberValue(form.elements.extra_fee),
-                    discount: numberValue(form.elements.discount),
                 }),
             });
 
             if (!response.ok) return;
 
-            render(await response.json(), manualFee);
+            const quote = await response.json();
+            const missing = !quote.matched && !manual;
+
+            warning.hidden = !missing;
+            if (missing && extras) extras.open = true;
         } catch {
             // فشل الشبكة لا يمنع الحفظ — التسعير يُعاد على الخادم عند الحفظ.
         }
     };
 
     for (const name of fields) {
-        form.elements[name]?.addEventListener('input', () => {
+        form.elements[name]?.addEventListener('change', () => {
             clearTimeout(timer);
             timer = setTimeout(request, 250);
         });
