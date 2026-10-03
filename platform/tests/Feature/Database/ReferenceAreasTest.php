@@ -30,6 +30,7 @@ class ReferenceAreasTest extends TestCase
         '2026_01_03_000200_merge_duplicate_reference_areas.php',
         '2026_01_03_000300_add_karbala_reference_areas.php',
         '2026_01_03_000400_add_anbar_reference_areas.php',
+        '2026_01_03_000500_add_babil_reference_areas.php',
     ];
 
     /** @return array<string, list<string>> */
@@ -60,6 +61,7 @@ class ReferenceAreasTest extends TestCase
         $this->assertCount(505, $lists['BGD']);
         $this->assertCount(223, $lists['KRB']);
         $this->assertCount(412, $lists['ANB']);
+        $this->assertCount(151, $lists['BBL']);
 
         foreach ($lists as $code => $names) {
             $this->assertSame(count($names), count(array_unique(array_map(Arabic::looseFold(...), $names))), "منطقتان بالاسم نفسه في {$code}");
@@ -91,6 +93,13 @@ class ReferenceAreasTest extends TestCase
         $this->assertContains('الفلوجة سوق الحميدية', $lists['ANB']);
         $this->assertNotContains('المكتب', $lists['ANB']);
         $this->assertNotContains('حبانيه', $lists['ANB']);
+
+        // «مركز» في آخر الاسم وسمُ تسعيرٍ هناك: «باب الحسين مركز» هي «باب الحسين» الموجودة —
+        // إلّا «حي الامام مركز»، بلا وسمها تساوي «الإمام» الناحية
+        $this->assertSame(['حي الامام مركز'], array_values(array_filter($lists['BBL'], fn ($name) => str_ends_with($name, ' مركز'))));
+        $this->assertNotContains('باب الحسين', $lists['BBL']);
+        $this->assertContains('الحصوة', $lists['BBL']);
+        $this->assertNotContains('حصوة بابل', $lists['BBL']);
     }
 
     public function test_seeding_gives_each_listed_area_once_beside_what_was_there(): void
