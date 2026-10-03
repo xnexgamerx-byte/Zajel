@@ -33,6 +33,7 @@ class ReferenceAreasTest extends TestCase
         '2026_01_03_000500_add_babil_reference_areas.php',
         '2026_01_03_000600_add_basra_reference_areas.php',
         '2026_01_03_000700_add_duhok_reference_areas.php',
+        '2026_01_03_000800_add_diyala_reference_areas.php',
     ];
 
     /** @return array<string, list<string>> */
@@ -66,6 +67,7 @@ class ReferenceAreasTest extends TestCase
         $this->assertCount(151, $lists['BBL']);
         $this->assertCount(318, $lists['BSR']);
         $this->assertCount(562, $lists['DHK']);
+        $this->assertCount(399, $lists['DYL']);
 
         foreach ($lists as $code => $names) {
             $this->assertSame(count($names), count(array_unique(array_map(Arabic::looseFold(...), $names))), "منطقتان بالاسم نفسه في {$code}");
@@ -117,6 +119,11 @@ class ReferenceAreasTest extends TestCase
         $this->assertContains('دهوك گشتيار', $lists['DHK']);
         $this->assertNotContains('دهوك كشتيار', $lists['DHK']);
         $this->assertContains('مجمع MRF دهوك مالطا', $lists['DHK']);
+
+        // ديالى: «tttt» تجربةٌ لا منطقة، و«قرةتبة» الملتصقة هي «قره تبة» الموجودة
+        $this->assertNotContains('tttt', $lists['DYL']);
+        $this->assertContains('قرة تبة حي الصدر', $lists['DYL']);
+        $this->assertNotContains('قرة تبة', $lists['DYL']);
         foreach ($lists as $code => $names) {
             foreach ($names as $name) {
                 // لا فاصل خفيّاً، ولا «ی» و«ک» الفارسيتين: تُكتبان «ي» و«ك»
@@ -144,8 +151,9 @@ class ReferenceAreasTest extends TestCase
         $this->assertSame(1, $loose['BGD'][Arabic::looseFold('صالحية')]);
         $this->assertFalse(City::where('governorate_id', $this->baghdad()->id)->where('name_ar', 'صالحية')->exists());
         $this->assertSame(1, $loose['KRB'][Arabic::looseFold('النقيب')]);
-        $this->assertTrue(City::where('name_ar', 'حي النقيب')->exists());
-        $this->assertFalse(City::where('name_ar', 'النقيب')->exists());
+        $karbala = Governorate::where('code', 'KRB')->value('id');
+        $this->assertTrue(City::where('governorate_id', $karbala)->where('name_ar', 'حي النقيب')->exists());
+        $this->assertFalse(City::where('governorate_id', $karbala)->where('name_ar', 'النقيب')->exists());
 
         $total = City::count();
         $this->seed(GovernorateSeeder::class);
