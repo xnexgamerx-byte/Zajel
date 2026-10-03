@@ -24,6 +24,9 @@ class ReferenceAreasTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** اسمٌ تتكرّر كلمته لأنّه هكذا: مجمّع «ناز ناز» في أربيل */
+    private const REPEATED_ON_PURPOSE = ['ناز ناز'];
+
     /** ترحيلات القوائم بترتيبها: الخادم القائم يجريها كلّها مع التحديث */
     private const MIGRATIONS = [
         '2026_01_03_000100_add_reference_areas.php',
@@ -34,6 +37,7 @@ class ReferenceAreasTest extends TestCase
         '2026_01_03_000600_add_basra_reference_areas.php',
         '2026_01_03_000700_add_duhok_reference_areas.php',
         '2026_01_03_000800_add_diyala_reference_areas.php',
+        '2026_01_03_000900_add_erbil_reference_areas.php',
     ];
 
     /** @return array<string, list<string>> */
@@ -68,6 +72,7 @@ class ReferenceAreasTest extends TestCase
         $this->assertCount(318, $lists['BSR']);
         $this->assertCount(562, $lists['DHK']);
         $this->assertCount(399, $lists['DYL']);
+        $this->assertCount(386, $lists['ERB']);
 
         foreach ($lists as $code => $names) {
             $this->assertSame(count($names), count(array_unique(array_map(Arabic::looseFold(...), $names))), "منطقتان بالاسم نفسه في {$code}");
@@ -78,7 +83,9 @@ class ReferenceAreasTest extends TestCase
                 $this->assertDoesNotMatchRegularExpression('/[٠-٩]/u', $name, "«{$name}»: أرقام عربية");
                 $this->assertDoesNotMatchRegularExpression('/ة[\x{0621}-\x{064A}]/u', $name, "«{$name}»: كلمتان ملتصقتان");
                 $this->assertDoesNotMatchRegularExpression('/[\x{0621}-\x{064A}][0-9]|[0-9][\x{0621}-\x{064A}]/u', $name, "«{$name}»: رقمٌ ملتصق");
-                $this->assertDoesNotMatchRegularExpression('/(^|\s)(\S+)\s+\2(\s|$)/u', $name, "«{$name}»: كلمةٌ مكرّرة");
+                if (! in_array($name, self::REPEATED_ON_PURPOSE, true)) {
+                    $this->assertDoesNotMatchRegularExpression('/(^|\s)(\S+)\s+\2(\s|$)/u', $name, "«{$name}»: كلمةٌ مكرّرة");
+                }
             }
         }
 
@@ -124,6 +131,13 @@ class ReferenceAreasTest extends TestCase
         $this->assertNotContains('tttt', $lists['DYL']);
         $this->assertContains('قرة تبة حي الصدر', $lists['DYL']);
         $this->assertNotContains('قرة تبة', $lists['DYL']);
+
+        // أربيل: «لايوجد» ليست منطقة، و«طق طق» هي «طقطق» الموجودة، و«ناز ناز» اسمٌ هكذا
+        $this->assertNotContains('لايوجد', $lists['ERB']);
+        $this->assertNotContains('طق طق', $lists['ERB']);
+        $this->assertNotContains('طق', $lists['ERB']);
+        $this->assertContains('ناز ناز', $lists['ERB']);
+        $this->assertContains('MRF 5', $lists['ERB']);
         foreach ($lists as $code => $names) {
             foreach ($names as $name) {
                 // لا فاصل خفيّاً، ولا «ی» و«ک» الفارسيتين: تُكتبان «ي» و«ك»
