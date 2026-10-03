@@ -220,6 +220,40 @@ class ShipmentEditTest extends TestCase
         });
     }
 
+    public function test_order_type_and_size_are_edited_logged_and_kept_when_absent(): void
+    {
+        $shipment = $this->makeShipment(['type' => 'exchange', 'size' => 'large']);
+
+        // نموذجٌ لا يرسلهما (كالإدخال من غير الشاشة) يُبقيهما
+        $kept = $this->edit($shipment, ['recipient_name' => 'علي حسين جاسم']);
+        $this->assertSame('exchange', $kept->type);
+        $this->assertSame('large', $kept->size);
+
+        $edited = $this->edit($kept, ['type' => 'delivery', 'size' => 'normal']);
+        $this->assertSame('delivery', $edited->type);
+        $this->assertSame('normal', $edited->size);
+
+        $note = Tenancy::runFor($this->company, fn () => ShipmentEvent::where('shipment_id', $shipment->id)
+            ->where('event_type', 'edited')->latest('id')->first()->note);
+        $this->assertStringContainsString('نوع الطلب: استبدال ← طلب جديد', $note);
+        $this->assertStringContainsString('حجم الطلب: كبير ← عادي', $note);
+
+        // ومن الشاشة نفسها
+        $this->actingAs($this->owner)
+            ->put($this->host().'/shipments/'.$shipment->id,
+                $this->form($edited, ['type' => 'exchange', 'size' => 'large', 'city_id' => $this->area()]))
+            ->assertSessionHasNoErrors();
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $this->assertSame(['exchange', 'large'], [$shipment->refresh()->type, $shipment->size]);
+        });
+
+        // والشاشة تعرضهما في «خيارات إضافية» مفتوحةً لما ليس معتاداً
+        $page = $this->actingAs($this->owner)->get($this->host().'/shipments/'.$this->makeShipment(['type' => 'exchange'])->id.'/edit')
+            ->assertOk()
+            ->assertSee('<option value="exchange" selected', false);
+        $this->assertMatchesRegularExpression('/data-extras\s+open/', $page->getContent());
+    }
+
     public function test_the_screen_edits_through_http(): void
     {
         $shipment = $this->makeShipment();

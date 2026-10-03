@@ -57,7 +57,6 @@ class QuickEntryController extends Controller
             'governorate_id' => ['nullable', 'required_if:mode,governorate', 'integer',
                                  Rule::exists('governorates', 'id')->where('is_active', true)],
             'courier_id'     => ['nullable', 'integer'],
-            'fees_paid_by'   => ['required', 'in:merchant,customer'],
             'rows'           => ['required', 'array', 'max:'.self::MAX_ROWS],
         ], [
             'merchant_id.required_if'    => 'اختر التاجر أعلى الصفحة.',
@@ -139,7 +138,6 @@ class QuickEntryController extends Controller
                 'city_id'            => $cityId,
                 'landmark'           => mb_substr($landmark, 0, 255),
                 'cod_amount'         => $amount,
-                'fees_paid_by'       => $header['fees_paid_by'],
                 'merchant_reference' => filled($row['merchant_reference'] ?? null) ? mb_substr($row['merchant_reference'], 0, 60) : null,
                 'notes'              => filled($row['notes'] ?? null) ? mb_substr($row['notes'], 0, 2000) : null,
                 'type'               => ! empty($row['exchange']) ? 'exchange' : 'delivery',
@@ -185,7 +183,7 @@ class QuickEntryController extends Controller
         return redirect()
             ->route('shipments.quick', ['mode' => $header['mode']])
             // الوجبة التالية غالباً للتاجر نفسه؛ والمندوب لا يبقى، فلا تخرج الوجبة التالية معه سهواً
-            ->withInput($request->only(['merchant_id', 'governorate_id', 'fees_paid_by']))
+            ->withInput($request->only(['merchant_id', 'governorate_id']))
             ->with('success', 'أُنشئت '.Arabic::shipments(count($created)).': '.$numbers->first()
                 .($numbers->count() > 1 ? ' … '.$numbers->last() : '')
                 .($courier ? " وخرجت مع {$courier->name}." : '.'))

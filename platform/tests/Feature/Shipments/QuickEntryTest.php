@@ -88,7 +88,7 @@ class QuickEntryTest extends TestCase
 
         $this->actingAs($this->owner)
             ->post($this->host().'/shipments/quick', [
-                'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
                 'rows' => [
                     $this->row(['city_id' => $karrada, 'merchant_reference' => 'R-1', 'exchange' => '1']),
                     ['governorate_id' => $this->baghdad()->id, 'amount' => '', 'recipient_phone' => '', 'landmark' => ''], // فارغ
@@ -127,7 +127,7 @@ class QuickEntryTest extends TestCase
         $this->actingAs($this->owner)
             ->from($this->host().'/shipments/quick')
             ->post($this->host().'/shipments/quick', [
-                'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
                 'rows' => [$this->row(['landmark' => '']), $this->row(['city_id' => ''])],
             ])
             ->assertSessionHasErrors(['rows.1.city_id' => 'اختر المنطقة.'])
@@ -139,7 +139,7 @@ class QuickEntryTest extends TestCase
         $this->actingAs($this->owner)
             ->from($this->host().'/shipments/quick')
             ->post($this->host().'/shipments/quick', [
-                'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
                 'rows' => [
                     $this->row(),
                     $this->row(['recipient_phone' => '123', 'amount' => '25000',
@@ -186,7 +186,8 @@ class QuickEntryTest extends TestCase
         Tenancy::runFor($this->company, function () use ($mosul, $other) {
             $this->assertSame([$mosul], Shipment::distinct()->pluck('governorate_id')->all());
             $this->assertSame(1, Shipment::where('merchant_id', $other->id)->count());
-            $this->assertSame(['customer'], Shipment::distinct()->pluck('fees_paid_by')->all());
+            // لا «من يدفع الأجرة» في الإدخال السريع: الأجرة على التاجر ولو أُرسل غيره
+            $this->assertSame(['merchant'], Shipment::distinct()->pluck('fees_paid_by')->all());
         });
     }
 
@@ -198,7 +199,7 @@ class QuickEntryTest extends TestCase
 
         $this->actingAs($this->owner)
             ->post($this->host().'/shipments/quick', [
-                'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
                 'courier_id' => $courier->id, 'rows' => [$this->row(), $this->row(['recipient_phone' => '07709998877'])],
             ])
             ->assertSessionHas('success', fn (string $m) => str_contains($m, 'وخرجت مع مندوب الكرادة'));
@@ -214,7 +215,7 @@ class QuickEntryTest extends TestCase
         $agent = $this->makeUser($this->company, UserRole::CustomerService);
         $this->actingAs($agent)
             ->post($this->host().'/shipments/quick', [
-                'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
                 'courier_id' => $courier->id, 'rows' => [$this->row()],
             ])
             ->assertForbidden();
@@ -224,14 +225,14 @@ class QuickEntryTest extends TestCase
     {
         $this->actingAs($this->owner)
             ->post($this->host().'/shipments/quick', [
-                'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
                 'rows' => array_fill(0, 31, $this->row()),
             ])
             ->assertSessionHasErrors('rows');
 
         $this->actingAs($this->owner)
             ->post($this->host().'/shipments/quick', [
-                'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'fees_paid_by' => 'merchant',
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
                 'rows' => [['governorate_id' => $this->baghdad()->id, 'amount' => '']],
             ])
             ->assertSessionHasErrors('rows');

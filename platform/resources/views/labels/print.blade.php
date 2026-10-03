@@ -128,6 +128,8 @@
                     @if ($shipment->weight_grams > 0)
                         <span>· الوزن <span class="num">{{ rtrim(rtrim(number_format($shipment->weight_grams / 1000, 2), '0'), '.') }}</span> كغم</span>
                     @endif
+                    @if ($shipment->type === 'exchange') <span class="tag">استبدال</span> @endif
+                    @if ($shipment->size === 'large') <span class="tag">حجم كبير</span> @endif
                     @if ($shipment->is_fragile) <span class="tag">قابل للكسر</span> @endif
                     @if ($shipment->allow_open) <span class="tag">يُسمح بالفتح</span> @endif
                 </div>

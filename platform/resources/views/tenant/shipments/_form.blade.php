@@ -27,7 +27,9 @@
         'discount'            => $shipment?->discount ?: null,
         'fee_prepaid'         => null,
     ])->contains(fn ($saved, $field) => $filled($field, $saved))
-        || old('is_fragile', $shipment?->is_fragile) || old('allow_open', $shipment?->allow_open);
+        || old('is_fragile', $shipment?->is_fragile) || old('allow_open', $shipment?->allow_open)
+        || old('type', $shipment?->type) === 'exchange' || old('size', $shipment?->size) === 'large'
+        || $errors->hasAny(['type', 'size']);
     // «أجرة التوصيل»: فارغٌ يتبع حساب التاجر (يُحاسَب مقدّماً)، وفي التعديل حالها
     $prepaidChoice = (string) old('fee_prepaid', $editing ? ($shipment->fee_prepaid ? '1' : '0') : '');
     $required = '<span class="text-primary-600" aria-hidden="true">*</span>';
@@ -194,7 +196,7 @@
                 <summary class="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-aeblack-800 [&::-webkit-details-marker]:hidden">
                     <x-icon name="sliders" class="size-4 text-ink-500"/>
                     خيارات إضافية
-                    <span class="hidden font-normal text-ink-500 sm:inline">— هاتف بديل، رقم الطلب، المحتوى، الوزن، تعديل الأجرة</span>
+                    <span class="hidden font-normal text-ink-500 sm:inline">— هاتف بديل، رقم الطلب، المحتوى، الاستبدال والحجم، تعديل الأجرة</span>
                     <x-icon name="chevron-down" class="ms-auto size-4 text-ink-500 transition group-open:rotate-180"/>
                 </summary>
 
@@ -218,13 +220,31 @@
                         @error('weight_grams') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
 
-                    <div class="sm:col-span-2">
+                    <div>
                         <label class="field-label" for="description">وصف المحتوى</label>
                         <input id="description" name="description" value="{{ old('description', $shipment?->description) }}"
                                class="field-input" placeholder="مثال: ملابس — قطعتان">
                         @error('description') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
-                    <div class="flex items-end gap-4 pb-2.5">
+                    <div>
+                        <label class="field-label" for="type">نوع الطلب</label>
+                        <select id="type" name="type" class="field-input">
+                            @foreach (\App\Models\Shipment::TYPES as $value => $label)
+                                <option value="{{ $value }}" @selected(old('type', $shipment?->type ?? 'delivery') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('type') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="field-label" for="size">حجم الطلب</label>
+                        <select id="size" name="size" class="field-input">
+                            @foreach (\App\Models\Shipment::SIZES as $value => $label)
+                                <option value="{{ $value }}" @selected(old('size', $shipment?->size ?? 'normal') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('size') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="flex items-center gap-4 sm:col-span-3">
                         <label class="flex items-center gap-2 text-sm">
                             <input type="checkbox" name="is_fragile" value="1" @checked(old('is_fragile', $shipment?->is_fragile))
                                    class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">

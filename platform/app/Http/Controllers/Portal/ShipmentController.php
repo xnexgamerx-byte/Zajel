@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Actions\Shipments\CreateShipment;
+use App\Actions\Waybills\CreateFromWaybill;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PortalShipmentRequest;
@@ -10,8 +11,10 @@ use App\Models\City;
 use App\Models\Conversation;
 use App\Models\Governorate;
 use App\Models\Shipment;
+use App\Models\WaybillBook;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ShipmentController extends Controller
@@ -53,24 +56,67 @@ class ShipmentController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $merchant = $request->attributes->get('merchant');
+
         return view('portal.shipments.create', [
+            // المحفوظة للتوّ: رقمها وطباعة وصلها، والنموذج تحتها فارغٌ للتالية
+            'created'      => Shipment::where('merchant_id', $merchant->id)->find($request->session()->get('created')),
+            'merchant'     => $merchant,
             'governorates' => Governorate::offered()->get(['id', 'name_ar']),
             'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
         ]);
     }
 
-    public function store(PortalShipmentRequest $request, CreateShipment $action): RedirectResponse
+    public function store(PortalShipmentRequest $request, CreateShipment $action, CreateFromWaybill $fromWaybill): RedirectResponse
     {
-        $shipment = $action->handle(
-            $request->validated() + ['source' => 'merchant_portal'],
-            $request->user(),
-        );
+        $merchant = $request->attributes->get('merchant');
+        $data = $request->validated() + ['source' => 'merchant_portal'];
+        $code = WaybillBook::fromInput($data['waybill'] ?? null);
+        unset($data['waybill']);
 
-        return redirect()
-            ->route('portal.shipments.show', $shipment)
-            ->with('success', "أُنشئت الشحنة برقم وصل {$shipment->number}. اطلب استلاماً متى جهّزت طرودك.");
+        if ($code === '') {
+            $shipment = $action->handle($data, $request->user());
+        } else {
+            // وصلٌ مطبوع على الطرد: تحمل الشحنة رقمه، فيجدها به المسح في الشركة
+            if ($problem = self::waybillProblem($code, $merchant->id)) {
+                throw ValidationException::withMessages(['waybill' => $problem]);
+            }
+
+            try {
+                $shipment = $fromWaybill->handle($code, $data, $request->user());
+            } catch (ValidationException) {
+                // سبقه إليه مسحٌ في اللحظة نفسها: رسالته قد تسمّي تاجراً غيره
+                throw ValidationException::withMessages(['waybill' => 'استُعمل هذا الوصل لشحنةٍ أخرى.']);
+            }
+        }
+
+        // الطلبات تُدخَل متتابعةً: نموذجٌ فارغ للتالية، وبطاقةٌ بالمحفوظة
+        return redirect()->route('portal.shipments.create')->with('created', $shipment->id);
+    }
+
+    /**
+     * ما يمنع التاجر من رقم وصلٍ مطبوع، أو null. وصولاته ووصولات المخزن تُقبل؛ ودفتر
+     * تاجرٍ غيره كأنه غير موجود — فلا يُعرف منه اسم تاجرٍ ولا رقم شحنته.
+     */
+    public static function waybillProblem(string $code, int $merchantId): ?string
+    {
+        $book = WaybillBook::forCode($code);
+
+        if (! $book || ($book->merchant_id && (int) $book->merchant_id !== $merchantId)) {
+            return 'الرقم '.WaybillBook::normalise($code).' ليس من وصولاتك المطبوعة.';
+        }
+
+        $used = Shipment::withTrashed()->where('barcode', WaybillBook::codeFor(WaybillBook::serialOf($code)))->first();
+
+        if ($used) {
+            return (int) $used->merchant_id === $merchantId
+                ? "استعملت هذا الوصل للشحنة {$used->number}."
+                : 'استُعمل هذا الوصل لشحنةٍ أخرى.';
+        }
+
+        return null;
     }
 
     public function show(Request $request, Shipment $shipment): View

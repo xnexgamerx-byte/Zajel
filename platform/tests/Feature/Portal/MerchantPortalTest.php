@@ -81,9 +81,7 @@ class MerchantPortalTest extends TestCase
             'city_id'         => $this->area('المنصور'),
             'landmark'        => 'قرب سوق المنصور',
             'pieces_count'    => 1,
-            'weight_grams'    => 1000,
             'cod_amount'      => 60_000,
-            'fees_paid_by'    => 'merchant',
         ], $overrides);
     }
 
@@ -175,7 +173,8 @@ class MerchantPortalTest extends TestCase
     {
         $this->actingAs($this->alphaUser)
             ->post($this->host().'/portal/shipments', $this->payload())
-            ->assertSessionHas('success');
+            ->assertRedirect($this->host().'/portal/shipments/create')
+            ->assertSessionHas('created');
 
         $shipment = Tenancy::runFor($this->company, fn () => Shipment::firstOrFail());
 
@@ -189,7 +188,7 @@ class MerchantPortalTest extends TestCase
     {
         $this->actingAs($this->alphaUser)
             ->post($this->host().'/portal/shipments', $this->payload(['merchant_id' => $this->beta->id]))
-            ->assertSessionHas('success');
+            ->assertSessionHas('created');
 
         // merchant_id من الحساب لا من الطلب
         $shipment = Tenancy::runFor($this->company, fn () => Shipment::firstOrFail());
@@ -202,7 +201,7 @@ class MerchantPortalTest extends TestCase
             ->post($this->host().'/portal/shipments', $this->payload([
                 'delivery_fee' => 0, 'discount' => 5000,
             ]))
-            ->assertSessionHas('success');
+            ->assertSessionHas('created');
 
         $shipment = Tenancy::runFor($this->company, fn () => Shipment::firstOrFail());
 
@@ -217,15 +216,20 @@ class MerchantPortalTest extends TestCase
             ->assertSessionHasErrors(['city_id' => 'اختر المنطقة.']);
     }
 
-    public function test_the_portal_needs_no_name_or_landmark(): void
+    public function test_the_portal_needs_a_name_but_no_landmark(): void
     {
+        // الأساسي من التاجر: الاسم والرقم والعنوان والسعر والعدد
         $this->actingAs($this->alphaUser)
-            ->post($this->host().'/portal/shipments', $this->payload(['recipient_name' => '', 'landmark' => '']))
-            ->assertSessionHas('success');
+            ->post($this->host().'/portal/shipments', $this->payload(['recipient_name' => '']))
+            ->assertSessionHasErrors(['recipient_name' => 'اكتب اسم الزبون.']);
+
+        $this->actingAs($this->alphaUser)
+            ->post($this->host().'/portal/shipments', $this->payload(['landmark' => '']))
+            ->assertSessionHas('created');
 
         $shipment = Tenancy::runFor($this->company, fn () => Shipment::firstOrFail());
 
-        $this->assertSame(Shipment::UNNAMED_RECIPIENT, $shipment->recipient_name);
+        $this->assertSame('زينب كاظم', $shipment->recipient_name);
         $this->assertSame('', $shipment->landmark);
     }
 

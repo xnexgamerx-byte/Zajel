@@ -95,6 +95,7 @@ class CreateShipment
 
                 'description'         => $data['description'] ?? null,
                 'pieces_count'        => (int) ($data['pieces_count'] ?? 1),
+                'size'                => $data['size'] ?? 'normal',
                 'weight_grams'        => $weight,
                 'is_fragile'          => (bool) ($data['is_fragile'] ?? false),
                 'allow_open'          => (bool) ($data['allow_open'] ?? false),

@@ -76,6 +76,12 @@
                             محاولة {{ $shipment->attempts_count + 1 }}
                         </span>
                     @endif
+                    @if ($shipment->type === 'exchange')
+                        <span class="rounded bg-warn-50 px-1.5 py-0.5 font-semibold text-warn-700">استبدال</span>
+                    @endif
+                    @if ($shipment->size === 'large')
+                        <span class="rounded bg-ink-100 px-1.5 py-0.5 font-semibold text-ink-700">حجم كبير</span>
+                    @endif
                     @if ($shipment->is_fragile)
                         <span class="rounded bg-bad-50 px-1.5 py-0.5 font-semibold text-bad-700">قابل للكسر</span>
                     @endif

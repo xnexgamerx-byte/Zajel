@@ -33,7 +33,8 @@
     @csrf
     <input type="hidden" name="mode" value="{{ $mode }}">
 
-    <section class="card mb-4 grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
+    {{-- لا «من يدفع الأجرة»: على التاجر كما في نموذج الشحنة (docs/plan/27) --}}
+    <section class="card mb-4 grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
         @if ($mode === 'merchant')
             <div>
                 <label class="field-label" for="merchant_id">التاجر <span class="text-red-500">*</span></label>
@@ -58,14 +59,6 @@
                 @error('governorate_id') <p class="field-error">{{ $message }}</p> @enderror
             </div>
         @endif
-
-        <div>
-            <label class="field-label" for="fees_paid_by">من يدفع الأجرة؟</label>
-            <select id="fees_paid_by" name="fees_paid_by" class="field-input">
-                <option value="merchant" @selected(old('fees_paid_by', 'merchant') === 'merchant')>التاجر (تُخصم من مستحقّه)</option>
-                <option value="customer" @selected(old('fees_paid_by') === 'customer')>الزبون (تُضاف على المبلغ)</option>
-            </select>
-        </div>
 
         @can('shipments.assign')
             <div>

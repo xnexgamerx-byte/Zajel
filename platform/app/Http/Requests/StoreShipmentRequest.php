@@ -41,6 +41,9 @@ class StoreShipmentRequest extends FormRequest
             'is_fragile'          => ['nullable', 'boolean'],
             'allow_open'          => ['nullable', 'boolean'],
             'notes'               => ['nullable', 'string', 'max:2000'],
+            // «نوع الطلب» و«حجم الطلب»: الفارغ طلبٌ جديد بحجمٍ عادي، وفي التعديل يبقى ما كان
+            'type'                => ['nullable', Rule::in(array_keys(\App\Models\Shipment::TYPES))],
+            'size'                => ['nullable', Rule::in(array_keys(\App\Models\Shipment::SIZES))],
 
             'cod_amount'          => ['required', 'integer', 'min:0', 'max:100000000'],
             'delivery_fee'        => ['nullable', 'integer', 'min:0', 'max:10000000'],
@@ -105,6 +108,8 @@ class StoreShipmentRequest extends FormRequest
             'address'         => 'العنوان',
             'landmark'        => 'أقرب نقطة دالّة',
             'pieces_count'    => 'عدد القطع',
+            'type'            => 'نوع الطلب',
+            'size'            => 'حجم الطلب',
             'weight_grams'    => 'الوزن',
             'cod_amount'      => 'المبلغ المطلوب',
             'delivery_fee'    => 'أجرة التوصيل',

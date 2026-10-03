@@ -72,6 +72,13 @@
                 <dd class="font-bold text-[var(--brand)]">{{ $shipment->landmark }}</dd>
             </div>
         @endif
+        @if ($shipment->type === 'exchange')
+            {{-- يُسلَّم الجديد ويُستلَم القديم: يعرفه المندوب قبل أن يطرق الباب --}}
+            <div class="rounded-lg bg-warn-50 px-3 py-2">
+                <dt class="text-xs text-warn-700">نوع الطلب</dt>
+                <dd class="font-bold text-warn-700">استبدال — سلّم الجديد واستلم القديم من الزبون</dd>
+            </div>
+        @endif
         @if ($shipment->notes)
             <div class="rounded-lg bg-warn-50 px-3 py-2">
                 <dt class="text-xs text-warn-700">ملاحظة التاجر</dt>
@@ -86,6 +93,16 @@
             <dt class="text-ink-500">القطع</dt>
             <dd class="font-medium" dir="ltr">{{ $shipment->pieces_count }}</dd>
         </div>
+        <div class="flex justify-between">
+            <dt class="text-ink-500">الحجم</dt>
+            <dd @class(['font-medium', 'font-bold text-warn-700' => $shipment->size === 'large'])>{{ \App\Models\Shipment::SIZES[$shipment->size] ?? $shipment->size }}</dd>
+        </div>
+        @if ($shipment->description)
+            <div class="flex justify-between gap-3">
+                <dt class="shrink-0 text-ink-500">نوع البضاعة</dt>
+                <dd class="text-end font-medium">{{ $shipment->description }}</dd>
+            </div>
+        @endif
         @if ($shipment->lastFailureReason)
             <div class="flex justify-between">
                 <dt class="text-ink-500">آخر محاولة</dt>

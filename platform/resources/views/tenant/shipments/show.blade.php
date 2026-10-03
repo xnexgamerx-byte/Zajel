@@ -112,6 +112,10 @@
                      <dd class="font-medium" dir="ltr">{{ number_format($shipment->weight_grams / 1000, 2) }} كغم</dd></div>
                 <div><dt class="text-ink-500">المحاولات</dt>
                      <dd class="font-medium" dir="ltr">{{ $shipment->attempts_count }}</dd></div>
+                <div><dt class="text-ink-500">نوع الطلب</dt>
+                     <dd @class(['font-medium', 'text-warn-700' => $shipment->type === 'exchange'])>{{ \App\Models\Shipment::TYPES[$shipment->type] ?? $shipment->type }}</dd></div>
+                <div><dt class="text-ink-500">حجم الطلب</dt>
+                     <dd @class(['font-medium', 'text-warn-700' => $shipment->size === 'large'])>{{ \App\Models\Shipment::SIZES[$shipment->size] ?? $shipment->size }}</dd></div>
                 @if ($shipment->description)
                     <div class="col-span-2 sm:col-span-4"><dt class="text-ink-500">المحتوى</dt>
                          <dd class="font-medium">{{ $shipment->description }}</dd></div>

@@ -25,6 +25,18 @@ class Shipment extends Model
      */
     public const UNNAMED_RECIPIENT = 'الزبون';
 
+    /** «نوع الطلب» في النموذجين: طلبٌ يُسلَّم، أو استبدالٌ يُسلَّم فيه الجديد ويُرجَع القديم */
+    public const TYPES = [
+        'delivery' => 'طلب جديد',
+        'exchange' => 'استبدال',
+    ];
+
+    /** «حجم الطلب»: يُطبع على الوصل ويراه المندوب، ولا يغيّر الأجرة */
+    public const SIZES = [
+        'normal' => 'عادي',
+        'large'  => 'كبير',
+    ];
+
     /** كود التسليم لا يُسلسَل إلى أيّ ردٍّ عن غير قصد: يُقرأ باسمه حيث يُعرض عمداً */
     protected $hidden = ['delivery_code'];
 

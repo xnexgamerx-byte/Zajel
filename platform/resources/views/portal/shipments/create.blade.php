@@ -2,166 +2,197 @@
 @section('title', 'شحنة جديدة')
 
 @section('content')
-<div class="mb-5 flex items-center justify-between">
+{{--
+  نموذج التاجر: حقول طلبه وحدها (docs/plan/28). أساسها الاسم والرقم والعنوان والسعر
+  والعدد (يُكتب ١ تلقائياً)، وما سواها اختياري. لا أجور فيه ولا «من يدفع»: الأجرة
+  عليه من تسعيرته مع الشركة، والسعر ما يدفعه الزبون كاملاً.
+--}}
+@php
+    $required = '<span class="text-primary-600" aria-hidden="true">*</span>';
+    $goods = $merchant->goodsTypeLabel();
+@endphp
+<div class="mx-auto mb-5 flex max-w-3xl flex-wrap items-center justify-between gap-3">
     <div>
         <h1 class="page-title">شحنة جديدة</h1>
-        <p class="mt-1 text-sm text-ink-500">
-            رقم الوصل يُولَّد عند الحفظ، والأجرة تُحسب من تسعيرتك مع {{ $company->name }}.
-        </p>
+        <p class="mt-1 text-sm text-ink-500">الأساسي: الاسم والرقم والعنوان والسعر والعدد — والباقي اختياري.</p>
     </div>
-    <a href="{{ route('portal.shipments.index') }}" class="btn-ghost">رجوع</a>
+    <a href="{{ route('portal.shipments.index') }}" class="btn-ghost">شحناتي</a>
 </div>
 
-<form method="POST" action="{{ route('portal.shipments.store') }}" class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+@if ($created)
+    {{-- المحفوظة للتوّ: رقمها وطباعة وصلها، والنموذج تحتها فارغٌ للتالية --}}
+    <div class="mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-3 rounded-3xl border border-ok-200 bg-ok-50 px-5 py-3.5 text-sm text-ok-700"
+         role="status">
+        <span class="grid size-8 shrink-0 place-items-center rounded-full bg-white text-ok-700"><x-icon name="check" class="size-5"/></span>
+        <span>
+            حُفظت الشحنة
+            <a href="{{ route('portal.shipments.show', $created) }}" class="num font-bold underline-offset-4 hover:underline">{{ $created->number }}</a>
+            — {{ $created->recipient_name }}، <span class="num">{{ number_format($created->cod_amount) }}</span> د.ع
+            @if ($created->waybill_book_id) · على الوصل المطبوع <span class="num">{{ $created->barcode }}</span> @endif
+        </span>
+        <span class="ms-auto flex flex-wrap items-center gap-2">
+            <a href="{{ route('portal.pickups.index') }}" class="text-xs font-medium underline-offset-4 hover:underline">اطلب استلاماً</a>
+            @unless ($created->waybill_book_id)
+                <a href="{{ route('portal.shipments.labels', ['ids' => [$created->id]]) }}" target="_blank" class="btn-ghost">
+                    <x-icon name="printer" class="size-4"/>
+                    اطبع الوصل
+                </a>
+            @endunless
+        </span>
+    </div>
+@endif
+
+<form method="POST" action="{{ route('portal.shipments.store') }}" class="mx-auto max-w-3xl">
     @csrf
 
-    <div class="space-y-5 lg:col-span-2">
-        <section class="card p-5">
-            {{-- ما لا تخرج شحنةٌ بغيره: الهاتف والمحافظة والمنطقة (والمبلغ بجانبها). والباقي اختياري --}}
-            <h2 class="mb-4 text-sm font-bold">الزبون والعنوان</h2>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                    <label class="field-label" for="recipient_phone">هاتف الزبون <span class="text-red-500">*</span></label>
-                    <input id="recipient_phone" name="recipient_phone" class="field-input text-left" dir="ltr"
-                           inputmode="numeric" placeholder="07xxxxxxxxx" required value="{{ old('recipient_phone') }}">
-                    @error('recipient_phone') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="field-label" for="recipient_name">اسم الزبون</label>
-                    <input id="recipient_name" name="recipient_name" class="field-input" placeholder="اختياري"
-                           value="{{ old('recipient_name') }}">
-                    @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
+    <section class="card overflow-hidden">
+        <div class="divide-y divide-ink-100">
 
-                <div>
-                    <label class="field-label" for="governorate_id">المحافظة <span class="text-red-500">*</span></label>
-                    <select id="governorate_id" name="governorate_id" class="field-input" required>
-                        <option value="">اختر المحافظة</option>
-                        @foreach ($governorates as $gov)
-                            <option value="{{ $gov->id }}" @selected((int) old('governorate_id') === $gov->id)>
-                                {{ $gov->name_ar }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('governorate_id') <p class="field-error">{{ $message }}</p> @enderror
+            {{-- الزبون --}}
+            <div class="px-5 py-5 sm:px-7">
+                <div class="panel-head mb-3">
+                    <span class="panel-head-icon"><x-icon name="user" class="size-5"/></span>
+                    <h2 class="panel-head-title text-base">الزبون</h2>
                 </div>
-                <div>
-                    <label class="field-label" for="city_id">المنطقة <span class="text-red-500">*</span></label>
-                    <select id="city_id" name="city_id" class="field-input" data-searchable data-old="{{ old('city_id') }}">
-                        <option value="">اختر المحافظة أولاً</option>
-                    </select>
-                    @error('city_id') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-
-                <div class="sm:col-span-2">
-                    <label class="field-label" for="landmark">أقرب نقطة دالّة</label>
-                    <input id="landmark" name="landmark" class="field-input"
-                           placeholder="اختياري — مثال: مقابل جامع الرحمن · قرب مول بابل"
-                           value="{{ old('landmark') }}">
-                    @error('landmark') <p class="field-error">{{ $message }}</p> @enderror
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="field-label" for="recipient_name">اسم الزبون {!! $required !!}</label>
+                        <input id="recipient_name" name="recipient_name" class="field-input" placeholder="مثلاً: طه محمد"
+                               autocomplete="off" required autofocus value="{{ old('recipient_name') }}">
+                        @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="field-label" for="recipient_phone">رقم الهاتف الأساسي {!! $required !!}</label>
+                        <input id="recipient_phone" name="recipient_phone" class="field-input text-left" dir="ltr"
+                               inputmode="numeric" autocomplete="off" placeholder="07xxxxxxxxx" required value="{{ old('recipient_phone') }}">
+                        @error('recipient_phone') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="field-label" for="recipient_phone_alt">رقم الهاتف الثانوي</label>
+                        <input id="recipient_phone_alt" name="recipient_phone_alt" class="field-input text-left" dir="ltr"
+                               inputmode="numeric" autocomplete="off" placeholder="اختياري" value="{{ old('recipient_phone_alt') }}">
+                        @error('recipient_phone_alt') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
                 </div>
             </div>
-        </section>
 
-        @php
-            $extrasOpen = $errors->hasAny(['recipient_phone_alt', 'merchant_reference', 'pieces_count', 'weight_grams'])
-                || collect(['recipient_phone_alt', 'merchant_reference', 'description', 'weight_grams', 'notes', 'is_fragile', 'allow_open'])
-                    ->contains(fn ($field) => filled(old($field)))
-                || (int) old('pieces_count', 1) !== 1;
-        @endphp
-        {{-- ما يُكتب أحياناً: مطويٌّ حتى يُحتاج — ومفتوحٌ إن كان فيه ما كُتب أو ما رُفض --}}
-        <details class="card p-5" @if ($extrasOpen) open @endif>
-            <summary class="cursor-pointer text-sm font-bold">
-                تفاصيل إضافية
-                <span class="font-normal text-ink-500">— اختيارية: هاتف بديل، رقم طلبك، المحتوى، القطع والوزن، ملاحظة للمندوب</span>
-            </summary>
-            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                    <label class="field-label" for="recipient_phone_alt">هاتف بديل</label>
-                    <input id="recipient_phone_alt" name="recipient_phone_alt" class="field-input text-left" dir="ltr"
-                           placeholder="07xxxxxxxxx" value="{{ old('recipient_phone_alt') }}">
-                    <p class="mt-1 text-xs text-ink-500">رقم ثانٍ يقلّل الرواجع كثيراً.</p>
-                    @error('recipient_phone_alt') <p class="field-error">{{ $message }}</p> @enderror
+            {{-- العنوان --}}
+            <div class="px-5 py-5 sm:px-7">
+                <div class="panel-head mb-3">
+                    <span class="panel-head-icon"><x-icon name="pin" class="size-5"/></span>
+                    <h2 class="panel-head-title text-base">العنوان</h2>
                 </div>
-                <div>
-                    <label class="field-label" for="merchant_reference">رقم الطلب عندك</label>
-                    <input id="merchant_reference" name="merchant_reference" class="field-input"
-                           placeholder="اختياري" value="{{ old('merchant_reference') }}">
-                </div>
-                <div class="sm:col-span-3">
-                    <label class="field-label" for="description">المحتوى</label>
-                    <input id="description" name="description" class="field-input"
-                           placeholder="مثال: ملابس — قطعتان" value="{{ old('description') }}">
-                </div>
-                <div>
-                    <label class="field-label" for="pieces_count">عدد القطع <span class="text-red-500">*</span></label>
-                    <input id="pieces_count" name="pieces_count" type="number" min="1" class="field-input text-left"
-                           dir="ltr" required value="{{ old('pieces_count', 1) }}">
-                    @error('pieces_count') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="field-label" for="weight_grams">الوزن (غرام)</label>
-                    <input id="weight_grams" name="weight_grams" type="number" min="0" class="field-input text-left"
-                           dir="ltr" placeholder="اختياري" value="{{ old('weight_grams') }}">
-                </div>
-                <div class="flex items-end gap-4 pb-2">
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="is_fragile" value="1" @checked(old('is_fragile'))
-                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
-                        قابل للكسر
-                    </label>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="allow_open" value="1" @checked(old('allow_open'))
-                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
-                        يُفتح
-                    </label>
-                </div>
-                <div class="sm:col-span-3">
-                    <label class="field-label" for="notes">ملاحظات للمندوب</label>
-                    <textarea id="notes" name="notes" rows="2" class="field-input"
-                              placeholder="مثال: اتصل قبل الوصول بنصف ساعة">{{ old('notes') }}</textarea>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="field-label" for="governorate_id">المحافظة {!! $required !!}</label>
+                        <select id="governorate_id" name="governorate_id" class="field-input" required>
+                            <option value="">اختر المحافظة</option>
+                            @foreach ($governorates as $gov)
+                                <option value="{{ $gov->id }}" @selected((int) old('governorate_id') === $gov->id)>{{ $gov->name_ar }}</option>
+                            @endforeach
+                        </select>
+                        @error('governorate_id') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="field-label" for="city_id">المنطقة {!! $required !!}</label>
+                        <select id="city_id" name="city_id" class="field-input" data-searchable data-old="{{ old('city_id') }}">
+                            <option value="">اختر المحافظة أولاً</option>
+                        </select>
+                        @error('city_id') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="field-label" for="landmark">أقرب نقطة دالّة</label>
+                        <input id="landmark" name="landmark" class="field-input"
+                               placeholder="اختياري — مثال: مقابل جامع الرحمن · قرب مول بابل" value="{{ old('landmark') }}">
+                        @error('landmark') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
                 </div>
             </div>
-        </details>
-    </div>
 
-    <div>
-        <section class="card sticky top-20 space-y-4 p-5">
-            <h2 class="text-sm font-bold">المبلغ</h2>
+            {{-- الطلب --}}
+            <div class="px-5 py-5 sm:px-7">
+                <div class="panel-head mb-3">
+                    <span class="panel-head-icon"><x-icon name="box" class="size-5"/></span>
+                    <h2 class="panel-head-title text-base">الطلب</h2>
+                </div>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div class="sm:col-span-2">
+                        <label class="field-label" for="cod_amount">السعر مع التوصيل {!! $required !!}</label>
+                        <div class="relative">
+                            {{-- فارغٌ لا صفر: يُكتب السعر مباشرةً، والصفر يُكتب قصداً لما دُفع مسبقاً --}}
+                            <input id="cod_amount" name="cod_amount" type="number" min="0" step="1" required placeholder="مثلاً 25 000"
+                                   class="field-input ps-12 text-left text-base font-semibold placeholder:font-normal" dir="ltr" value="{{ old('cod_amount') }}">
+                            <span class="absolute inset-y-0 end-4 flex items-center text-xs text-ink-400">د.ع</span>
+                        </div>
+                        <p class="field-hint">ما يدفعه الزبون كاملاً مع أجرة التوصيل — 0 إن دفع لك مسبقاً.</p>
+                        @error('cod_amount') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="field-label" for="pieces_count">عدد القطع {!! $required !!}</label>
+                        <input id="pieces_count" name="pieces_count" type="number" min="1" max="255" required
+                               class="field-input text-left" dir="ltr" value="{{ old('pieces_count', 1) }}">
+                        @error('pieces_count') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
 
-            <div>
-                <label class="field-label" for="cod_amount">
-                    المطلوب من الزبون <span class="text-red-500">*</span>
+                    <div>
+                        <label class="field-label" for="description">نوع البضاعة</label>
+                        <input id="description" name="description" class="field-input" maxlength="2000"
+                               placeholder="مثلاً: {{ $goods && ! in_array($merchant->goods_type, ['general', 'other'], true) ? $goods : 'ملابس' }}"
+                               value="{{ old('description') }}">
+                        @error('description') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="field-label" for="size">حجم الطلب</label>
+                        <select id="size" name="size" class="field-input">
+                            @foreach (\App\Models\Shipment::SIZES as $value => $label)
+                                <option value="{{ $value }}" @selected(old('size', 'normal') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('size') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="field-label" for="type">نوع الطلب</label>
+                        <select id="type" name="type" class="field-input">
+                            @foreach (\App\Models\Shipment::TYPES as $value => $label)
+                                <option value="{{ $value }}" @selected(old('type', 'delivery') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('type') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div class="sm:col-span-3">
+                        <label class="field-label" for="notes">الملاحظات</label>
+                        <textarea id="notes" name="notes" rows="2" class="field-input"
+                                  placeholder="اختياري — تُطبع على الوصل للمندوب، مثال: اتصل قبل الوصول">{{ old('notes') }}</textarea>
+                        @error('notes') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+            </div>
+
+            {{-- «البروموكود» في النظام المعتاد: رقم الوصل المطبوع الملصوق على الطرد، إن وُجد --}}
+            <div class="px-5 py-5 sm:px-7">
+                <label class="field-label flex items-center gap-2" for="waybill">
+                    <x-icon name="receipt" class="size-4 text-ink-500"/>
+                    رقم الوصل المطبوع
                 </label>
-                <div class="relative">
-                    <input id="cod_amount" name="cod_amount" type="number" min="0" step="1" required placeholder="مثلاً 5 000"
-                           class="field-input ps-12 text-left" dir="ltr" value="{{ old('cod_amount') }}">
-                    <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
-                </div>
-                <p class="mt-1 text-xs text-ink-500">اكتب 0 إن كان الزبون دفع لك مسبقاً.</p>
-                @error('cod_amount') <p class="field-error">{{ $message }}</p> @enderror
+                <input id="waybill" name="waybill" class="field-input" inputmode="numeric" autocomplete="off"
+                       maxlength="20" placeholder="اختياري — امسح رمز الوصل أو اكتب رقمه" value="{{ old('waybill') }}">
+                <p class="field-hint">
+                    إن لصقت على الطرد وصلاً من <a href="{{ route('portal.waybills.index') }}" class="underline underline-offset-4">وصولات للطباعة</a>
+                    تحمل الشحنة رقمه، فلا تحتاج طباعة وصلٍ لها.
+                </p>
+                @error('waybill') <p class="field-error">{{ $message }}</p> @enderror
             </div>
+        </div>
 
-            <div>
-                <label class="field-label" for="fees_paid_by">من يدفع أجرة التوصيل؟</label>
-                <select id="fees_paid_by" name="fees_paid_by" class="field-input" required>
-                    <option value="merchant" @selected(old('fees_paid_by', 'merchant') === 'merchant')>
-                        أنا (تُخصم من مستحقّي)
-                    </option>
-                    <option value="customer" @selected(old('fees_paid_by') === 'customer')>
-                        الزبون (فوق المبلغ)
-                    </option>
-                </select>
-            </div>
-
-            <div class="rounded-lg bg-ink-50 px-3 py-2.5 text-xs text-ink-600 ring-1 ring-ink-200">
-                الأجرة تُحسب من تسعيرتك مع {{ $company->name }} حسب المحافظة والوزن،
-                وتظهر في صفحة الشحنة بعد الحفظ.
-            </div>
-
-            <button type="submit" class="btn-primary w-full">احفظ الشحنة</button>
-        </section>
-    </div>
+        <div class="border-t border-ink-100 bg-ink-50/70 px-5 py-4 sm:px-7">
+            <button type="submit" class="btn-primary w-full py-3 text-base">
+                <x-icon name="check" class="size-5"/>
+                حفظ الشحنة
+            </button>
+            <p class="mt-2 text-center text-xs text-ink-500">بعد الحفظ يفتح النموذج للطلب التالي.</p>
+        </div>
+    </section>
 </form>
 
 @php
