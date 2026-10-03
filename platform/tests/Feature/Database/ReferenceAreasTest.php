@@ -31,6 +31,7 @@ class ReferenceAreasTest extends TestCase
         '2026_01_03_000300_add_karbala_reference_areas.php',
         '2026_01_03_000400_add_anbar_reference_areas.php',
         '2026_01_03_000500_add_babil_reference_areas.php',
+        '2026_01_03_000600_add_basra_reference_areas.php',
     ];
 
     /** @return array<string, list<string>> */
@@ -62,6 +63,7 @@ class ReferenceAreasTest extends TestCase
         $this->assertCount(223, $lists['KRB']);
         $this->assertCount(412, $lists['ANB']);
         $this->assertCount(151, $lists['BBL']);
+        $this->assertCount(318, $lists['BSR']);
 
         foreach ($lists as $code => $names) {
             $this->assertSame(count($names), count(array_unique(array_map(Arabic::looseFold(...), $names))), "منطقتان بالاسم نفسه في {$code}");
@@ -100,6 +102,14 @@ class ReferenceAreasTest extends TestCase
         $this->assertNotContains('باب الحسين', $lists['BBL']);
         $this->assertContains('الحصوة', $lists['BBL']);
         $this->assertNotContains('حصوة بابل', $lists['BBL']);
+
+        // «بصرة- حي الرسالة» هي «حي الرسالة» الموجودة، و«*دور الصحة» بلا النجمة، و«ش14 تموز» شارعٌ
+        $this->assertNotContains('حي الرسالة', $lists['BSR']);
+        $this->assertContains('دور الصحة', $lists['BSR']);
+        $this->assertContains('شارع 14 تموز', $lists['BSR']);
+        foreach ($lists['BSR'] as $name) {
+            $this->assertDoesNotMatchRegularExpression('/^\*|(^|[ -])بصر[ةه]( |$)|^البصر[ةه] -/u', $name, "«{$name}»: اسم المحافظة أو علامةٌ زائدة");
+        }
     }
 
     public function test_seeding_gives_each_listed_area_once_beside_what_was_there(): void
