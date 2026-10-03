@@ -39,6 +39,7 @@ class ReferenceAreasTest extends TestCase
         '2026_01_03_000800_add_diyala_reference_areas.php',
         '2026_01_03_000900_add_erbil_reference_areas.php',
         '2026_01_03_001000_add_kirkuk_reference_areas.php',
+        '2026_01_03_001100_add_maysan_reference_areas.php',
     ];
 
     /** @return array<string, list<string>> */
@@ -75,6 +76,7 @@ class ReferenceAreasTest extends TestCase
         $this->assertCount(399, $lists['DYL']);
         $this->assertCount(386, $lists['ERB']);
         $this->assertCount(114, $lists['KIR']);
+        $this->assertCount(177, $lists['MYS']);
 
         foreach ($lists as $code => $names) {
             $this->assertSame(count($names), count(array_unique(array_map(Arabic::looseFold(...), $names))), "منطقتان بالاسم نفسه في {$code}");
@@ -145,6 +147,13 @@ class ReferenceAreasTest extends TestCase
         $this->assertNotContains('مكتب خالد', $lists['KIR']);
         $this->assertNotContains('رياض', $lists['KIR']);
         $this->assertContains('دور الكبريت', $lists['KIR']);
+
+        // ميسان: «ناحيه كميت» و«قضاء علي غربي» هما «كميت» و«علي الغربي» الموجودتان
+        foreach ($lists['MYS'] as $name) {
+            $this->assertDoesNotMatchRegularExpression('/^(قضاء|ناحيه|ناحية) /u', $name, "«{$name}»");
+        }
+        $this->assertNotContains('مركز', $lists['MYS']);
+        $this->assertContains('حي الصحفيين', $lists['MYS']);
         foreach ($lists as $code => $names) {
             foreach ($names as $name) {
                 // لا فاصل خفيّاً، ولا «ی» و«ک» الفارسيتين: تُكتبان «ي» و«ك»
