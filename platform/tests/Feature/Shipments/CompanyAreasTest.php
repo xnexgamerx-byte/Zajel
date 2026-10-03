@@ -144,7 +144,7 @@ class CompanyAreasTest extends TestCase
         $this->assertStringContainsString('ليست في البصرة', implode(' ', $read($this->barq)['errors']));
     }
 
-    /** صفّ Excel بـ«صالحية» يجد «الصالحية»، و«مدينه قطاع 33» تجد قطاعها — والملتبس يُردّ */
+    /** صفّ Excel بـ«صالحية» يجد «الصالحية»، و«الرشاد» «حي الرشاد»، و«مدينه قطاع 33» قطاعها — والملتبس يُردّ */
     public function test_an_excel_row_finds_an_area_written_without_its_article(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'zajel-test-').'.xlsx';
@@ -154,6 +154,7 @@ class CompanyAreasTest extends TestCase
             ['07801234567', 'بغداد', 'صالحية', 25000],
             ['07801234568', 'بغداد', 'مدينه قطاع 33', 25000],
             ['07801234569', 'بغداد', 'شارع 60', 25000],
+            ['07801234570', 'بغداد', 'الرشاد', 25000],
         ], null, 'A1');
         (new Xlsx($book))->save($path);
 
@@ -166,6 +167,9 @@ class CompanyAreasTest extends TestCase
         $this->assertSame($this->area('مدينة الصدر - قطاع 33'), $rows[1]['data']['city_id']);
         // وما يحتمل مناطق عدّة لا يُخمَّن
         $this->assertStringContainsString('ليست في بغداد', implode(' ', $rows[2]['errors']));
+        // و«الرشاد» بلا «حي» هي «حي الرشاد»
+        $this->assertSame([], $rows[3]['errors']);
+        $this->assertSame($this->area('حي الرشاد'), $rows[3]['data']['city_id']);
     }
 
     public function test_a_name_already_there_is_not_added_twice_even_spelled_differently(): void
@@ -175,6 +179,9 @@ class CompanyAreasTest extends TestCase
             ->assertSessionHasErrors(['name_ar' => '«الكرادة» موجودة سلفاً في بغداد.']);
         $this->add('كراده', $this->baghdad())
             ->assertSessionHasErrors(['name_ar' => '«الكرادة» موجودة سلفاً في بغداد.']);
+        // و«الرشاد» بلا «حي» هي «حي الرشاد»
+        $this->add('الرشاد', $this->baghdad())
+            ->assertSessionHasErrors(['name_ar' => '«حي الرشاد» موجودة سلفاً في بغداد.']);
 
         $this->add('حي الأمير الجديد')->assertSessionHas('success');
         $this->add('حى الامير الجديد')->assertSessionHasErrors(['name_ar' => '«حي الأمير الجديد» موجودة سلفاً في البصرة.']);

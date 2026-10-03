@@ -8,8 +8,9 @@ use Illuminate\Support\Facades\DB;
  * مناطق عامّة تُضاف لمحافظة من قائمة (database/data/reference-areas.php) — يستدعيه ترحيل
  * بيانات، فتصل الخوادم القائمة مع التحديث.
  *
- * لا يُكرَّر موجود: المقارنة بالاسم المطويّ بلا «ال» (Arabic::looseFold)، فـ«صالحية» لا
- * تُضاف حيث «الصالحية». ومنطقةٌ كانت شركةٌ أضافتها لنفسها لأنّها نقصت القائمة، وجاءت الآن
+ * لا يُكرَّر موجود: المقارنة بالاسم المطويّ بلا «ال» وبلا «حي» أو «منطقة» في أوّله
+ * (Arabic::looseFold)، فـ«صالحية» لا تُضاف حيث «الصالحية» ولا «النقيب» حيث «حي النقيب».
+ * ومنطقةٌ كانت شركةٌ أضافتها لنفسها لأنّها نقصت القائمة، وجاءت الآن
  * عامّةً، تُضمّ إلى العامّة: شحناتها وتجّارها وفروعها ومناديبها وأجورها وتسعيراتها تشير
  * إليها، فلا ترى الشركة الاسم مرّتين في كل قائمة.
  *
@@ -87,22 +88,59 @@ final class AreaImport
             ->filter(fn ($city) => isset($added[Arabic::looseFold($city->name_ar)]));
 
         foreach ($copies as $copy) {
-            $to = $global[$added[Arabic::looseFold($copy->name_ar)]];
-
-            DB::transaction(function () use ($copy, $to) {
-                // مندوبٌ أو إعدادٌ على النسختين معاً (شركةٌ أضافت الاسم بكتابتين): يبقى واحدٌ.
-                // القيم أوّلاً: MySQL لا يحذف من جدولٍ بشرطٍ يقرأ الجدول نفسه
-                $couriers = DB::table('courier_zones')->where('city_id', $to)->pluck('courier_id')->all();
-                $companies = DB::table('city_settings')->where('city_id', $to)->pluck('company_id')->all();
-                DB::table('courier_zones')->where('city_id', $copy->id)->whereIn('courier_id', $couriers)->delete();
-                DB::table('city_settings')->where('city_id', $copy->id)->whereIn('company_id', $companies)->delete();
-
-                foreach (self::REFERENCES as [$table, $column]) {
-                    DB::table($table)->where($column, $copy->id)->update([$column => $to]);
-                }
-
-                DB::table('cities')->where('id', $copy->id)->delete();
-            });
+            self::merge($copy->id, $global[$added[Arabic::looseFold($copy->name_ar)]]);
         }
+    }
+
+    /**
+     * منطقةٌ عامّة أُضيفت من قائمةٍ ثم تبيّن أنّها موجودةٌ قبلها باسمٍ يساويها («الرشاد» و«حي
+     * الرشاد»): تُضمّ إلى الأقدم. لا شيء إن لم تُضف، أو لم يكن لها أقدم.
+     *
+     * @param  iterable<string>  $names  أسماؤها كما أُضيفت
+     * @return int عدد ما ضُمّ
+     */
+    public static function mergeDuplicates(string $governorateCode, iterable $names): int
+    {
+        $governorateId = DB::table('governorates')->where('code', $governorateCode)->value('id');
+
+        if (! $governorateId) {
+            return 0;
+        }
+
+        $global = DB::table('cities')->where('governorate_id', $governorateId)->whereNull('company_id')
+            ->orderBy('id')->get(['id', 'name_ar']);
+        $merged = 0;
+
+        foreach ($names as $name) {
+            $from = $global->first(fn ($city) => $city->name_ar === $name);
+            $to = $from ? $global->first(fn ($city) => $city->id < $from->id
+                && Arabic::looseFold($city->name_ar) === Arabic::looseFold($name)) : null;
+
+            if ($to) {
+                self::merge($from->id, $to->id);
+                $merged++;
+            }
+        }
+
+        return $merged;
+    }
+
+    /** كل ما أشار إلى منطقةٍ يشير إلى أخرى، وتُحذف الأولى */
+    private static function merge(int $from, int $to): void
+    {
+        DB::transaction(function () use ($from, $to) {
+            // مندوبٌ أو إعدادٌ على المنطقتين معاً (شركةٌ أضافت الاسم بكتابتين): يبقى ما على
+            // الباقية. القيم أوّلاً: MySQL لا يحذف من جدولٍ بشرطٍ يقرأ الجدول نفسه
+            $couriers = DB::table('courier_zones')->where('city_id', $to)->pluck('courier_id')->all();
+            $companies = DB::table('city_settings')->where('city_id', $to)->pluck('company_id')->all();
+            DB::table('courier_zones')->where('city_id', $from)->whereIn('courier_id', $couriers)->delete();
+            DB::table('city_settings')->where('city_id', $from)->whereIn('company_id', $companies)->delete();
+
+            foreach (self::REFERENCES as [$table, $column]) {
+                DB::table($table)->where($column, $from)->update([$column => $to]);
+            }
+
+            DB::table('cities')->where('id', $from)->delete();
+        });
     }
 }

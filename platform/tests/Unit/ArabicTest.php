@@ -82,4 +82,18 @@ class ArabicTest extends TestCase
         $this->assertNotSame(Arabic::fold('حي الخضراء'), Arabic::fold('المنطقة الخضراء'));
         $this->assertSame('', Arabic::fold(null));
     }
+
+    /** اسم المنطقة يُكتب بالتعريف وبدونه، وبـ«حي» أو «منطقة» قبله وبدونهما */
+    public function test_loose_fold_lets_an_area_be_written_without_its_article_or_hay(): void
+    {
+        $this->assertSame(Arabic::looseFold('الصالحية'), Arabic::looseFold('صالحيه'));
+        $this->assertSame(Arabic::looseFold('حي الرشاد'), Arabic::looseFold('الرشاد'));
+        $this->assertSame(Arabic::looseFold('حي النقيب'), Arabic::looseFold('نقيب'));
+        $this->assertSame(Arabic::looseFold('منطقة الغدير'), Arabic::looseFold('الغدير'));
+
+        // «المنطقة الخضراء» اسمٌ بذاته، لا «منطقة» تسبق «الخضراء»؛ و«حي» وحدها تبقى
+        $this->assertNotSame(Arabic::looseFold('حي الخضراء'), Arabic::looseFold('المنطقة الخضراء'));
+        $this->assertNotSame(Arabic::looseFold('حي الرشاد'), Arabic::looseFold('شارع الرشاد'));
+        $this->assertSame('حي', Arabic::looseFold('حي'));
+    }
 }
