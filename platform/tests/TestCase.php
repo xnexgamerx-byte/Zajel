@@ -12,6 +12,8 @@ use App\Models\PriceListRule;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Testing\TestResponse;
+use PHPUnit\Framework\Assert;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -37,6 +39,19 @@ abstract class TestCase extends BaseTestCase
         */
         \Illuminate\Support\Facades\Event::listen('eloquent.saving: *', function (string $event, array $models) {
             \Tests\Support\ColumnLengths::assertFits($models[0]);
+        });
+
+        /*
+        | رقم شحنةٍ غائبٌ عن الصفحة رقماً قائماً بذاته: «000001» ليست في «1000001».
+        | MySQL لا يُرجع العدّاد التلقائي مع تراجع الاختبار، فتبلغ معرّفات المناطق
+        | الملايين في أثناء التشغيل — وصفحة الشحنات تحمل المناطق كلّها لفلترها.
+        */
+        TestResponse::macro('assertDontSeeNumber', function (string $number): TestResponse {
+            /** @var TestResponse $this */
+            Assert::assertDoesNotMatchRegularExpression('/(?<![0-9])'.preg_quote(e($number), '/').'(?![0-9])/',
+                $this->getContent(), "الرقم {$number} في الصفحة");
+
+            return $this;
         });
     }
 

@@ -237,7 +237,7 @@ class ReturnFlowTest extends TestCase
             ->get($this->host().'/returns')
             ->assertOk()
             ->assertSee($withCourier->number)
-            ->assertDontSee($received->number);
+            ->assertDontSeeNumber($received->number);
     }
 
     public function test_the_handover_screen_lists_only_what_reached_the_hub(): void
@@ -250,7 +250,7 @@ class ReturnFlowTest extends TestCase
             ->get($this->host().'/returns/handover')
             ->assertOk()
             ->assertSee($received->number)
-            ->assertDontSee($withCourier->number);
+            ->assertDontSeeNumber($withCourier->number);
     }
 
     public function test_staff_receive_returns_in_bulk_from_the_screen(): void

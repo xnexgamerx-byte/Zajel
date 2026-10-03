@@ -106,7 +106,7 @@ class FixedNoteAndPassedTest extends TestCase
 
         // وصاحب الشركة يختار المخزن، ويفتحها
         $this->actingAs($this->owner)->get($this->host().'/shipments/passed?branch_id='.$there->id)
-            ->assertOk()->assertDontSee($passed->number);
+            ->assertOk()->assertDontSeeNumber($passed->number);
         $this->actingAs($this->owner)->get($this->host().'/shipments/passed?branch_id='.$here->id)
             ->assertOk()->assertSee('/shipments/'.$passed->id.'"', false);
     }

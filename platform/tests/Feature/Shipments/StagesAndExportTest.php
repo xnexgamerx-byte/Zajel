@@ -177,7 +177,7 @@ class StagesAndExportTest extends TestCase
 
         $page = $this->actingAs($clerk)->get($this->host().'/shipments/stages?stage=in_store')->assertOk();
 
-        $page->assertSee($mine->number)->assertDontSee($theirs->number)->assertSee('إجمالي النتائج: 1');
+        $page->assertSee($mine->number)->assertDontSeeNumber($theirs->number)->assertSee('إجمالي النتائج: 1');
         // خدمة العملاء لا تُدير النقل: «كشوف المناديب» لا تظهر رابطاً يُفضي إلى 403
         $page->assertDontSee('href="'.route('courier-manifests.index').'"', false);
     }

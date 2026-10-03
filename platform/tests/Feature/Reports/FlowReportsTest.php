@@ -196,8 +196,8 @@ class FlowReportsTest extends TestCase
 
         $response = $this->actingAs($this->owner)->get($this->host().'/reports/repriced')->assertOk()
             ->assertSee($raised->number)
-            ->assertDontSee($undone->number)
-            ->assertDontSee($paid->number);
+            ->assertDontSeeNumber($undone->number)
+            ->assertDontSeeNumber($paid->number);
 
         $row = collect($response->viewData('rows')->items())->sole();
         $this->assertSame([2000, 1], [$row->diff, $row->edits]);

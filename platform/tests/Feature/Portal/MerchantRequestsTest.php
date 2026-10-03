@@ -267,7 +267,7 @@ class MerchantRequestsTest extends TestCase
         $mine = $batches->firstWhere('merchant_id', $this->alpha->id);
         $this->actingAs($this->alphaUser)->get($this->host().'/portal/requests')->assertSee($mine->number)->assertSee('وصلتني');
         $this->actingAs($this->alphaUser)->get($this->host()."/portal/requests/returns/{$mine->id}/print")
-            ->assertOk()->assertSee($mine->number)->assertSee($a->number)->assertDontSee($b->number);
+            ->assertOk()->assertSee($mine->number)->assertSee($a->number)->assertDontSeeNumber($b->number);
         $this->actingAs($this->alphaUser)->post($this->host()."/portal/requests/returns/{$mine->id}/confirm")->assertSessionHasNoErrors();
         $this->actingAs($this->alphaUser)->post($this->host()."/portal/requests/returns/{$mine->id}/confirm")->assertSessionHasErrors('batch');
 

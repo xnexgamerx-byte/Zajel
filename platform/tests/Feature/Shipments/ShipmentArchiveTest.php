@@ -79,14 +79,14 @@ class ShipmentArchiveTest extends TestCase
         $this->assertSame('returned', $returned->status->value);
 
         $this->actingAs($this->owner)->get($this->host().'/shipments')->assertOk()
-            ->assertSee($live->number)->assertDontSee($returned->number)
+            ->assertSee($live->number)->assertDontSeeNumber($returned->number)
             ->assertSee('راجع للتاجر (مؤرشف)')
             ->assertSee('href="'.route('shipments.archive').'"', false);
 
         // ويُعثر عليه برقمه، أو بحالته صراحةً
         $this->actingAs($this->owner)->get($this->host().'/shipments?q='.$returned->number)->assertOk()->assertSee($returned->number);
         $this->actingAs($this->owner)->get($this->host().'/shipments?status=returned')->assertOk()
-            ->assertSee($returned->number)->assertDontSee($live->number);
+            ->assertSee($returned->number)->assertDontSeeNumber($live->number);
     }
 
     public function test_the_archive_lists_merchants_and_opens_each_one_list_in_place(): void
@@ -105,7 +105,7 @@ class ShipmentArchiveTest extends TestCase
         // قائمة التاجر: رواجعه المسلَّمة وحدها، الأحدث أوّلاً، بإيصال دفعتها
         $list = $this->actingAs($this->owner)->get($this->host().'/shipments/archive?merchant_id='.$this->alpha->id)->assertOk();
         $html = $list->getContent();
-        $list->assertSee($older->number)->assertSee($newer->number)->assertDontSee($betas->number)
+        $list->assertSee($older->number)->assertSee($newer->number)->assertDontSeeNumber($betas->number)
             ->assertSee('إجمالي النتائج: 2')
             ->assertSee(Tenancy::runFor($this->company, fn () => $newer->returnBatch->number));
         $this->assertLessThan(strpos($html, $older->number), strpos($html, $newer->number), 'الأحدث تسليماً أوّلاً');
@@ -150,11 +150,11 @@ class ShipmentArchiveTest extends TestCase
         ]));
 
         $this->actingAs($user)->get($this->host().'/portal/shipments')->assertOk()
-            ->assertSee($live->number)->assertDontSee($returned->number)
+            ->assertSee($live->number)->assertDontSeeNumber($returned->number)
             ->assertSee('المؤرشفة — راجعٌ سُلّم لك');
 
         $this->actingAs($user)->get($this->host().'/portal/shipments?tab=archive')->assertOk()
-            ->assertSee($returned->number)->assertDontSee($live->number)->assertDontSee($betas->number)
+            ->assertSee($returned->number)->assertDontSeeNumber($live->number)->assertDontSeeNumber($betas->number)
             ->assertSee(Tenancy::runFor($this->company, fn () => $returned->returnBatch->number));
     }
 }

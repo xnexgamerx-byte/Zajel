@@ -248,7 +248,7 @@ class BulkStatusTest extends TestCase
         $day = today()->toDateString();
 
         $page = $this->actingAs($this->owner)->get($this->host().'/shipments?from='.$day.'&to='.$day)->assertOk();
-        $page->assertSee($today[0]->number)->assertDontSee($yesterday->number)->assertSee('تحديث الكل (2)');
+        $page->assertSee($today[0]->number)->assertDontSeeNumber($yesterday->number)->assertSee('تحديث الكل (2)');
 
         $this->bulk([
             'status' => 'picked_up', 'all' => 1, 'expected' => 2, 'filters' => ['from' => $day, 'to' => $day],
