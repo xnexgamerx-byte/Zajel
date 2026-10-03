@@ -41,6 +41,13 @@ class ReferenceAreasTest extends TestCase
         '2026_01_03_001000_add_kirkuk_reference_areas.php',
         '2026_01_03_001100_add_maysan_reference_areas.php',
         '2026_01_03_001200_add_muthanna_reference_areas.php',
+        '2026_01_03_001300_add_najaf_reference_areas.php',
+        '2026_01_03_001400_add_nineveh_reference_areas.php',
+        '2026_01_03_001500_add_qadisiyah_reference_areas.php',
+        '2026_01_03_001600_add_salah_al_din_reference_areas.php',
+        '2026_01_03_001700_add_sulaymaniyah_reference_areas.php',
+        '2026_01_03_001800_add_dhi_qar_reference_areas.php',
+        '2026_01_03_001900_add_wasit_reference_areas.php',
     ];
 
     /** @return array<string, list<string>> */
@@ -79,6 +86,13 @@ class ReferenceAreasTest extends TestCase
         $this->assertCount(114, $lists['KIR']);
         $this->assertCount(177, $lists['MYS']);
         $this->assertCount(207, $lists['MTH']);
+        $this->assertCount(300, $lists['NJF']);
+        $this->assertCount(327, $lists['NIN']);
+        $this->assertCount(178, $lists['QAD']);
+        $this->assertCount(292, $lists['SAL']);
+        $this->assertCount(215, $lists['SUL']);
+        $this->assertCount(212, $lists['DHQ']);
+        $this->assertCount(180, $lists['WST']);
 
         foreach ($lists as $code => $names) {
             $this->assertSame(count($names), count(array_unique(array_map(Arabic::looseFold(...), $names))), "منطقتان بالاسم نفسه في {$code}");
@@ -165,6 +179,20 @@ class ReferenceAreasTest extends TestCase
         $this->assertNotContains('36', $lists['MTH']);
         $this->assertNotContains('المثنى', $lists['MTH']);
         $this->assertContains('الرميثة حي المعلمين', $lists['MTH']);
+
+        // المحافظات السبع الأخيرة: لا «قضاء» ولا «ناحية» قبل الاسم، ولا «-» أو «.» بقايا فاصل (إلا مدى أعمدة «1-650»)،
+        // و«الناضم» هي «الناظم»، و«القلعه» هي «قلعة سكر» الموجودة، و«أخرى» ليست منطقة
+        foreach (['NJF', 'NIN', 'QAD', 'SAL', 'SUL', 'DHQ', 'WST'] as $code) {
+            foreach ($lists[$code] as $name) {
+                $this->assertDoesNotMatchRegularExpression('/^(قضاء|ناحيه|ناحية) |(?<![0-9])-|-(?![0-9])|[.()]|^اخرى$|^أخرى$/u', $name, "«{$name}» في {$code}");
+            }
+        }
+        $this->assertEmpty(preg_grep('/ناضم|الحبايش/u', $lists['DHQ']));
+        $this->assertNotContains('القلعه', $lists['DHQ']);
+        $this->assertContains('الناظم الكعكيه', $lists['DHQ']);
+        $this->assertNotContains('المركز', $lists['QAD']);
+        $this->assertContains('سامراء حي المعلمين', $lists['SAL']);
+        $this->assertNotContains('دربندخان', $lists['SUL']);
         foreach ($lists as $code => $names) {
             foreach ($names as $name) {
                 // لا فاصل خفيّاً، ولا «ی» و«ک» الفارسيتين: تُكتبان «ي» و«ك»
