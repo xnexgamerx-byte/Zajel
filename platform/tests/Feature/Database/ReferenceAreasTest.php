@@ -29,6 +29,7 @@ class ReferenceAreasTest extends TestCase
         '2026_01_03_000100_add_reference_areas.php',
         '2026_01_03_000200_merge_duplicate_reference_areas.php',
         '2026_01_03_000300_add_karbala_reference_areas.php',
+        '2026_01_03_000400_add_anbar_reference_areas.php',
     ];
 
     /** @return array<string, list<string>> */
@@ -58,6 +59,7 @@ class ReferenceAreasTest extends TestCase
         $lists = $this->lists();
         $this->assertCount(505, $lists['BGD']);
         $this->assertCount(223, $lists['KRB']);
+        $this->assertCount(412, $lists['ANB']);
 
         foreach ($lists as $code => $names) {
             $this->assertSame(count($names), count(array_unique(array_map(Arabic::looseFold(...), $names))), "منطقتان بالاسم نفسه في {$code}");
@@ -83,6 +85,12 @@ class ReferenceAreasTest extends TestCase
         // «مركز» في قائمة كربلاء هي «مركز كربلاء» الموجودة، و«النقيب» هي «حي النقيب»
         $this->assertNotContains('مركز', $lists['KRB']);
         $this->assertNotContains('النقيب', $lists['KRB']);
+
+        // «2الرمادي قادسية» رقمها بعد اسمها، و«المكتب» مكتب الشركة لا منطقة، و«حبانيه» هي «الحبانية»
+        $this->assertContains('الرمادي قادسية 2', $lists['ANB']);
+        $this->assertContains('الفلوجة سوق الحميدية', $lists['ANB']);
+        $this->assertNotContains('المكتب', $lists['ANB']);
+        $this->assertNotContains('حبانيه', $lists['ANB']);
     }
 
     public function test_seeding_gives_each_listed_area_once_beside_what_was_there(): void
@@ -120,7 +128,7 @@ class ReferenceAreasTest extends TestCase
         foreach ($this->lists() as $code => $names) {
             $this->assertSame(count($names), $this->forgetListed($code));
         }
-        $this->assertSame($full - 505 - 223, City::count());
+        $this->assertSame($full - array_sum(array_map(count(...), $this->lists())), City::count());
 
         $this->runMigrations();
         $this->assertSame($full, City::count());
