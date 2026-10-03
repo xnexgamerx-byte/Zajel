@@ -108,6 +108,21 @@ class RunManifest
                         $this->changeStatus->handle($shipment, ShipmentStatus::InTransit, $actor, [
                             'note' => "غادرت مع الكشف {$manifest->code}",
                         ]);
+                    } elseif ($shipment->status === ShipmentStatus::Returning) {
+                        // الراجع يبقى راجعاً في الطريق (لا «قيد النقل»)، فخروجه حدثٌ يُكتب —
+                        // وإلّا غاب من مساره ما بين فرزه ووصوله فرعَ تاجره
+                        ShipmentEvent::create([
+                            'shipment_id' => $shipment->id,
+                            'from_status' => $shipment->status->value,
+                            'to_status'   => $shipment->status->value,
+                            'event_type'  => 'return_departed',
+                            'actor_type'  => $actor ? 'user' : 'system',
+                            'actor_id'    => $actor?->id,
+                            'actor_name'  => $actor?->name,
+                            'hub_id'      => $shipment->hub_id,
+                            'note'        => "غادر الراجع مع الكشف {$manifest->code} إلى {$bag->toHub?->name}",
+                            'ip'          => request()->ip(),
+                        ]);
                     }
                 }
             }

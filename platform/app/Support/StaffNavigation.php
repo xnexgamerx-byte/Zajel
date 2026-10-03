@@ -12,8 +12,9 @@ use Illuminate\Support\Facades\Route;
  * الشريط العلوي لموظّفي الشركة.
  *
  * القوائم مرتّبةٌ بما تفعله كل شاشة لا بترتيب نظامٍ آخر (docs/plan/21 §١):
- * الشحنات، ثم رحلتها في التوصيل، ثم الراجع، ثم المال يوماً بيوم، ثم الحسابات،
- * ثم التقارير والمتابعة والإعدادات. وأسماؤها كلماتٌ يومية بسيطة (docs/plan/20 §٧).
+ * الشحنات، ثم رحلتها في التوصيل، ثم الراجع، ثم الحسابات المالية يوماً بيوم، ثم
+ * الموقف المالي والفروع، ثم التقارير والمتابعة والإعدادات. وأسماؤها كلماتٌ يومية
+ * بسيطة يفهمها كل موظّف لا المحاسب وحده (docs/plan/20 §٧).
  * والقائمة ذات الرابط الواحد رابطٌ مباشر لا قائمة تنسدل («الرئيسية»).
  *
  * كل رابط يحمل صلاحيته: ما لا يُفتح لا يظهر (قائمةٌ تُفضي إلى 403 أسوأ من
@@ -52,9 +53,9 @@ final class StaffNavigation
             ['التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],
                 ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
-                ['shipments.scan', 'استلام بالمسح وإسناد', ['shipments.scan'], 'shipments.status'],
+                ['shipments.scan', 'استلام وتوزيع بالمسح', ['shipments.scan'], 'shipments.status'],
                 ['courier-manifests.index', 'كشوف المناديب', ['courier-manifests.*'], 'transport.manage'],
-                ['processing.index', 'شحنات للمعالجة', ['processing.*'], 'shipments.status'],
+                ['processing.index', 'شحنات لم تُسلَّم (للمعالجة)', ['processing.*'], 'shipments.status'],
                 ['bags.index', 'الأكياس', ['bags.*'], 'transport.manage'],
                 ['manifests.index', 'كشوف النقل بين الفروع', ['manifests.index', 'manifests.show'], 'transport.manage'],
                 ['manifests.inbound', 'الواصل من الفروع', ['manifests.inbound'], 'transport.manage'],
@@ -70,28 +71,28 @@ final class StaffNavigation
                 ['return-batches.index', 'إيصالات الراجع', ['return-batches.*'], 'returns.manage'],
             ]],
             // مال اليوم: ما يدخل الصندوق وما يُدفع، والمحاسبة مع المناديب والتجّار
-            ['المال', 'cash', [
+            ['الحسابات المالية', 'cash', [
                 ['cash.index', 'الصندوق', ['cash.index'], 'money.cash'],
                 ['prepaid-fees.index', 'استلام أجور مدفوعة مقدّماً', ['prepaid-fees.*'], 'money.cash'],
-                ['couriers.cash', 'نقد المندوبين', ['couriers.cash'], 'money.view'],
+                ['couriers.cash', 'النقد بيد المندوبين', ['couriers.cash'], 'money.view'],
                 ['settlements.couriers.index', 'محاسبة المندوبين', ['settlements.couriers.*'], 'money.view'],
                 ['settlements.merchants.index', 'محاسبة التجّار', ['settlements.merchants.*'], 'money.view'],
                 ['merchant-requests.payments', 'طلبات محاسبة من التجّار', ['merchant-requests.payments'], 'money.view'],
                 ['expenses.index', 'المصروفات', ['expenses.index'], 'money.expenses'],
-                ['pickup-agents.index', 'مندوبو الاستلام', ['pickup-agents.index', 'pickup-agents.show'], 'money.view'],
+                ['pickup-agents.index', 'حسابات مندوبي الاستلام', ['pickup-agents.index', 'pickup-agents.show'], 'money.view'],
                 ['pickup-agents.objections', 'اعتراضات مندوبي الاستلام', ['pickup-agents.objections'], 'money.view'],
             ]],
-            // الصورة الكاملة: موقف الشركة، والدفتر، وحساب كل فرعٍ مع غيره
-            ['الحسابات', 'bank', [
+            // الصورة الكاملة: موقف الشركة، وتدقيق حساباتها، وحساب كل فرعٍ مع غيره
+            ['الموقف المالي والفروع', 'bank', [
                 ['money.position', 'الموقف المالي', ['money.position'], 'money.view'],
                 ['money.position.history', 'تاريخ الموقف المالي', ['money.position.history'], 'money.view'],
-                ['money.reconcile', 'مطابقة الدفتر', ['money.reconcile'], 'money.view'],
-                ['money.accountants', 'حسابات المحاسب', ['money.accountants'], 'money.view'],
+                ['money.reconcile', 'تدقيق الحسابات', ['money.reconcile'], 'money.view'],
+                ['money.accountants', 'قبض ودفع الموظّفين', ['money.accountants'], 'money.view'],
                 ['branch-accounts.index', 'محاسبة الفروع', ['branch-accounts.index'], 'money.view'],
                 ['branch-accounts.statement', 'كشف حساب الفرع', ['branch-accounts.statement*'], 'money.view'],
                 ['branch-accounts.debts', 'ديون على الفروع', ['branch-accounts.debts'], 'money.view'],
                 ['branch-accounts.remittances', 'استلام مبالغ الفروع', ['branch-accounts.remittances'], 'money.view'],
-                ['branch-accounts.deposits', 'التأمينات', ['branch-accounts.deposits'], 'money.view'],
+                ['branch-accounts.deposits', 'تأمينات التجّار', ['branch-accounts.deposits'], 'money.view'],
             ]],
             // الأكثر سؤالاً هنا، والباقي كلّه في «كل التقارير»
             ['التقارير', 'chart', [

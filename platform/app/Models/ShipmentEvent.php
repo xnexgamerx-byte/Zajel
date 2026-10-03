@@ -42,6 +42,8 @@ class ShipmentEvent extends Model
         'return_received'  => 'استلام راجع',
         'return_arrived'   => 'وصول راجع لفرع',
         'return_sorted'    => 'فرز راجع لفرع',
+        'return_departed'  => 'خروج راجع إلى فرعه',
+        'return_confirmed' => 'تأكيد استلام راجع',
         'bagged'           => 'إضافة لكيس',
         'unbagged'         => 'إخراج من كيس',
         'bag_missing'      => 'ناقص من كيس',
@@ -50,6 +52,25 @@ class ShipmentEvent extends Model
         'processed'        => 'معالجة',
         'reviewed'         => 'إجازة بعد المراجعة',
         'prepaid_fee'      => 'قبض أجرة مقدّماً',
+    ];
+
+    /**
+     * ما يراه التاجر في مسار شحنته: تغيّرات الحالة، وخطوات راجعه حتى يصل يده —
+     * لا الأكياس ولا المال ولا التعديل. كان يرى الحالات وحدها، فراجعٌ استُلم
+     * وفُرز وسافر إلى فرعه ظهر عنده «راجع» ثابتاً أيّاماً حتى سُلِّم.
+     */
+    public const MERCHANT_EVENTS = [
+        'status_change', 'forced_status',
+        'return_received', 'return_sorted', 'return_departed', 'return_arrived', 'return_confirmed',
+    ];
+
+    /** خطوات الراجع بكلام التاجر: بلا أرقام أكياسنا وكشوفنا */
+    private const MERCHANT_WORDING = [
+        'return_received'  => 'وصل الراجع مخزننا من المندوب',
+        'return_sorted'    => 'جُهِّز الراجع للإرسال إلى فرعك',
+        'return_departed'  => 'الراجع في الطريق إلى فرعك',
+        'return_arrived'   => 'وصل الراجع فرعك — جاهزٌ للتسليم',
+        'return_confirmed' => 'تأكّد استلامك للراجع',
     ];
 
     /** @var array<string, string> */
@@ -96,6 +117,18 @@ class ShipmentEvent extends Model
             && ! in_array($this->event_type, ['status_change', 'forced_status'], true);
 
         return $keepsStatus ? $this->typeLabel() : $this->toLabel();
+    }
+
+    /** عنوان السطر في مسار الشحنة عند التاجر */
+    public function merchantHeadline(): string
+    {
+        return self::MERCHANT_WORDING[$this->event_type] ?? $this->toLabel();
+    }
+
+    /** ملاحظة السطر عند التاجر: في تغيّر الحالة وحده — سبب الإجبار وملاحظات المخزن داخلية */
+    public function merchantNote(): ?string
+    {
+        return $this->event_type === 'status_change' ? $this->note : null;
     }
 
     public function actorLabel(): string

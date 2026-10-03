@@ -71,7 +71,7 @@ class RequestController extends Controller
     {
         abort_unless((int) $batch->merchant_id === (int) $request->attributes->get('merchant')->id, 404);
 
-        return $handover->confirmReceived($batch, 'التاجر من بوابته')
+        return $handover->confirmReceived($batch, 'التاجر من بوابته', $request->user(), 'merchant')
             ? back()->with('success', "أكّدت استلام رواجع الإيصال {$batch->number}.")
             : back()->withErrors(['batch' => "الإيصال {$batch->number} مؤكَّدٌ سلفاً."]);
     }

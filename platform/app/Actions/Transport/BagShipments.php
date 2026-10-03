@@ -9,6 +9,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
 use App\Services\SequenceGenerator;
+use App\Support\ScanCode;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -43,7 +44,7 @@ class BagShipments
     }
 
     /**
-     * إضافة شحنات بأرقام وصولها — الماسح الضوئي يكتب الرقم ويُرسل.
+     * إضافة شحنات بأرقام وصولها — الماسح الضوئي يكتب الباركود (أو رابط رمز QR) ويُرسل.
      *
      * @return array{added: Collection<int, Shipment>, errors: array<string, string>}
      */
@@ -51,26 +52,32 @@ class BagShipments
     {
         $this->assertOpen($bag);
 
-        $numbers = collect($numbers)->map(fn ($n) => trim((string) $n))->filter()->unique();
+        $scans = collect($numbers)
+            ->map(fn ($n) => ScanCode::read((string) $n))
+            ->filter(fn (ScanCode $scan) => $scan->code !== '')
+            ->unique(fn (ScanCode $scan) => $scan->code.'|'.$scan->token);
 
-        if ($numbers->isEmpty()) {
+        if ($scans->isEmpty()) {
             return ['added' => collect(), 'errors' => []];
         }
 
-        return DB::transaction(function () use ($bag, $numbers, $actor) {
+        return DB::transaction(function () use ($bag, $scans, $actor) {
+            $codes = $scans->filter->usable()->pluck('code')->unique()->values();
+
             $found = Shipment::query()
-                ->where(fn ($q) => $q->whereIn('number', $numbers)->orWhereIn('barcode', $numbers))
+                ->where(fn ($q) => $q->whereIn('number', $codes)->orWhereIn('barcode', $codes))
                 ->lockForUpdate()
                 ->get();
 
             $added = collect();
             $errors = [];
 
-            foreach ($numbers as $number) {
-                $shipment = $found->first(fn (Shipment $s) => $s->number === $number || $s->barcode === $number);
+            foreach ($scans as $scan) {
+                $number = $scan->code;
+                $shipment = $found->first(fn (Shipment $s) => $scan->matches($s));
 
                 if (! $shipment) {
-                    $errors[$number] = 'لا وصل بهذا الرقم.';
+                    $errors[$number] = $scan->isLink() ? $scan->notFound() : 'لا وصل بهذا الرقم.';
 
                     continue;
                 }

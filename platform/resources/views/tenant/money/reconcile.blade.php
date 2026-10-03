@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'مطابقة الدفتر')
+@section('title', 'تدقيق الحسابات')
 
 @section('content')
 @php
@@ -10,7 +10,7 @@
 @endphp
 
 <div class="mb-5">
-    <h1 class="page-title">مطابقة الدفتر</h1>
+    <h1 class="page-title">تدقيق الحسابات</h1>
     <p class="mt-1 text-sm text-ink-500">
         هل رصيد كل حسابٍ مجموعُ قيوده؟ وهل قيود كل شحنةٍ مستحقُّها؟ تُفحَص كل ليلة، وهنا الآن.
     </p>

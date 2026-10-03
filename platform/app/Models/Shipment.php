@@ -210,6 +210,13 @@ class Shipment extends Model
             return $q;
         }
 
+        // رمز QR الوصل في خانة البحث: رابط التتبّع، ورقم الوصل منه
+        $scan = \App\Support\ScanCode::read($term);
+
+        if ($scan->isLink()) {
+            $term = $scan->code;
+        }
+
         $branch = fn (string $column, string $operator, string $value) => static::query()
             ->withoutGlobalScope(SoftDeletingScope::class)
             ->where($column, $operator, $value)

@@ -181,6 +181,8 @@ Route::middleware('tenant')->group(function () {
             // الراجع خطوتان: من المندوب إلى المخزن، ومن المخزن إلى التاجر
             Route::middleware('can:returns.manage')->group(function () {
                 Route::get('/returns', [ReturnController::class, 'incoming'])->name('returns.incoming');
+                // الوصل الممسوح في شاشات الراجع: هل هو من قائمتها، وإلّا فلماذا
+                Route::get('/returns/lookup', [ReturnController::class, 'lookup'])->name('returns.lookup');
                 Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
                 Route::get('/returns/sorting', [ReturnController::class, 'sorting'])->name('returns.sorting');
                 Route::post('/returns/sorting', [ReturnController::class, 'sort'])->name('returns.sort');

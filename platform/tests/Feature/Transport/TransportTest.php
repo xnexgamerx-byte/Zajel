@@ -148,6 +148,21 @@ class TransportTest extends TestCase
         });
     }
 
+    public function test_the_labels_qr_link_bags_the_shipment_like_its_barcode(): void
+    {
+        $bag = $this->bag();
+        $shipment = $this->atHub();
+
+        Tenancy::runFor($this->company, function () use ($bag, $shipment) {
+            // ما يكتبه الماسح من رمز QR الوصل: رابط التتبّع كاملاً
+            $result = $this->bagger()->add($bag, [\App\Support\Tracking::url($shipment)], $this->staff);
+
+            $this->assertCount(1, $result['added']);
+            $this->assertSame([], $result['errors']);
+            $this->assertSame($bag->id, (int) $shipment->refresh()->current_bag_id);
+        });
+    }
+
     public function test_every_rejected_number_says_why(): void
     {
         $bag = $this->bag();

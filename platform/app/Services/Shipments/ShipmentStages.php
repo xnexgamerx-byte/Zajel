@@ -51,9 +51,9 @@ final class ShipmentStages
             ]],
             'courier' => ['label' => 'عند المندوب', 'hint' => 'خرجت للتوصيل ولم تُحسم', 'stages' => [
                 'out_for_delivery' => ['label' => 'قيد التوصيل', 'tone' => 'blue',
-                    'links' => [['courier-manifests.index', 'كشوف المناديب', 'transport.manage'], ['couriers.cash', 'نقد المندوبين', 'money.view']],
+                    'links' => [['courier-manifests.index', 'كشوف المناديب', 'transport.manage'], ['couriers.cash', 'النقد بيد المندوبين', 'money.view']],
                     'hint' => 'مع المندوب اليوم', 'apply' => $status(ShipmentStatus::OutForDelivery)],
-                'to_process' => ['label' => 'شحنات للمعالجة', 'tone' => 'amber',
+                'to_process' => ['label' => 'لم تُسلَّم (للمعالجة)', 'tone' => 'amber',
                     'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
                     'hint' => 'محاولة فاشلة: تُعاد أو تؤجَّل أو تُرجع', 'apply' => $status(ShipmentStatus::FailedAttempt)],
                 // المعتاد يسمّيها ولا يصفها (docs/plan/22 §٢): ما سلّمه المندوب بغير ما طُلب

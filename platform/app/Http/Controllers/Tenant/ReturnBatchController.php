@@ -91,7 +91,7 @@ class ReturnBatchController extends Controller
 
     public function confirm(Request $request, ReturnBatch $batch): RedirectResponse
     {
-        return $this->handover->confirmReceived($batch, $request->user()->name)
+        return $this->handover->confirmReceived($batch, $request->user()->name, $request->user())
             ? back()->with('success', "أُكّد استلام التاجر لإيصال {$batch->number}.")
             : back()->withErrors(['batch' => "إيصال {$batch->number} مؤكَّدٌ سلفاً."]);
     }

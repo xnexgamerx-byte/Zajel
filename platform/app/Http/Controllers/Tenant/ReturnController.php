@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Returns\HandOverReturns;
 use App\Actions\Returns\ReceiveReturns;
+use App\Actions\Returns\ScannedReturn;
 use App\Actions\Returns\SortReturns;
 use App\Models\Branch;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Merchant;
+use App\Models\Shipment;
+use App\Support\ScanCode;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -40,6 +44,48 @@ class ReturnController extends Controller
             'couriers'  => Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             // عدّاد لكل مندوب: الموظّف يعرف مَن عنده راجع قبل أن يفتح قائمته
             'perCourier' => $this->receiver->pending(viewer: $request->user())->groupBy('delivery_courier_id')->map->count(),
+        ]);
+    }
+
+    /**
+     * وصلٌ مُسح في شاشةٍ من شاشات الراجع — بباركوده أو برمز QR الذي عليه: يُعلَّم في
+     * قائمتها إن كان منها، وإلّا قيل للموظّف أين يذهب بالطرد الذي في يده.
+     */
+    public function lookup(Request $request, ScannedReturn $check): JsonResponse
+    {
+        $typed = (string) $request->query('code');
+        $scan = ScanCode::read($typed);
+
+        if (! $scan->usable() || mb_strlen($typed) > ScanCode::MAX_INPUT) {
+            return response()->json(['error' => 'امسح الوصل أو اكتب رقمه.'], 422);
+        }
+
+        $shipment = $scan->find(Shipment::query()->visibleTo($request->user())->with([
+            'merchant:id,business_name,pickup_courier_id', 'deliveryCourier:id,name', 'currentBag:id,code',
+            'returnBatch:id,number', 'lastFailureReason:id,name_ar',
+        ]));
+
+        if (! $shipment) {
+            return response()->json(['error' => $scan->notFound()], 404);
+        }
+
+        $stage = in_array($request->query('stage'), ScannedReturn::STAGES, true) ? $request->query('stage') : 'incoming';
+        $problem = $check->problem(
+            $shipment, $stage,
+            merchantId: $request->integer('merchant_id') ?: null,
+            pickupCourierId: $stage === 'pickup' ? ($request->integer('courier_id') ?: null) : null,
+        );
+
+        if ($problem !== null) {
+            return response()->json(['error' => "{$shipment->number}: {$problem}", 'number' => $shipment->number], 422);
+        }
+
+        return response()->json([
+            'id'          => $shipment->id,
+            'number'      => $shipment->number,
+            'merchant_id' => $shipment->merchant_id,
+            'merchant'    => $shipment->merchant?->business_name,
+            'courier'     => $shipment->deliveryCourier?->name,
         ]);
     }
 
@@ -103,6 +149,8 @@ class ReturnController extends Controller
         return view('tenant.returns.outgoing', [
             'shipments'   => $shipments,
             'merchantId'  => $merchantId,
+            // مسحةٌ من قائمة «الكل» فتحت قائمة تاجر الطرد: يصل معلَّماً فيها
+            'scanned'     => array_values(array_filter(array_map('intval', explode(',', (string) $request->query('scanned'))))),
             'merchants'   => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
             'perMerchant' => $this->handover->ready(viewer: $request->user())->groupBy('merchant_id')->map->count(),
         ]);

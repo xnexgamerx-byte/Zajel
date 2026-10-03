@@ -10,7 +10,7 @@
         </p>
     </div>
     <div class="flex gap-2">
-        <a href="{{ route('couriers.cash') }}" class="btn-ghost">نقد المندوبين</a>
+        <a href="{{ route('couriers.cash') }}" class="btn-ghost">النقد بيد المندوبين</a>
         <a href="{{ route('couriers.create') }}" class="btn-primary">+ مندوب جديد</a>
     </div>
 </div>

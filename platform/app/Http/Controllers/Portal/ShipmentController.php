@@ -82,7 +82,7 @@ class ShipmentController extends Controller
 
         $shipment->load([
             'governorate', 'city', 'lastFailureReason',
-            'events' => fn ($q) => $q->where('event_type', 'status_change')->orderBy('id'),
+            'events' => fn ($q) => $q->whereIn('event_type', \App\Models\ShipmentEvent::MERCHANT_EVENTS)->orderBy('id'),
         ]);
 
         return view('portal.shipments.show', [

@@ -6,6 +6,7 @@
 
 import { initSearchableSelects } from './searchable-select';
 import { initScanTable } from './scan-table';
+import { initScanBox } from './scan-box';
 import { initQuickEntry } from './quick-entry';
 import { initNumberInputs, numberValue } from './number-inputs';
 import { initBulkBar, initDayPick } from './bulk-bar';
@@ -35,6 +36,10 @@ if (dailyChart) initDailyChart(dailyChart);
 
 const scanTable = document.querySelector('[data-scan-table]');
 if (scanTable) initScanTable(scanTable);
+
+// مسح الوصولات في شاشات الراجع: يُعلِّم الطرد في قائمتها أو يقول لماذا لا
+const scanBox = document.querySelector('[data-scan-box]');
+if (scanBox) initScanBox(scanBox);
 
 const quickForm = document.querySelector('[data-quick-form]');
 if (quickForm) initQuickEntry(quickForm);

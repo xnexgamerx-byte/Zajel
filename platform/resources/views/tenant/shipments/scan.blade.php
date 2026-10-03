@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'استلام بالمسح وإسناد')
+@section('title', 'استلام وتوزيع بالمسح')
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">استلام بالمسح وإسناد</h1>
+    <h1 class="page-title">استلام وتوزيع بالمسح</h1>
     <p class="mt-1 text-sm text-ink-500">
         امسح الوصولات فتدخل الجدول، ثم فعلٌ واحد لها كلّها. المسح لا يغيّر شيئاً حتى الحفظ.
     </p>

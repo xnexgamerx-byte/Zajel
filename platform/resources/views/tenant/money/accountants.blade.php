@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'حسابات المحاسب')
+@section('title', 'قبض ودفع الموظّفين')
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">حسابات المحاسب</h1>
+    <h1 class="page-title">قبض ودفع الموظّفين</h1>
     <p class="mt-1 text-sm text-ink-500">ما قبضه كل موظّفٍ وما دفعه في المدّة، بأنواعه — من دفتر القاصة نفسه. {{ $period->label() }}</p>
 </div>
 

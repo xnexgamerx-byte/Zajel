@@ -77,6 +77,10 @@ class ShipmentSearchTest extends TestCase
             $this->assertSame([$shipment->id], $this->found($this->alpha, $term), "البحث بـ{$label}");
         }
 
+        // رمز QR الوصل يُمسح في خانة البحث: رابط التتبّع، ورقم الوصل منه
+        $link = Tenancy::runFor($this->alpha, fn () => \App\Support\Tracking::url($shipment));
+        $this->assertSame([$shipment->id], $this->found($this->alpha, $link), 'البحث برمز QR');
+
         // حرفان لا يكفيان للبحث الجزئي — وإلا مسح الفهرسَ كلّه
         $this->assertSame([], $this->found($this->alpha, 'زي'));
         $this->assertSame([], $this->found($this->alpha, '07711'));

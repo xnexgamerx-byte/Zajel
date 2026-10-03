@@ -230,9 +230,13 @@ class AreaPricingTest extends TestCase
             'governorate_id' => $this->baghdad()->id, 'courier_fee' => 1500, 'courier_fee_peripheral' => 2500,
         ]));
 
-        $deliver = function (?int $rate, City $city) {
-            return Tenancy::runFor($this->company, function () use ($rate, $city) {
-                $courier = Courier::create(['code' => 'C'.random_int(100, 999), 'name' => 'مندوب', 'phone' => '0772'.random_int(1000000, 9999999),
+        // رمزٌ ورقمٌ متسلسلان لكل مندوب: العشوائيّ من تسعمئة رمزٍ تكرّر أحياناً فسقط الاختبار
+        $made = 0;
+        $deliver = function (?int $rate, City $city) use (&$made) {
+            $made++;
+
+            return Tenancy::runFor($this->company, function () use ($rate, $city, $made) {
+                $courier = Courier::create(['code' => 'C'.(100 + $made), 'name' => 'مندوب', 'phone' => '0772'.(1000000 + $made),
                     'type' => 'delivery', 'status' => 'active', 'commission_per_delivery' => $rate]);
                 $shipment = app(CreateShipment::class)->handle([
                     'merchant_id' => $this->merchant->id, 'recipient_name' => 'علي', 'recipient_phone' => '07801234567',

@@ -6,6 +6,7 @@
     'party',          // 'courier' أو 'merchant' — العمود الذي يُعرَض
     'merchantId' => null,
     'hidden' => [],   // حقولٌ مخفيّة أخرى: مندوب الاستلام في تسليمه
+    'checked' => [],  // ما مُسح قبل فتح القائمة (من «الكل» إلى قائمة التاجر): يصل معلَّماً
 ])
 
 @if ($shipments->isEmpty())
@@ -40,11 +41,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($shipments as $shipment)
-                        <tr>
+                    @foreach ($shipments->sortByDesc(fn ($s) => in_array($s->id, $checked, true)) as $shipment)
+                        @php $scanned = in_array($shipment->id, $checked, true); @endphp
+                        <tr @if ($scanned) data-scanned class="bg-ok-50" @endif>
                             <td>
                                 <input type="checkbox" name="shipment_ids[]" value="{{ $shipment->id }}"
-                                       aria-label="الوصل {{ $shipment->number }}"
+                                       aria-label="الوصل {{ $shipment->number }}" @checked($scanned)
                                        class="size-4 accent-[var(--brand)]">
                             </td>
                             <td>
@@ -80,7 +82,7 @@
                    placeholder="ملاحظة تُسجَّل مع كل شحنة (اختياري)">
             <button type="submit" class="btn-primary">{{ $submit }}</button>
             <p class="ms-auto text-xs text-ink-500">
-                المحدَّد فقط يُنفَّذ عليه الإجراء.
+                المحدَّد فقط يُنفَّذ عليه الإجراء — والممسوح يُحدَّد بمسحه.
             </p>
         </div>
     </form>

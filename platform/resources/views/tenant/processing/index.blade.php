@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'شحنات للمعالجة')
+@section('title', 'شحنات لم تُسلَّم (للمعالجة)')
 
 @section('content')
 <div class="mb-4">
-    <h1 class="page-title">شحنات للمعالجة</h1>
+    <h1 class="page-title">شحنات لم تُسلَّم (للمعالجة)</h1>
     <p class="mt-1 text-sm text-ink-500">
         محاولاتٌ فاشلة تنتظر قراراً، الأقدم أوّلاً: اتّصل بالزبون، ثم إعادة توصيل، أو تأجيل إلى موعده، أو إرجاع للتاجر.
     </p>

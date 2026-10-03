@@ -23,11 +23,17 @@
 </div>
 
 @if ($merchantId)
+    <x-scan-box :lookup="route('returns.lookup', ['stage' => 'handover', 'merchant_id' => $merchantId])"
+                hint="امسح طرود التاجر واحداً واحداً قبل تسليمها: ما ليس له يُرفض باسم صاحبه." />
+
     <x-returns-table :shipments="$shipments" :action="route('returns.deliver')" party="merchant"
-                     :merchant-id="$merchantId"
+                     :merchant-id="$merchantId" :checked="$scanned"
                      submit="سلّمت للتاجر"
                      empty="لا راجع جاهز لهذا التاجر." />
 @else
+    <x-scan-box :lookup="route('returns.lookup', ['stage' => 'handover'])" :open="route('returns.outgoing')"
+                hint="امسح طرداً من الراجع فتُفتح قائمة تاجره وهو معلَّمٌ فيها." />
+
     {{-- التسليم لتاجر واحد في كل مرّة: توقيع واحد على كشف واحد --}}
     <section class="card overflow-hidden">
         <p class="border-b border-ink-100 px-5 py-4 text-sm text-ink-600">

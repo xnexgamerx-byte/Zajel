@@ -9,6 +9,7 @@ use App\Models\Merchant;
 use App\Models\MerchantRequest;
 use App\Models\ReturnBatch;
 use App\Models\Shipment;
+use App\Models\ShipmentEvent;
 use App\Models\User;
 use App\Services\SequenceGenerator;
 use Illuminate\Support\Collection;
@@ -158,12 +159,40 @@ class HandOverReturns
         });
     }
 
-    /** الإيصال استُلم فعلاً عند التاجر: بتأكيده من بوابته أو بيد موظّف. */
-    public function confirmReceived(ReturnBatch $batch, string $by): bool
+    /**
+     * الإيصال استُلم فعلاً عند التاجر: بتأكيده من بوابته أو بيد موظّف — ويُكتب في
+     * سجلّ كل شحنةٍ فيه، فمسارها ينتهي بيد التاجر لا بيد مندوب الاستلام.
+     *
+     * @param  'user'|'merchant'  $actorType
+     */
+    public function confirmReceived(ReturnBatch $batch, string $by, ?User $actor = null, string $actorType = 'user'): bool
     {
-        return ReturnBatch::whereKey($batch->id)
-            ->whereNull('received_at')
-            ->update(['received_at' => now(), 'received_by' => mb_substr($by, 0, 120), 'updated_at' => now()]) === 1;
+        return DB::transaction(function () use ($batch, $by, $actor, $actorType) {
+            $confirmed = ReturnBatch::whereKey($batch->id)
+                ->whereNull('received_at')
+                ->update(['received_at' => now(), 'received_by' => mb_substr($by, 0, 120), 'updated_at' => now()]) === 1;
+
+            if (! $confirmed) {
+                return false;
+            }
+
+            foreach (Shipment::where('return_batch_id', $batch->id)->get(['id', 'status', 'hub_id']) as $shipment) {
+                ShipmentEvent::create([
+                    'shipment_id' => $shipment->id,
+                    'from_status' => $shipment->status->value,
+                    'to_status'   => $shipment->status->value,
+                    'event_type'  => 'return_confirmed',
+                    'actor_type'  => $actor ? $actorType : 'system',
+                    'actor_id'    => $actor?->id,
+                    'actor_name'  => $actor?->name,
+                    'hub_id'      => $shipment->hub_id,
+                    'note'        => "أُكِّد استلام التاجر للراجع بإيصال {$batch->number} — {$by}",
+                    'ip'          => request()->ip(),
+                ]);
+            }
+
+            return true;
+        });
     }
 
     /**

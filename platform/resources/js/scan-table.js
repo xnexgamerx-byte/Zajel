@@ -1,3 +1,5 @@
+import { beep } from './beep';
+
 /**
  * جدول المسح: كل وصلٍ يُمسح يُسأل عنه الخادم ويُضاف صفّاً، ثم يُرسَل الجدول
  * كلّه بفعلٍ واحد. الجدول في المتصفّح وحده حتى الحفظ.
@@ -17,6 +19,7 @@ export function initScanTable(root) {
     const say = (text, bad = false) => {
         message.textContent = text;
         message.className = 'mt-2 min-h-5 text-sm ' + (bad ? 'font-semibold text-bad-700' : 'text-ok-700');
+        if (text) beep(!bad);
     };
 
     const refresh = () => {

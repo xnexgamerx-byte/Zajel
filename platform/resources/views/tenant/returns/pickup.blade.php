@@ -22,6 +22,9 @@
 </div>
 
 @if ($courier)
+    <x-scan-box :lookup="route('returns.lookup', ['stage' => 'pickup', 'courier_id' => $courier->id])"
+                hint="امسح كل طردٍ يحمله المندوب: ما ليس من تجّاره يُرفض." />
+
     <x-returns-table :shipments="$shipments" :action="route('returns.pickup.deliver')" party="merchant"
                      :hidden="['courier_id' => $courier->id]"
                      submit="سلّمت لمندوب الاستلام"

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'نقد المندوبين')
+@section('title', 'النقد بيد المندوبين')
 
 @section('content')
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">

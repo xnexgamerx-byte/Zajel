@@ -284,6 +284,40 @@ class ReturnSortingTest extends TestCase
         });
     }
 
+    public function test_every_step_of_the_journey_is_written_on_the_shipment(): void
+    {
+        $shipment = $this->returnReceivedInBaghdad($this->basraMerchant);
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $bags = app(BagShipments::class);
+            $runner = app(RunManifest::class);
+
+            $bag = app(SortReturns::class)->bagFor($this->basraBranch, [$shipment->id], $this->baghdadClerk);
+            $bags->seal($bag->refresh(), $this->baghdadClerk);
+            $manifest = $runner->create($this->baghdadHub, $this->basraHub, [], $this->baghdadClerk);
+            $runner->load($manifest, $bag->refresh(), $this->baghdadClerk);
+            $runner->dispatch($manifest->refresh(), $this->baghdadClerk);
+            $runner->receive($manifest->refresh(), [$bag->id], $this->basraClerk);
+            $bags->open($bag->refresh(), $this->basraClerk);
+            app(HandOverReturns::class)->handle([$shipment->id], $this->basraMerchant, $this->basraClerk);
+
+            $trail = \App\Models\ShipmentEvent::where('shipment_id', $shipment->id)
+                ->whereIn('event_type', \App\Models\ShipmentEvent::MERCHANT_EVENTS)
+                ->orderBy('id')->get();
+
+            // كان خروجه مع الكشف غائباً: راجعٌ لا يصير «قيد النقل» فلم يُكتب له شيء
+            $this->assertSame(
+                ['return_received', 'return_sorted', 'return_departed', 'return_arrived'],
+                $trail->whereIn('event_type', ['return_received', 'return_sorted', 'return_departed', 'return_arrived'])
+                    ->pluck('event_type')->values()->all(),
+            );
+            $departed = $trail->firstWhere('event_type', 'return_departed');
+            $this->assertStringContainsString($manifest->code, (string) $departed->note);
+            $this->assertStringContainsString('مركز البصرة', (string) $departed->note);
+            $this->assertSame(ShipmentStatus::Returned->value, $trail->last()->to_status);
+        });
+    }
+
     // ── الشاشة ──────────────────────────────────────────────────────
 
     public function test_staff_sort_from_the_screen_and_land_on_the_new_bag(): void

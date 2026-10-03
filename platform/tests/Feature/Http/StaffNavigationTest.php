@@ -25,7 +25,7 @@ class StaffNavigationTest extends TestCase
 
     /** من اليمين إلى اليسار بعمل الشاشات (docs/plan/21 §١) */
     private const ORDER = [
-        'الرئيسية', 'الشحنات', 'التوصيل', 'الراجع', 'المال', 'الحسابات', 'التقارير', 'المتابعة', 'الإعدادات',
+        'الرئيسية', 'الشحنات', 'التوصيل', 'الراجع', 'الحسابات المالية', 'الموقف المالي والفروع', 'التقارير', 'المتابعة', 'الإعدادات',
     ];
 
     /** تقاريرٌ تُفتح من «كل التقارير» لا من الشريط: القائمة تحمل الأكثر سؤالاً وحده */
@@ -45,8 +45,8 @@ class StaffNavigationTest extends TestCase
         'permissions.ranks.index', 'permissions.ranks.create',
         // زرّا Excel وPDF في قائمة الشحنات
         'shipments.export', 'shipments.export.print',
-        // يسأله جدول المسح عن كل وصل
-        'shipments.scan.lookup',
+        // يسأله جدول المسح عن كل وصل، ومربّع المسح في شاشات الراجع
+        'shipments.scan.lookup', 'returns.lookup',
         // إيصالات التسليم لمندوب الاستلام، من رسالة نجاحه
         'return-batches.print-many',
         // «صندوقي» من شارة رصيده في الرأس، لصاحب الصندوق وحده

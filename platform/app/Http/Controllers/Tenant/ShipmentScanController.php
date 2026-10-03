@@ -7,15 +7,17 @@ use App\Actions\Waybills\CreateFromWaybill;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Shipment;
+use App\Support\ScanCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * «استلام وصولات في كل المراحل وإسنادها» كما في المعتاد: يُمسح الوصل فيدخل
- * جدولاً يُرى فيه صاحبه ومرحلته ومبلغه ووجهته، ثم فعلٌ واحد للجدول كلّه —
- * استلامٌ في المخزن، أو إسنادٌ لمندوب توصيل (بمسار الإسناد الجماعي نفسه).
+ * «استلام وصولات في كل المراحل وإسنادها» كما في المعتاد: يُمسح الوصل — باركوده
+ * أو رمز QR الذي عليه — فيدخل جدولاً يُرى فيه صاحبه ومرحلته ومبلغه ووجهته، ثم
+ * فعلٌ واحد للجدول كلّه — استلامٌ في المخزن، أو إسنادٌ لمندوب توصيل (بمسار
+ * الإسناد الجماعي نفسه).
  *
  * الجدول في المتصفّح حتى الحفظ: المسح لا يغيّر شيئاً، فمسحةٌ خاطئة تُحذف من
  * الجدول قبل أن تصير حركةً في سجلّ شحنة.
@@ -31,27 +33,26 @@ class ShipmentScanController extends Controller
         ]);
     }
 
-    /** الوصل برقمه أو باركوده، لمن يراه وحده. */
+    /** الوصل بباركوده أو برمز QR الذي عليه (رابط التتبّع)، لمن يراه وحده. */
     public function lookup(Request $request): JsonResponse
     {
-        $number = trim((string) $request->query('number'));
+        $typed = (string) $request->query('number');
+        $scan = ScanCode::read($typed);
 
-        if ($number === '' || mb_strlen($number) > 40) {
+        if (! $scan->usable() || mb_strlen($typed) > ScanCode::MAX_INPUT) {
             return response()->json(['error' => 'اكتب رقم الوصل أو امسحه.'], 422);
         }
 
-        $shipment = Shipment::query()
+        $shipment = $scan->find(Shipment::query()
             ->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar',
                     'branch:id,name', 'currentBag:id,code', 'deliveryCourier:id,name'])
-            ->visibleTo($request->user())
-            ->where(fn ($q) => $q->where('number', $number)->orWhere('barcode', $number))
-            ->first();
+            ->visibleTo($request->user()));
 
         if (! $shipment) {
             // وصلٌ مطبوعٌ مسبقاً لم تُدخَل شحنته بعد: يُدلّ على مكان إدخاله
-            $error = CreateFromWaybill::problem($number) === null
-                ? "الوصل المطبوع {$number} لم تُدخَل شحنته بعد — أدخِلها من «شحنة من وصلٍ مطبوع»."
-                : "لا وصل برقم {$number}.";
+            $error = ! $scan->isLink() && CreateFromWaybill::problem($scan->code) === null
+                ? "الوصل المطبوع {$scan->code} لم تُدخَل شحنته بعد — أدخِلها من «شحنة من وصلٍ مطبوع»."
+                : $scan->notFound();
 
             return response()->json(['error' => $error], 404);
         }

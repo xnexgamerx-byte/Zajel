@@ -49,18 +49,17 @@
 
             <ol class="relative space-y-5 border-s-2 border-ink-100 ps-5">
                 @foreach ($shipment->events as $event)
-                    @php $status = \App\Enums\ShipmentStatus::tryFrom($event->to_status); @endphp
                     <li class="relative">
                         <span class="absolute -start-[1.6rem] top-1 grid h-3 w-3 place-items-center rounded-full
                                      {{ $loop->last ? 'bg-[var(--brand)] ring-4 ring-[var(--brand-line)]' : 'bg-ink-300' }}"></span>
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class="text-sm font-semibold">{{ $event->toLabel() }}</span>
+                            <span class="text-sm font-semibold">{{ $event->merchantHeadline() }}</span>
                             <span class="text-xs text-ink-400" dir="ltr">
                                 {{ $event->created_at->format('Y-m-d H:i') }}
                             </span>
                         </div>
-                        @if ($event->note)
-                            <p class="mt-1 text-xs text-ink-600">{{ $event->note }}</p>
+                        @if ($event->merchantNote())
+                            <p class="mt-1 text-xs text-ink-600">{{ $event->merchantNote() }}</p>
                         @endif
                     </li>
                 @endforeach

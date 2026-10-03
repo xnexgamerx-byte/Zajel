@@ -90,6 +90,25 @@ class ScanReceiveTest extends TestCase
             ->assertNotFound()->assertJson(['error' => 'لا وصل برقم NOPE.']);
     }
 
+    public function test_lookup_reads_the_qr_on_the_label_and_refuses_a_forged_one(): void
+    {
+        $shipment = $this->shipment();
+        $link = Tenancy::runFor($this->company, fn () => \App\Support\Tracking::url($shipment));
+
+        $this->actingAs($this->owner)
+            ->getJson($this->host().'/shipments/scan/lookup?number='.urlencode($link))
+            ->assertOk()
+            ->assertJson(['id' => $shipment->id, 'number' => $shipment->number]);
+
+        // رقمنا ببصمةٍ ليست له: رمزٌ من شركةٍ أخرى أو مزوَّر
+        $forged = preg_replace('~/[a-f0-9]{16}$~', '/0000000000000000', $link);
+
+        $this->actingAs($this->owner)
+            ->getJson($this->host().'/shipments/scan/lookup?number='.urlencode($forged))
+            ->assertNotFound()
+            ->assertJson(['error' => 'رمز QR هذا ليس لوصلٍ من وصولاتنا.']);
+    }
+
     public function test_lookup_does_not_reveal_another_branchs_shipment(): void
     {
         // شحنة الفرع الرئيسي، وموظّفٌ في فرع البصرة: الرئيسي وحده يرى الفروع كلّها

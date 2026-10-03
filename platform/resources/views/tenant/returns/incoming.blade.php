@@ -24,6 +24,9 @@
     </div>
 @endif
 
+<x-scan-box :lookup="route('returns.lookup', ['stage' => 'incoming'])"
+            hint="امسح الطرود التي أحضرها المندوب — الباركود أو رمز QR — فتُعلَّم هنا، ثم «استلمت هذه الطرود»." />
+
 <x-returns-table :shipments="$shipments" :action="route('returns.receive')" party="courier"
                  submit="استلمت هذه الطرود"
                  empty="لا راجع عند المندوبين الآن." />
