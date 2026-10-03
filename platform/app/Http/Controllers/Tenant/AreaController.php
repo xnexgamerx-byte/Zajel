@@ -17,6 +17,7 @@ use App\Support\Arabic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -24,8 +25,9 @@ use Illuminate\View\View;
  * «المناطق» كما في المعتاد: لكل منطقةٍ من محافظةٍ «أجرة النقل الخاصّة بها»
  * و«طرفية؟»، ومن يغطّيها من المندوبين — وفلتر «غير مسنود لمندوب».
  *
- * صفحاتٌ من ستّين منطقة: بغداد وحدها ثلاثمئة وستّون، ونموذجٌ بها كلّها
- * يقارب حدّ الحقول في الطلب الواحد.
+ * صفحاتٌ من ستّين منطقة: بغداد وحدها ثمانمئةٍ ونيّف، ونموذجٌ بها كلّها
+ * يتجاوز حدّ الحقول في الطلب الواحد. والبحث يطوي الكتابة كقوائم الاختيار:
+ * «كراده» تجد «الكرادة».
  */
 class AreaController extends Controller
 {
@@ -47,7 +49,7 @@ class AreaController extends Controller
         $cities = City::query()
             ->where('governorate_id', $governorate->id)
             ->where('is_active', true)
-            ->when(trim((string) $request->query('q')), fn ($q, $term) => $q->where('name_ar', 'like', "%{$term}%"))
+            ->when(Arabic::fold((string) $request->query('q')), fn ($q, $term) => $q->whereIn('id', $this->matching($governorate, $term)))
             // مندوبٌ بعينه: مناطقه — والمحافظة كلّها إن كان يغطّيها
             ->when($courierId && ! $wholeGovernorate->contains('courier_id', $courierId), fn ($q) => $q->whereIn('id',
                 CourierZone::where('courier_id', $courierId)->whereNotNull('city_id')->select('city_id')))
@@ -72,6 +74,21 @@ class AreaController extends Controller
             'peripheralCount'  => CitySetting::where('is_peripheral', true)
                 ->whereIn('city_id', City::where('governorate_id', $governorate->id)->select('id'))->count(),
         ]);
+    }
+
+    /**
+     * مناطق المحافظة التي فيها كل كلمةٍ من البحث — مطويّتين كما في قوائم الاختيار
+     * (resources/js/searchable-select.js): «الحريه دباش» تجد «الحرية دباش».
+     *
+     * @return list<int>
+     */
+    private function matching(Governorate $governorate, string $term): array
+    {
+        $words = explode(' ', $term);
+
+        return City::where('governorate_id', $governorate->id)->where('is_active', true)->get(['id', 'name_ar'])
+            ->filter(fn (City $city) => Str::containsAll(Arabic::fold($city->name_ar), $words))
+            ->modelKeys();
     }
 
     /** حفظ صفحة المناطق كما هي: الأجرة الخاصّة والطرفية لكلٍّ */
@@ -129,7 +146,8 @@ class AreaController extends Controller
         $companyId = $request->user()->company_id;
 
         $same = City::where('governorate_id', $governorate->id)->get(['id', 'company_id', 'name_ar', 'is_active'])
-            ->filter(fn (City $city) => Arabic::fold($city->name_ar) === Arabic::fold($name))
+            // و«صالحية» هي «الصالحية»: بلا «ال» لا تُضاف منطقةٌ موجودة بكتابةٍ أخرى
+            ->filter(fn (City $city) => Arabic::looseFold($city->name_ar) === Arabic::looseFold($name))
             ->sortByDesc('is_active')
             ->first();
 

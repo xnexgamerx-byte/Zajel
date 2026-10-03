@@ -144,10 +144,36 @@ class CompanyAreasTest extends TestCase
         $this->assertStringContainsString('ليست في البصرة', implode(' ', $read($this->barq)['errors']));
     }
 
+    /** صفّ Excel بـ«صالحية» يجد «الصالحية»، و«مدينه قطاع 33» تجد قطاعها — والملتبس يُردّ */
+    public function test_an_excel_row_finds_an_area_written_without_its_article(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'zajel-test-').'.xlsx';
+        $book = new Spreadsheet;
+        $book->getActiveSheet()->fromArray([
+            ['هاتف المستلم', 'المحافظة', 'المنطقة', 'المبلغ'],
+            ['07801234567', 'بغداد', 'صالحية', 25000],
+            ['07801234568', 'بغداد', 'مدينه قطاع 33', 25000],
+            ['07801234569', 'بغداد', 'شارع 60', 25000],
+        ], null, 'A1');
+        (new Xlsx($book))->save($path);
+
+        $rows = Tenancy::runFor($this->zajel, fn () => app(ShipmentSheet::class)->read($path));
+
+        $this->assertSame([], $rows[0]['errors']);
+        $this->assertSame($this->area('الصالحية'), $rows[0]['data']['city_id']);
+        // كلماته كلّها في منطقةٍ واحدة فهي هي
+        $this->assertSame([], $rows[1]['errors']);
+        $this->assertSame($this->area('مدينة الصدر - قطاع 33'), $rows[1]['data']['city_id']);
+        // وما يحتمل مناطق عدّة لا يُخمَّن
+        $this->assertStringContainsString('ليست في بغداد', implode(' ', $rows[2]['errors']));
+    }
+
     public function test_a_name_already_there_is_not_added_twice_even_spelled_differently(): void
     {
-        // «الكراده» هي «الكرادة» العامّة
+        // «الكراده» هي «الكرادة» العامّة — و«كراده» بلا «ال» كذلك
         $this->add('الكراده', $this->baghdad())
+            ->assertSessionHasErrors(['name_ar' => '«الكرادة» موجودة سلفاً في بغداد.']);
+        $this->add('كراده', $this->baghdad())
             ->assertSessionHasErrors(['name_ar' => '«الكرادة» موجودة سلفاً في بغداد.']);
 
         $this->add('حي الأمير الجديد')->assertSessionHas('success');

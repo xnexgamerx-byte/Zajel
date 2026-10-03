@@ -212,8 +212,7 @@ class ShipmentSheet
         }
 
         if ($governorate && $value('city') !== '') {
-            $city = $cities->first(fn (City $c) => $c->governorate_id === $governorate->id
-                && $this->normalise($c->name_ar) === $this->normalise($value('city')));
+            $city = $this->matchCity($value('city'), $governorate, $cities);
 
             if (! $city) {
                 // اسمٌ لا نعرفه: إمّا خطأ كتابة، أو منطقةٌ تنقص القائمة فتُضاف مرّةً وتُعرف بعدها
@@ -277,6 +276,51 @@ class ShipmentSheet
         $clean = preg_replace('/[^\d.\-]/', '', $this->toLatinDigits($raw));
 
         return $clean === '' || ! is_numeric($clean) ? null : (int) round((float) $clean);
+    }
+
+    /** @var array<int, array{0: string, 1: string, 2: list<string>}> أسماء المناطق مطويّةً، مرّةً للملف */
+    private array $cityKeys = [];
+
+    /**
+     * المنطقة باسمها كما كتبه التاجر: حرفاً بعد الطيّ، ثم بلا «ال» («صالحية» هي «الصالحية»)،
+     * ثم بكلماته كلّها في اسم منطقةٍ واحدة («مدينه قطاع 33» هي «مدينة الصدر - قطاع 33»).
+     * وما احتمل منطقتين لا يُخمَّن: يُردّ الصفّ ليُصحَّح.
+     */
+    protected function matchCity(string $raw, Governorate $governorate, Collection $cities): ?City
+    {
+        $candidates = $cities->where('governorate_id', $governorate->id);
+        $exact = $this->normalise($raw);
+
+        if ($city = $candidates->first(fn (City $c) => $this->cityKeys($c)[0] === $exact)) {
+            return $city;
+        }
+
+        $loose = Arabic::looseFold($raw);
+        $words = array_values(array_unique(array_filter(explode(' ', $loose), fn ($w) => $w !== '')));
+
+        foreach ([
+            fn (City $c) => $this->cityKeys($c)[1] === $loose,
+            fn (City $c) => $words !== [] && array_diff($words, $this->cityKeys($c)[2]) === [],
+        ] as $matches) {
+            $found = $candidates->filter($matches);
+
+            if ($found->isNotEmpty()) {
+                return $found->count() === 1 ? $found->first() : null;
+            }
+        }
+
+        return null;
+    }
+
+    /** @return array{0: string, 1: string, 2: list<string>} */
+    private function cityKeys(City $city): array
+    {
+        if (! isset($this->cityKeys[$city->id])) {
+            $loose = Arabic::looseFold($city->name_ar);
+            $this->cityKeys[$city->id] = [$this->normalise($city->name_ar), $loose, explode(' ', $loose)];
+        }
+
+        return $this->cityKeys[$city->id];
     }
 
     /** الأرقام العربية الشرقية تصل من بعض الملفات كما هي. */

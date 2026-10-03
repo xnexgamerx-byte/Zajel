@@ -15,7 +15,8 @@ use Illuminate\Database\Seeder;
  *
  * ولبغداد فوق مناطقها هنا المناطق الـ٣٥٥ التي تعرفها شركات التوصيل
  * (database/data/baghdad-areas.php)، ولغيرها أحياء مراكزها وأقضيتها ونواحيها
- * (database/data/governorate-areas.php). ولا تُكرَّر منطقة موجودة بإعادة البذر:
+ * (database/data/governorate-areas.php)، ثم ما أرسلته الشركة من قائمة النظام الذي
+ * تعمل عليه (database/data/reference-areas.php). ولا تُكرَّر منطقة موجودة بإعادة البذر:
  * المقارنة بالاسم المطويّ، فـ«الأعظمية» هي «الاعظمية».
  */
 class GovernorateSeeder extends Seeder
@@ -23,6 +24,7 @@ class GovernorateSeeder extends Seeder
     public function run(): void
     {
         $more = require database_path('data/governorate-areas.php');
+        $reference = require database_path('data/reference-areas.php');
 
         foreach ($this->data() as $order => [$code, $ar, $en, $cities]) {
             $gov = Governorate::updateOrCreate(
@@ -30,7 +32,11 @@ class GovernorateSeeder extends Seeder
                 ['name_ar' => $ar, 'name_en' => $en, 'sort_order' => $order, 'is_active' => true],
             );
 
-            $cities = [...$cities, ...($code === 'BGD' ? require database_path('data/baghdad-areas.php') : $more[$code] ?? [])];
+            $cities = [
+                ...$cities,
+                ...($code === 'BGD' ? require database_path('data/baghdad-areas.php') : $more[$code] ?? []),
+                ...$reference[$code] ?? [],
+            ];
 
             $taken = City::where('governorate_id', $gov->id)->pluck('name_ar')
                 ->mapWithKeys(fn (string $name) => [Arabic::fold($name) => true])

@@ -140,8 +140,13 @@ class AreaPricingTest extends TestCase
 
     public function test_the_areas_screen_sets_fees_outskirts_and_everything_at_once(): void
     {
-        $this->actingAs($this->owner)->get($this->host().'/areas?governorate_id='.$this->baghdad()->id)
-            ->assertOk()->assertSee('الكرادة')->assertSee('التاجي')->assertSee('غير مسنودة');
+        // مناطق بغداد ثمانمئةٍ ونيّف في صفحاتٍ من ستّين: يُبحث عنها — بكتابةٍ أخرى وبغير ترتيب
+        $search = fn (string $q) => $this->actingAs($this->owner)
+            ->get($this->host().'/areas?governorate_id='.$this->baghdad()->id.'&q='.urlencode($q))->assertOk();
+
+        $search('كراده')->assertSee('الكرادة')->assertDontSee('التاجي')->assertSee('غير مسنودة');
+        $search('تاجي')->assertSee('التاجي')->assertDontSee('الكرادة');
+        $search('دباش الحريه')->assertSee('الحرية دباش');
 
         $this->actingAs($this->owner)->post($this->host().'/areas', [
             'governorate_id' => $this->baghdad()->id,
