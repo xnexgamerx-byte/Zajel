@@ -9,16 +9,30 @@
  * يبنيها كما كان — والحقل يتبعها.
  */
 
-/** كما يطوي الخادم الأسماء (App\Support\Arabic::fold): الأعظمية = الاعظميه. */
+/**
+ * كما يطوي الخادم الأسماء (App\Support\Arabic::fold): الأعظمية = الاعظميه،
+ * و«گشتيار» الكردية = «كشتيار» كما تُكتب بلوحة مفاتيح عربية.
+ */
 export function fold(text) {
     return String(text ?? '')
         .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+        .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
         .replace(/[أإآٱ]/g, 'ا')
         .replace(/ة/g, 'ه')
         .replace(/ى/g, 'ي')
         .replace(/ؤ/g, 'و')
         .replace(/ئ/g, 'ي')
-        .replace(/[ً-ْـ]/g, '')
+        .replace(/[کگ]/g, 'ك')
+        .replace(/[یێ]/g, 'ي')
+        .replace(/ڤ/g, 'ف')
+        .replace(/پ/g, 'ب')
+        .replace(/چ/g, 'ج')
+        .replace(/ژ/g, 'ز')
+        .replace(/[ەھ]/g, 'ه')
+        .replace(/ۆ/g, 'و')
+        .replace(/ڵ/g, 'ل')
+        .replace(/ڕ/g, 'ر')
+        .replace(/[ً-ْـ‌‍]/g, '')
         .replace(/[/\\\-_*().,،]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim()

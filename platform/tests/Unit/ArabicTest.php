@@ -83,6 +83,21 @@ class ArabicTest extends TestCase
         $this->assertSame('', Arabic::fold(null));
     }
 
+    /** أسماء دهوك وأربيل والسليمانية بحروفٍ كردية، ويكتبها الموظّف بلوحة مفاتيح عربية */
+    public function test_fold_reads_kurdish_letters_as_the_arabic_keyboard_writes_them(): void
+    {
+        $this->assertSame(Arabic::fold('دهوك گشتيار'), Arabic::fold('دهوك كشتيار'));
+        $this->assertSame(Arabic::fold('دهوك كيڤلا'), Arabic::fold('دهوك كيفلا'));
+        $this->assertSame(Arabic::fold('مجمع روژ ستي'), Arabic::fold('مجمع روز ستي'));
+        $this->assertSame(Arabic::fold('هه پي پارك'), Arabic::fold('هه بي بارك'));
+        // «ی» و«ک» الفارسيتان، وفاصل الحروف الخفيّ
+        $this->assertSame(Arabic::fold('کراج شورش'), Arabic::fold('كراج شورش'));
+        $this->assertSame(Arabic::fold("فه\u{200C}ژین"), Arabic::fold('فهزين'));
+        $this->assertSame(Arabic::fold('۱۱ ايلول'), Arabic::fold('11 ايلول'));
+
+        $this->assertNotSame(Arabic::fold('دهوك گري صور'), Arabic::fold('دهوك كري سور'));
+    }
+
     /** اسم المنطقة يُكتب بالتعريف وبدونه، وبـ«حي» أو «منطقة» قبله وبدونهما */
     public function test_loose_fold_lets_an_area_be_written_without_its_article_or_hay(): void
     {

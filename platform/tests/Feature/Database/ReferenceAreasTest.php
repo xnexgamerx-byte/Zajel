@@ -32,6 +32,7 @@ class ReferenceAreasTest extends TestCase
         '2026_01_03_000400_add_anbar_reference_areas.php',
         '2026_01_03_000500_add_babil_reference_areas.php',
         '2026_01_03_000600_add_basra_reference_areas.php',
+        '2026_01_03_000700_add_duhok_reference_areas.php',
     ];
 
     /** @return array<string, list<string>> */
@@ -64,6 +65,7 @@ class ReferenceAreasTest extends TestCase
         $this->assertCount(412, $lists['ANB']);
         $this->assertCount(151, $lists['BBL']);
         $this->assertCount(318, $lists['BSR']);
+        $this->assertCount(562, $lists['DHK']);
 
         foreach ($lists as $code => $names) {
             $this->assertSame(count($names), count(array_unique(array_map(Arabic::looseFold(...), $names))), "منطقتان بالاسم نفسه في {$code}");
@@ -109,6 +111,17 @@ class ReferenceAreasTest extends TestCase
         $this->assertContains('شارع 14 تموز', $lists['BSR']);
         foreach ($lists['BSR'] as $name) {
             $this->assertDoesNotMatchRegularExpression('/^\*|(^|[ -])بصر[ةه]( |$)|^البصر[ةه] -/u', $name, "«{$name}»: اسم المحافظة أو علامةٌ زائدة");
+        }
+
+        // دهوك: الحرف الكردي باقٍ، والاسم نفسه بحرفٍ عربي لا يُضاف ثانيةً
+        $this->assertContains('دهوك گشتيار', $lists['DHK']);
+        $this->assertNotContains('دهوك كشتيار', $lists['DHK']);
+        $this->assertContains('مجمع MRF دهوك مالطا', $lists['DHK']);
+        foreach ($lists as $code => $names) {
+            foreach ($names as $name) {
+                // لا فاصل خفيّاً، ولا «ی» و«ک» الفارسيتين: تُكتبان «ي» و«ك»
+                $this->assertDoesNotMatchRegularExpression('/[\x{200C}\x{200D}\x{06CC}\x{06A9}]/u', $name, "«{$name}» في {$code}");
+            }
         }
     }
 
