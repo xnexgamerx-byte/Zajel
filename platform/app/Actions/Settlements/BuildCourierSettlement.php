@@ -39,7 +39,7 @@ class BuildCourierSettlement
 
             if ($open) {
                 throw ValidationException::withMessages([
-                    'courier_id' => "للمندوب {$courier->name} كشف مفتوح ({$open->code}). أقفِله أو ألغِه قبل بناء كشف جديد.",
+                    'courier_id' => "للمندوب {$courier->name} كشفٌ مسودّة ({$open->code}). أقفِله أو احذفه من صفحته قبل بناء كشف جديد.",
                 ]);
             }
 

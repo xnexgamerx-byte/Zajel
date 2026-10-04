@@ -40,7 +40,7 @@ class BuildMerchantSettlement
 
             if ($open) {
                 throw ValidationException::withMessages([
-                    'merchant_id' => "للتاجر {$merchant->business_name} كشف مفتوح ({$open->code}). أقفِله أو ألغِه قبل بناء كشف جديد.",
+                    'merchant_id' => "للتاجر {$merchant->business_name} كشفٌ مسودّة ({$open->code}). أقفِله أو احذفه من صفحته قبل بناء كشف جديد.",
                 ]);
             }
 

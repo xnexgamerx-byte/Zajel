@@ -135,6 +135,21 @@
                 </div>
                 <button type="submit" class="btn-primary w-full">إقفال الكشف</button>
             </form>
+
+            @can('money.settle')
+                {{-- بُني خطأً أو يُبنى من جديد: المسودّة لا أثر لها في الحساب --}}
+                <form method="POST" action="{{ route('settlements.merchants.destroy', $settlement) }}" class="card p-5">
+                    @csrf
+                    @method('DELETE')
+                    <p class="text-xs text-ink-500">
+                        بُني خطأً أو تريد بناءه من جديد؟ الحذف لا يغيّر شيئاً في الحسابات، وشحناته تدخل الكشف التالي كما هي.
+                    </p>
+                    <button type="submit" class="btn-danger mt-3 w-full"
+                            data-confirm="يُحذف كشف {{ $settlement->code }}؟ لا يتغيّر شيءٌ في الحسابات، وشحناته تدخل الكشف التالي كما هي.">
+                        حذف الكشف
+                    </button>
+                </form>
+            @endcan
         @elseif ($settlement->status === 'confirmed')
             <form method="POST" action="{{ route('settlements.merchants.pay', $settlement) }}"
                   class="card space-y-4 p-5">

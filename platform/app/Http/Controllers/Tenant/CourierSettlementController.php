@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Settlements\BuildCourierSettlement;
+use App\Actions\Settlements\DeleteDraftSettlement;
 use App\Actions\Settlements\ConfirmCourierSettlement;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
@@ -128,5 +129,15 @@ class CourierSettlementController extends Controller
         );
 
         return back()->with('success', "أُقفِل كشف {$settlement->code} واستُلم النقد.");
+    }
+
+    /** حذف المسودّة: لا أثر لها في الحساب، وشحناتها تدخل الكشف التالي كما هي */
+    public function destroy(Request $request, CourierSettlement $settlement, DeleteDraftSettlement $delete): RedirectResponse
+    {
+        $delete->handle($settlement, $request->user());
+
+        return redirect()
+            ->route('settlements.couriers.index')
+            ->with('success', "حُذف كشف {$settlement->code}. شحناته تدخل الكشف التالي كما هي.");
     }
 }

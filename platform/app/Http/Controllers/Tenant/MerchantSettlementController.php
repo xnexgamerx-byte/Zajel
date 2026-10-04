@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Settlements\BuildMerchantSettlement;
+use App\Actions\Settlements\DeleteDraftSettlement;
 use App\Actions\Settlements\PayMerchantSettlement;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
@@ -87,5 +88,15 @@ class MerchantSettlementController extends Controller
         $action->pay($settlement, $request->user(), $data['payout_method'], $data['payout_reference'] ?? null);
 
         return back()->with('success', "سُجِّل دفع كشف {$settlement->code}.");
+    }
+
+    /** حذف المسودّة: لا أثر لها في الحساب، وشحناتها تدخل الكشف التالي كما هي */
+    public function destroy(Request $request, MerchantSettlement $settlement, DeleteDraftSettlement $delete): RedirectResponse
+    {
+        $delete->handle($settlement, $request->user());
+
+        return redirect()
+            ->route('settlements.merchants.index')
+            ->with('success', "حُذف كشف {$settlement->code}. شحناته تدخل الكشف التالي كما هي.");
     }
 }

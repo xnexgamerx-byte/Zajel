@@ -464,6 +464,9 @@ Route::middleware('tenant')->group(function () {
                     ->middleware('can:money.view')->name('couriers.show');
                 Route::post('couriers/{settlement}/confirm', [CourierSettlementController::class, 'confirm'])
                     ->middleware('can:money.settle')->name('couriers.confirm');
+                // المسودّة تُحذف فتعود شحناتها للكشف التالي؛ والمُقفَل لا يُحذف
+                Route::delete('couriers/{settlement}', [CourierSettlementController::class, 'destroy'])
+                    ->middleware('can:money.settle')->name('couriers.destroy');
 
                 // كشف التاجر: بناؤه وإقفاله تسوية، ودفعه صلاحية أخرى
                 Route::middleware('can:money.view')->group(function () {
@@ -473,6 +476,7 @@ Route::middleware('tenant')->group(function () {
                 Route::middleware('can:money.settle')->group(function () {
                     Route::post('merchants', [MerchantSettlementController::class, 'store'])->name('merchants.store');
                     Route::post('merchants/{settlement}/confirm', [MerchantSettlementController::class, 'confirm'])->name('merchants.confirm');
+                    Route::delete('merchants/{settlement}', [MerchantSettlementController::class, 'destroy'])->name('merchants.destroy');
                 });
                 Route::post('merchants/{settlement}/pay', [MerchantSettlementController::class, 'pay'])
                     ->middleware('can:money.pay')->name('merchants.pay');
