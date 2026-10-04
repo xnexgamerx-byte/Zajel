@@ -65,6 +65,13 @@ class Merchant extends Model
         return $this->belongsTo(User::class, 'sales_user_id');
     }
 
+    /** حساب دخوله على بوابة التجّار، إن كان له حساب */
+    public function loginAccount(): ?User
+    {
+        return User::where('merchant_id', $this->id)
+            ->where('role', \App\Enums\UserRole::Merchant->value)->orderBy('id')->first();
+    }
+
     public function governorate(): BelongsTo
     {
         return $this->belongsTo(Governorate::class);

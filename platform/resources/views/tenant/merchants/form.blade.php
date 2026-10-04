@@ -267,38 +267,11 @@
             </div>
         </section>
 
-        @unless ($merchant->exists)
-            <section class="card p-5">
-                <h2 class="mb-4 text-sm font-bold">حساب الدخول</h2>
-                <label class="flex items-start gap-2 text-sm">
-                    <input type="checkbox" name="create_login" value="1" @checked(old('create_login'))
-                           class="mt-0.5 rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500"
-                           data-toggle="login-fields">
-                    <span>
-                        أنشئ حساباً للتاجر على تطبيق التجّار
-                        <span class="mt-0.5 block text-xs text-ink-500">
-                            يدخل باسم مستخدمه — أو برقم هاتفه إن تُرك فارغاً — ويرى شحناته وحسابه فقط.
-                        </span>
-                    </span>
-                </label>
-
-                <div class="mt-4 space-y-4" id="login-fields" hidden>
-                    <div>
-                        <label class="field-label" for="username">اسم المستخدم</label>
-                        <input id="username" name="username" class="field-input text-left" dir="ltr"
-                               value="{{ old('username') }}" autocomplete="off" autocapitalize="none"
-                               spellcheck="false" placeholder="فارغاً: رقم هاتفه">
-                        @error('username') <p class="field-error">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="field-label" for="password">كلمة المرور</label>
-                        <input id="password" name="password" type="text" class="field-input text-left" dir="ltr"
-                               placeholder="ستُسلَّم للتاجر">
-                        @error('password') <p class="field-error">{{ $message }}</p> @enderror
-                    </div>
-                </div>
-            </section>
-        @endunless
+        {{-- حساب دخوله: يُنشأ عند الإضافة أو بعدها، ويُغيَّر اسمه وكلمة مروره متى شئت --}}
+        <x-login-account :account="$account ?? null" toggle="login-fields" app="بوابة التجّار"
+                         create-label="أنشئ حساباً للتاجر على تطبيق التجّار"
+                         create-hint="يدخل باسم مستخدمه — أو برقم هاتفه إن تُرك فارغاً — ويرى شحناته وحسابه فقط."
+                         password-hint="ستُسلَّم للتاجر" />
 
         <button type="submit" class="btn-primary w-full">
             {{ $merchant->exists ? 'حفظ التعديلات' : 'إضافة التاجر' }}

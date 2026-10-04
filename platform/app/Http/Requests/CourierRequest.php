@@ -98,6 +98,33 @@ class CourierRequest extends FormRequest
                 $validator->errors()->add('partner_centre_value', 'النسبة من صفر إلى مئة.');
             }
 
+            // حسابٌ قائم: يُغيَّر اسمه إلى اسمٍ صالحٍ لا يحمله غيره، وكلمة مروره الجديدة اختياريّة
+            $account = $courier?->loginAccount();
+
+            if ($account && filled($this->username)) {
+                $username = Username::normalise($this->username);
+
+                if ($username === null) {
+                    $validator->errors()->add('username', Username::RULE_MESSAGE);
+                } elseif (User::where('username', $username)->whereKeyNot($account->id)->exists()) {
+                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
+                }
+            }
+
+            // ولمن لا حساب له يُنشأ عند التعديل كما عند الإضافة — ولا يُتخطّى بصمت
+            if ($this->boolean('create_login') && $courier && ! $account) {
+                if (! $this->password) {
+                    $validator->errors()->add('password', 'أدخل كلمة مرور لحساب دخول المندوب.');
+                }
+
+                $username = Username::normalise($this->username) ?? Username::canonical($courier->phone);
+                if (User::where('phone', $courier->phone)->exists()) {
+                    $validator->errors()->add('create_login', 'رقم هاتفه لحسابٍ آخر في شركتك، فلا يُنشأ له حسابٌ به.');
+                } elseif (User::where('username', $username)->exists()) {
+                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
+                }
+            }
+
             if ($this->boolean('create_login') && ! $courier && ! $this->password) {
                 $validator->errors()->add('password', 'أدخل كلمة مرور لحساب دخول المندوب.');
             }

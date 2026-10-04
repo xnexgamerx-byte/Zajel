@@ -49,6 +49,7 @@ class AuditLog extends Model
         'shipment_restored'        => 'استُرجعت شحنة ممسوحة',
         'settlement_draft_deleted' => 'حُذف كشفٌ مسودّة',
         'settlement_draft_edited'  => 'عُدِّل كشفٌ مسودّة',
+        'login_changed'            => 'تغيّر اسم الدخول أو كلمة المرور',
     ];
 
     public function actionLabel(): string

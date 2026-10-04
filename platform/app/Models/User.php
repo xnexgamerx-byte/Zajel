@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * مستخدم واحد للجميع: النواة والشركات والمندوبين والتجّار.
@@ -72,6 +74,20 @@ class User extends Authenticatable
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * كلمة مروره تغيّرت: يخرج من أجهزته كلّها، ويسقط «تذكّرني» — إلّا الجلسة التي غيّرتها
+     * إن كانت جلسته هو.
+     */
+    public function endOtherSessions(): void
+    {
+        DB::table('sessions')->where('user_id', $this->id)
+            ->when(auth()->id() === $this->id && session()->isStarted(),
+                fn ($q) => $q->where('id', '!=', session()->getId()))
+            ->delete();
+
+        $this->forceFill(['remember_token' => Str::random(60)])->save();
     }
 
     public function rank(): BelongsTo

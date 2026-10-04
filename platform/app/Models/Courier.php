@@ -33,6 +33,13 @@ class Courier extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** حساب دخوله على تطبيق المندوبين، إن كان له حساب */
+    public function loginAccount(): ?User
+    {
+        return $this->user ?? User::where('courier_id', $this->id)
+            ->where('role', \App\Enums\UserRole::Courier->value)->orderBy('id')->first();
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

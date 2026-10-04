@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\Accounts\ChangeLogin;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
@@ -108,7 +109,7 @@ class UserController extends Controller
         return view('tenant.users.form', $this->formData() + ['staff' => $user]);
     }
 
-    public function update(Request $request, User $user): RedirectResponse
+    public function update(Request $request, User $user, ChangeLogin $login): RedirectResponse
     {
         $this->guardManageable($user);
 
@@ -121,9 +122,9 @@ class UserController extends Controller
             ])->withInput();
         }
 
-        if (blank($data['password'] ?? null)) {
-            unset($data['password']);
-        }
+        // اسم الدخول وكلمة المرور كما للمندوب والتاجر: يُسجَّلان، وكلمة مرورٍ جديدة تُخرجه من أجهزته
+        [$username, $password] = [$data['username'] ?? null, $data['password'] ?? null];
+        unset($data['username'], $data['password']);
 
         $governorates = $this->pullGovernorates($data);
 
@@ -132,6 +133,8 @@ class UserController extends Controller
             'is_active' => $request->boolean('is_active'),
             'is_sales'  => $request->boolean('is_sales'),
         ]), 'rank_id');
+
+        $login->handle($user, $username, $password, $request->user());
 
         $user->governorates()->sync($governorates);
 

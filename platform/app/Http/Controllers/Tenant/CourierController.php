@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\Accounts\ChangeLogin;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
@@ -104,15 +105,23 @@ class CourierController extends Controller
             'courier' => $courier,
             // المحافظات كلّها وحدها: المنطقة داخل محافظةٍ تُسند من «مناطق المندوبين»
             'zones'   => $courier->zones()->whereNull('city_id')->pluck('governorate_id')->all(),
+            'account' => $courier->loginAccount(),
         ]);
     }
 
-    public function update(CourierRequest $request, Courier $courier): RedirectResponse
+    public function update(CourierRequest $request, Courier $courier, ChangeLogin $login): RedirectResponse
     {
         $data = $request->validated();
 
         $courier->update(collect($data)->except(['zones', 'create_login', 'username', 'password'])->all());
         $this->syncZones($courier, $data['zones'] ?? []);
+
+        // حساب دخوله: يُغيَّر اسمه أو كلمة مروره، أو يُنشأ له إن لم يكن له حساب
+        if ($account = $courier->loginAccount()) {
+            $login->handle($account, $data['username'] ?? null, $data['password'] ?? null, $request->user());
+        } elseif (! empty($data['create_login'])) {
+            $this->createLogin($courier, $data['password'] ?? null, $data['username'] ?? null);
+        }
 
         return redirect()
             ->route('couriers.show', $courier)

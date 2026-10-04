@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\Accounts\ChangeLogin;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
@@ -108,14 +109,24 @@ class MerchantController extends Controller
 
     public function edit(Merchant $merchant): View
     {
-        return view('tenant.merchants.form', $this->formData() + ['merchant' => $merchant]);
+        return view('tenant.merchants.form', $this->formData() + [
+            'merchant' => $merchant,
+            'account'  => $merchant->loginAccount(),
+        ]);
     }
 
-    public function update(MerchantRequest $request, Merchant $merchant): RedirectResponse
+    public function update(MerchantRequest $request, Merchant $merchant, ChangeLogin $login): RedirectResponse
     {
-        $merchant->update(
-            collect($request->validated())->except(['create_login', 'username', 'password'])->all()
-        );
+        $data = $request->validated();
+
+        $merchant->update(collect($data)->except(['create_login', 'username', 'password'])->all());
+
+        // حساب دخوله: يُغيَّر اسمه أو كلمة مروره، أو يُنشأ له إن لم يكن له حساب
+        if ($account = $merchant->loginAccount()) {
+            $login->handle($account, $data['username'] ?? null, $data['password'] ?? null, $request->user());
+        } elseif (! empty($data['create_login'])) {
+            $this->createLogin($merchant, $data['password'] ?? null, $data['username'] ?? null);
+        }
 
         return redirect()
             ->route('merchants.show', $merchant)

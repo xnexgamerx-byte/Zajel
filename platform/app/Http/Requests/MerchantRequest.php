@@ -107,6 +107,33 @@ class MerchantRequest extends FormRequest
                 }
             }
 
+            // حسابٌ قائم: يُغيَّر اسمه إلى اسمٍ صالحٍ لا يحمله غيره، وكلمة مروره الجديدة اختياريّة
+            $account = $merchant?->loginAccount();
+
+            if ($account && filled($this->username)) {
+                $username = Username::normalise($this->username);
+
+                if ($username === null) {
+                    $validator->errors()->add('username', Username::RULE_MESSAGE);
+                } elseif (User::where('username', $username)->whereKeyNot($account->id)->exists()) {
+                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
+                }
+            }
+
+            // ولمن لا حساب له يُنشأ عند التعديل كما عند الإضافة — ولا يُتخطّى بصمت
+            if ($this->boolean('create_login') && $merchant && ! $account) {
+                if (! $this->password) {
+                    $validator->errors()->add('password', 'أدخل كلمة مرور لحساب دخول التاجر.');
+                }
+
+                $username = Username::normalise($this->username) ?? Username::canonical($merchant->phone);
+                if (User::where('phone', $merchant->phone)->exists()) {
+                    $validator->errors()->add('create_login', 'رقم هاتفه لحسابٍ آخر في شركتك، فلا يُنشأ له حسابٌ به.');
+                } elseif (User::where('username', $username)->exists()) {
+                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
+                }
+            }
+
             if ($this->boolean('create_login') && ! $merchant && ! $this->password) {
                 $validator->errors()->add('password', 'أدخل كلمة مرور لحساب دخول التاجر.');
             }
