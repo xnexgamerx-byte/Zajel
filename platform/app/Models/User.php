@@ -42,6 +42,7 @@ class User extends Authenticatable
     {
         return [
             'permissions'  => 'array',
+            'home_layout'  => 'array',
             'email_verified_at' => 'datetime',
             'last_login_at'     => 'datetime',
             'password'          => 'hashed',

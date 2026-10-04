@@ -42,7 +42,11 @@
                             · <span class="num">{{ count($have) }}</span> صلاحية
                         </p>
                     </div>
-                    <a href="{{ route('permissions.ranks.edit', $rank) }}" class="btn-ghost py-1">تعديل</a>
+                    <div class="flex flex-wrap gap-1.5">
+                        {{-- ما يراه أصحابها في «لوحة اليوم» ما لم يخصّصوا رئيسيّتهم (HomeLayout) --}}
+                        <a href="{{ route('home.customize', ['rank' => $rank->id]) }}" class="btn-ghost py-1">رئيسيّتها</a>
+                        <a href="{{ route('permissions.ranks.edit', $rank) }}" class="btn-ghost py-1">تعديل</a>
+                    </div>
                 </div>
                 <div class="mt-3 flex flex-wrap gap-1.5">
                     @foreach ($groups as $group)

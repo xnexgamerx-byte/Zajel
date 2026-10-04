@@ -25,6 +25,7 @@ use App\Http\Controllers\Platform\SubscriptionController as PlatformSubscription
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\Portal\SupportController as PortalSupportController;
 use App\Http\Controllers\Tenant\AnnouncementController;
+use App\Http\Controllers\Tenant\HomeLayoutController;
 use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
@@ -111,6 +112,9 @@ Route::middleware('tenant')->group(function () {
 
     Route::middleware('auth')->group(function () {
         Route::get('/', TenantDashboardController::class)->middleware('staff')->name('dashboard');
+        // «خصّص الرئيسية»: لكل موظّفٍ رئيسيّته، ولكل مرتبةٍ رئيسيّتها الافتراضية
+        Route::get('/home/customize', [HomeLayoutController::class, 'edit'])->middleware('staff')->name('home.customize');
+        Route::post('/home/customize', [HomeLayoutController::class, 'update'])->middleware('staff')->name('home.customize.update');
         // صورة إعلان التطبيق: لكل مستخدمي الشركة — ربط المسار يفلتر بها
         Route::get('/app-ads/{ad}/image', [AppAdController::class, 'image'])->whereNumber('ad')->name('app-ads.image');
 

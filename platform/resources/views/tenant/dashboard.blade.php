@@ -13,8 +13,31 @@
         <h1 class="page-title">لوحة اليوم</h1>
         <p class="page-sub">{{ now()->translatedFormat('l j F Y') }}</p>
     </div>
-    <a href="{{ route('shipments.index') }}" class="btn-ghost">كل الشحنات</a>
+    <div class="flex flex-wrap gap-2">
+        <a href="{{ route('home.customize') }}" class="btn-ghost">
+            <x-icon name="sliders" class="size-5"/>
+            خصّص الرئيسية
+        </a>
+        <a href="{{ route('shipments.index') }}" class="btn-ghost">كل الشحنات</a>
+    </div>
 </div>
+
+@if ($shortcuts)
+    {{-- اختصاراته (HomeLayout): الشاشات التي يعمل فيها كل يوم، بضغطةٍ من الرئيسية --}}
+    <nav class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6" aria-label="اختصاراتي">
+        @foreach ($shortcuts as $i => $shortcut)
+            <a href="{{ $shortcut['url'] }}" class="kpi rise min-h-20 gap-3 px-4 py-3" style="--i: {{ $i }}">
+                <span class="grid size-10 shrink-0 place-items-center rounded-full bg-primary-50 text-primary-600">
+                    <x-icon :name="$shortcut['icon']" class="size-5"/>
+                </span>
+                <span class="min-w-0">
+                    <span class="block text-sm font-semibold leading-snug text-aeblack-950">{{ $shortcut['label'] }}</span>
+                    <span class="block truncate text-[11px] text-ink-500">{{ $shortcut['group'] }}</span>
+                </span>
+            </a>
+        @endforeach
+    </nav>
+@endif
 
 @php
     $daily = collect($week);
@@ -26,6 +49,7 @@
   بخطّ أيامه السبعة، وحركة الشحنات الجديدة «مصّاصاتٍ»، ودعوةٌ إلى شحنةٍ جديدة
   بحدٍّ متقطّع. الأيام من اليمين: أقدمها أوّلاً واليوم آخرها، مع اتجاه القراءة.
 --}}
+@if (isset($show['today']))
 <div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12">
     <a href="{{ route('shipments.index', ['status' => 'delivered']) }}"
        class="glow-card rise flex flex-col gap-4 transition hover:-translate-y-0.5 lg:col-span-5" style="--i: 0">
@@ -126,8 +150,10 @@
         </div>
     @endif
 </div>
+@endif
 
 {{-- ما بقي من أسئلة الصباح: أين الشحنات المفتوحة الآن --}}
+@if (isset($show['where']))
 <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
     @foreach ([
         ['مع المندوبين', $cards['with_couriers'], ['status' => 'out_for_delivery'], 'truck'],
@@ -148,6 +174,7 @@
         </{{ $tag }}>
     @endforeach
 </div>
+@endif
 
 @php
     /*
@@ -164,6 +191,7 @@
     };
 @endphp
 
+@if (isset($show['money']))
 <div class="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
     @foreach ([
         ['مبالغ لم تُحصَّل', $cards['cod_open'], 'text-warn-700', 'على شحنات قيد التنفيذ', null, 'wallet'],
@@ -189,8 +217,9 @@
         </div>
     @endforeach
 </div>
+@endif
 
-@if ($aging['stale_shipments'] > 0)
+@if (isset($show['stale']) && $aging['stale_shipments'] > 0)
     {{-- تنبيهٌ تحذيريّ: جملة الفعل، ثم زرّ دائريّ مرجانيّ يفتحها --}}
     <a href="{{ route('shipments.index', ['status' => 'failed_attempt']) }}"
        class="mb-5 flex items-center gap-4 rounded-3xl bg-camel-50 px-5 py-4 ring-1 ring-camel-200 transition hover:-translate-y-0.5 hover:bg-camel-100">
@@ -270,8 +299,16 @@
     </section>
 @endif
 
-<div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
-    <div class="space-y-5 lg:col-span-2">
+@php
+    // كتلةٌ لا سطرٌ مضمَّن: المضمَّن هنا يبتلع ما بعده حتى نهاية أوّل كتلةٍ تليه
+    $left = isset($show['stuck']) || isset($show['governorates']);
+    $right = (isset($show['pickups']) && $cards['pending_pickups']) || isset($show['cash_limit']);
+@endphp
+@if ($left || $right)
+<div class="grid grid-cols-1 gap-5 {{ $left && $right ? 'lg:grid-cols-3' : '' }}">
+    @if ($left)
+    <div class="space-y-5 {{ $right ? 'lg:col-span-2' : '' }}">
+        @if (isset($show['stuck']))
         <section>
             <div class="panel-head">
                 <span class="panel-head-icon"><x-icon name="alert" class="size-5"/></span>
@@ -311,7 +348,9 @@
                 </div>
             @endif
         </section>
+        @endif
 
+        @if (isset($show['governorates']))
         <section class="card p-5">
             <h2 class="card-title">قيد التنفيذ حسب المحافظة</h2>
             <p class="card-hint mb-5">سلسلة واحدة بلون واحد — الطول وحده يحمل المقدار.</p>
@@ -341,10 +380,13 @@
                 </div>
             @endif
         </section>
+        @endif
     </div>
+    @endif
 
+    @if ($right)
     <div class="space-y-5">
-        @if ($cards['pending_pickups'])
+        @if (isset($show['pickups']) && $cards['pending_pickups'])
             <a href="{{ route('pickups.index') }}"
                class="kpi kpi-accent items-start px-5 py-4">
                 <span class="kpi-icon"><x-icon name="clipboard" class="size-6"/></span>
@@ -356,6 +398,7 @@
             </a>
         @endif
 
+        @if (isset($show['cash_limit']))
         <section>
             <div class="panel-head">
                 <span class="panel-head-icon"><x-icon name="cash" class="size-5"/></span>
@@ -381,6 +424,16 @@
                 </div>
             @endif
         </section>
+        @endif
     </div>
+    @endif
 </div>
+@endif
+
+@if (! $show && ! $shortcuts)
+    <p class="card p-10 text-center text-ink-500">
+        أخفيتَ كل أقسام الرئيسية. <a href="{{ route('home.customize') }}" class="font-semibold text-primary-700 hover:underline">خصّصها</a>
+        لتختار ما يظهر لك.
+    </p>
+@endif
 @endsection

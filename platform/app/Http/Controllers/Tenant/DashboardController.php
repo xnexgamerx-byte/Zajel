@@ -10,6 +10,7 @@ use App\Models\MerchantSettlement;
 use App\Models\PickupRequest;
 use App\Models\Shipment;
 use App\Services\Dashboard\HomeAlerts;
+use App\Support\HomeLayout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -26,6 +27,11 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
+        // لوحته كما خصّصها هو أو مرتبته (HomeLayout): ما أُخفي لا يُحسب أصلاً
+        $home = HomeLayout::for($user);
+        $show = $home['sections'];
+        $on = fn (string $section) => isset($show[$section]);
+
         // كل العدّادات من استعلام واحد مجمَّع بدل ستّة، على المفتوحة وحدها:
         // البطاقات لا تعدّ غيرها، والمنتهية تكبر مع كل يوم (١٥٥ ألفاً من ١٦٥
         // في سنة) فكان التجميع يقرأها كلّها ليرميها: ٧٨ مللي ثانية ← ٢
@@ -40,36 +46,39 @@ class DashboardController extends Controller
         $open = $byStatus->whereIn('status', ShipmentStatus::openValues());
         $of = fn (ShipmentStatus $s) => (int) $byStatus->where('status', $s->value)->sum('c');
 
-        $today = Shipment::query()->visibleTo($user)->whereOnDate('created_at', today())->count();
-        $deliveredToday = Shipment::query()->visibleTo($user)
-            ->whereOnDate('delivered_at', today())->count();
+        $today = $on('today') ? Shipment::query()->visibleTo($user)->whereOnDate('created_at', today())->count() : 0;
+        $deliveredToday = $on('today') ? Shipment::query()->visibleTo($user)
+            ->whereOnDate('delivered_at', today())->count() : 0;
 
         // المحذوفون داخلون: مندوبٌ فُصل وبيده نقد لم يُسلَّم — والنقد لا يُحذف بحذفه
         // ومن فرعه وحده إن كان مقيَّداً بفرع
-        $money = Courier::withTrashed()->visibleTo($user)
+        $money = $on('money') ? Courier::withTrashed()->visibleTo($user)
             ->toBase()
             ->selectRaw('sum(cash_in_hand) as cash, sum(commission_balance) as commission')
-            ->first();
+            ->first() : null;
 
         // أقدم نقدٍ لم يُسلَّم بعد، وأقدم كشف تاجرٍ لم يُدفع
-        $oldestUncollected = Shipment::query()
+        $oldestUncollected = $on('money') ? Shipment::query()
             ->visibleTo($user)
             ->whereNotNull('delivered_at')
             ->whereNull('courier_settled_at')
             ->where('collected_amount', '>', 0)
-            ->min('delivered_at');
+            ->min('delivered_at') : null;
 
-        $oldestUnpaid = MerchantSettlement::query()->visibleTo($user)
+        $oldestUnpaid = $on('money') ? MerchantSettlement::query()->visibleTo($user)
             ->where('status', 'confirmed')
-            ->min('confirmed_at');
+            ->min('confirmed_at') : null;
 
         $staleAfter = (int) config('zajel.stale_shipment_days', 5);
 
         return view('tenant.dashboard', [
-            'week' => $this->lastSevenDays($user),
+            'show'      => $show,
+            'shortcuts' => $home['shortcuts'],
 
-            // البطاقات السبع كما في رئيسية المعتاد، لمن يفتح ما خلفها
-            'alerts' => app(HomeAlerts::class)->for($user),
+            'week' => $on('today') ? $this->lastSevenDays($user) : [],
+
+            // البطاقات السبع كما في رئيسية المعتاد، لمن يفتح ما خلفها — وما اختاره منها
+            'alerts' => $on('alerts') ? app(HomeAlerts::class)->for($user, $home['alerts']) : [],
 
             'cards' => [
                 'today'          => $today,
@@ -80,18 +89,18 @@ class DashboardController extends Controller
                 'stuck'          => $of(ShipmentStatus::FailedAttempt) + $of(ShipmentStatus::Postponed),
                 'cod_open'       => (int) $open->sum('cod'),
                 'cash_in_hand'   => (int) ($money->cash ?? 0),
-                'owed_merchants' => (int) Merchant::visibleTo($user)->where('balance', '>', 0)->sum('balance'),
-                'pending_pickups' => PickupRequest::visibleTo($user)->where('status', 'pending')->count(),
+                'owed_merchants' => $on('money') ? (int) Merchant::visibleTo($user)->where('balance', '>', 0)->sum('balance') : 0,
+                'pending_pickups' => $on('pickups') ? PickupRequest::visibleTo($user)->where('status', 'pending')->count() : 0,
             ],
 
             // الشحنات المتعثّرة: أهم قائمة في الشاشة — كل يوم تأخير يزيد احتمال الراجع
-            'stuck' => Shipment::query()
+            'stuck' => $on('stuck') ? Shipment::query()
                 ->visibleTo($user)
                 ->whereIn('status', [ShipmentStatus::FailedAttempt->value, ShipmentStatus::Postponed->value])
                 ->with(['merchant:id,business_name', 'deliveryCourier:id,name', 'lastFailureReason:id,name_ar,category'])
                 ->orderBy('status_changed_at')
                 ->limit(10)
-                ->get(),
+                ->get() : collect(),
 
             // من تجاوز سقف نقده يجب أن يُسوّى قبل أن يُسنَد إليه المزيد
             /*
@@ -108,22 +117,22 @@ class DashboardController extends Controller
                 'merchant_oldest_days' => $oldestUnpaid
                     ? (int) Carbon::parse($oldestUnpaid)->diffInDays(now())
                     : null,
-                'stale_shipments' => Shipment::query()
+                'stale_shipments' => $on('stale') ? Shipment::query()
                     ->visibleTo($user)
                     ->whereIn('status', ShipmentStatus::openValues())
                     ->where('status_changed_at', '<', now()->subDays($staleAfter))
-                    ->count(),
+                    ->count() : 0,
                 'stale_after' => $staleAfter,
             ],
 
-            'overCashLimit' => Courier::query()
+            'overCashLimit' => $on('cash_limit') ? Courier::query()
                 ->visibleTo($user)
                 ->where('cash_limit', '>', 0)
                 ->whereColumn('cash_in_hand', '>=', 'cash_limit')
                 ->orderByDesc('cash_in_hand')
-                ->get(),
+                ->get() : collect(),
 
-            'byGovernorate' => Shipment::query()
+            'byGovernorate' => ! $on('governorates') ? collect() : Shipment::query()
                 ->visibleTo($user)
                 ->whereIn('status', ShipmentStatus::openValues())
                 ->join('governorates', 'governorates.id', '=', 'shipments.governorate_id')

@@ -29,35 +29,44 @@ final class HomeAlerts
      * @return list<array{key: string, title: string, hint: string, total: int, link: ?string,
      *     rows: Collection<int, array{cells: list<?string>, href: ?string, late: bool}>}>
      */
-    public function for(User $user): array
+    public function for(User $user, ?array $only = null): array
     {
         $cards = [];
 
+        // ما اختاره في «تخصيص الرئيسية» وحده (HomeLayout) — ولا يُحسب ما لم يختره
+        $want = fn (string $key) => $only === null || in_array($key, $only, true);
+
         // المندوب عند الباب ينتظر جوابنا: أوّل ما يُرى (docs/plan/30)
-        if ($user->can('tickets.handle')) {
+        if ($want('tickets') && $user->can('tickets.handle')) {
             $cards[] = $this->courierTickets($user);
         }
 
-        if ($user->can('control.duplicates')) {
+        if ($want('duplicates') && $user->can('control.duplicates')) {
             $cards[] = $this->duplicates($user);
         }
 
-        if ($user->can('shipments.view')) {
+        if ($want('with_courier') && $user->can('shipments.view')) {
             $cards[] = $this->withCourierTooLong($user);
         }
 
-        if ($user->can('control.force')) {
+        if ($want('forced') && $user->can('control.force')) {
             $cards[] = $this->forcedToday($user);
         }
 
-        if ($user->can('money.view')) {
+        if ($want('unpaid') && $user->can('money.view')) {
             $cards[] = $this->unpaidAmounts($user);
         }
 
         if ($user->can('transport.manage')) {
-            $cards[] = $this->betweenBranchesTooLong($user);
-            $cards[] = $this->returnsNotReceived($user);
-            $cards[] = $this->manifestsSent($user);
+            if ($want('in_transit')) {
+                $cards[] = $this->betweenBranchesTooLong($user);
+            }
+            if ($want('returns_away')) {
+                $cards[] = $this->returnsNotReceived($user);
+            }
+            if ($want('manifests')) {
+                $cards[] = $this->manifestsSent($user);
+            }
         }
 
         return $cards;

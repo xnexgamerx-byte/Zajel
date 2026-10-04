@@ -26,6 +26,8 @@ class RouteCoverageTest extends TestCase
         'dashboard',
         'pricing.quote',        // تسعير تقديريّ للشاشة، لا يكتب شيئاً
         'impersonation.stop',
+        // رئيسيّته هو؛ ورئيسية مرتبةٍ لمن يدير الصلاحيات — يُفحص في HomeLayoutController
+        'home.customize.update',
     ];
 
     public function test_every_staff_route_that_writes_is_guarded_by_an_ability(): void

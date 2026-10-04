@@ -19,7 +19,7 @@ class Rank extends Model
 
     protected function casts(): array
     {
-        return ['abilities' => 'array'];
+        return ['abilities' => 'array', 'home_layout' => 'array'];
     }
 
     public function users(): HasMany
