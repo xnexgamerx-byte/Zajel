@@ -18,16 +18,31 @@
 </div>
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
-    <div class="lg:col-span-2">
+    <div class="space-y-5 lg:col-span-2">
         <section class="card overflow-hidden">
-            <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">
-                سطور الكشف — {{ \App\Support\Arabic::shipments((int) $settlement->shipments_count) }}
-            </h2>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
+                <h2 class="text-sm font-bold">
+                    سطور الكشف — {{ \App\Support\Arabic::shipments((int) $settlement->shipments_count) }}
+                </h2>
+                @if ($editable)
+                    {{-- المسودّة تُعدَّل: تُحدَّد شحناتٌ فتُخرَج، وتبقى بلا تسوية للكشف التالي --}}
+                    <form method="POST" action="{{ route('settlements.couriers.lines.remove', $settlement) }}" id="remove-lines">@csrf</form>
+                    <button type="submit" form="remove-lines" class="btn-danger"
+                            data-confirm="تُخرَج الشحنات المحدَّدة من كشف {{ $settlement->code }}؟ تبقى بلا تسوية وتدخل الكشف التالي.">
+                        إخراج المحدَّد من الكشف
+                    </button>
+                @endif
+            </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr>
+                            @if ($editable)
+                                <th class="w-10">
+                                    <input type="checkbox" aria-label="تحديد الكل" class="size-4 accent-[var(--brand)]" data-check-all-in="table">
+                                </th>
+                            @endif
                             <th >رقم الوصل</th>
                             <th >المستلم</th>
                             <th >الوجهة</th>
@@ -39,6 +54,12 @@
                     <tbody class="divide-y divide-ink-100">
                         @foreach ($lines as $line)
                             <tr>
+                                @if ($editable)
+                                    <td class="px-4 py-2.5">
+                                        <input type="checkbox" name="shipment_ids[]" value="{{ $line->shipment_id }}" form="remove-lines"
+                                               aria-label="الوصل {{ $line->shipment->number }}" class="size-4 accent-[var(--brand)]">
+                                    </td>
+                                @endif
                                 <td class="px-4 py-2.5">
                                     <a href="{{ route('shipments.show', $line->shipment) }}"
                                        class="font-mono font-semibold text-[var(--brand)] hover:underline" dir="ltr">
@@ -63,7 +84,7 @@
                     </tbody>
                     <tfoot class="bg-ink-50 font-bold">
                         <tr>
-                            <td class="px-4 py-3" colspan="4">المجموع</td>
+                            <td class="px-4 py-3" colspan="{{ $editable ? 5 : 4 }}">المجموع</td>
                             <td class="px-4 py-3" dir="ltr">{{ number_format($settlement->cod_total) }}</td>
                             <td class="px-4 py-3 text-ok-700" dir="ltr">
                                 {{ number_format($settlement->commission_total) }}
@@ -78,9 +99,14 @@
             @endif
 
             <p class="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">
-                السطور لقطة مُجمَّدة وقت فتح الكشف — تغيير تسعيرة لاحقاً لا يمسّها.
+                السطور لقطة مُجمَّدة وقت دخولها الكشف — تغيير تسعيرة لاحقاً لا يمسّها.
             </p>
         </section>
+
+        @if ($editable)
+            <x-settlement-addable :shipments="$addable" :count="$addableCount" party="courier"
+                                  :action="route('settlements.couriers.lines.add', $settlement)" />
+        @endif
     </div>
 
     <div class="space-y-5">

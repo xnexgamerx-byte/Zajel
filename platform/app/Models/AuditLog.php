@@ -48,6 +48,7 @@ class AuditLog extends Model
         'shipment_deleted'         => 'مُسحت شحنة',
         'shipment_restored'        => 'استُرجعت شحنة ممسوحة',
         'settlement_draft_deleted' => 'حُذف كشفٌ مسودّة',
+        'settlement_draft_edited'  => 'عُدِّل كشفٌ مسودّة',
     ];
 
     public function actionLabel(): string

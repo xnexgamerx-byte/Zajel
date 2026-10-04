@@ -10,6 +10,7 @@ use App\Models\MerchantSettlementShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Services\SequenceGenerator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -63,40 +64,11 @@ class BuildMerchantSettlement
                 'created_by_user_id' => $actor?->id,
             ]);
 
-            $returned = 0;
-
             foreach ($shipments as $shipment) {
-                // باقي الواصل الجزئي سطرُ تسليمٍ بما حُصِّل وأجوره كاملةً، لا سطرُ راجع
-                $isReturn = $shipment->isPlainReturn();
-                $returned += $isReturn ? 1 : 0;
-
-                MerchantSettlementShipment::create([
-                    'merchant_settlement_id' => $settlement->id,
-                    'shipment_id'            => $shipment->id,
-                    'shipment_status'        => $shipment->wasDelivered() && $shipment->status !== ShipmentStatus::Delivered
-                        ? ShipmentStatus::PartiallyDelivered->value
-                        : $shipment->status->value,
-                    'collected_amount'       => $isReturn ? 0 : $shipment->collected_amount,
-                    'delivery_fee'           => $isReturn ? 0 : $shipment->delivery_fee + $shipment->extra_fee,
-                    'return_fee'             => $isReturn ? $shipment->return_fee : 0,
-                    'cod_fee'                => $isReturn ? 0 : $shipment->cod_fee,
-                    'net_amount'             => $shipment->merchant_due,
-                ]);
+                MerchantSettlementShipment::create(static::line($settlement, $shipment));
             }
 
-            $delivered = $shipments->reject(fn (Shipment $s) => $s->isPlainReturn());
-
-            $settlement->forceFill([
-                'shipments_count'     => $shipments->count(),
-                'returned_count'      => $returned,
-                'cod_total'           => (int) $delivered->sum('collected_amount'),
-                'delivery_fees_total' => (int) $delivered->sum(fn (Shipment $s) => $s->delivery_fee + $s->extra_fee),
-                'cod_fees_total'      => (int) $delivered->sum('cod_fee'),
-                'return_fees_total'   => (int) $shipments
-                    ->filter(fn (Shipment $s) => $s->isPlainReturn())
-                    ->sum('return_fee'),
-                'net_amount'          => (int) $shipments->sum('merchant_due'),
-            ])->save();
+            static::refreshTotals($settlement);
 
             // طلب الدفع المفتوح يُجاب بهذا الكشف: يُغلق ويُربط به
             MerchantRequest::query()
@@ -114,8 +86,61 @@ class BuildMerchantSettlement
         });
     }
 
+    /**
+     * سطر الكشف: لقطةٌ مجمَّدة من الشحنة ساعةَ تدخله — عند البناء، وحين تُضاف إلى المسودّة.
+     * باقي الواصل الجزئي سطرُ تسليمٍ بما حُصِّل وأجوره كاملةً، لا سطرُ راجع.
+     */
+    public static function line(MerchantSettlement $settlement, Shipment $shipment): array
+    {
+        $isReturn = $shipment->isPlainReturn();
+
+        return [
+            'merchant_settlement_id' => $settlement->id,
+            'shipment_id'            => $shipment->id,
+            'shipment_status'        => $shipment->wasDelivered() && $shipment->status !== ShipmentStatus::Delivered
+                ? ShipmentStatus::PartiallyDelivered->value
+                : $shipment->status->value,
+            'collected_amount'       => $isReturn ? 0 : $shipment->collected_amount,
+            'delivery_fee'           => $isReturn ? 0 : $shipment->delivery_fee + $shipment->extra_fee,
+            'return_fee'             => $isReturn ? $shipment->return_fee : 0,
+            'cod_fee'                => $isReturn ? 0 : $shipment->cod_fee,
+            'net_amount'             => $shipment->merchant_due,
+        ];
+    }
+
+    /**
+     * مجاميع الكشف من سطوره: عند البناء، وبعد كل إخراجٍ أو إضافةٍ في المسودّة. والراجع
+     * سطرُه «راجع» بأجرة رجوعه وحدها، فالمسلَّم ما سواه (line).
+     */
+    public static function refreshTotals(MerchantSettlement $settlement): void
+    {
+        $sums = $settlement->lines()->toBase()->selectRaw("count(*) as n,
+            coalesce(sum(case when shipment_status = 'returned' then 1 else 0 end), 0) as returned,
+            coalesce(sum(collected_amount), 0) as cod,
+            coalesce(sum(delivery_fee), 0) as delivery,
+            coalesce(sum(cod_fee), 0) as cod_fees,
+            coalesce(sum(return_fee), 0) as return_fees,
+            coalesce(sum(net_amount), 0) as net")->first();
+
+        $settlement->forceFill([
+            'shipments_count'     => (int) $sums->n,
+            'returned_count'      => (int) $sums->returned,
+            'cod_total'           => (int) $sums->cod,
+            'delivery_fees_total' => (int) $sums->delivery,
+            'cod_fees_total'      => (int) $sums->cod_fees,
+            'return_fees_total'   => (int) $sums->return_fees,
+            'net_amount'          => (int) $sums->net,
+        ])->save();
+    }
+
     /** المسلَّم والراجع الذي لم يدخل كشفاً بعد — والواصل الجزئي منذ تسليمه، وباقيه في طريقه. */
     public function eligible(Merchant $merchant, array $options = [])
+    {
+        return $this->eligibleQuery($merchant, $options)->get();
+    }
+
+    /** @return Builder<Shipment> */
+    public function eligibleQuery(Merchant $merchant, array $options = []): Builder
     {
         return Shipment::query()
             ->where('merchant_id', $merchant->id)
@@ -127,7 +152,6 @@ class BuildMerchantSettlement
             ])->orWhereNotNull('delivered_at'))
             ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
             ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
     }
 }

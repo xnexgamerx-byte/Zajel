@@ -95,9 +95,9 @@ class DeleteDraftSettlementTest extends TestCase
 
         $this->actingAs($this->owner)->get($this->host().'/settlements/couriers/'.$draft->id)
             ->assertOk()->assertSee('حذف الكشف');
-        // وفي سطره من القائمة
+        // والحذف من داخل الكشف وحده، لا من سطره في القائمة
         $this->actingAs($this->owner)->get($this->host().'/settlements/couriers')
-            ->assertOk()->assertSee('data-confirm="يُحذف كشف '.$draft->code.'؟', false);
+            ->assertOk()->assertSee($draft->code)->assertDontSee('data-confirm="يُحذف كشف', false);
 
         $this->actingAs($this->owner)->delete($this->host().'/settlements/couriers/'.$draft->id)
             ->assertRedirect($this->host().'/settlements/couriers')

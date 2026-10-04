@@ -9,6 +9,7 @@ use App\Models\CourierSettlementShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Services\SequenceGenerator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -62,26 +63,40 @@ class BuildCourierSettlement
             ]);
 
             foreach ($shipments as $shipment) {
-                CourierSettlementShipment::create([
-                    'courier_settlement_id' => $settlement->id,
-                    'shipment_id'           => $shipment->id,
-                    'collected_amount'      => $shipment->collected_amount,
-                    'commission'            => $shipment->courier_commission,
-                ]);
+                CourierSettlementShipment::create(static::line($settlement, $shipment));
             }
 
-            $settlement->forceFill([
-                'shipments_count'  => $shipments->count(),
-                'cod_total'        => (int) $shipments->sum('collected_amount'),
-                'commission_total' => (int) $shipments->sum('courier_commission'),
-                'deductions'       => 0,
-            ]);
-
-            $settlement->net_amount = $settlement->cod_total - $settlement->commission_total;
-            $settlement->save();
+            static::refreshTotals($settlement);
 
             return $settlement;
         });
+    }
+
+    /** سطر الكشف: لقطةٌ مجمَّدة من الشحنة ساعةَ تدخله — عند البناء، وحين تُضاف إلى المسودّة */
+    public static function line(CourierSettlement $settlement, Shipment $shipment): array
+    {
+        return [
+            'courier_settlement_id' => $settlement->id,
+            'shipment_id'           => $shipment->id,
+            'collected_amount'      => $shipment->collected_amount,
+            'commission'            => $shipment->courier_commission,
+        ];
+    }
+
+    /** مجاميع الكشف من سطوره: عند البناء، وبعد كل إخراجٍ أو إضافةٍ في المسودّة */
+    public static function refreshTotals(CourierSettlement $settlement): void
+    {
+        $sums = $settlement->lines()->toBase()->selectRaw(
+            'count(*) as n, coalesce(sum(collected_amount), 0) as cod, coalesce(sum(commission), 0) as commission'
+        )->first();
+
+        $settlement->forceFill([
+            'shipments_count'  => (int) $sums->n,
+            'cod_total'        => (int) $sums->cod,
+            'commission_total' => (int) $sums->commission,
+            'deductions'       => (int) $settlement->deductions,
+            'net_amount'       => (int) $sums->cod - (int) $sums->commission + (int) $settlement->deductions,
+        ])->save();
     }
 
     /**
@@ -89,6 +104,12 @@ class BuildCourierSettlement
      * تسليمه: نقده بيد المندوب وعمولته ثبتت، وباقيه في طريقه لتاجره لا مال فيه.
      */
     public function eligible(Courier $courier, array $options = [])
+    {
+        return $this->eligibleQuery($courier, $options)->get();
+    }
+
+    /** @return Builder<Shipment> */
+    public function eligibleQuery(Courier $courier, array $options = []): Builder
     {
         return Shipment::query()
             ->where('delivery_courier_id', $courier->id)
@@ -100,7 +121,6 @@ class BuildCourierSettlement
             ])->orWhereNotNull('delivered_at'))
             ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
             ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
     }
 }

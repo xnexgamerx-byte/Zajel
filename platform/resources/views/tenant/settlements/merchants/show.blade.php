@@ -18,21 +18,36 @@
 </div>
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
-    <div class="lg:col-span-2">
+    <div class="space-y-5 lg:col-span-2">
         <section class="card overflow-hidden">
-            <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">
-                سطور الكشف — {{ \App\Support\Arabic::shipments((int) $settlement->shipments_count) }}
-                @if ($settlement->returned_count)
-                    <span class="font-normal text-warn-700">
-                        (منها {{ $settlement->returned_count }} راجعة)
-                    </span>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
+                <h2 class="text-sm font-bold">
+                    سطور الكشف — {{ \App\Support\Arabic::shipments((int) $settlement->shipments_count) }}
+                    @if ($settlement->returned_count)
+                        <span class="font-normal text-warn-700">
+                            (منها {{ $settlement->returned_count }} راجعة)
+                        </span>
+                    @endif
+                </h2>
+                @if ($editable)
+                    {{-- المسودّة تُعدَّل: تُحدَّد شحناتٌ فتُخرَج، وتبقى بلا تسوية للكشف التالي --}}
+                    <form method="POST" action="{{ route('settlements.merchants.lines.remove', $settlement) }}" id="remove-lines">@csrf</form>
+                    <button type="submit" form="remove-lines" class="btn-danger"
+                            data-confirm="تُخرَج الشحنات المحدَّدة من كشف {{ $settlement->code }}؟ تبقى بلا تسوية وتدخل الكشف التالي.">
+                        إخراج المحدَّد من الكشف
+                    </button>
                 @endif
-            </h2>
+            </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr>
+                            @if ($editable)
+                                <th class="w-10">
+                                    <input type="checkbox" aria-label="تحديد الكل" class="size-4 accent-[var(--brand)]" data-check-all-in="table">
+                                </th>
+                            @endif
                             <th >رقم الوصل</th>
                             <th >المستلم</th>
                             <th >الحالة</th>
@@ -45,6 +60,12 @@
                     <tbody class="divide-y divide-ink-100">
                         @foreach ($lines as $line)
                             <tr>
+                                @if ($editable)
+                                    <td class="px-4 py-2.5">
+                                        <input type="checkbox" name="shipment_ids[]" value="{{ $line->shipment_id }}" form="remove-lines"
+                                               aria-label="الوصل {{ $line->shipment->number }}" class="size-4 accent-[var(--brand)]">
+                                    </td>
+                                @endif
                                 <td class="px-4 py-2.5">
                                     <a href="{{ route('shipments.show', $line->shipment) }}"
                                        class="font-mono font-semibold text-[var(--brand)] hover:underline" dir="ltr">
@@ -69,7 +90,7 @@
                     </tbody>
                     <tfoot class="bg-ink-50 font-bold">
                         <tr>
-                            <td class="px-4 py-3" colspan="3">المجموع</td>
+                            <td class="px-4 py-3" colspan="{{ $editable ? 4 : 3 }}">المجموع</td>
                             <td class="px-4 py-3" dir="ltr">{{ number_format($settlement->cod_total) }}</td>
                             <td class="px-4 py-3" dir="ltr">
                                 {{ $settlement->delivery_fees_total ? '−'.number_format($settlement->delivery_fees_total) : '' }}
@@ -87,6 +108,11 @@
                 <div class="border-t border-ink-100 p-4">{{ $lines->links() }}</div>
             @endif
         </section>
+
+        @if ($editable)
+            <x-settlement-addable :shipments="$addable" :count="$addableCount" party="merchant"
+                                  :action="route('settlements.merchants.lines.add', $settlement)" />
+        @endif
     </div>
 
     <div class="space-y-5">

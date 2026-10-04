@@ -72,17 +72,7 @@
                         <td class="px-4 py-3 font-bold {{ $settlement->net_amount >= 0 ? 'text-[var(--brand)]' : 'text-bad-700' }}"
                             dir="ltr">{{ number_format($settlement->net_amount) }}</td>
                         <td class="px-4 py-3">
-                            <div class="flex items-center gap-3">
-                                <x-settlement-status :status="$settlement->status" />
-                                @if ($settlement->status === 'draft' && auth()->user()->can('money.settle'))
-                                    <form method="POST" action="{{ route('settlements.merchants.destroy', $settlement) }}">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="text-xs font-semibold text-bad-700 hover:underline"
-                                                data-confirm="يُحذف كشف {{ $settlement->code }}؟ لا يتغيّر شيءٌ في الحسابات، وشحناته تدخل الكشف التالي كما هي.">حذف</button>
-                                    </form>
-                                @endif
-                            </div>
+                            <x-settlement-status :status="$settlement->status" />
                         </td>
                     </tr>
                 @empty

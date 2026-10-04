@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Settlements\BuildCourierSettlement;
 use App\Actions\Settlements\DeleteDraftSettlement;
+use App\Actions\Settlements\EditDraftSettlement;
 use App\Actions\Settlements\ConfirmCourierSettlement;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
@@ -101,9 +102,12 @@ class CourierSettlementController extends Controller
             ->with('success', "فُتح كشف {$settlement->code}، فيه ".\App\Support\Arabic::shipments((int) $settlement->shipments_count).'.');
     }
 
-    public function show(CourierSettlement $settlement): View
+    public function show(Request $request, CourierSettlement $settlement, EditDraftSettlement $edit): View
     {
         $settlement->load('courier');
+
+        // المسودّة تُعدَّل لمن يملك التسوية: تُخرَج منها شحنات، ويُضاف إليها ما ينتظر خارجها
+        $editable = $settlement->status === 'draft' && $request->user()->can('money.settle');
 
         return view('tenant.settlements.couriers.show', [
             'settlement' => $settlement,
@@ -111,6 +115,9 @@ class CourierSettlementController extends Controller
             // والمجاميع أعلاه وأسفله من الكشف نفسه لا مما عُرض
             'lines'      => $settlement->lines()->with('shipment.governorate:id,name_ar')
                 ->orderBy('id')->paginate(100),
+            'editable'     => $editable,
+            'addable'      => $editable ? $edit->addable($settlement) : collect(),
+            'addableCount' => $editable ? $edit->addableCount($settlement) : 0,
         ]);
     }
 
@@ -139,5 +146,31 @@ class CourierSettlementController extends Controller
         return redirect()
             ->route('settlements.couriers.index')
             ->with('success', "حُذف كشف {$settlement->code}. شحناته تدخل الكشف التالي كما هي.");
+    }
+
+    /** إخراج شحناتٍ بعينها من المسودّة: تبقى بلا تسوية وتدخل الكشف التالي */
+    public function removeLines(Request $request, CourierSettlement $settlement, EditDraftSettlement $edit): RedirectResponse
+    {
+        $removed = $edit->remove($settlement, $this->picked($request), $request->user());
+
+        return back()->with('success', 'أُخرجت من كشف '.$settlement->code.': '
+            .\App\Support\Arabic::shipments(count($removed)).'. تبقى بلا تسوية وتدخل الكشف التالي.');
+    }
+
+    /** إضافة شحناتٍ تنتظر التسوية إلى المسودّة */
+    public function addLines(Request $request, CourierSettlement $settlement, EditDraftSettlement $edit): RedirectResponse
+    {
+        $added = $edit->add($settlement, $this->picked($request), $request->user());
+
+        return back()->with('success', 'أُضيفت إلى كشف '.$settlement->code.': '.\App\Support\Arabic::shipments(count($added)).'.');
+    }
+
+    /** @return list<int> */
+    protected function picked(Request $request): array
+    {
+        return $request->validate([
+            'shipment_ids'   => ['required', 'array', 'min:1', 'max:5000'],
+            'shipment_ids.*' => ['integer'],
+        ], ['shipment_ids.required' => 'اختر الشحنات أوّلاً.'], ['shipment_ids' => 'الشحنات'])['shipment_ids'];
     }
 }
