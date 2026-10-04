@@ -116,6 +116,11 @@ class HomeLayoutTest extends TestCase
         $this->actingAs($agent->fresh())->get($this->host().'/')
             ->assertOk()->assertSee('شحنات لم تُسلَّم (للمعالجة)')->assertSee('شحنات متعثّرة')->assertDontSee('نقد بيد المندوبين');
 
+        // وصفحة تخصيصه تبدأ من رئيسية مرتبته، لا من الافتراضيّ: حفظها لا يمحو اختيار المرتبة
+        $page = $this->actingAs($agent->fresh())->get($this->host().'/home/customize')->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/value="processing\.index"[^>]*checked/s', $page);
+        $this->assertDoesNotMatchRegularExpression('/value="today"[^>]*checked/s', $page);
+
         // تخصيصه يغلب مرتبته، و«رجوع للافتراضي» يعيده إليها
         $this->actingAs($agent->fresh())->post($this->host().'/home/customize', ['sections' => ['today'], 'shortcuts' => ['tickets.index']]);
         $this->assertSame(['tickets.index'], array_column(HomeLayout::for($agent->fresh())['shortcuts'], 'id'));

@@ -23,10 +23,13 @@ class HomeLayoutController extends Controller
         $user = $request->user();
         $rank = $this->rankTarget($request);
 
+        // يبدأ ممّا يراه الآن: تخصيصه، وإلّا رئيسية مرتبته — فلا يمحو حفظُه ما اختارته مرتبته
+        $current = $rank ?? (! is_array($user->home_layout) && is_array($user->rank?->home_layout) ? $user->rank : $user);
+
         return view('tenant.home-layout', [
             'rank'      => $rank,
             'ranks'     => $this->managesRanks($user) ? Rank::orderBy('name')->get(['id', 'name', 'home_layout']) : collect(),
-            'layout'    => HomeLayout::stored($rank ?? $user),
+            'layout'    => HomeLayout::stored($current),
             'shortcuts' => collect(HomeLayout::shortcuts($rank ?? $user))->groupBy('group'),
             // من أين لوحته اليوم: تخصيصه، أو مرتبته، أو الافتراضيّ
             'source'    => $rank ? (is_array($rank->home_layout) ? 'rank' : 'default') : HomeLayout::for($user)['source'],

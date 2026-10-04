@@ -51,6 +51,8 @@ class StaffNavigationTest extends TestCase
         'return-batches.print-many',
         // «صندوقي» من شارة رصيده في الرأس، لصاحب الصندوق وحده
         'cash.mine',
+        // «خصّص الرئيسية» من زرّها في «لوحة اليوم»، و«رئيسيّتها» بجانب كل مرتبة
+        'home.customize',
     ];
 
     private Company $company;
