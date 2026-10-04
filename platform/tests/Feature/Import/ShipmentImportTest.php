@@ -100,7 +100,7 @@ class ShipmentImportTest extends TestCase
             'description'         => 'ملابس',
             'notes'               => '',
             'merchant_reference'  => '',
-            'fees_paid_by'        => 'التاجر',
+            'type'                => '',
         ], $overrides);
 
         return array_map(fn ($field) => $values[$field], array_keys(ShipmentSheet::COLUMNS));
@@ -331,19 +331,68 @@ class ShipmentImportTest extends TestCase
         $this->assertStringContainsString('الصفّ 2', $rows[2]['errors'][0]);
     }
 
-    public function test_fees_paid_by_the_customer_is_understood_from_arabic(): void
+    public function test_the_order_type_is_optional_and_read_from_arabic(): void
     {
         $rows = $this->read($this->fullHeader(), [
-            $this->row(['fees_paid_by' => 'الزبون']),
-            $this->row(['fees_paid_by' => 'المستلم']),
-            $this->row(['fees_paid_by' => 'التاجر']),
-            $this->row(['fees_paid_by' => '']),
+            $this->row(['type' => '']),
+            $this->row(['type' => 'جديد']),
+            $this->row(['type' => 'طلب جديد']),
+            $this->row(['type' => 'استبدال']),
+            $this->row(['type' => 'تبديل']),
+            $this->row(['type' => 'استرجاع بضاعة']),
         ]);
 
+        $this->assertSame([[], [], [], [], [], []], $rows->pluck('errors')->all());
         $this->assertSame(
-            ['customer', 'customer', 'merchant', 'merchant'],
-            $rows->pluck('data.fees_paid_by')->all(),
+            ['delivery', 'delivery', 'delivery', 'exchange', 'exchange', 'exchange'],
+            $rows->pluck('data.type')->all(),
         );
+
+        // ما لا نعرفه لا يُخمَّن: الأجرة تتغيّر بالنوع
+        $odd = $this->read($this->fullHeader(), [$this->row(['type' => 'مستعجل'])]);
+        $this->assertStringContainsString('نوع الطلب «مستعجل» غير معروف', $odd[0]['errors'][0]);
+
+        // وملفٌّ بلا العمود أصلاً: كلّه طلبات جديدة
+        $plain = $this->read(['هاتف المستلم', 'المحافظة', 'المنطقة', 'المبلغ المطلوب'], [['07801234567', 'بغداد', 'الكرادة', 50000]]);
+        $this->assertSame([], $plain[0]['errors']);
+        $this->assertSame('delivery', $plain[0]['data']['type']);
+    }
+
+    public function test_an_old_file_with_the_fees_column_is_read_and_the_fee_stays_on_the_merchant(): void
+    {
+        // القالب القديم كان فيه «الأجرة على»: يُقرأ الملف، والعمود يُتجاهل — الأجرة على التاجر كما في كل نموذج
+        $rows = $this->read(
+            [...array_values(\Illuminate\Support\Arr::except(ShipmentSheet::COLUMNS, 'type')), 'الأجرة على (التاجر/الزبون)'],
+            [array_values(array_slice($this->row(), 0, count(ShipmentSheet::COLUMNS) - 1)) + [99 => 'الزبون']],
+        );
+
+        $this->assertSame([], $rows[0]['errors']);
+        $this->assertArrayNotHasKey('fees_paid_by', $rows[0]['data']);
+        $this->assertNotContains('الأجرة على (التاجر/الزبون)', ShipmentSheet::COLUMNS);
+    }
+
+    public function test_an_exchange_row_is_priced_with_the_exchange_fee(): void
+    {
+        Tenancy::runFor($this->company, fn () => \App\Models\PriceListRule::query()->update(['replacement_fee' => 6500]));
+
+        $file = $this->sheetFile($this->fullHeader(), [
+            $this->row(['recipient_name' => 'عادي']),
+            $this->row(['recipient_name' => 'بديل', 'type' => 'استبدال']),
+        ]);
+
+        $preview = $this->actingAs($this->staff)
+            ->post($this->host().'/shipments/import', ['merchant_id' => $this->alpha->id, 'file' => $file])
+            ->assertOk()->assertSee('استبدال');
+
+        $this->actingAs($this->staff)
+            ->post($this->host().'/shipments/import/confirm', ['path' => $preview->viewData('path'), 'merchant_id' => $this->alpha->id])
+            ->assertSessionHas('success');
+
+        Tenancy::runFor($this->company, function () {
+            $this->assertSame(['delivery', 'exchange'], Shipment::orderBy('id')->pluck('type')->all());
+            $this->assertSame([5000, 6500], Shipment::orderBy('id')->pluck('delivery_fee')->map(fn ($f) => (int) $f)->all());
+            $this->assertSame(['merchant', 'merchant'], Shipment::orderBy('id')->pluck('fees_paid_by')->all());
+        });
     }
 
     // ── الشاشة: رفع ← معاينة ← تأكيد ────────────────────────────────

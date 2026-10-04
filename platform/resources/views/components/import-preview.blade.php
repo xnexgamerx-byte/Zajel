@@ -83,7 +83,10 @@
                     @foreach ($good->take(20) as $row)
                         <tr>
                             <td class="num text-ink-500">{{ $row['row'] }}</td>
-                            <td class="font-medium">{{ $row['data']['recipient_name'] }}</td>
+                            <td class="font-medium">
+                                {{ $row['data']['recipient_name'] }}
+                                @if (($row['data']['type'] ?? 'delivery') === 'exchange')<span class="chip chip-warn ms-1">استبدال</span>@endif
+                            </td>
                             <td class="num text-ink-600">{{ $row['data']['recipient_phone'] }}</td>
                             <td class="text-ink-600">
                                 {{ $governorates[$row['data']['governorate_id']] ?? '—' }}

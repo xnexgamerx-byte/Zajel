@@ -37,7 +37,18 @@ class ShipmentSheet
         'description'         => 'وصف المحتوى',
         'notes'               => 'ملاحظات للمندوب',
         'merchant_reference'  => 'رقم طلبك',
-        'fees_paid_by'        => 'الأجرة على (التاجر/الزبون)',
+        // اختياري: فارغاً طلبٌ جديد، و«استبدال» يُسعَّر بأجرة الاستبدال (docs/plan/31)
+        'type'                => 'نوع الطلب (جديد/استبدال)',
+    ];
+
+    /**
+     * ما يُكتب في «نوع الطلب»، مطويّاً: «استرجاع» كما في الإدخال السريع («استبدال أو استرجاع
+     * بضاعة»). والأجرة لم تعد عموداً: على التاجر كما في كل نموذج، وعمود «الأجرة على» في ملفٍّ
+     * قديم يُتجاهل.
+     */
+    public const TYPE_WORDS = [
+        'exchange' => ['استبدال', 'تبديل', 'استرجاع', 'exchange'],
+        'delivery' => ['جديد', 'طلب جديد', 'توصيل', 'عادي', 'delivery'],
     ];
 
     /**
@@ -233,10 +244,12 @@ class ShipmentSheet
         $data['pieces_count'] = max(1, $this->toInt($value('pieces_count')) ?? 1);
         $data['weight_grams'] = max(0, $this->toInt($value('weight_grams')) ?? 0);
 
-        $feesPaidBy = $this->normalise($value('fees_paid_by'));
-        $data['fees_paid_by'] = str_contains($feesPaidBy, 'زبون') || str_contains($feesPaidBy, 'مستلم')
-            ? 'customer'
-            : 'merchant';
+        $data['type'] = $this->matchType($value('type'));
+
+        if ($data['type'] === null) {
+            $errors[] = 'نوع الطلب «'.$value('type').'» غير معروف: اكتب «جديد» أو «استبدال»، أو اتركه فارغاً';
+            $data['type'] = 'delivery';
+        }
 
         // تكرار رقم الطلب داخل الملف نفسه — أكثر خطأ يمرّ بلا انتباه
         if ($data['merchant_reference']) {
@@ -254,6 +267,26 @@ class ShipmentSheet
     protected function normalisePhone(string $raw): ?string
     {
         return Phone::normalise($raw);
+    }
+
+    /** «نوع الطلب»: فارغاً طلبٌ جديد؛ وما لا نعرفه null — خطأٌ يُصحَّح لا تخمين يغيّر الأجرة */
+    protected function matchType(string $raw): ?string
+    {
+        if (trim($raw) === '') {
+            return 'delivery';
+        }
+
+        $needle = $this->normalise($raw);
+
+        foreach (self::TYPE_WORDS as $type => $words) {
+            foreach ($words as $word) {
+                if (str_contains($needle, $this->normalise($word))) {
+                    return $type;
+                }
+            }
+        }
+
+        return null;
     }
 
     protected function matchGovernorate(string $raw, Collection $governorates): ?Governorate
@@ -347,7 +380,11 @@ class ShipmentSheet
 
         foreach (self::COLUMNS as $field => $label) {
             $sheet->setCellValue($column.'1', $label.(in_array($field, self::REQUIRED, true) ? ' *' : ''));
-            $sheet->getColumnDimension($column)->setWidth($field === 'landmark' ? 32 : 18);
+            $sheet->getColumnDimension($column)->setWidth(match ($field) {
+                'landmark' => 32,
+                'type'     => 24,
+                default    => 18,
+            });
             $column++;
         }
 
@@ -361,7 +398,7 @@ class ShipmentSheet
         // صفّ مثال يوضّح الصيغة المتوقّعة أكثر من أي شرح
         $sheet->fromArray([
             'علي حسين', '07801234567', '', 'بغداد', 'الكرادة', 'مقابل جامع الشيخ معروف',
-            50000, 1, 1500, 'ملابس', 'اتصل قبل الوصول', 'ORD-1001', 'التاجر',
+            50000, 1, 1500, 'ملابس', 'اتصل قبل الوصول', 'ORD-1001', 'جديد',
         ], null, 'A2');
 
         $path = tempnam(sys_get_temp_dir(), 'zajel-template-').'.xlsx';
