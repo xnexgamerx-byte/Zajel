@@ -238,6 +238,18 @@ class MerchantRequestsTest extends TestCase
             ->assertOk()->assertSee($batch->number)->assertSee($shelf->number)->assertSee('توقيع التاجر');
     }
 
+    public function test_a_returns_request_shows_its_details_without_a_stray_separator(): void
+    {
+        $this->onShelf($this->alpha);
+
+        $this->actingAs($this->alphaUser)->post($this->host().'/portal/requests', ['type' => 'returns', 'via_pickup_courier' => '1'])
+            ->assertSessionHasNoErrors();
+
+        // طلب الراجع لا طريقة دفعٍ له: «مع مندوب الاستلام» وحدها، لا «· مع مندوب الاستلام»
+        $page = $this->actingAs($this->alphaUser)->get($this->host().'/portal/requests')->assertOk()->assertSee('مع مندوب الاستلام');
+        $this->assertDoesNotMatchRegularExpression('/<td[^>]*>\s*·/u', $page->getContent());
+    }
+
     public function test_the_pickup_courier_carries_returns_with_a_receipt_per_merchant_until_confirmed(): void
     {
         $a = $this->onShelf($this->alpha);

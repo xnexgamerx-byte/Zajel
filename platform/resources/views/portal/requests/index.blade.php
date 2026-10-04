@@ -80,8 +80,11 @@
                         <td class="num font-semibold whitespace-nowrap">{{ $req->number }}</td>
                         <td>{{ $req->typeLabel() }}</td>
                         <td class="text-sm text-ink-600">
-                            {{ $req->type === 'payment' ? ($methods[$req->payout_method] ?? '—') : '' }}
-                            @if ($req->via_pickup_courier) · مع مندوب الاستلام @endif
+                            {{-- الفاصل بين جزأين حاضرين فقط: طلب الراجع لا طريقة دفعٍ له --}}
+                            {{ collect([
+                                $req->type === 'payment' ? ($methods[$req->payout_method] ?? null) : null,
+                                $req->via_pickup_courier ? 'مع مندوب الاستلام' : null,
+                            ])->filter()->join(' · ') ?: '—' }}
                             @if ($req->note)<div class="text-xs text-ink-500">{{ $req->note }}</div>@endif
                         </td>
                         <td>
