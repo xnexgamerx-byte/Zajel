@@ -44,7 +44,7 @@
                             <td class="px-3 py-2.5 num">{{ $money($rule?->delivery_fee) }}</td>
                             <td class="px-3 py-2.5 num">{{ $rule?->peripheral_fee !== null ? $money($rule->peripheral_fee) : 'كالمركز' }}</td>
                             <td class="px-3 py-2.5 num">{{ $money($rule?->return_fee) }}</td>
-                            <td class="px-3 py-2.5 num">{{ $money($rule?->replacement_fee) }}</td>
+                            <td class="px-3 py-2.5 num">{{ $rule && ! $rule->replacement_fee ? 'كالتوصيل' : $money($rule?->replacement_fee) }}</td>
                             <td class="px-3 py-2.5 num">{{ $money($rule?->extra_kg_fee) }}</td>
                             <td class="px-3 py-2.5 num">
                                 {{ $money($rule?->cod_fee_flat) }}{{ $rule?->cod_fee_percent ? ' + '.rtrim(rtrim(number_format((float) $rule->cod_fee_percent, 2), '0'), '.').'%' : '' }}

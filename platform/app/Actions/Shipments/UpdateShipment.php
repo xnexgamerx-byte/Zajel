@@ -124,9 +124,13 @@ class UpdateShipment
             $extraFee = (int) ($data['extra_fee'] ?? 0);
             $discount = (int) ($data['discount'] ?? 0);
 
+            $type = $data['type'] ?? $shipment->type;
+
+            // ما تُسعَّر به أجرة التوصيل: الوجهة والوزن، ونوع الطلب (للاستبدال أجرته)
             $rerouted = $governorateId !== (int) $shipment->governorate_id
                 || $cityId !== ($shipment->city_id === null ? null : (int) $shipment->city_id)
-                || $weight !== (int) $shipment->weight_grams;
+                || $weight !== (int) $shipment->weight_grams
+                || $type !== $shipment->type;
 
             $recharged = $rerouted
                 || $cod !== (int) $shipment->cod_amount
@@ -140,6 +144,7 @@ class UpdateShipment
                     weightGrams: $weight,
                     codAmount: $cod,
                     feesPaidBy: $feesPaidBy,
+                    type: $type,
                 )
                 : null;
 
@@ -173,7 +178,7 @@ class UpdateShipment
                 'landmark'            => (string) ($data['landmark'] ?? ''),
                 'description'         => $data['description'] ?? null,
                 'pieces_count'        => (int) ($data['pieces_count'] ?? 1),
-                'type'                => $data['type'] ?? $shipment->type,
+                'type'                => $type,
                 'size'                => $data['size'] ?? $shipment->size,
                 'weight_grams'        => $weight,
                 'is_fragile'          => (bool) ($data['is_fragile'] ?? false),
