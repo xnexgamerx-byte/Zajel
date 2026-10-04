@@ -113,23 +113,58 @@
 </div>
 
 @if ($canAct)
+    {{-- سطران مضمَّنان لا كتلة: الكتلة تبتلع السطر المضمَّن أعلى الصفحة (الزرّ الثاني) --}}
+    @php($waiting = (bool) $ticket?->isOpen())
+    @php($partial = $ticket && $ticket->kind === 'partial' && $ticket->status === 'approved' && ! $ticket->used_at)
+
+    {{-- جواب الكول سنتر على طلب تغيير المبلغ (docs/plan/30) --}}
+    @if ($waiting)
+        <div class="mb-3 rounded-xl border-2 border-warn-500 bg-warn-50 p-4"
+             data-ticket-poll="{{ route('courier.shipments.ticket.status', $shipment) }}" data-ticket-status="open">
+            <div class="font-bold text-warn-700">طلبك {{ $ticket->number }} بانتظار الكول سنتر</div>
+            <p class="mt-1 text-sm text-warn-700">
+                تغيير المبلغ إلى <span class="num font-bold">{{ number_format($ticket->requested_amount) }}</span> د.ع
+                ({{ $ticket->kindLabel() }}). لا تسلّم بالمبلغ الجديد حتى يُعتمد — الصفحة تتحدّث وحدها حين يأتي الجواب.
+            </p>
+            <a href="{{ route('courier.shipments.show', $shipment) }}"
+               class="mt-3 block rounded-lg bg-white px-4 py-2 text-center text-sm font-semibold text-warn-700 ring-1 ring-warn-500">تحديث الآن</a>
+        </div>
+    @elseif ($ticket?->status === 'rejected')
+        <div class="mb-3 rounded-xl border-2 border-bad-700 bg-bad-50 p-4">
+            <div class="font-bold text-bad-700">رُفض طلبك {{ $ticket->number }}</div>
+            <p class="mt-1 text-sm text-bad-700">{{ $ticket->reply }}</p>
+            <p class="mt-1 text-sm text-bad-700">سلّم بالمبلغ الأصلي، أو سجّلها «لم يُسلَّم» بسببها.</p>
+        </div>
+    @elseif ($ticket?->status === 'approved' && $ticket->kind === 'price')
+        <div class="mb-3 rounded-xl border-2 border-ok-700 bg-ok-50 p-4">
+            <div class="font-bold text-ok-700">اعتمد الكول سنتر المبلغ الجديد ({{ $ticket->number }})</div>
+            <p class="mt-1 text-sm text-ok-700">
+                كان <span class="num">{{ number_format($ticket->current_amount) }}</span> وصار
+                <span class="num font-bold">{{ number_format($shipment->cod_amount) }}</span> د.ع — سلّم به.
+                @if ($ticket->reply) {{ $ticket->reply }} @endif
+            </p>
+        </div>
+    @elseif ($partial)
+        <div class="mb-3 rounded-xl border-2 border-ok-700 bg-ok-50 p-4">
+            <div class="font-bold text-ok-700">اعتمد الكول سنتر الواصل الجزئي ({{ $ticket->number }})</div>
+            <p class="mt-1 text-sm text-ok-700">
+                استلم من الزبون <span class="num font-bold">{{ number_format($ticket->approved_amount) }}</span> د.ع،
+                وارجع بباقي الطلب. @if ($ticket->reply) {{ $ticket->reply }} @endif
+            </p>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('courier.shipments.act', $shipment) }}"
           class="space-y-3" data-courier-form>
         @csrf
         <input type="hidden" name="lat" data-geo-lat>
         <input type="hidden" name="lng" data-geo-lng>
 
-        {{-- تسليم: الفعل الأكثر تكراراً، فهو الأكبر والأول --}}
+        {{-- تسليم: الفعل الأكثر تكراراً، فهو الأكبر والأول. والمبلغ ثابت: لا يُكتب هنا --}}
         <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
-            <label class="field-label" for="collected_amount">المبلغ المستلم</label>
-            <div class="relative">
-                <input id="collected_amount" name="collected_amount" type="number" min="0" step="1"
-                       class="field-input ps-12 text-left text-lg" dir="ltr"
-                       value="{{ old('collected_amount', $shipment->cod_amount) }}">
-                <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
-            </div>
-            <p class="mt-1 text-xs text-ink-500">
-                إن استلمت أقل، عدّل الرقم واختر «واصل جزئي». الرقم لا يُعدَّل بعد الحفظ.
+            <p class="text-sm text-ink-600">
+                تستلم من الزبون <span class="num font-bold text-ink-900">{{ number_format($shipment->cod_amount) }}</span> د.ع كاملة.
+                إن قال مبلغاً آخر فلا تسلّم: اطلب تغيير المبلغ من الكول سنتر (أسفل).
             </p>
 
             {{-- تاجرٌ يطلب كود التسليم: الزبون يعطيه للمندوب عند الباب، ولا تسليم بدونه --}}
@@ -140,15 +175,21 @@
                 @error('delivery_code') <p class="field-error">{{ $message }}</p> @enderror
             @endif
 
-            <button type="submit" name="action" value="delivered"
-                    class="mt-3 w-full rounded-xl bg-ok-700 px-4 py-4 text-lg font-bold text-white active:brightness-110">
-                واصل
-            </button>
-
-            <button type="submit" name="action" value="partially_delivered"
-                    class="mt-2 w-full rounded-xl bg-white px-4 py-3 text-base font-semibold text-ink-700 ring-1 ring-ink-300 active:bg-ink-50">
-                واصل جزئي
-            </button>
+            @if ($partial)
+                <button type="submit" name="action" value="partially_delivered"
+                        class="mt-3 w-full rounded-xl bg-ok-700 px-4 py-4 text-lg font-bold text-white active:brightness-110">
+                    واصل جزئي — استلمت <span class="num">{{ number_format($ticket->approved_amount) }}</span>
+                </button>
+                <button type="submit" name="action" value="delivered"
+                        class="mt-2 w-full rounded-xl bg-white px-4 py-3 text-base font-semibold text-ink-700 ring-1 ring-ink-300 active:bg-ink-50">
+                    أخذ الطلب كلّه — واصل بـ<span class="num">{{ number_format($shipment->cod_amount) }}</span>
+                </button>
+            @else
+                <button type="submit" name="action" value="delivered"
+                        class="mt-3 w-full rounded-xl bg-ok-700 px-4 py-4 text-lg font-bold text-white active:brightness-110">
+                    واصل — استلمت <span class="num">{{ number_format($shipment->cod_amount) }}</span>
+                </button>
+            @endif
         </div>
 
         {{-- لم يُسلَّم --}}
@@ -179,6 +220,55 @@
             </div>
         </div>
     </form>
+
+    {{-- المبلغ لا يُغيَّر عند الباب: يُطلب من الكول سنتر، وجوابه يصل هنا --}}
+    @unless ($waiting || $partial)
+        <details class="mt-3 rounded-xl border border-ink-200 bg-white p-4 shadow-xs"
+                 @if ($errors->hasAny(['kind', 'requested_amount', 'reason'])) open @endif>
+            <summary class="cursor-pointer text-base font-bold">الزبون يريد يدفع مبلغاً آخر؟</summary>
+            <form method="POST" action="{{ route('courier.shipments.ticket', $shipment) }}" class="mt-3 space-y-3">
+                @csrf
+                <fieldset>
+                    <legend class="field-label">ماذا حدث؟</legend>
+                    <div class="space-y-2">
+                        @foreach (\App\Models\ShipmentTicket::KINDS as $value => $label)
+                            <label class="flex items-start gap-2 rounded-lg border border-ink-200 px-3 py-2.5 text-base has-[:checked]:border-[var(--brand)] has-[:checked]:bg-ink-50">
+                                <input type="radio" name="kind" value="{{ $value }}" class="mt-1" required @checked(old('kind') === $value)>
+                                <span>{{ $label }}
+                                    <span class="block text-xs text-ink-500">{{ $value === 'partial'
+                                        ? 'يدفع ثمن ما أخذه، وترجع بالباقي للتاجر'
+                                        : 'اتّفق مع التاجر على سعرٍ آخر، أو السعر المكتوب خطأ' }}</span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+                    @error('kind') <p class="field-error">{{ $message }}</p> @enderror
+                </fieldset>
+
+                <div>
+                    <label class="field-label" for="requested_amount">المبلغ الذي سيدفعه الزبون</label>
+                    <div class="relative">
+                        <input id="requested_amount" name="requested_amount" type="number" min="0" step="1" required
+                               class="field-input ps-12 text-left text-lg" dir="ltr" value="{{ old('requested_amount') }}">
+                        <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
+                    </div>
+                    @error('requested_amount') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+
+                <div>
+                    <label class="field-label" for="reason">ما قاله الزبون</label>
+                    <textarea id="reason" name="reason" rows="2" required maxlength="255" class="field-input text-base"
+                              placeholder="مثال: أخذ قطعتين من ثلاث، والثالثة مقاسها غلط">{{ old('reason') }}</textarea>
+                    @error('reason') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+
+                <button type="submit"
+                        class="w-full rounded-xl bg-ink-800 px-4 py-3.5 text-base font-bold text-white active:bg-ink-900">
+                    أرسل للكول سنتر
+                </button>
+            </form>
+        </details>
+    @endunless
 @else
     <div class="rounded-xl border border-ink-200 bg-white p-6 text-center shadow-xs">
         <p class="font-semibold text-ink-700">هذه الشحنة لم تعد بيدك.</p>

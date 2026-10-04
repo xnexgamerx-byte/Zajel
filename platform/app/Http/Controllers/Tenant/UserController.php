@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Governorate;
 use App\Models\Rank;
 use App\Models\User;
 use App\Support\Permissions\PermissionChange;
@@ -12,6 +13,8 @@ use App\Support\Phone;
 use App\Support\Username;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -49,7 +52,7 @@ class UserController extends Controller
             'users' => User::query()
                 ->visibleTo($request->user())
                 ->whereIn('role', array_keys(self::ROLES))
-                ->with(['branch:id,name', 'rank:id,name'])
+                ->with(['branch:id,name', 'rank:id,name', 'governorates:id,name_ar'])
                 ->when($request->query('q'), fn ($q, $term) => $q->where(
                     fn ($w) => $w->where('name', 'like', "%{$term}%")->orWhere('phone', $term)
                         ->orWhere('username', Username::canonical($term))
@@ -58,7 +61,28 @@ class UserController extends Controller
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString(),
             'roles' => self::ROLES,
+            'uncovered' => $this->uncoveredGovernorates(),
         ]);
+    }
+
+    /**
+     * محافظاتٌ لم تُحدَّد لأحدٍ حين وُزِّعت المحافظات على الموظّفات: معالجتها يراها من
+     * لا محافظات له وحده (وصاحب الشركة) — يُنبَّه إليها كي لا تبقى بلا صاحب.
+     *
+     * @return Collection<int, string>
+     */
+    protected function uncoveredGovernorates(): Collection
+    {
+        $covered = DB::table('user_governorates')
+            ->join('users', 'users.id', '=', 'user_governorates.user_id')
+            ->where('users.company_id', auth()->user()->company_id)
+            ->where('users.is_active', true)
+            ->whereNull('users.deleted_at')
+            ->distinct()
+            ->pluck('user_governorates.governorate_id');
+
+        return $covered->isEmpty() ? collect()
+            : Governorate::query()->offered()->whereNotIn('governorates.id', $covered)->pluck('governorates.name_ar');
     }
 
     public function create(): View
@@ -69,8 +93,10 @@ class UserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request);
+        $governorates = $this->pullGovernorates($data);
 
-        User::create($data + ['is_active' => $request->boolean('is_active', true), 'is_sales' => $request->boolean('is_sales')]);
+        $user = User::create($data + ['is_active' => $request->boolean('is_active', true), 'is_sales' => $request->boolean('is_sales')]);
+        $user->governorates()->sync($governorates);
 
         return redirect()->route('users.index')->with('success', "أُضيف {$data['name']}.");
     }
@@ -99,11 +125,15 @@ class UserController extends Controller
             unset($data['password']);
         }
 
+        $governorates = $this->pullGovernorates($data);
+
         // مرتبته أو إيقافه قد يُخرج آخر من يدير الصلاحيات
         PermissionChange::apply(fn () => $user->update($data + [
             'is_active' => $request->boolean('is_active'),
             'is_sales'  => $request->boolean('is_sales'),
         ]), 'rank_id');
+
+        $user->governorates()->sync($governorates);
 
         return redirect()->route('users.index')->with('success', 'حُفظت البيانات.');
     }
@@ -141,6 +171,9 @@ class UserController extends Controller
                             'nullable', 'integer', Rule::exists('branches', 'id')
                                 ->where('company_id', $request->user()->company_id)],
             'password'  => [$user ? 'nullable' : 'required', 'string', 'min:6', 'max:72'],
+            // محافظات الاختصاص: معالجة شحناتها وتذاكرها ومحادثاتها له وحده (docs/plan/30)
+            'governorates'   => ['nullable', 'array'],
+            'governorates.*' => ['integer', Rule::exists('governorates', 'id')],
         ], [
             'username.regex'  => Username::RULE_MESSAGE,
             'username.unique' => 'اسم المستخدم هذا لحسابٍ آخر في شركتك.',
@@ -148,6 +181,7 @@ class UserController extends Controller
         ], [
             'name' => 'الاسم', 'username' => 'اسم المستخدم', 'phone' => 'الهاتف', 'role' => 'الدور',
             'rank_id' => 'المرتبة', 'branch_id' => 'الفرع', 'password' => 'كلمة المرور',
+            'governorates' => 'المحافظات', 'governorates.*' => 'المحافظة',
         ]);
 
         // صاحب الشركة وصاحب الفرع يملكان كل شيء: لا مرتبة تقيّدهما
@@ -173,6 +207,20 @@ class UserController extends Controller
         return $actor->isBranchLimited()
             ? array_intersect_key(self::ROLES, array_flip(self::BRANCH_ROLES))
             : self::ROLES;
+    }
+
+    /**
+     * المحافظات من البيانات إلى جدولها. صاحب الشركة وصاحب الفرع يريان كلّ شيء:
+     * لا اختصاص يُحفظ لهما فيبقى بعد أن يتغيّر دورهما.
+     *
+     * @return list<int>
+     */
+    protected function pullGovernorates(array &$data): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $data['governorates'] ?? [])));
+        unset($data['governorates']);
+
+        return in_array($data['role'], [UserRole::CompanyOwner->value, UserRole::BranchOwner->value], true) ? [] : $ids;
     }
 
     protected function wouldRemoveLastOwner(User $user, array $data, Request $request): bool
@@ -203,6 +251,7 @@ class UserController extends Controller
             'branches' => Branch::where('is_active', true)
                 ->when($user->isBranchLimited(), fn ($q) => $q->whereKey($user->branch_id))
                 ->orderBy('name')->get(['id', 'name']),
+            'governorates' => Governorate::query()->offered()->get(['governorates.id', 'governorates.name_ar']),
         ];
     }
 }

@@ -181,7 +181,8 @@ class ProcessingTest extends TestCase
 
     public function test_it_needs_the_status_ability(): void
     {
-        $agent = $this->makeUser($this->company, UserRole::CustomerService);
+        // المحاسب لا يغيّر حالة شحنة (والكول سنتر يعالج: docs/plan/30)
+        $agent = $this->makeUser($this->company, UserRole::Accountant);
         $shipment = $this->failed();
 
         $this->actingAs($agent)->get($this->host().'/processing')->assertForbidden();

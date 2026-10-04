@@ -69,7 +69,7 @@
                     @endif
                 </div>
 
-                <div class="mt-2 flex items-center gap-2 text-xs">
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <span class="font-mono text-ink-400" dir="ltr">{{ $shipment->number }}</span>
                     @if ($shipment->attempts_count > 0)
                         <span class="rounded bg-warn-50 px-1.5 py-0.5 font-semibold text-warn-700">
@@ -84,6 +84,12 @@
                     @endif
                     @if ($shipment->is_fragile)
                         <span class="rounded bg-bad-50 px-1.5 py-0.5 font-semibold text-bad-700">قابل للكسر</span>
+                    @endif
+                    @if ($ticket = $tickets->get($shipment->id))
+                        {{-- طلب تغيير المبلغ: ينتظر الكول سنتر، أو اعتُمد له واصلٌ جزئي --}}
+                        <span class="rounded {{ $ticket->isOpen() ? 'bg-warn-500 text-white' : 'bg-ok-700 text-white' }} px-1.5 py-0.5 font-semibold">
+                            {{ $ticket->isOpen() ? 'المبلغ: بانتظار الكول سنتر' : 'واصل جزئي معتمد: '.number_format($ticket->approved_amount) }}
+                        </span>
                     @endif
                 </div>
             </a>

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Conversation;
+use App\Models\ShipmentTicket;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -108,6 +109,8 @@ final class StaffNavigation
             // الكلام مع التجّار والمناديب، وما يُراجَع قبل أن يمضي
             ['المتابعة', 'review', [
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
+                // المندوب عند الباب والزبون يقول مبلغاً آخر: ينتظر جوابنا الآن
+                ['tickets.index', 'طلبات المناديب لتغيير المبلغ', ['tickets.*'], 'tickets.handle'],
                 ['announcements.index', 'إشعار لكل التجّار', ['announcements.*'], 'notify.send', ['audience' => 'merchants']],
                 ['announcements.index', 'إشعار لمندوبي التوصيل', ['announcements.*'], 'notify.send', ['audience' => 'delivery_couriers']],
                 ['announcements.index', 'إشعار لمندوبي الاستلام', ['announcements.*'], 'notify.send', ['audience' => 'pickup_couriers']],
@@ -148,6 +151,9 @@ final class StaffNavigation
             ? Conversation::visibleTo($user)->where('status', 'open')->where('last_author', 'merchant')->count()
             : 0;
 
+        // وطلبات المناديب المفتوحة في محافظات اختصاصه (docs/plan/30)
+        $tickets = $user->can('tickets.handle') ? ShipmentTicket::visibleTo($user)->open()->count() : 0;
+
         $menus = [];
 
         foreach (static::menus() as [$label, $icon, $links]) {
@@ -174,7 +180,11 @@ final class StaffNavigation
                     'here'   => $here,
                     // رابطٌ بمعاملات (جمهور الإشعار) حاليٌّ حين تطابق معاملاته الطلب
                     'active' => $here && collect($params)->every(fn ($value, $key) => $request->query($key) === $value),
-                    'badge'  => $route === 'conversations.index' ? $waiting : 0,
+                    'badge'  => match ($route) {
+                        'conversations.index' => $waiting,
+                        'tickets.index'       => $tickets,
+                        default               => 0,
+                    },
                 ];
             }
 

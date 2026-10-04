@@ -91,7 +91,7 @@ class HomeAlertsTest extends TestCase
 
         $alerts = collect(Tenancy::runFor($this->company, fn () => app(HomeAlerts::class)->for($this->owner)))->keyBy('key');
 
-        $this->assertSame(['duplicates', 'with_courier', 'forced', 'unpaid', 'in_transit', 'returns_away', 'manifests'], $alerts->keys()->all());
+        $this->assertSame(['tickets', 'duplicates', 'with_courier', 'forced', 'unpaid', 'in_transit', 'returns_away', 'manifests'], $alerts->keys()->all());
         $this->assertSame(1, $alerts['duplicates']['total']);
         $this->assertSame(1, $alerts['with_courier']['total']);
         $this->assertSame(['مندوب المنصور', '—', 'شحنة واحدة'], $alerts['with_courier']['rows'][0]['cells']);
@@ -108,7 +108,7 @@ class HomeAlertsTest extends TestCase
         $this->actingAs($this->owner)->get($this->host().'/')
             ->assertOk()
             ->assertSee('تنبيهات')
-            ->assertSee('7 من 7 تستحقّ النظر')
+            ->assertSee('7 من 8 تستحقّ النظر')
             ->assertSee('طلبات عند المندوب منذ ٧٢ ساعة')
             ->assertSee('75,000 د.ع');
     }
@@ -118,7 +118,8 @@ class HomeAlertsTest extends TestCase
         $agent = $this->makeUser($this->company, UserRole::CustomerService);
 
         $keys = collect(Tenancy::runFor($this->company, fn () => app(HomeAlerts::class)->for($agent)))->pluck('key')->all();
-        $this->assertSame(['with_courier'], $keys);
+        // والكول سنتر: طلبات المناديب لتغيير المبلغ أوّلاً (docs/plan/30)
+        $this->assertSame(['tickets', 'with_courier'], $keys);
 
         // والفارغة تنطوي سطراً
         $this->actingAs($agent)->get($this->host().'/')

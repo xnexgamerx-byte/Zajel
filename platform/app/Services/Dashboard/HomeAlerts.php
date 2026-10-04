@@ -5,6 +5,7 @@ namespace App\Services\Dashboard;
 use App\Enums\ShipmentStatus;
 use App\Models\Manifest;
 use App\Models\Shipment;
+use App\Models\ShipmentTicket;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -31,6 +32,11 @@ final class HomeAlerts
     public function for(User $user): array
     {
         $cards = [];
+
+        // المندوب عند الباب ينتظر جوابنا: أوّل ما يُرى (docs/plan/30)
+        if ($user->can('tickets.handle')) {
+            $cards[] = $this->courierTickets($user);
+        }
 
         if ($user->can('control.duplicates')) {
             $cards[] = $this->duplicates($user);
@@ -60,6 +66,26 @@ final class HomeAlerts
     private function shipments(User $user): Builder
     {
         return Shipment::query()->visibleTo($user);
+    }
+
+    /** طلبات المناديب لتغيير المبلغ في محافظات اختصاصه: الطلب · الوصل · المبلغ */
+    private function courierTickets(User $user): array
+    {
+        $query = fn () => ShipmentTicket::query()->visibleTo($user)->open();
+
+        return [
+            'key'   => 'tickets',
+            'title' => 'طلبات المناديب لتغيير المبلغ',
+            'hint'  => 'المندوب عند الباب والزبون يقول مبلغاً آخر — ينتظر جوابنا',
+            'total' => $query()->count(),
+            'rows'  => $query()->with('shipment:id,number')->oldest('shipment_tickets.id')->limit(self::ROWS)->get()
+                ->map(fn (ShipmentTicket $t) => $this->row(
+                    [$t->number, $t->shipment?->number, number_format($t->current_amount).' ← '.number_format($t->requested_amount)],
+                    route('tickets.index').'#ticket-'.$t->id,
+                    $t->created_at->lt(now()->subMinutes(15)),
+                )),
+            'link'  => route('tickets.index'),
+        ];
     }
 
     /** ١ — وصولاتٌ متكرّرة لم تُحسم: المتجر · رقم الوصل · المحافظة */

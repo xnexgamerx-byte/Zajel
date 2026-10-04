@@ -6,6 +6,7 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\FailureReason;
 use App\Models\Shipment;
+use App\Models\ShipmentTicket;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -32,6 +33,11 @@ class TaskController extends Controller
 
         return view('courier.tasks', [
             'tasks'   => $tasks->groupBy(fn (Shipment $s) => $s->governorate->name_ar),
+            // طلب تغيير المبلغ الذي ينتظر جواباً، أو واصلٌ جزئيّ اعتُمد: يُرى على البطاقة
+            'tickets' => ShipmentTicket::query()->where('courier_id', $courier->id)
+                ->whereIn('shipment_id', $tasks->pluck('id'))
+                ->where(fn ($q) => $q->open()->orWhere(fn ($w) => $w->awaitingPartial()))
+                ->get()->keyBy('shipment_id'),
             'count'   => $tasks->count(),
             'toCollect' => (int) $tasks->sum('cod_amount'),
             // الأب يرى فريقه: كم بيد كلٍّ وكم نقد — لا عناوين زبائنهم
@@ -54,10 +60,18 @@ class TaskController extends Controller
 
         $shipment->load(['governorate', 'city', 'merchant:id,business_name,phone', 'lastFailureReason']);
 
+        $canAct = $shipment->status === ShipmentStatus::OutForDelivery && $shipment->delivery_courier_id === $courier->id;
+
         return view('courier.shipment', [
             'shipment' => $shipment,
             'reasons'  => FailureReason::availableFor($request->user()->company_id)->get(),
-            'canAct'   => $shipment->status === ShipmentStatus::OutForDelivery,
+            'canAct'   => $canAct,
+            // آخر طلبٍ له لتغيير مبلغها في خرجته هذه: ينتظر، أو اعتُمد، أو رُفض
+            'ticket'   => $canAct
+                ? $shipment->tickets()->where('courier_id', $courier->id)->where('status', '!=', 'closed')
+                    ->where('created_at', '>=', $shipment->assigned_at ?? $shipment->status_changed_at)
+                    ->first()
+                : null,
         ]);
     }
 

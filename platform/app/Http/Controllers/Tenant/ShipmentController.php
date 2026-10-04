@@ -257,6 +257,8 @@ class ShipmentController extends Controller
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'hubs'         => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(),
+            // طلبات المندوب لتغيير مبلغها، وما حُسم فيها (docs/plan/30)
+            'tickets'      => $shipment->tickets()->with(['courier:id,name', 'handledBy:id,name'])->get(),
             // «محادثة الشحنة»: ما دار مع التاجر عنها، لمن يردّ على المحادثات
             'conversations' => $request->user()->can('support.reply')
                 ? Conversation::visibleTo($request->user())->where('shipment_id', $shipment->id)

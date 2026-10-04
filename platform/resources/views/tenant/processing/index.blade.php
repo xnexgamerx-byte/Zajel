@@ -7,6 +7,12 @@
     <p class="mt-1 text-sm text-ink-500">
         محاولاتٌ فاشلة تنتظر قراراً، الأقدم أوّلاً: اتّصل بالزبون، ثم إعادة توصيل، أو تأجيل إلى موعده، أو إرجاع للتاجر.
     </p>
+    @if ($governorates->isNotEmpty())
+        <p class="mt-2 text-sm">
+            <span class="text-ink-500">تظهر لك شحنات محافظاتك:</span>
+            @foreach ($governorates as $name)<span class="chip chip-info ms-1">{{ $name }}</span>@endforeach
+        </p>
+    @endif
 </div>
 
 <nav class="tab-nav mb-4" aria-label="المعالجة">

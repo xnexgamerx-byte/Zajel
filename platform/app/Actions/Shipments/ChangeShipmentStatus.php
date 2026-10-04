@@ -231,6 +231,11 @@ class ChangeShipmentStatus
 
             $shipment->refresh();
 
+            // خرجت من يد المندوب: طلباته لتغيير المبلغ تُحسم معها (docs/plan/30)
+            if ($from === ShipmentStatus::OutForDelivery) {
+                ShipmentTickets::settle($shipment, $to, $options['ticket_id'] ?? null);
+            }
+
             // المال يتحرّك بعد ثبوت الحالة، وداخل المعاملة نفسها:
             // إمّا أن تُسجَّل الحالة والحركة معاً أو لا يُكتب شيء.
             match ($to) {

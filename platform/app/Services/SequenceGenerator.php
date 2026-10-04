@@ -106,6 +106,7 @@ class SequenceGenerator
             'branch_remittance'   => 'BR',
             'prepaid_receipt'     => 'PR',
             'merchant_request'    => '',
+            'shipment_ticket'     => 'TK',
             default               => '',
         };
     }

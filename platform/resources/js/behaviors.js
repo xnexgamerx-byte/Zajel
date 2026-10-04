@@ -187,3 +187,29 @@ document.addEventListener('click', (event) => {
     dialog.querySelector('[data-pay-description]').textContent = button.dataset.description;
     dialog.showModal();
 });
+
+/**
+ * المندوب ينتظر جواب الكول سنتر عند الباب (docs/plan/30): data-ticket-poll يحمل رابط
+ * حال طلبه، فتسأل الصفحة كل ١٥ ثانية، وتُحدَّث وحدها حين يتغيّر — اعتُمد أو رُفض.
+ */
+const ticketPoll = document.querySelector('[data-ticket-poll]');
+
+if (ticketPoll) {
+    const waiting = ticketPoll.dataset.ticketStatus;
+    const timer = window.setInterval(async () => {
+        try {
+            const response = await fetch(ticketPoll.dataset.ticketPoll, { headers: { Accept: 'application/json' } });
+
+            if (!response.ok) return;
+
+            const { status } = await response.json();
+
+            if (status !== waiting) {
+                window.clearInterval(timer);
+                window.location.reload();
+            }
+        } catch {
+            // الشبكة انقطعت في الشارع: يُسأل في الدورة القادمة
+        }
+    }, 15000);
+}

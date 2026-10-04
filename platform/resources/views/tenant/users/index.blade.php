@@ -21,6 +21,14 @@
     <a href="{{ route('users.index') }}" class="btn-ghost">مسح</a>
 </form>
 
+@if ($uncovered->isNotEmpty())
+    {{-- وُزِّعت المحافظات وبقيت محافظاتٌ بلا موظّفة: معالجتها لمن لا محافظات له وحده --}}
+    <div class="card mb-4 border-warn-200 bg-warn-50 p-4 text-sm text-warn-700">
+        <span class="font-semibold">محافظاتٌ بلا موظّفة مختصّة:</span> {{ $uncovered->join('، ') }}.
+        معالجتها وطلباتها يراها من لم تُحدَّد له محافظات، وصاحب الشركة.
+    </div>
+@endif
+
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
         <table class="tbl">
@@ -32,6 +40,7 @@
                     <th >الدور</th>
                     <th >المرتبة</th>
                     <th >الفرع</th>
+                    <th >المحافظات</th>
                     <th >آخر دخول</th>
                     <th >الحالة</th>
                     <th class="px-4 py-3"></th>
@@ -49,6 +58,9 @@
                         <td class="px-4 py-3">{{ $roles[$staff->role->value] ?? $staff->role->label() }}</td>
                         <td class="px-4 py-3 {{ $staff->rank ? '' : 'text-ink-400' }}">{{ $staff->rank?->name ?? '—' }}</td>
                         <td class="px-4 py-3 text-ink-600">{{ $staff->branch?->name ?? 'كل الفروع' }}</td>
+                        <td class="max-w-56 px-4 py-3 text-xs {{ $staff->governorates->isEmpty() ? 'text-ink-400' : 'text-ink-700' }}">
+                            {{ $staff->governorates->isEmpty() ? 'كلّها' : $staff->governorates->pluck('name_ar')->join('، ') }}
+                        </td>
                         <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
                             {{ $staff->last_login_at?->format('Y-m-d H:i') ?? '—' }}
                         </td>
@@ -66,7 +78,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="px-4 py-16 text-center text-ink-500">لا مستخدمين.</td></tr>
+                    <tr><td colspan="10" class="px-4 py-16 text-center text-ink-500">لا مستخدمين.</td></tr>
                 @endforelse
             </tbody>
         </table>

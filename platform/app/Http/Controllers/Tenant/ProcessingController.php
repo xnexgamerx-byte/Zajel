@@ -6,6 +6,7 @@ use App\Actions\Shipments\ProcessFailedAttempt;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
+use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Services\Shipments\ShipmentFilters;
@@ -18,6 +19,9 @@ use Illuminate\View\View;
  * تلقائياً — يتّصل موظّف المتابعة بالزبون ويقرّر: إعادة توصيل، أو تأجيلٌ إلى
  * موعدٍ اتُّفق عليه، أو إرجاعٌ للتاجر. والقرار يُسجَّل بمن اتّخذه وبعد كم
  * انتظرت الشحنة، ومنه تُقرأ «موظّفو المتابعة» و«أداء المراجعة».
+ *
+ * وكل موظّفة كول سنتر تعالج شحنات محافظات اختصاصها وحدها (docs/plan/30): معالجة
+ * بغداد لا تصل موظّفة البصرة، ولا تُعالَج منها برقمها.
  */
 class ProcessingController extends Controller
 {
@@ -29,14 +33,19 @@ class ProcessingController extends Controller
 
         $pending = Shipment::query()
             ->visibleTo($request->user())
+            ->inGovernoratesOf($request->user())
             ->where('shipments.status', ShipmentStatus::FailedAttempt->value);
 
         // «الزبون اتّصل بخصوص الوصل كذا»: البحث برقم الوصل أو هاتفه، ومناديب
         // الواحد بعينه — والشارة تعدّ كل ما ينتظر لا ما وافق البحث
         $found = ShipmentFilters::apply(clone $pending, $request);
 
+        $mine = $request->user()->handledGovernorateIds();
+
         return view('tenant.processing.index', [
             'tab'       => $tab,
+            'governorates' => $mine === [] ? collect()
+                : Governorate::query()->whereIn('id', $mine)->orderedForCompany()->pluck('name_ar'),
             'pendingCount' => (clone $pending)->count(),
             'filtered'  => $request->filled('q') || $request->filled('courier_id'),
             'couriers'  => $tab === 'pending' ? Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']) : collect(),
@@ -52,7 +61,8 @@ class ProcessingController extends Controller
                 ? ShipmentEvent::query()
                     ->where('event_type', 'processed')
                     ->where('created_at', '>=', now()->subDays(7))
-                    ->whereIn('shipment_id', Shipment::query()->visibleTo($request->user())->select('shipments.id'))
+                    ->whereIn('shipment_id', Shipment::query()->visibleTo($request->user())
+                        ->inGovernoratesOf($request->user())->select('shipments.id'))
                     ->with('shipment:id,number,status,merchant_id', 'shipment.merchant:id,business_name')
                     ->latest('id')
                     ->paginate(config('zajel.per_page'))
@@ -63,6 +73,9 @@ class ProcessingController extends Controller
 
     public function store(Request $request, Shipment $shipment, ProcessFailedAttempt $process): RedirectResponse
     {
+        // معالجة محافظةٍ أخرى لموظّفتها: لا تُفتح برقم الشحنة
+        abort_unless($shipment->inGovernoratesOf($request->user()), 404);
+
         $data = $request->validate([
             'action' => ['required', 'in:'.implode(',', array_keys(self::ACTIONS))],
             'until'  => ['nullable', 'required_if:action,postpone', 'date', 'after_or_equal:today', 'before:+60 days'],

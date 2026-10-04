@@ -52,6 +52,7 @@ class ShipmentEvent extends Model
         'processed'        => 'معالجة',
         'reviewed'         => 'إجازة بعد المراجعة',
         'prepaid_fee'      => 'قبض أجرة مقدّماً',
+        'ticket'           => 'طلب تغيير المبلغ',
     ];
 
     /**

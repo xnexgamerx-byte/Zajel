@@ -307,8 +307,8 @@ class ShipmentEditTest extends TestCase
     {
         $shipment = $this->makeShipment();
 
-        // خدمة العملاء: تقرأ وتُنشئ وتُجيب، ولا تغيّر ديناراً — إلا إن مُنحت الصلاحية
-        $agent = $this->makeUser($this->company, UserRole::CustomerService);
+        // المحاسب: يرى الشحنة ولا يصحّح بياناتها — إلا إن مُنح الصلاحية
+        $agent = $this->makeUser($this->company, UserRole::Accountant);
         $this->actingAs($agent)
             ->get($this->host().'/shipments/'.$shipment->id.'/edit')
             ->assertForbidden();
@@ -318,6 +318,12 @@ class ShipmentEditTest extends TestCase
 
         $operations = $this->makeUser($this->company, UserRole::Operations);
         $this->actingAs($operations)
+            ->get($this->host().'/shipments/'.$shipment->id.'/edit')
+            ->assertOk();
+
+        // والكول سنتر يصحّح الشحنة كما يحدّث حالتها (docs/plan/30)
+        $callCentre = $this->makeUser($this->company, UserRole::CustomerService);
+        $this->actingAs($callCentre)
             ->get($this->host().'/shipments/'.$shipment->id.'/edit')
             ->assertOk();
     }

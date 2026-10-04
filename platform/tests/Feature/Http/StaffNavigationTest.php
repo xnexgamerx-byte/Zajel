@@ -125,18 +125,26 @@ class StaffNavigationTest extends TestCase
 
     public function test_a_link_shows_only_to_whoever_can_open_it(): void
     {
-        // خدمة العملاء: تقرأ وتُنشئ وتُجيب، ولا مال ولا نقل ولا إعدادات
+        // الكول سنتر: تتابع الشحنة وتحدّث حالتها وتعالج، ولا مال ولا نقل ولا إعدادات (docs/plan/30)
         $agent = $this->makeUser($this->company, UserRole::CustomerService);
 
         $menus = Tenancy::runFor($this->company, fn () => StaffNavigation::for($agent, Request::create('/')));
         $labels = array_column($menus, 'label');
 
-        // لا مال ولا راجع ولا إعدادات؛ ويرى «كل مراحل النقل»: عدّاداتٌ للقراءة
+        // لا مال ولا راجع ولا إعدادات؛ ومن التوصيل: المراحل والمسح والمعالجة
         $this->assertSame(['الرئيسية', 'الشحنات', 'التوصيل', 'التقارير', 'المتابعة'], $labels);
         $delivery = $menus[array_search('التوصيل', $labels, true)];
-        $this->assertSame(['كل مراحل النقل'], array_column($delivery['links'], 'label'));
+        $this->assertSame(['كل مراحل النقل', 'استلام وتوزيع بالمسح', 'شحنات لم تُسلَّم (للمعالجة)'],
+            array_column($delivery['links'], 'label'));
+        $review = $menus[array_search('المتابعة', $labels, true)];
+        $this->assertSame(['المحادثات', 'طلبات المناديب لتغيير المبلغ'], array_column($review['links'], 'label'));
 
-        // والقائمة التي بقي فيها رابطٌ واحد رابطٌ مباشر: لا قائمة تنسدل بسطرٍ واحد
+        // والقائمة التي بقي فيها رابطٌ واحد رابطٌ مباشر: لا قائمة تنسدل بسطرٍ واحد —
+        // المحاسب يرى من التوصيل «كل مراحل النقل» وحدها: عدّاداتٌ للقراءة
+        $accountant = $this->makeUser($this->company, UserRole::Accountant);
+        $accounts = Tenancy::runFor($this->company, fn () => StaffNavigation::for($accountant, Request::create('/')));
+        $delivery = collect($accounts)->firstWhere('label', 'التوصيل');
+        $this->assertSame(['كل مراحل النقل'], array_column($delivery['links'], 'label'));
         $this->assertSame($delivery['links'][0]['url'], $delivery['url']);
         $home = $menus[array_search('الرئيسية', $labels, true)];
         $this->assertSame(['لوحة اليوم'], array_column($home['links'], 'label'));

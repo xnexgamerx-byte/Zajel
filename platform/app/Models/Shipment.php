@@ -142,6 +142,12 @@ class Shipment extends Model
         return $this->hasMany(ShipmentEvent::class)->orderBy('id');
     }
 
+    /** طلبات المندوب لتغيير المبلغ (docs/plan/30) */
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(ShipmentTicket::class)->latest('id');
+    }
+
     public function latestEvent(): HasMany
     {
         return $this->hasMany(ShipmentEvent::class)->latest('id')->limit(1);
@@ -301,6 +307,27 @@ class Shipment extends Model
         }
 
         return $q;
+    }
+
+    /**
+     * شحنات محافظات اختصاصه (docs/plan/30): ما يُعالَج منها لموظّفة الكول سنتر
+     * المختصّة وحدها. ومن لا محافظات له يرى كلّها.
+     *
+     * لا يُقيِّد البحث والعرض: زبونٌ يتّصل بأيّ موظّفةٍ تجد شحنته — المعالجة وحدها لصاحبتها.
+     */
+    public function scopeInGovernoratesOf(Builder $q, User $user): Builder
+    {
+        $governorates = $user->handledGovernorateIds();
+
+        return $governorates === [] ? $q : $q->whereIn($q->qualifyColumn('governorate_id'), $governorates);
+    }
+
+    /** أهي من محافظات اختصاص $user — أو هو يرى كلّها */
+    public function inGovernoratesOf(User $user): bool
+    {
+        $governorates = $user->handledGovernorateIds();
+
+        return $governorates === [] || in_array((int) $this->governorate_id, $governorates, true);
     }
 
     /**

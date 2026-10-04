@@ -32,7 +32,7 @@ final class RankTemplates
             'branch_manager' => [
                 'name' => 'مدير فرع',
                 'hint' => 'العمليات كلّها، ويرى المال ولا يحرّكه، والتقارير المالية.',
-                'abilities' => [...$shipments, ...$floor, A::SHIPMENTS_EXPORT, A::NOTIFY_SEND, A::SUPPORT_REPLY, A::CONTROL_DUPLICATES,
+                'abilities' => [...$shipments, ...$floor, A::SHIPMENTS_EXPORT, A::NOTIFY_SEND, A::SUPPORT_REPLY, A::TICKETS_HANDLE, A::CONTROL_DUPLICATES,
                     A::CONTROL_FORCE, A::MONEY_VIEW, A::REPORTS_VIEW, A::REPORTS_FINANCIAL,
                     A::SETTINGS_MERCHANTS, A::SETTINGS_COURIERS, A::SETTINGS_ZONES],
             ],
@@ -56,8 +56,8 @@ final class RankTemplates
             ],
             'follow_up' => [
                 'name' => 'متابعة',
-                'hint' => 'يتابع الشحنات المتعثّرة ويغيّر حالتها ويجيب التجّار.',
-                'abilities' => [A::SHIPMENTS_VIEW, A::SHIPMENTS_STATUS, A::SUPPORT_REPLY, A::CONTROL_DUPLICATES, A::CONTROL_REVIEW],
+                'hint' => 'يتابع الشحنات المتعثّرة ويغيّر حالتها ويجيب التجّار وطلبات المناديب لتغيير المبلغ.',
+                'abilities' => [A::SHIPMENTS_VIEW, A::SHIPMENTS_STATUS, A::SUPPORT_REPLY, A::TICKETS_HANDLE, A::CONTROL_DUPLICATES, A::CONTROL_REVIEW],
             ],
             'returns_clerk' => [
                 'name' => 'موظّف رواجع',
@@ -95,8 +95,9 @@ final class RankTemplates
             ],
             'customer_service' => [
                 'name' => 'خدمة العملاء',
-                'hint' => 'تقرأ وتُنشئ وتُجيب، ولا تغيّر مصير شحنة ولا ديناراً.',
-                'abilities' => [A::SHIPMENTS_VIEW, A::SHIPMENTS_CREATE, A::REPORTS_VIEW, A::SUPPORT_REPLY],
+                'hint' => 'الكول سنتر: تتابع الشحنة وتصحّحها وتحدّث حالتها، وتعالج ما لم يُسلَّم وطلبات المناديب لتغيير المبلغ، وتجيب التجّار — ولا تحرّك ديناراً في الحسابات.',
+                'abilities' => [A::SHIPMENTS_VIEW, A::SHIPMENTS_CREATE, A::SHIPMENTS_EDIT, A::SHIPMENTS_STATUS,
+                    A::REPORTS_VIEW, A::SUPPORT_REPLY, A::TICKETS_HANDLE],
             ],
         ];
 

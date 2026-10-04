@@ -73,6 +73,9 @@ class Ability
     /** الردّ على محادثات التجّار */
     public const SUPPORT_REPLY = 'support.reply';
 
+    /** طلبات المناديب لتغيير المبلغ عند الباب: اعتمادها أو رفضها (docs/plan/30) */
+    public const TICKETS_HANDLE = 'tickets.handle';
+
     public const CONTROL_DUPLICATES = 'control.duplicates';
 
     public const CONTROL_FORCE = 'control.force';
@@ -154,6 +157,7 @@ class Ability
             ]],
             'review' => ['label' => 'المتابعة', 'abilities' => [
                 self::SUPPORT_REPLY      => 'محادثات التجّار',
+                self::TICKETS_HANDLE     => 'طلبات المناديب لتغيير المبلغ (اعتمادٌ يغيّر مبلغ الشحنة)',
                 self::NOTIFY_SEND        => 'الإشعارات وإعلانات التطبيق',
                 self::CONTROL_REVIEW     => 'إجازة الشحنات المعلّقة للمراجعة',
                 self::CONTROL_DUPLICATES => 'حسم الشحنات المكرّرة',
@@ -253,16 +257,17 @@ class Ability
             UserRole::BranchManager => [
                 ...$operations, self::SHIPMENTS_EXPORT, self::MONEY_VIEW, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
                 self::CONTROL_DUPLICATES, self::CONTROL_REVIEW, self::SETTINGS_ZONES, self::NOTIFY_SEND,
-                self::SUPPORT_REPLY,
+                self::SUPPORT_REPLY, self::TICKETS_HANDLE,
             ],
 
             // العمليات تُبلغ المناديب كل صباح: «ابدأوا السابعة»، «الطريق مغلق»
-            UserRole::Operations => [...$operations, self::REPORTS_VIEW, self::NOTIFY_SEND, self::SUPPORT_REPLY],
+            UserRole::Operations => [...$operations, self::REPORTS_VIEW, self::NOTIFY_SEND, self::SUPPORT_REPLY, self::TICKETS_HANDLE],
 
-            // خدمة العملاء تقرأ وتُنشئ وتُجيب، ولا تُغيّر مصير شحنة ولا ديناراً
+            // الكول سنتر يتابع الشحنة: يصحّح بياناتها ويحدّث حالتها ويعالج ما لم يُسلَّم وطلبات
+            // المناديب لتغيير المبلغ (docs/plan/30) — ولا يحرّك ديناراً في الحسابات
             UserRole::CustomerService => [
-                self::SHIPMENTS_VIEW, self::SHIPMENTS_CREATE, self::REPORTS_VIEW,
-                self::SUPPORT_REPLY,
+                self::SHIPMENTS_VIEW, self::SHIPMENTS_CREATE, self::SHIPMENTS_EDIT, self::SHIPMENTS_STATUS,
+                self::REPORTS_VIEW, self::SUPPORT_REPLY, self::TICKETS_HANDLE,
             ],
 
             UserRole::Accountant => [

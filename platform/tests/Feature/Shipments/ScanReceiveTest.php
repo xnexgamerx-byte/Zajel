@@ -168,12 +168,19 @@ class ScanReceiveTest extends TestCase
         $this->actingAs($this->owner)->get($this->host().'/shipments/scan')
             ->assertOk()->assertSee('استلم الكلّ في المخزن')->assertSee('إسناد وإخراج للتوصيل');
 
+        // الكول سنتر يغيّر الحالة (يستلم في المخزن) ولا يُسند للمناديب (docs/plan/30)
         $agent = $this->makeUser($this->company, UserRole::CustomerService);
 
         $this->actingAs($agent)->get($this->host().'/shipments/scan')
+            ->assertOk()->assertSee('استلم الكلّ في المخزن')->assertDontSee('إسناد وإخراج للتوصيل');
+
+        // والمحاسب يرى ولا يغيّر شيئاً
+        $accountant = $this->makeUser($this->company, UserRole::Accountant);
+
+        $this->actingAs($accountant)->get($this->host().'/shipments/scan')
             ->assertOk()->assertDontSee('استلم الكلّ في المخزن')->assertDontSee('إسناد وإخراج للتوصيل');
 
-        $this->actingAs($agent)->post($this->host().'/shipments/scan/receive', ['shipment_ids' => [1]])
+        $this->actingAs($accountant)->post($this->host().'/shipments/scan/receive', ['shipment_ids' => [1]])
             ->assertForbidden();
     }
 }

@@ -77,6 +77,8 @@
     --color-info-700: var(--color-techblue-700);
     --color-warn-50:  var(--color-camel-50);
     --color-warn-200: var(--color-camel-200);
+    /* زرّ «مؤجل» عند المندوب وتنبيه «بانتظار الكول سنتر»: كان بلا لون فيظهر أبيض على أبيض */
+    --color-warn-500: var(--color-camel-500);
     --color-warn-700: var(--color-camel-700);
     --color-bad-50:   var(--color-aered-50);
     --color-bad-200:  var(--color-aered-200);

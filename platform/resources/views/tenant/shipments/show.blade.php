@@ -483,6 +483,38 @@
             </dl>
         </section>
 
+        @if ($tickets->isNotEmpty())
+            {{-- طلبات المندوب لتغيير المبلغ (docs/plan/30): ما طُلب، ومن حسمه وبماذا --}}
+            <section class="card p-5">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                    <h2 class="text-sm font-bold">طلبات تغيير المبلغ</h2>
+                    @can('tickets.handle')
+                        @if ($tickets->contains(fn ($t) => $t->isOpen()))
+                            <a href="{{ route('tickets.index') }}" class="text-xs font-semibold text-[var(--brand)] hover:underline">اعتمد أو ارفض</a>
+                        @endif
+                    @endcan
+                </div>
+                <ul class="space-y-2 text-sm">
+                    @foreach ($tickets as $ticket)
+                        <li class="rounded-lg border border-ink-100 px-3 py-2">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="num font-semibold" dir="ltr">{{ $ticket->number }}</span>
+                                <span @class(['chip', 'chip-warn' => $ticket->isOpen(), 'chip-ok' => $ticket->status === 'approved',
+                                    'chip-bad' => $ticket->status === 'rejected', 'chip-mute' => $ticket->status === 'closed'])>{{ $ticket->statusLabel() }}</span>
+                                <span class="num ms-auto">{{ number_format($ticket->current_amount) }} ← {{ number_format($ticket->approved_amount ?? $ticket->requested_amount) }}</span>
+                            </div>
+                            <p class="mt-1 text-xs text-ink-500">
+                                {{ $ticket->kindLabel() }} — {{ $ticket->reason }} · {{ $ticket->courier?->name }}
+                                @if ($ticket->handledBy) · حسمه {{ $ticket->handledBy->name }}@endif
+                                @if ($ticket->reply) · «{{ $ticket->reply }}»@endif
+                                @if ($ticket->closed_note) · {{ $ticket->closed_note }}@endif
+                            </p>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
+
         @can('support.reply')
             {{-- «محادثة الشحنة»: ما دار مع التاجر عنها، وصورها وملفّاتها في المحادثة نفسها --}}
             <section class="card p-5">

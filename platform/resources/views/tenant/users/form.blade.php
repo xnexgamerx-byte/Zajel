@@ -86,6 +86,30 @@
         </div>
     </div>
 
+    {{-- محافظات الاختصاص (docs/plan/30): معالجة شحنات المحافظة وتذاكرها ومحادثاتها لموظّفتها وحدها --}}
+    @php
+        $chosen = array_map('intval', old('governorates', $staff->exists ? $staff->governorates()->pluck('governorates.id')->all() : []));
+    @endphp
+    <fieldset class="rounded-xl border border-ink-200 p-4">
+        <legend class="px-1 text-sm font-semibold">المحافظات المختصّة بها</legend>
+        <p class="mb-3 text-xs text-ink-500">
+            لموظّفة الكول سنتر: تصلها معالجة الشحنات (لم تُسلَّم) وطلبات المناديب لتغيير المبلغ ومحادثات التجّار عن شحنات
+            هذه المحافظات وحدها، ولا تصل غيرها. بلا اختيار: يرى كل المحافظات. (لا يُقيَّد بها صاحب الشركة ولا صاحب الفرع.)
+        </p>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+            @foreach ($governorates as $governorate)
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="governorates[]" value="{{ $governorate->id }}"
+                           @checked(in_array($governorate->id, $chosen, true))
+                           class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
+                    {{ $governorate->name_ar }}
+                </label>
+            @endforeach
+        </div>
+        @error('governorates') <p class="field-error">{{ $message }}</p> @enderror
+        @error('governorates.*') <p class="field-error">{{ $message }}</p> @enderror
+    </fieldset>
+
     <label class="flex items-center gap-2 text-sm">
         <input type="checkbox" name="is_sales" value="1" @checked(old('is_sales', $staff->is_sales))
                class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">

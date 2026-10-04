@@ -63,6 +63,25 @@ class UpdateShipment
         protected DuplicateDetector $duplicates,
     ) {}
 
+    /**
+     * بيانات الشحنة كما هي، بالمبلغ $cod: تغيير المبلغ وحده بالطريق نفسه — يُعاد حساب
+     * عمولة التحصيل ومستحقّ التاجر، ويُكتب في السجلّ ما كان وما صار.
+     *
+     * @return array<string, mixed>
+     */
+    public static function withAmount(Shipment $shipment, int $cod): array
+    {
+        return [
+            ...$shipment->only([
+                'recipient_name', 'recipient_phone', 'recipient_phone_alt', 'governorate_id', 'city_id',
+                'address', 'landmark', 'description', 'pieces_count', 'type', 'size', 'weight_grams',
+                'is_fragile', 'allow_open', 'notes', 'merchant_reference', 'fees_paid_by',
+                'delivery_fee', 'extra_fee', 'discount',
+            ]),
+            'cod_amount' => $cod,
+        ];
+    }
+
     /** تُعدَّل ما دامت مفتوحة ولم يُقيَّد منها مال: التسليم الجزئي قُيِّد، ولو مضى باقيه راجعاً. */
     public static function editable(Shipment $shipment): bool
     {
@@ -77,9 +96,10 @@ class UpdateShipment
         ], true);
     }
 
-    public function handle(Shipment $shipment, array $data, ?User $actor = null): Shipment
+    /** @param  ?string  $why  ما يُكتب في السجلّ بدل «تعديل البيانات»: تذكرة المندوب مثلاً */
+    public function handle(Shipment $shipment, array $data, ?User $actor = null, ?string $why = null): Shipment
     {
-        return DB::transaction(function () use ($shipment, $data, $actor) {
+        return DB::transaction(function () use ($shipment, $data, $actor, $why) {
             // القفل ثم إعادة الفحص: مندوبٌ يسلّمها في اللحظة نفسها يسبق التعديل أو يلحقه، لا يتداخلان
             $shipment = Shipment::query()->lockForUpdate()->findOrFail($shipment->id);
 
@@ -199,7 +219,7 @@ class UpdateShipment
                 'actor_type'  => $actor ? 'user' : 'system',
                 'actor_id'    => $actor?->id,
                 'actor_name'  => $actor?->name,
-                'note'        => $this->describe($changes),
+                'note'        => $this->describe($changes, $why),
                 'meta'        => ['changes' => $changes],
                 'ip'          => request()->ip(),
             ]);
@@ -214,7 +234,7 @@ class UpdateShipment
      *
      * @param  array<string, array{from:mixed, to:mixed}>  $changes
      */
-    private function describe(array $changes): string
+    private function describe(array $changes, ?string $why = null): string
     {
         $parts = [];
 
@@ -227,7 +247,7 @@ class UpdateShipment
             $parts[] = self::FIELDS[$field].': '.$this->show($field, $from).' ← '.$this->show($field, $to);
         }
 
-        return 'تعديل البيانات — '.implode(' · ', $parts);
+        return ($why ?? 'تعديل البيانات').' — '.implode(' · ', $parts);
     }
 
     private function show(string $field, mixed $value): string

@@ -12,6 +12,7 @@ use App\Models\Scopes\UserScope;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -31,6 +32,9 @@ class User extends Authenticatable
 
     /** أهو في الفرع الرئيسي — inMainBranch() يحسبه مرّةً في الطلب */
     private ?bool $inMainBranch = null;
+
+    /** محافظات اختصاصه — handledGovernorateIds() يقرؤها مرّةً في الطلب */
+    private ?array $handledGovernorates = null;
 
     protected function casts(): array
     {
@@ -74,6 +78,31 @@ class User extends Authenticatable
     {
         // بمعرّفها من صفّه لا بالبحث: تُقرأ ولو خارج سياق شركته (أمرٌ في الطرفية)
         return $this->belongsTo(Rank::class)->withoutGlobalScope(CompanyScope::class);
+    }
+
+    /**
+     * «محافظات الاختصاص» (docs/plan/30): موظّفة الكول سنتر تعالج شحنات محافظاتها
+     * وتذاكرها ومحادثاتها، ولا تصلها محافظةٌ لم تُحدَّد لها.
+     */
+    public function governorates(): BelongsToMany
+    {
+        return $this->belongsToMany(Governorate::class, 'user_governorates')->orderBy('governorates.sort_order');
+    }
+
+    /**
+     * معرّفات محافظات اختصاصه، وفارغةً لمن يرى كلّها: من لم تُحدَّد له محافظة، وصاحب
+     * الشركة وصاحب الفرع — لا يُحجب عنهما شيء.
+     *
+     * @return list<int>
+     */
+    public function handledGovernorateIds(): array
+    {
+        if (! $this->isStaff() || in_array($this->role, [UserRole::CompanyOwner, UserRole::BranchOwner], true)) {
+            return [];
+        }
+
+        return $this->handledGovernorates ??= $this->governorates()
+            ->pluck('governorates.id')->map(fn ($id) => (int) $id)->values()->all();
     }
 
     public function grants(): HasMany

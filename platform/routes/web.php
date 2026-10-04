@@ -10,6 +10,7 @@ use App\Http\Controllers\Courier\CashController as CourierCashController;
 use App\Http\Controllers\Courier\PickupController as CourierPickupController;
 use App\Http\Controllers\Courier\ShareController as CourierShareController;
 use App\Http\Controllers\Courier\TaskController;
+use App\Http\Controllers\Courier\TicketController as CourierTicketController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\Portal\PickupRequestController;
 use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\Tenant\ReconcileController;
 use App\Http\Controllers\Tenant\PassedThroughController;
 use App\Http\Controllers\Tenant\ShipmentArchiveController;
 use App\Http\Controllers\Tenant\ProcessingController;
+use App\Http\Controllers\Tenant\ShipmentTicketController;
 use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
 use App\Http\Controllers\Tenant\ReviewHoldController;
@@ -235,6 +237,13 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:shipments.status')->group(function () {
                 Route::get('/processing', [ProcessingController::class, 'index'])->name('processing.index');
                 Route::post('/processing/{shipment}', [ProcessingController::class, 'store'])->name('processing.store');
+            });
+
+            // طلبات المناديب لتغيير المبلغ: للكول سنتر المختصّة بمحافظة الشحنة (docs/plan/30)
+            Route::middleware('can:tickets.handle')->group(function () {
+                Route::get('/tickets', [ShipmentTicketController::class, 'index'])->name('tickets.index');
+                Route::post('/tickets/{ticket}/approve', [ShipmentTicketController::class, 'approve'])->whereNumber('ticket')->name('tickets.approve');
+                Route::post('/tickets/{ticket}/reject', [ShipmentTicketController::class, 'reject'])->whereNumber('ticket')->name('tickets.reject');
             });
 
             Route::middleware('can:control.review')->group(function () {
@@ -491,6 +500,9 @@ Route::middleware('tenant')->group(function () {
             Route::post('/pickups/{pickup}/complete', [CourierPickupController::class, 'complete'])->name('pickups.complete');
             Route::get('/shipments/{shipment}', [TaskController::class, 'show'])->name('shipments.show');
             Route::post('/shipments/{shipment}', CourierActionController::class)->name('shipments.act');
+            // المبلغ لا يتغيّر عند الباب: يُطلب من الكول سنتر (docs/plan/30)
+            Route::post('/shipments/{shipment}/ticket', [CourierTicketController::class, 'store'])->name('shipments.ticket');
+            Route::get('/shipments/{shipment}/ticket', [CourierTicketController::class, 'status'])->name('shipments.ticket.status');
         });
 
         /*
