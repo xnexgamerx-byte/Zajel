@@ -212,6 +212,20 @@ class PeopleManagementTest extends TestCase
         });
     }
 
+    public function test_the_courier_form_warns_when_an_empty_commission_would_be_zero(): void
+    {
+        $warning = 'ولا أجرة مندوب في «إعدادات المحافظات» بعد: فارغاً تكون عمولته صفراً';
+
+        $this->actingAs($this->staff)->get($this->host().'/couriers/create')->assertOk()->assertSee($warning);
+
+        // أجرة مندوبٍ لمحافظةٍ واحدة تكفي: العمولة الفارغة تُؤخذ منها
+        Tenancy::runFor($this->company, fn () => \App\Models\GovernorateSetting::create([
+            'governorate_id' => $this->baghdad()->id, 'courier_fee' => 2000,
+        ]));
+
+        $this->actingAs($this->staff)->get($this->host().'/couriers/create')->assertOk()->assertDontSee($warning);
+    }
+
     public function test_a_pickup_courier_is_not_offered_for_delivery(): void
     {
         $this->actingAs($this->staff)->post($this->host().'/couriers', $this->courierPayload());

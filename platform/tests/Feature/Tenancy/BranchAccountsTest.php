@@ -5,6 +5,7 @@ namespace Tests\Feature\Tenancy;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\PriceList;
 use App\Models\PriceListRule;
@@ -96,6 +97,49 @@ class BranchAccountsTest extends TestCase
         $this->post($this->host().'/login', ['username' => 'basra', 'password' => 'secret-pass'])
             ->assertRedirect($this->host());
         $this->assertAuthenticatedAs($account);
+    }
+
+    public function test_a_new_branch_gets_its_own_sorting_hub_and_its_staff_receive_into_it(): void
+    {
+        $account = $this->basra();
+
+        [$branch, $hubs] = Tenancy::runFor($this->company, function () {
+            $branch = Branch::where('code', 'BSR')->firstOrFail();
+
+            return [$branch, Hub::where('branch_id', $branch->id)->get()];
+        });
+
+        // مع الفرع مركزه: إليه تُرسَل الأكياس، وفيه يستلم موظّفوه (لا في مخزن الرئيسي)
+        $this->assertCount(1, $hubs);
+        $this->assertSame('مركز فرز فرع البصرة', $hubs->first()->name);
+        $this->assertSame('branch', $hubs->first()->type);
+        $this->assertSame($hubs->first()->id, Tenancy::runFor($this->company, fn () => \App\Actions\Shipments\ReceiveAtHub::hubOf($account->fresh())?->id));
+
+        // وتعديل الفرع لا يُنشئ مركزاً ثانياً
+        $this->actingAs($this->owner)->put($this->host().'/branches/'.$branch->id, [
+            'code' => 'BSR', 'name' => 'فرع البصرة', 'is_active' => '1', 'price_list_id' => $this->basraPrices->id,
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(1, Tenancy::runFor($this->company, fn () => Hub::where('branch_id', $branch->id)->count()));
+
+        // ويُختار وجهةً للأكياس
+        $this->actingAs($this->owner)->get($this->host().'/bags')->assertOk()->assertSee('مركز فرز فرع البصرة');
+    }
+
+    public function test_branches_added_before_hubs_came_with_them_get_one_once(): void
+    {
+        // فرعٌ قديم بلا مركز (الرئيسي هنا من makeMerchant)، وآخر أُضيف بلا مركز
+        $old = Tenancy::runFor($this->company, fn () => Branch::create(['code' => 'NJF', 'name' => 'فرع النجف', 'is_active' => true]));
+
+        $migration = require database_path('migrations/2026_01_03_003100_give_every_branch_a_hub.php');
+        $migration->up();
+        $migration->up();
+
+        Tenancy::runFor($this->company, function () use ($old) {
+            $this->assertSame(1, Hub::where('branch_id', $old->id)->count());
+            $this->assertSame('مركز فرز فرع النجف', Hub::where('branch_id', $old->id)->value('name'));
+            $this->assertSame(1, Hub::where('branch_id', Branch::where('is_main', true)->value('id'))->count());
+            $this->assertSame('main', Hub::where('branch_id', Branch::where('is_main', true)->value('id'))->value('type'));
+        });
     }
 
     public function test_a_branch_owner_must_belong_to_a_branch(): void

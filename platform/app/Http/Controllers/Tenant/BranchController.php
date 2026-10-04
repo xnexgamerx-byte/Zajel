@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\City;
 use App\Models\Governorate;
+use App\Models\Hub;
 use App\Models\PriceList;
 use App\Models\User;
 use App\Support\Phone;
@@ -44,6 +45,8 @@ class BranchController extends Controller
         [$branch, $owner] = DB::transaction(function () use ($data, $account, $request) {
             $branch = Branch::create($data + ['is_active' => $request->boolean('is_active', true)]);
             $this->syncMain($branch, $request);
+            // ومعه مركز فرزه: إليه تُرسَل الأكياس وفيه يستلم موظّفوه
+            Hub::ensureFor($branch);
 
             return [$branch, $account ? $this->createOwner($branch, $account) : null];
         });
@@ -75,6 +78,7 @@ class BranchController extends Controller
         $owner = DB::transaction(function () use ($branch, $data, $account, $request) {
             $branch->update($data + ['is_active' => $request->boolean('is_active')]);
             $this->syncMain($branch, $request);
+            Hub::ensureFor($branch);
 
             return $account ? $this->createOwner($branch, $account) : null;
         });

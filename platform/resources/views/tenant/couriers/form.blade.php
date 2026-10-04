@@ -140,6 +140,11 @@
                         </div>
                         @if ($field === 'commission_per_delivery')
                             <p class="mt-1 text-xs text-ink-500">فارغاً: أجرة المندوب لمحافظة الوجهة من «إعدادات المحافظات».</p>
+                            @unless ($destinationFees)
+                                <p class="mt-1 text-xs font-semibold text-warn-700">
+                                    ولا أجرة مندوب في «إعدادات المحافظات» بعد: فارغاً تكون عمولته صفراً — اكتبها هنا أو هناك.
+                                </p>
+                            @endunless
                         @endif
                         @error($field) <p class="field-error">{{ $message }}</p> @enderror
                     </div>

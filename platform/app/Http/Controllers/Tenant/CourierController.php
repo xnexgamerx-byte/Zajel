@@ -10,6 +10,7 @@ use App\Models\Branch;
 use App\Models\Courier;
 use App\Models\CourierZone;
 use App\Models\Governorate;
+use App\Models\GovernorateSetting;
 use App\Models\Shipment;
 use App\Models\Transaction;
 use App\Models\User;
@@ -170,6 +171,8 @@ class CourierController extends Controller
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             // الأب مندوب توصيلٍ ليس فرعيّاً
             'parents'      => Courier::delivering()->whereNull('parent_id')->visibleTo($user)->orderBy('name')->get(['id', 'name', 'code']),
+            // عمولةٌ فارغة تُؤخذ من أجرة المندوب للمحافظة؛ وبلا أجرةٍ هناك تكون صفراً بلا تنبيه
+            'destinationFees' => GovernorateSetting::query()->where('courier_fee', '>', 0)->exists(),
         ];
     }
 }
