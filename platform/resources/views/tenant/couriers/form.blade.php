@@ -59,7 +59,7 @@
                 <div>
                     <label class="field-label" for="type">النوع <span class="text-red-500">*</span></label>
                     <select id="type" name="type" class="field-input" required>
-                        @foreach (['delivery' => 'توصيل فقط', 'pickup' => 'استلام فقط', 'both' => 'الاثنان'] as $value => $label)
+                        @foreach (['delivery' => 'توصيل فقط', 'pickup' => 'استلام فقط', 'both' => 'الاثنان', 'transfer' => 'نقل بين الفروع (مناورة)'] as $value => $label)
                             <option value="{{ $value }}"
                                     @selected(old('type', $courier->type ?? 'delivery') === $value)>{{ $label }}</option>
                         @endforeach

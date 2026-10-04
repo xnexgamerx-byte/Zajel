@@ -8,7 +8,7 @@
         <p class="mt-1 text-sm text-ink-500">
             <span class="font-mono" dir="ltr">{{ $courier->code }}</span>
             · <span dir="ltr">{{ $courier->phone }}</span>
-            · {{ ['delivery' => 'مندوب توصيل', 'pickup' => 'مندوب استلام', 'both' => 'توصيل واستلام'][$courier->type] }}
+            · {{ ['delivery' => 'مندوب توصيل', 'pickup' => 'مندوب استلام', 'both' => 'توصيل واستلام', 'transfer' => 'مندوب نقل بين الفروع'][$courier->type] }}
             @if ($courier->parent)
                 · فرعيّ تحت <a href="{{ route('couriers.show', $courier->parent) }}" class="font-medium text-[var(--brand)] hover:underline">{{ $courier->parent->name }}</a>
             @endif

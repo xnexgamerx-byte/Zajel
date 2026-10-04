@@ -151,6 +151,17 @@ class Courier extends Model
         return $q->whereIn('type', ['pickup', 'both']);
     }
 
+    /** مندوبو النقل بين الفروع (المناورة): يحملون كشوف النقل بين المحافظات */
+    public function scopeTransferring(Builder $q): Builder
+    {
+        return $q->where('type', 'transfer');
+    }
+
+    public function isTransfer(): bool
+    {
+        return $this->type === 'transfer';
+    }
+
     public function scopeActive(Builder $q): Builder
     {
         return $q->where('status', 'active');

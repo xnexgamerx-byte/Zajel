@@ -45,6 +45,19 @@
     </div>
 @endif
 
+{{-- المناورة: في الطريق بين فرعين، ومع مَن — يُتّصل به إن تأخّر --}}
+@if ($road = $shipment->manifestOnTheRoad())
+    <div class="card mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 border-info-200 bg-info-50 p-4 text-sm text-info-700">
+        <span class="font-semibold">بالطريق بين الفروع:</span>
+        <span>{{ $road->carrierLabel() ?? 'بلا مندوب نقلٍ مسمّى' }}</span>
+        @if ($road->driver_phone)
+            <a href="tel:{{ $road->driver_phone }}" class="num underline" dir="ltr">{{ $road->driver_phone }}</a>
+        @endif
+        <span>— الكشف @can('transport.manage')<a href="{{ route('manifests.show', $road) }}" class="num font-semibold underline">{{ $road->code }}</a>@else<span class="num font-semibold">{{ $road->code }}</span>@endcan،
+            من {{ $road->fromHub?->name }} إلى {{ $road->toHub?->name }}، غادر {{ $road->departed_at?->diffForHumans() }}.</span>
+    </div>
+@endif
+
 @if ($shipment->delivery_code && $shipment->status->isOpen())
     <p class="mb-5 text-sm text-ink-600">
         تُسلَّم بكود: <span class="num font-semibold tracking-[0.3em]" dir="ltr">{{ $shipment->delivery_code }}</span>

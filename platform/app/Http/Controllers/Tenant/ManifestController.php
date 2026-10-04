@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Tenant;
 use App\Actions\Transport\RunManifest;
 use App\Http\Controllers\Controller;
 use App\Models\Bag;
+use App\Models\Courier;
 use App\Models\Hub;
 use App\Models\Manifest;
 use App\Services\Reports\ReportPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -25,7 +27,7 @@ class ManifestController extends Controller
 
     public function index(Request $request): View
     {
-        $manifests = Manifest::visibleTo($request->user())->with(['fromHub:id,name', 'toHub:id,name'])
+        $manifests = Manifest::visibleTo($request->user())->with(['fromHub:id,name', 'toHub:id,name', 'courier:id,name'])
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->when(! $request->query('status'), fn ($q) => $q->whereIn('status', ['draft', 'dispatched', 'arrived']))
             ->orderByRaw("case status when 'draft' then 0 when 'dispatched' then 1 else 2 end")
@@ -42,6 +44,9 @@ class ManifestController extends Controller
             'home'      => $home,
             'away'      => $hubs->firstWhere('id', '!=', $home?->id),
             'inbound'   => Manifest::visibleTo($request->user())->where('status', 'dispatched')->count(),
+            // مندوبو النقل بين الفروع (المناورة): يُختار أحدهم ليحمل الكشف
+            'carriers'  => Courier::transferring()->where('status', 'active')->visibleTo($request->user())
+                ->orderBy('name')->get(['id', 'name', 'phone', 'vehicle_number']),
         ]);
     }
 
@@ -50,11 +55,15 @@ class ManifestController extends Controller
         $data = $request->validate([
             'from_hub_id'    => ['required', 'integer'],
             'to_hub_id'      => ['required', 'integer', 'different:from_hub_id'],
+            // مندوب النقل بين الفروع (المناورة)، أو سائقٌ من خارج الشركة بالاسم
+            'courier_id'     => ['nullable', 'integer', Rule::exists('couriers', 'id')
+                                    ->where('company_id', $request->user()->company_id)->where('type', 'transfer')],
             'driver_name'    => ['nullable', 'string', 'max:160'],
             'driver_phone'   => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
             'vehicle_number' => ['nullable', 'string', 'max:40'],
             'notes'          => ['nullable', 'string', 'max:500'],
-        ], [], ['from_hub_id' => 'مركز الانطلاق', 'to_hub_id' => 'مركز الوصول', 'driver_phone' => 'هاتف السائق']);
+        ], [], ['from_hub_id' => 'مركز الانطلاق', 'to_hub_id' => 'مركز الوصول', 'driver_phone' => 'هاتف السائق',
+            'courier_id' => 'مندوب النقل']);
 
         $from = Hub::find($data['from_hub_id']);
         $to = Hub::find($data['to_hub_id']);
@@ -142,7 +151,7 @@ class ManifestController extends Controller
             ?? $this->homeHub($hubs->where('is_active', true), $request->user()->branch_id);
         $direction = $request->query('direction') === 'in' ? 'in' : 'out';
 
-        $manifests = Manifest::visibleTo($request->user())->with(['fromHub:id,name', 'toHub:id,name'])
+        $manifests = Manifest::visibleTo($request->user())->with(['fromHub:id,name', 'toHub:id,name', 'courier:id,name'])
             ->withCount(['bags as missing_count' => fn ($q) => $q->where('manifest_bags.is_missing', true)])
             ->whereIn('status', ['arrived', 'closed'])
             ->when($hub, fn ($q) => $q->where($direction === 'out' ? 'from_hub_id' : 'to_hub_id', $hub->id))

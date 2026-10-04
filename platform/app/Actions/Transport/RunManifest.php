@@ -5,6 +5,7 @@ namespace App\Actions\Transport;
 use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Enums\ShipmentStatus;
 use App\Models\Bag;
+use App\Models\Courier;
 use App\Models\Hub;
 use App\Models\Manifest;
 use App\Models\Shipment;
@@ -35,14 +36,18 @@ class RunManifest
             throw ValidationException::withMessages(['to_hub_id' => 'المنفيست ينتقل بين مركزين مختلفين.']);
         }
 
+        // مندوب النقل من مندوبي الشركة: يُلتقط اسمه وهاتفه ومركبته على الكشف كما يُطبع
+        $courier = isset($data['courier_id']) ? Courier::transferring()->find($data['courier_id']) : null;
+
         return Manifest::create([
             'code'           => $this->sequences->next('manifest'),
             'from_hub_id'    => $from->id,
             'to_hub_id'      => $to->id,
+            'courier_id'     => $courier?->id,
             'status'         => 'draft',
-            'driver_name'    => $data['driver_name'] ?? null,
-            'driver_phone'   => $data['driver_phone'] ?? null,
-            'vehicle_number' => $data['vehicle_number'] ?? null,
+            'driver_name'    => $courier?->name ?? ($data['driver_name'] ?? null),
+            'driver_phone'   => $courier?->phone ?? ($data['driver_phone'] ?? null),
+            'vehicle_number' => ($data['vehicle_number'] ?? null) ?: $courier?->vehicle_number,
             'notes'          => $data['notes'] ?? null,
         ]);
     }
@@ -103,11 +108,15 @@ class RunManifest
             foreach ($manifest->bags as $bag) {
                 $bag->forceFill(['status' => 'in_transit'])->save();
 
+                // مع مَن خرجت: يُكتب في سجلّها، فيُتتبَّع بين المحافظتين (المناورة)
+                $carrier = $manifest->carrierLabel() ? ' — مع '.$manifest->carrierLabel() : '';
+
                 foreach ($this->bagShipments($bag) as $shipment) {
                     if ($shipment->status->canMoveTo(ShipmentStatus::InTransit)) {
-                        $this->changeStatus->handle($shipment, ShipmentStatus::InTransit, $actor, [
-                            'note' => "غادرت مع الكشف {$manifest->code}",
-                        ]);
+                        $this->changeStatus->handle($shipment, ShipmentStatus::InTransit, $actor, array_filter([
+                            'note'             => "غادرت مع الكشف {$manifest->code} إلى {$bag->toHub?->name}{$carrier}",
+                            'event_courier_id' => $manifest->courier_id,
+                        ]));
                     } elseif ($shipment->status === ShipmentStatus::Returning) {
                         // الراجع يبقى راجعاً في الطريق (لا «قيد النقل»)، فخروجه حدثٌ يُكتب —
                         // وإلّا غاب من مساره ما بين فرزه ووصوله فرعَ تاجره
@@ -120,7 +129,8 @@ class RunManifest
                             'actor_id'    => $actor?->id,
                             'actor_name'  => $actor?->name,
                             'hub_id'      => $shipment->hub_id,
-                            'note'        => "غادر الراجع مع الكشف {$manifest->code} إلى {$bag->toHub?->name}",
+                            'courier_id'  => $manifest->courier_id ?? $shipment->delivery_courier_id,
+                            'note'        => "غادر الراجع مع الكشف {$manifest->code} إلى {$bag->toHub?->name}{$carrier}",
                             'ip'          => request()->ip(),
                         ]);
                     }

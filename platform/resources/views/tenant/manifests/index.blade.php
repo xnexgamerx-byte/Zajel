@@ -5,7 +5,7 @@
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
     <div>
         <h1 class="page-title">كشوف النقل</h1>
-        <p class="mt-1 text-sm text-ink-500">سيارة واحدة، سائق واحد، عدّة أكياس — وورقة تُثبت مَن سلّم ومَن استلم.</p>
+        <p class="mt-1 text-sm text-ink-500">المناورة بين الفروع: مندوب نقلٍ واحد، عدّة أكياس — وورقة تُثبت مَن سلّم ومَن حمل ومَن استلم.</p>
     </div>
     @if ($inbound)
         <a href="{{ route('manifests.inbound') }}" class="card px-5 py-3 text-center transition hover:border-brand">
@@ -32,7 +32,7 @@
                         <tr>
                             <th>الكشف</th>
                             <th>المسار</th>
-                            <th>السائق</th>
+                            <th>مندوب النقل / السائق</th>
                             <th>أكياس</th>
                             <th>شحنات</th>
                             <th>الحالة</th>
@@ -46,8 +46,12 @@
                                        class="num font-semibold hover:underline">{{ $manifest->code }}</a>
                                 </td>
                                 <td class="text-ink-600">{{ $manifest->fromHub?->name }} ← {{ $manifest->toHub?->name }}</td>
-                                <td class="max-w-40 truncate text-ink-600">
-                                    {{ $manifest->driver_name ?: '—' }}
+                                <td class="max-w-48 truncate text-ink-600">
+                                    @if ($manifest->courier)
+                                        <span class="chip chip-info me-1">مندوب نقل</span>{{ $manifest->courier->name }}
+                                    @else
+                                        {{ $manifest->driver_name ?: '—' }}
+                                    @endif
                                     @if ($manifest->vehicle_number)
                                         <span class="num text-xs text-ink-500">· {{ $manifest->vehicle_number }}</span>
                                     @endif
@@ -96,10 +100,26 @@
                     @error('to_hub_id') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
             </div>
+            {{-- المناورة: مندوب نقلٍ من مندوبي الشركة يحمل الكشف، فتُعرف الشحنة معه في الطريق --}}
             <div>
-                <label class="field-label" for="driver_name">السائق</label>
+                <label class="field-label" for="courier_id">مندوب النقل بين الفروع</label>
+                <select id="courier_id" name="courier_id" class="field-input">
+                    <option value="">سائقٌ من خارج الشركة (أدناه)</option>
+                    @foreach ($carriers as $carrier)
+                        <option value="{{ $carrier->id }}" @selected((int) old('courier_id') === $carrier->id)>
+                            {{ $carrier->name }} — {{ $carrier->phone }}
+                        </option>
+                    @endforeach
+                </select>
+                @if ($carriers->isEmpty())
+                    <p class="mt-1 text-xs text-ink-500">لا مندوب نقل بعد: أضِفه من «المندوبون» بنوع «نقل بين الفروع (مناورة)».</p>
+                @endif
+                @error('courier_id') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="field-label" for="driver_name">أو سائقٌ من خارج الشركة</label>
                 <input id="driver_name" name="driver_name" type="text" maxlength="160" class="field-input"
-                       value="{{ old('driver_name') }}">
+                       value="{{ old('driver_name') }}" placeholder="اسمه">
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>

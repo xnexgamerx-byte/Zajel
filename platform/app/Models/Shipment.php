@@ -100,6 +100,19 @@ class Shipment extends Model
         return $this->belongsTo(Bag::class, 'current_bag_id');
     }
 
+    /** كشف النقل الذي يحملها الآن بين فرعين، ومع مَن — إن كانت في الطريق (المناورة) */
+    public function manifestOnTheRoad(): ?Manifest
+    {
+        if (! $this->current_bag_id) {
+            return null;
+        }
+
+        return Manifest::query()->where('status', 'dispatched')
+            ->whereHas('bags', fn ($q) => $q->where('bags.id', $this->current_bag_id))
+            ->with(['courier:id,name,phone', 'fromHub:id,name', 'toHub:id,name'])
+            ->latest('id')->first();
+    }
+
     public function deliveryCourier(): BelongsTo
     {
         return $this->belongsTo(Courier::class, 'delivery_courier_id');

@@ -29,6 +29,20 @@ class Manifest extends Model
         return $this->belongsTo(Hub::class, 'to_hub_id');
     }
 
+    /** مندوب النقل بين الفروع الذي يحمله (المناورة) — والسائق من خارج الشركة نصٌّ في driver_name */
+    public function courier(): BelongsTo
+    {
+        return $this->belongsTo(Courier::class);
+    }
+
+    /** مَن يحمله، كما يُكتب في سجلّ الشحنة وعلى صفحتها */
+    public function carrierLabel(): ?string
+    {
+        $name = $this->courier?->name ?? $this->driver_name;
+
+        return $name ? ($this->courier ? 'مندوب النقل ' : 'السائق ').$name : null;
+    }
+
     public function bags(): BelongsToMany
     {
         return $this->belongsToMany(Bag::class, 'manifest_bags')

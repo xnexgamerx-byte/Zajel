@@ -10,9 +10,12 @@
         </div>
         <p class="mt-1 text-sm text-ink-500">
             {{ $manifest->fromHub?->name }} ← {{ $manifest->toHub?->name }}
-            @if ($manifest->driver_name)
-                · {{ $manifest->driver_name }}
-                @if ($manifest->driver_phone)<span class="num">{{ $manifest->driver_phone }}</span>@endif
+            @if ($manifest->carrierLabel())
+                · {{ $manifest->carrierLabel() }}
+                @if ($manifest->driver_phone)<span class="num" dir="ltr">{{ $manifest->driver_phone }}</span>@endif
+            @endif
+            @if ($manifest->departed_at && ! $manifest->arrived_at)
+                · غادر {{ $manifest->departed_at->diffForHumans() }}
             @endif
         </p>
     </div>

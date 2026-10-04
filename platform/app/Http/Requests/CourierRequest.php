@@ -30,7 +30,7 @@ class CourierRequest extends FormRequest
             'phone'                   => ['required', 'string', 'regex:/^07[0-9]{9}$/'],
             'national_id'             => ['nullable', 'string', 'max:40'],
 
-            'type'                    => ['required', Rule::in(['delivery', 'pickup', 'both'])],
+            'type'                    => ['required', Rule::in(['delivery', 'pickup', 'both', 'transfer'])],
             'vehicle_type'            => ['required', Rule::in(['motorcycle', 'car', 'van', 'truck', 'on_foot'])],
             'vehicle_number'          => ['nullable', 'string', 'max:40'],
             'branch_id'               => ['nullable', 'integer'],

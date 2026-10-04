@@ -227,7 +227,8 @@ class ChangeShipmentStatus
                 'actor_type'        => $options['actor_type'] ?? ($actor ? 'user' : 'system'),
                 'actor_id'          => $actor?->id,
                 'actor_name'        => $actor?->name,
-                'courier_id'        => $options['courier_id'] ?? $shipment->delivery_courier_id,
+                // مندوب الحدث وحده بلا إسناد: مندوب النقل بين الفروع على «بالطريق» (RunManifest)
+                'courier_id'        => $options['event_courier_id'] ?? $options['courier_id'] ?? $shipment->delivery_courier_id,
                 'hub_id'            => $options['hub_id'] ?? $shipment->hub_id,
                 'failure_reason_id' => $options['failure_reason_id'] ?? null,
                 'amount'            => $attributes['collected_amount'] ?? null,

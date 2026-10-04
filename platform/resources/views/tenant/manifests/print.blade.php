@@ -5,7 +5,7 @@
 
 @section('content')
 <div class="mb-5 grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-    <div class="flex justify-between border-b border-ink-200 py-1"><span class="text-ink-600">السائق</span><span>{{ $manifest->driver_name ?? '—' }}</span></div>
+    <div class="flex justify-between border-b border-ink-200 py-1"><span class="text-ink-600">{{ $manifest->courier_id ? 'مندوب النقل' : 'السائق' }}</span><span>{{ $manifest->driver_name ?? '—' }}</span></div>
     <div class="flex justify-between border-b border-ink-200 py-1"><span class="text-ink-600">هاتفه</span><span class="num">{{ $manifest->driver_phone ?? '—' }}</span></div>
     <div class="flex justify-between border-b border-ink-200 py-1"><span class="text-ink-600">المركبة</span><span>{{ $manifest->vehicle_number ?? '—' }}</span></div>
     <div class="flex justify-between border-b border-ink-200 py-1"><span class="text-ink-600">الحالة</span><span>{{ $manifest->statusLabel() }}</span></div>
@@ -60,7 +60,7 @@
         <div class="mt-8 border-t border-ink-400 pt-1">التوقيع</div>
     </div>
     <div class="flex-1">
-        <div>السائق: {{ $manifest->driver_name ?? '..................' }}</div>
+        <div>{{ $manifest->courier_id ? 'مندوب النقل' : 'السائق' }}: {{ $manifest->driver_name ?? '..................' }}</div>
         <div class="mt-8 border-t border-ink-400 pt-1">التوقيع</div>
     </div>
     <div class="flex-1">

@@ -24,7 +24,7 @@
         <label class="field-label" for="type">النوع</label>
         <select id="type" name="type" class="field-input">
             <option value="">الكل</option>
-            @foreach (['delivery' => 'توصيل', 'pickup' => 'استلام', 'both' => 'الاثنان'] as $value => $label)
+            @foreach (['delivery' => 'توصيل', 'pickup' => 'استلام', 'both' => 'الاثنان', 'transfer' => 'نقل بين الفروع'] as $value => $label)
                 <option value="{{ $value }}" @selected(request('type') === $value)>{{ $label }}</option>
             @endforeach
         </select>
@@ -89,7 +89,7 @@
                         <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $courier->phone }}</td>
                         <td class="px-4 py-3">
                             <span class="inline-flex rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-semibold text-ink-700">
-                                {{ ['delivery' => 'توصيل', 'pickup' => 'استلام', 'both' => 'الاثنان'][$courier->type] }}
+                                {{ ['delivery' => 'توصيل', 'pickup' => 'استلام', 'both' => 'الاثنان', 'transfer' => 'نقل بين الفروع'][$courier->type] ?? $courier->type }}
                             </span>
                         </td>
                         <td class="px-4 py-3 text-xs text-ink-600">

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Courier;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\FailureReason;
+use App\Models\Manifest;
 use App\Models\Shipment;
 use App\Models\ShipmentTicket;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,17 @@ class TaskController extends Controller
     public function index(Request $request): View
     {
         $courier = $request->attributes->get('courier');
+
+        // مندوب النقل بين الفروع (المناورة): مهامّه كشوف النقل التي يحملها، لا شحنات زبائن
+        if ($courier->isTransfer()) {
+            $mine = fn () => Manifest::where('courier_id', $courier->id)->with(['fromHub:id,name', 'toHub:id,name']);
+
+            return view('courier.transfers', [
+                'onTheRoad' => $mine()->where('status', 'dispatched')->orderBy('departed_at')->get(),
+                'loading'   => $mine()->where('status', 'draft')->latest('id')->get(),
+                'arrived'   => $mine()->where('status', 'arrived')->whereOnDate('arrived_at', today())->latest('arrived_at')->get(),
+            ]);
+        }
 
         $tasks = Shipment::query()
             ->where('delivery_courier_id', $courier->id)
