@@ -143,8 +143,11 @@ class HomeLayoutTest extends TestCase
             'sections' => ['alerts'], 'alerts' => ['unpaid', 'manifests'], 'shortcuts' => ['no.such.route', 'cash.index'],
         ])->assertSessionHasNoErrors();
 
+        // MySQL يرتّب مفاتيح JSON على طريقته: المقصود ما في كل مفتاح، لا ترتيب المفاتيح
         $owner = $this->owner->fresh();
-        $this->assertSame(['sections' => ['alerts'], 'alerts' => ['unpaid', 'manifests'], 'shortcuts' => ['cash.index']], $owner->home_layout);
+        $layout = $owner->home_layout;
+        ksort($layout);
+        $this->assertSame(['alerts' => ['unpaid', 'manifests'], 'sections' => ['alerts'], 'shortcuts' => ['cash.index']], $layout);
 
         $keys = Tenancy::runFor($this->company, fn () => array_column(app(HomeAlerts::class)->for($owner, ['unpaid', 'manifests']), 'key'));
         $this->assertSame(['unpaid', 'manifests'], $keys);
