@@ -40,7 +40,7 @@
                         <td class="num font-semibold">{{ $shipment->number }}</td>
                         <td>{{ $shipment->recipient_name }}</td>
                         <td>{{ $shipment->governorate?->name_ar }}</td>
-                        <td>{{ $shipment->lastFailureReason?->name_ar ?? '—' }}</td>
+                        <td>{{ $shipment->returnReason() ?? '—' }}</td>
                         <td class="num">{{ number_format($shipment->return_fee) }}</td>
                         <td></td>
                     </tr>

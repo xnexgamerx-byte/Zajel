@@ -2,11 +2,13 @@
 
 namespace App\Actions\Returns;
 
+use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Enums\ShipmentStatus;
 use App\Models\Hub;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -16,9 +18,14 @@ use Illuminate\Support\Facades\DB;
  * ليست تغيير حالة بل إثبات حيازة: الطرد انتقل من حقيبة المندوب إلى
  * رفّ المخزن. تبقى الشحنة «قيد الإرجاع» حتى يستلمها التاجر فعلاً،
  * فالمال لا يتحرّك بمجرّد وصول الطرد إلينا.
+ *
+ * ومعه باقي الواصل الجزئي وقديم الاستبدال (الوثيقتان ٢٤ و٣١): في حقيبة المندوب منذ
+ * التسليم، ولا قرار فيه ينتظر أحداً — يصير «راجع» باستلامه هنا.
  */
 class ReceiveReturns
 {
+    public function __construct(protected ChangeShipmentStatus $change) {}
+
     /** @return Collection<int, Shipment> */
     public function handle(array $shipmentIds, ?User $actor = null, ?string $note = null): Collection
     {
@@ -40,12 +47,17 @@ class ReceiveReturns
             $shipments = Shipment::query()
                 ->whereIn('id', $shipmentIds)
                 ->visibleTo($actor)
-                ->where('status', ShipmentStatus::Returning->value)
-                ->whereNull('return_received_at')
+                ->where(fn ($q) => static::withCourier($q))
                 ->lockForUpdate()
                 ->get();
 
             foreach ($shipments as $shipment) {
+                if ($shipment->status === ShipmentStatus::PartiallyDelivered) {
+                    $this->change->handle($shipment, ShipmentStatus::Returning, $actor, [
+                        'note' => $shipment->type === 'exchange' ? 'القطعة القديمة من الاستبدال' : 'باقي الواصل الجزئي',
+                    ]);
+                }
+
                 $shipment->forceFill(array_filter([
                     'return_received_at'         => now(),
                     'return_received_by_user_id' => $actor?->id,
@@ -78,10 +90,20 @@ class ReceiveReturns
         return Shipment::query()
             ->visibleTo($viewer)
             ->with(['merchant:id,business_name,code', 'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
-            ->where('status', ShipmentStatus::Returning->value)
-            ->whereNull('return_received_at')
+            ->where(fn ($q) => static::withCourier($q))
             ->when($courierId, fn ($q) => $q->where('delivery_courier_id', $courierId))
             ->orderBy('status_changed_at')
             ->get();
+    }
+
+    /**
+     * راجعٌ ما زال بيد المندوب: قُرّر إرجاعه ولم يُستلم، أو باقي واصلٍ جزئي وقديم استبدالٍ
+     * لم يُستلما بعد. شرطٌ واحد للقائمة وللاستلام ولعدّاد «راجع عند المندوب».
+     */
+    public static function withCourier(Builder $q): Builder
+    {
+        return $q->where(fn (Builder $w) => $w->where('shipments.status', ShipmentStatus::Returning->value)
+            ->whereNull('shipments.return_received_at'))
+            ->orWhere('shipments.status', ShipmentStatus::PartiallyDelivered->value);
     }
 }

@@ -371,8 +371,9 @@ class ShipmentImportTest extends TestCase
         $this->assertNotContains('الأجرة على (التاجر/الزبون)', ShipmentSheet::COLUMNS);
     }
 
-    public function test_an_exchange_row_is_priced_with_the_exchange_fee(): void
+    public function test_an_exchange_row_is_marked_and_priced_like_any_other(): void
     {
+        // الاستبدال بأجرة التوصيل نفسها (docs/plan/31) — ولو بقيت في القاعدة أجرة «استبدال» قديمة
         Tenancy::runFor($this->company, fn () => \App\Models\PriceListRule::query()->update(['replacement_fee' => 6500]));
 
         $file = $this->sheetFile($this->fullHeader(), [
@@ -390,7 +391,7 @@ class ShipmentImportTest extends TestCase
 
         Tenancy::runFor($this->company, function () {
             $this->assertSame(['delivery', 'exchange'], Shipment::orderBy('id')->pluck('type')->all());
-            $this->assertSame([5000, 6500], Shipment::orderBy('id')->pluck('delivery_fee')->map(fn ($f) => (int) $f)->all());
+            $this->assertSame([5000, 5000], Shipment::orderBy('id')->pluck('delivery_fee')->map(fn ($f) => (int) $f)->all());
             $this->assertSame(['merchant', 'merchant'], Shipment::orderBy('id')->pluck('fees_paid_by')->all());
         });
     }

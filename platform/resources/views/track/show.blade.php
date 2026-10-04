@@ -6,8 +6,13 @@
 
     $reason = $events->firstWhere('to_status', S::FailedAttempt->value)?->failureReason?->name_ar;
 
-    // جملةٌ يفهمها الزبون لا اسم حالةٍ داخليّ
-    $message = match ($shipment->status) {
+    // جملةٌ يفهمها الزبون لا اسم حالةٍ داخليّ — وما سُلِّم له لا يُقال له «لم تُسلَّم»
+    // ولو مضى قديم استبداله أو باقي طلبه راجعاً إلى المتجر (الوثيقتان ٢٤ و٣١)
+    $message = match (true) {
+        $shipment->wasDelivered() && $shipment->type === 'exchange' => 'سُلِّم طلب الاستبدال. شكراً لك.',
+        $shipment->wasDelivered() && $shipment->status !== S::Delivered => 'سُلّم جزءٌ من شحنتك.',
+        default => null,
+    } ?? match ($shipment->status) {
         S::Created, S::PendingPickup => 'وصلنا طلب شحنتك، وسنستلمها من المتجر قريباً.',
         S::PickedUp, S::AtHub        => 'شحنتك عندنا، وتُجهَّز للتوصيل.',
         S::InTransit                 => 'شحنتك في الطريق إلى '.$shipment->governorate->name_ar.'.',

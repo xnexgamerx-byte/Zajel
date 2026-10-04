@@ -51,6 +51,16 @@ class ChangeShipmentStatus
     {
         $from = $shipment->status;
 
+        /*
+        | الاستبدال (الوثيقة ٣١): يُسلَّم الجديد ويُستلم القديم. يُحسب شحنةً واصلةً بأجرة التوصيل
+        | وعمولة المندوب كاملتين، والقديم راجعٌ جزئيّ لتاجره بلا أجرة راجعٍ ولا عمولة إرجاع —
+        | فهو «واصل جزئي» (الوثيقة ٢٤) أيّاً كان من سجّله: المندوب، أو الموظّف، أو الجملة.
+        */
+        if ($to === ShipmentStatus::Delivered && $shipment->type === 'exchange') {
+            $to = ShipmentStatus::PartiallyDelivered;
+            $options['note'] = trim('استبدال: سُلِّم الجديد، والقديم راجعٌ لتاجره. '.($options['note'] ?? ''));
+        }
+
         if ($from === $to) {
             return $shipment;
         }

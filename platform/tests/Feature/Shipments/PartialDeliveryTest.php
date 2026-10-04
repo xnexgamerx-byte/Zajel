@@ -136,6 +136,36 @@ class PartialDeliveryTest extends TestCase
         $this->assertBooksBalance();
     }
 
+    /**
+     * باقيه بيد المندوب منذ التسليم ولا قرار فيه ينتظر أحداً: يُستلم من «استلام الراجع من
+     * المندوب» أو بمسحه عند باب المخزن مباشرةً — كان يُحوَّل «راجع» من صفحته أوّلاً.
+     */
+    public function test_the_rest_is_received_straight_from_the_courier(): void
+    {
+        [$listed, $scanned] = [$this->partial(), $this->partial()];
+
+        $pending = Tenancy::runFor($this->company, fn () => app(ReceiveReturns::class)->pending()->pluck('id')->all());
+        $this->assertEqualsCanonicalizing([$listed->id, $scanned->id], $pending);
+        $this->assertContains(ShipmentStatus::PartiallyDelivered->value,
+            \App\Actions\Shipments\ChangeStatusInBulk::sources(ShipmentStatus::AtHub));
+
+        Tenancy::runFor($this->company, fn () => app(ReceiveReturns::class)->handle([$listed->id], $this->owner));
+        $result = Tenancy::runFor($this->company, fn () => app(\App\Actions\Shipments\ReceiveAtHub::class)
+            ->handle([$scanned->id], $this->owner));
+        $this->assertSame([$scanned->number], $result['received']);
+
+        foreach ([$listed, $scanned] as $shipment) {
+            $shipment = Tenancy::runFor($this->company, fn () => $shipment->refresh());
+            $this->assertSame(ShipmentStatus::Returning, $shipment->status);
+            $this->assertNotNull($shipment->return_received_at);
+            $this->assertSame('باقي الواصل الجزئي', Tenancy::runFor($this->company,
+                fn () => $shipment->events()->where('to_status', 'returning')->value('note')));
+        }
+
+        $this->assertSame([], Tenancy::runFor($this->company, fn () => app(ReceiveReturns::class)->pending()->pluck('id')->all()));
+        $this->assertBooksBalance();
+    }
+
     /** والراجع حقّاً — لم يُسلَّم منه شيء — على حاله: أجرة الراجع على التاجر وعمولة الإرجاع للمندوب */
     public function test_a_plain_return_still_pays_its_return_fee_and_commission(): void
     {

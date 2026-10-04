@@ -116,7 +116,8 @@ class TaskController extends Controller
 
         return view('courier.today', [
             'done'      => $done,
-            'delivered' => $done->filter(fn (Shipment $s) => $s->status === ShipmentStatus::Delivered)->count(),
+            // كلّها أو بعضها، والاستبدال منها (الوثيقة ٣١)
+            'delivered' => $done->filter(fn (Shipment $s) => $s->wasDelivered())->count(),
             'collected' => (int) $done->sum('collected_amount'),
         ]);
     }

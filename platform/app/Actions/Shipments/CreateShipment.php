@@ -58,7 +58,6 @@ class CreateShipment
                 feesPaidBy: $feesPaidBy,
                 extraFee: (int) ($data['extra_fee'] ?? 0),
                 discount: (int) ($data['discount'] ?? 0),
-                type: $data['type'] ?? 'delivery',
             );
 
             // التسعير اليدوي يغلب المحسوب عندما يُدخله المستخدم صراحةً

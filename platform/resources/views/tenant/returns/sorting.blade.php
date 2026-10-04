@@ -65,7 +65,7 @@
                             <td><a href="{{ route('shipments.show', $shipment) }}" class="num font-semibold hover:underline">{{ $shipment->number }}</a></td>
                             <td class="text-ink-600">{{ $shipment->merchant?->business_name }}</td>
                             <td class="text-ink-600">{{ $shipment->hub?->name ?? '—' }}</td>
-                            <td class="text-xs text-ink-600">{{ $shipment->lastFailureReason?->name_ar ?? '—' }}</td>
+                            <td class="text-xs text-ink-600">{{ $shipment->returnReason() ?? '—' }}</td>
                             <td>
                                 {{-- راجعٌ على رفٍّ غريب منذ أيام: التاجر يسأل عنه ولا أحد يعرف مكانه --}}
                                 <span class="chip {{ $days >= 3 ? 'chip-bad' : ($days >= 1 ? 'chip-warn' : 'chip-mute') }}">

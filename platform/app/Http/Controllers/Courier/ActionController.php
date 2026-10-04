@@ -75,7 +75,7 @@ class ActionController extends Controller
             return back()->withErrors($errors)->withInput();
         }
 
-        $this->changeStatus->handle($shipment, $to, $request->user(), array_filter([
+        $done = $this->changeStatus->handle($shipment, $to, $request->user(), array_filter([
             'actor_type'        => 'courier',
             'courier_id'        => $courier->id,
             'collected_amount'  => $partial?->approved_amount,
@@ -86,9 +86,14 @@ class ActionController extends Controller
             'lng'               => $data['lng'] ?? null,
         ], fn ($v) => $v !== null));
 
+        // الاستبدال يُسجَّل «واصل جزئي»: قديمه بيد المندوب، يُسلَّم للمخزن مع الراجع (الوثيقة ٣١)
+        $message = $done->type === 'exchange' && $done->status === ShipmentStatus::PartiallyDelivered
+            ? "سُجِّل استبدال الشحنة {$shipment->number}. سلّم القطعة القديمة للمخزن مع الراجع."
+            : "سُجِّلت الشحنة {$shipment->number}: {$done->status->label()}.";
+
         return redirect()
             ->route('courier.tasks')
-            ->with('success', "سُجِّلت الشحنة {$shipment->number}: {$to->label()}.");
+            ->with('success', $message);
     }
 
     /** @return array<string,string> */

@@ -376,6 +376,16 @@ class Shipment extends Model
         return $this->status === ShipmentStatus::Returned && $this->delivered_at === null;
     }
 
+    /** لماذا يرجع: قديم استبدالٍ (الوثيقة ٣١)، أو باقي واصلٍ جزئي، أو سبب المحاولة الفاشلة */
+    public function returnReason(): ?string
+    {
+        if ($this->wasDelivered()) {
+            return $this->type === 'exchange' ? 'القطعة القديمة من استبدال' : 'باقي واصلٍ جزئي';
+        }
+
+        return $this->lastFailureReason?->name_ar;
+    }
+
     /**
      * حالات ما سُلِّم بعضه: «واصل جزئي»، أو باقيه بعدها في طريقه لتاجره أو عنده —
      * لا يخرج للتوصيل ثانيةً (ChangeShipmentStatus). تُقرن بساعة التسليم فيُستعمل فهرس الحالة.

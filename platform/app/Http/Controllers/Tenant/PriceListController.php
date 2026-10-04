@@ -108,7 +108,6 @@ class PriceListController extends Controller
             'rows.*.delivery_fee'      => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.peripheral_fee'    => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.return_fee'        => ['nullable', 'integer', 'min:0', 'max:100000000'],
-            'rows.*.replacement_fee'   => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.extra_kg_fee'      => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.cod_fee_flat'      => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.cod_fee_percent'   => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -158,7 +157,6 @@ class PriceListController extends Controller
                     // فارغاً: الأطراف كالمركز — لا صفرٌ يعني «مجاناً»
                     'peripheral_fee'   => filled($row['peripheral_fee'] ?? null) ? (int) $row['peripheral_fee'] : null,
                     'return_fee'       => (int) ($row['return_fee'] ?? 0),
-                    'replacement_fee'  => (int) ($row['replacement_fee'] ?? 0),
                     'extra_kg_fee'     => (int) ($row['extra_kg_fee'] ?? 0),
                     'cod_fee_flat'     => (int) ($row['cod_fee_flat'] ?? 0),
                     'cod_fee_percent'  => (float) ($row['cod_fee_percent'] ?? 0),

@@ -268,7 +268,7 @@
                         </div>
                         <p class="field-hint">
                             @if ($editing)
-                                الحالية <span class="num">{{ number_format($shipment->delivery_fee) }}</span> — فارغٌ يُبقيها، وتُحسب من جديد إن تغيّرت الوجهة أو الوزن أو نوع الطلب.
+                                الحالية <span class="num">{{ number_format($shipment->delivery_fee) }}</span> — فارغٌ يُبقيها، وتُحسب من جديد إن تغيّرت الوجهة أو الوزن.
                             @else
                                 فارغٌ يُحسب من تسعيرة التاجر.
                             @endif

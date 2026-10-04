@@ -17,8 +17,9 @@ use Illuminate\Validation\ValidationException;
  * - أنشأه التاجر وأحضره بنفسه (أو بانتظار الاستلام): «تم الاستلام» ثم «في المخزن».
  * - مع مندوب الاستلام، أو في كيسٍ بين فرعين، أو عاد مع مندوب التوصيل بلا حسم:
  *   «في المخزن».
- * - راجعٌ بيد المندوب: استلام الراجع (ReceiveReturns) — يبقى «قيد الإرجاع»
- *   حتى يأخذه تاجره، فالمال لا يتحرّك بوصوله إلينا.
+ * - راجعٌ بيد المندوب، أو باقي واصلٍ جزئي، أو قديم استبدال: استلام الراجع
+ *   (ReceiveReturns) — يبقى «قيد الإرجاع» حتى يأخذه تاجره، فالمال لا يتحرّك
+ *   بوصوله إلينا.
  *
  * وما عدا ذلك يُتخطّى بسببه: المسلَّمة لا تعود إلى الرفّ بمسحة.
  */
@@ -67,7 +68,8 @@ class ReceiveAtHub
     {
         $status = $shipment->status;
 
-        if ($status === ShipmentStatus::Returning) {
+        // راجعٌ بيد المندوب، ومثله باقي الواصل الجزئي وقديم الاستبدال: يُستلم راجعاً
+        if ($status === ShipmentStatus::Returning || $status === ShipmentStatus::PartiallyDelivered) {
             if ($shipment->return_received_at !== null) {
                 return 'راجع مستلَم سلفاً';
             }
@@ -86,11 +88,6 @@ class ReceiveAtHub
 
         if ($status === ShipmentStatus::AtHub) {
             return 'بالمخزن سلفاً';
-        }
-
-        // ما بقي من الواصل الجزئي راجعٌ، يُستلم من قائمة «الراجع» لا من هنا
-        if ($status === ShipmentStatus::PartiallyDelivered) {
-            return 'واصل جزئي — باقيه من قائمة «الراجع»';
         }
 
         if (! $status->canMoveTo(ShipmentStatus::AtHub)) {

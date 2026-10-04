@@ -278,6 +278,13 @@
                         <p class="mt-1 text-xs text-warn-700">
                             هذا الرقم يدخل حساب التاجر ولا يُعدَّل بعد الحفظ.
                         </p>
+                        @if ($shipment->type === 'exchange')
+                            {{-- الوثيقة ٣١: الاستبدال «واصل جزئي» أيّاً كان من سجّله --}}
+                            <p class="mt-1 text-xs text-ink-600">
+                                طلب استبدال: يُسجَّل «واصل جزئي» — الجديد واصلٌ بأجرة التوصيل، والقطعة القديمة
+                                ترجع لتاجرها بلا أجرة راجع، تُستلم من المندوب في «استلام الراجع من المندوب».
+                            </p>
+                        @endif
                         @error('collected_amount') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
 
@@ -393,7 +400,8 @@
                     دخلت هذه الشحنة كشف تسوية، فالتصحيح يكون بحركة على الحساب لا بتعديل الوصل.
                 </p>
             @elseif ($confirmable)
-                @if ($shipment->status !== \App\Enums\ShipmentStatus::Delivered || (int) $shipment->collected_amount !== (int) $shipment->cod_amount)
+                @if ((int) $shipment->collected_amount !== (int) $shipment->cod_amount
+                    || ($shipment->status !== \App\Enums\ShipmentStatus::Delivered && $shipment->type !== 'exchange'))
                     {{-- كما في «كل مراحل النقل»: ShipmentStages::awaitingApproval --}}
                     <p class="mt-4 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-700">
                         بانتظار موافقة التسليم: سُلّمت بغير ما طُلب، فيُراجَع مبلغها ويُعتمد قبل التسوية.

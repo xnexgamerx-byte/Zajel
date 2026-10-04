@@ -114,10 +114,13 @@ class ShipmentTickets
      */
     public static function settle(Shipment $shipment, ShipmentStatus $to, ?int $usedTicketId = null): void
     {
+        // سُلِّمت بمبلغها كما هو — والاستبدال «واصل جزئي» بمبلغه كاملاً (الوثيقة ٣١)
+        $asWritten = $shipment->wasDelivered() && (int) $shipment->collected_amount === (int) $shipment->cod_amount;
+
         ShipmentTicket::query()->where('shipment_id', $shipment->id)
             ->where(fn ($q) => $q->open()->orWhere(fn ($w) => $w->awaitingPartial()))
             ->get()
-            ->each(function (ShipmentTicket $ticket) use ($to, $usedTicketId) {
+            ->each(function (ShipmentTicket $ticket) use ($to, $usedTicketId, $asWritten) {
                 if ($ticket->id === $usedTicketId) {
                     $ticket->update(['used_at' => now()]);
 
@@ -125,7 +128,7 @@ class ShipmentTickets
                 }
 
                 $ticket->update(['status' => 'closed', 'closed_note' => match (true) {
-                    $ticket->isOpen() && $to === ShipmentStatus::Delivered => 'سُلِّمت بالمبلغ الأصلي قبل الجواب.',
+                    $ticket->isOpen() && $asWritten => 'سُلِّمت بالمبلغ الأصلي قبل الجواب.',
                     $ticket->isOpen() => "صارت الشحنة «{$to->label()}» قبل الجواب.",
                     default           => "لم يُسلَّم به: صارت الشحنة «{$to->label()}».",
                 }]);

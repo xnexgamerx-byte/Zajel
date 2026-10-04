@@ -116,6 +116,7 @@
     {{-- سطران مضمَّنان لا كتلة: الكتلة تبتلع السطر المضمَّن أعلى الصفحة (الزرّ الثاني) --}}
     @php($waiting = (bool) $ticket?->isOpen())
     @php($partial = $ticket && $ticket->kind === 'partial' && $ticket->status === 'approved' && ! $ticket->used_at)
+    @php($exchange = $shipment->type === 'exchange')
 
     {{-- جواب الكول سنتر على طلب تغيير المبلغ (docs/plan/30) --}}
     @if ($waiting)
@@ -163,7 +164,8 @@
         {{-- تسليم: الفعل الأكثر تكراراً، فهو الأكبر والأول. والمبلغ ثابت: لا يُكتب هنا --}}
         <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
             <p class="text-sm text-ink-600">
-                تستلم من الزبون <span class="num font-bold text-ink-900">{{ number_format($shipment->cod_amount) }}</span> د.ع كاملة.
+                تستلم من الزبون <span class="num font-bold text-ink-900">{{ number_format($shipment->cod_amount) }}</span> د.ع كاملة@if ($exchange)،
+                    وتأخذ منه <strong class="text-warn-700">القطعة القديمة</strong> وتسلّمها للمخزن مع الراجع@endif.
                 إن قال مبلغاً آخر فلا تسلّم: اطلب تغيير المبلغ من الكول سنتر (أسفل).
             </p>
 
@@ -183,6 +185,12 @@
                 <button type="submit" name="action" value="delivered"
                         class="mt-2 w-full rounded-xl bg-white px-4 py-3 text-base font-semibold text-ink-700 ring-1 ring-ink-300 active:bg-ink-50">
                     أخذ الطلب كلّه — واصل بـ<span class="num">{{ number_format($shipment->cod_amount) }}</span>
+                </button>
+            @elseif ($exchange)
+                {{-- يُسجَّل «واصل جزئي»: الجديد واصلٌ بأجرته، والقديم راجعٌ لتاجره بلا أجرة (الوثيقة ٣١) --}}
+                <button type="submit" name="action" value="delivered"
+                        class="mt-3 w-full rounded-xl bg-ok-700 px-4 py-4 text-lg font-bold text-white active:brightness-110">
+                    سلّمت الجديد واستلمت القديم — <span class="num">{{ number_format($shipment->cod_amount) }}</span>
                 </button>
             @else
                 <button type="submit" name="action" value="delivered"

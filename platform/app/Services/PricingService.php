@@ -17,8 +17,8 @@ use App\Support\Tenancy\Tenancy;
  * وفوق قاعدة المحافظة ما تعنيه المنطقة للشركة (city_settings): أجرتها
  * الخاصّة في التسعيرة الافتراضية، وإلّا «مبلغ الأطراف» إن كانت طرفية.
  *
- * وطلب الاستبدال — يُسلَّم الجديد ويُستلَم القديم — أجرته «الاستبدال» في القاعدة
- * نفسها بدل أجرة التوصيل؛ وإن تُركت فارغة فأجرة التوصيل كما هي (docs/plan/31).
+ * وطلب الاستبدال — يُسلَّم الجديد ويُستلَم القديم — بأجرة التوصيل نفسها: لا فرق
+ * بينه وبين الطلب الجديد في السعر (قرار الشركة، docs/plan/31).
  */
 class PricingService
 {
@@ -37,7 +37,6 @@ class PricingService
         string $feesPaidBy = 'merchant',
         int $extraFee = 0,
         int $discount = 0,
-        string $type = 'delivery',
     ): array {
         $priceList = $merchant->effectivePriceList();
 
@@ -60,12 +59,6 @@ class PricingService
                 $deliveryFee = (int) $rule->peripheral_fee;
                 $zone = 'peripheral';
             }
-        }
-
-        // الاستبدال بأجرته إن حُدّدت: تحلّ محلّ أجرة التوصيل أيّاً كانت منطقته
-        if ($type === 'exchange' && $rule && (int) $rule->replacement_fee > 0) {
-            $deliveryFee = (int) $rule->replacement_fee;
-            $zone = 'exchange';
         }
 
         // كل كغم فوق الحد الأعلى للقاعدة يُحتسب إضافياً

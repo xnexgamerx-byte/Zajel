@@ -60,8 +60,8 @@
                             </td>
                             <td class="text-ink-600">{{ $shipment->recipient_name }}</td>
                             <td>
-                                @if ($shipment->lastFailureReason)
-                                    <span class="chip chip-warn">{{ $shipment->lastFailureReason->name_ar }}</span>
+                                @if ($reason = $shipment->returnReason())
+                                    <span @class(['chip', 'chip-info' => $shipment->wasDelivered(), 'chip-warn' => ! $shipment->wasDelivered()])>{{ $reason }}</span>
                                 @else
                                     <span class="text-ink-400">—</span>
                                 @endif

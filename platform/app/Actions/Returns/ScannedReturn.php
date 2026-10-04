@@ -22,6 +22,14 @@ class ScannedReturn
     {
         $status = $shipment->status;
 
+        // باقي الواصل الجزئي وقديم الاستبدال بيد المندوب حتى يُستلم (ReceiveReturns::withCourier)
+        if ($status === ShipmentStatus::PartiallyDelivered) {
+            return $stage === 'incoming'
+                ? null
+                : ($shipment->type === 'exchange' ? 'قديم استبدالٍ' : 'باقي واصلٍ جزئي')
+                    .' لم يُستلم من المندوب بعد — يُستلم أوّلاً من «استلام الراجع من المندوب».';
+        }
+
         if ($status !== ShipmentStatus::Returning) {
             return $this->notReturning($shipment);
         }
@@ -74,7 +82,6 @@ class ScannedReturn
             ShipmentStatus::OutForDelivery => 'ما زال «قيد التوصيل»'
                 .($shipment->deliveryCourier ? ' مع '.$shipment->deliveryCourier->name : '')
                 .' — يُسجَّل أوّلاً أنه لم يُسلَّم وسببه.',
-            ShipmentStatus::PartiallyDelivered => 'واصل جزئي — باقيه يُحوَّل إلى «راجع» من صفحة الشحنة أوّلاً.',
             default => "حالته «{$status->label()}» — ليس راجعاً.",
         };
     }

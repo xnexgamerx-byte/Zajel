@@ -55,7 +55,6 @@
                         <th class="px-3 py-3 text-start font-semibold">التوصيل للمركز</th>
                         <th class="px-3 py-3 text-start font-semibold" title="للمناطق المعلَّمة «طرفية» في شاشة المناطق">للأقضية والأطراف</th>
                         <th class="px-3 py-3 text-start font-semibold">الراجع</th>
-                        <th class="px-3 py-3 text-start font-semibold">الاستبدال</th>
                         <th class="px-3 py-3 text-start font-semibold">كغم زائد</th>
                         <th class="px-3 py-3 text-start font-semibold">عمولة تحصيل</th>
                         <th class="px-3 py-3 text-start font-semibold">نسبة %</th>
@@ -79,7 +78,6 @@
                                 ['delivery_fee', $rule?->delivery_fee],
                                 ['peripheral_fee', $rule?->peripheral_fee],
                                 ['return_fee', $rule?->return_fee],
-                                ['replacement_fee', $rule?->replacement_fee ?: null],
                                 ['extra_kg_fee', $rule?->extra_kg_fee],
                                 ['cod_fee_flat', $rule?->cod_fee_flat],
                             ] as [$field, $value])
@@ -88,7 +86,7 @@
                                            step="1" dir="ltr"
                                            class="field-input w-28 text-left"
                                            value="{{ old("rows.{$row['key']}.{$field}", $rule ? $value : null) }}"
-                                           placeholder="{{ ['delivery_fee' => '—', 'peripheral_fee' => 'كالمركز', 'replacement_fee' => 'كالتوصيل'][$field] ?? '0' }}">
+                                           placeholder="{{ ['delivery_fee' => '—', 'peripheral_fee' => 'كالمركز'][$field] ?? '0' }}">
                                 </td>
                             @endforeach
                             <td class="px-3 py-2">
@@ -107,7 +105,7 @@
             <p class="text-xs text-ink-500">
                 المبالغ بالدينار العراقي. قاعدة المحافظة تغلب القاعدة العامة عند تطابقهما.
                 ومبلغ الأقضية والأطراف لما عُلِّم «طرفياً» في شاشة المناطق؛ فارغاً تُسعَّر كالمركز.
-                و«الاستبدال» أجرة طلب الاستبدال بدل أجرة التوصيل؛ فارغاً أو صفراً يُسعَّر بأجرة التوصيل.
+                وطلب الاستبدال بأجرة التوصيل نفسها.
             </p>
             <button type="submit" class="btn-primary">احفظ التسعيرة</button>
         </div>

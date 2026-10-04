@@ -2,6 +2,7 @@
 
 namespace App\Services\Shipments;
 
+use App\Actions\Returns\ReceiveReturns;
 use App\Enums\ShipmentStatus;
 use App\Models\Shipment;
 use Closure;
@@ -64,11 +65,11 @@ final class ShipmentStages
                 'postponed' => ['label' => 'مؤجل', 'tone' => 'amber',
                     'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
                     'hint' => 'بطلب الزبون إلى موعدٍ آخر', 'apply' => $status(ShipmentStatus::Postponed)],
+                // ومعه باقي الواصل الجزئي وقديم الاستبدال: القائمة التي يفتحها العدّاد نفسها
                 'return_with_courier' => ['label' => 'راجع عند المندوب', 'tone' => 'amber',
                     'links' => [['returns.incoming', 'استلام الراجع من المندوب', 'returns.manage']],
-                    'hint' => 'قُرّر إرجاعها وما زالت بيده',
-                    'apply' => fn (Builder $q) => $q->where('shipments.status', ShipmentStatus::Returning->value)
-                        ->whereNull('shipments.return_received_at')],
+                    'hint' => 'قُرّر إرجاعها، أو قديم استبدالٍ أو باقي واصلٍ جزئي، وما زال بيده',
+                    'apply' => fn (Builder $q) => $q->where(fn (Builder $w) => ReceiveReturns::withCourier($w))],
             ]],
             'returns' => ['label' => 'الراجع', 'hint' => 'عائدةٌ إلى أصحابها', 'stages' => [
                 'return_on_shelf' => ['label' => 'راجع بالمخزن', 'tone' => 'slate',
@@ -143,8 +144,11 @@ final class ShipmentStages
             ->where(fn (Builder $w) => $w
                 ->where(fn (Builder $x) => $x->where('shipments.status', ShipmentStatus::Delivered->value)
                     ->whereColumn('shipments.collected_amount', '!=', 'shipments.cod_amount'))
+                // والاستبدال بمبلغه كاملاً لا ينتظر شيئاً: سُلِّم بما طُلب (الوثيقة ٣١)
                 ->orWhere(fn (Builder $x) => $x->whereIn('shipments.status', Shipment::partialStatuses())
-                    ->whereNotNull('shipments.delivered_at')));
+                    ->whereNotNull('shipments.delivered_at')
+                    ->where(fn (Builder $y) => $y->where('shipments.type', '!=', 'exchange')
+                        ->orWhereColumn('shipments.collected_amount', '!=', 'shipments.cod_amount'))));
     }
 
     /** يقصر الاستعلام على المرحلة؛ والمرحلة المجهولة لا تقصر شيئاً. */

@@ -70,7 +70,7 @@ class ChangeStatusInBulk
     /**
      * من أيّ حالٍ تنتقل الشحنة إلى $to بالجملة — ليُعَدّ ما سيتحرّك قبل الضغط.
      * «بالمخزن» و«قيد التوصيل» تستلمان ما لم يُستلم بعد أوّلاً (كالمسح
-     * والإسناد)، و«بالمخزن» لا تأخذ باقي الواصل الجزئي (يُستلم من «الراجع»).
+     * والإسناد)، و«بالمخزن» تستلم باقي الواصل الجزئي وقديم الاستبدال راجعاً.
      *
      * @return list<string>
      */
@@ -80,9 +80,7 @@ class ChangeStatusInBulk
         $notYetReceived = [ShipmentStatus::Created, ShipmentStatus::PendingPickup];
 
         $from = match ($to) {
-            ShipmentStatus::AtHub => [...$notYetReceived,
-                ...array_filter($from, fn (ShipmentStatus $status) => $status !== ShipmentStatus::PartiallyDelivered)],
-            ShipmentStatus::OutForDelivery => [...$notYetReceived, ...$from],
+            ShipmentStatus::AtHub, ShipmentStatus::OutForDelivery => [...$notYetReceived, ...$from],
             default => $from,
         };
 
