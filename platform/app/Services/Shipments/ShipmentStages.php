@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Builder;
 final class ShipmentStages
 {
     /**
-     * @return array<string, array{label: string, hint: string, stages: array<string, array{label: string, hint: string, tone: string, apply: Closure(Builder): Builder, links?: list<array{0: string, 1: string, 2: string}>}>}>
+     * @return array<string, array{icon: string, label: string, hint: string, overlap?: array{0: string, 1: string}, stages: array<string, array{label: string, hint: string, tone: string, apply: Closure(Builder): Builder, links?: list<array{0: string, 1: string, 2: string}>}>}>
      */
     public static function groups(): array
     {
@@ -33,8 +33,9 @@ final class ShipmentStages
         // الواصل يبقى في اللوحة حتى يُحاسَب عليه التاجر: بعده خرج من العمل اليومي
         $unsettled = fn (Closure $then) => fn (Builder $q) => $then($q)->whereNull('shipments.merchant_settled_at');
 
+        // بترتيب رحلة الشحنة: من التاجر إلى المخزن، فبين الفروع، فالمندوب، ثم واصلٌ أو راجع
         return [
-            'customer' => ['label' => 'عند التاجر', 'hint' => 'أُنشئت ولم تصل المخزن بعد', 'stages' => [
+            'customer' => ['icon' => 'store', 'label' => 'عند التاجر', 'hint' => 'أُنشئت ولم تصل المخزن بعد', 'stages' => [
                 'ready_to_print' => ['label' => 'جاهزة للطبع', 'tone' => 'slate',
                     'links' => [['pickups.index', 'طلبات الاستلام', 'pickups.manage']],
                     'hint' => 'أُنشئت، ولم يُطلب لها مندوب استلام', 'apply' => $status(ShipmentStatus::Created)],
@@ -42,7 +43,7 @@ final class ShipmentStages
                     'links' => [['pickups.index', 'طلبات الاستلام', 'pickups.manage']],
                     'hint' => 'تنتظر مندوب الاستلام', 'apply' => $status(ShipmentStatus::PendingPickup)],
             ]],
-            'warehouse' => ['label' => 'المخزن', 'hint' => 'في طريقها إلينا أو على رفوفنا', 'stages' => [
+            'warehouse' => ['icon' => 'boxes', 'label' => 'المخزن', 'hint' => 'في طريقها إلينا أو على رفوفنا', 'stages' => [
                 'incoming' => ['label' => 'بالطريق للمخزن', 'tone' => 'blue',
                     'links' => [['shipments.scan', 'استلام بالمسح', 'shipments.status']],
                     'hint' => 'استلمها مندوب الاستلام ولم تدخل المخزن', 'apply' => $status(ShipmentStatus::PickedUp)],
@@ -50,33 +51,46 @@ final class ShipmentStages
                     'links' => [['shipments.scan', 'استلام وإسناد بالمسح', 'shipments.status'], ['courier-manifests.index', 'كشوف المناديب', 'transport.manage']],
                     'hint' => 'على الرفّ تنتظر مندوب توصيل', 'apply' => $status(ShipmentStatus::AtHub)],
             ]],
-            'courier' => ['label' => 'عند المندوب', 'hint' => 'خرجت للتوصيل ولم تُحسم', 'stages' => [
+            'branches' => ['icon' => 'exchange', 'label' => 'النقل بين الفروع', 'hint' => 'بين مركزٍ وآخر', 'stages' => [
+                'in_transit' => ['label' => 'بالطريق بين الفروع', 'tone' => 'blue',
+                    'links' => [['manifests.inbound', 'وارد المراكز', 'transport.manage'], ['manifests.index', 'كشوف النقل', 'transport.manage']],
+                    'hint' => 'في كيسٍ على كشف نقل', 'apply' => $status(ShipmentStatus::InTransit)],
+                'returns_to_sort' => ['label' => 'رواجع الفروع بالمخزن', 'tone' => 'amber',
+                    'links' => [['returns.sorting', 'فرز الراجع للفروع', 'returns.manage']],
+                    'hint' => 'راجعٌ على رفّنا وتاجره في فرعٍ آخر',
+                    'apply' => fn (Builder $q) => $q->returnOnShelf()->awayFromHomeBranch()],
+                'returns_on_the_way' => ['label' => 'رواجع بالطريق لفروعها', 'tone' => 'blue',
+                    'links' => [['bags.index', 'الأكياس', 'transport.manage']],
+                    'hint' => 'كُيِّست إلى فرع تاجرها',
+                    'apply' => fn (Builder $q) => $q->where('shipments.status', ShipmentStatus::Returning->value)
+                        ->whereNotNull('shipments.return_received_at')
+                        ->whereNotNull('shipments.current_bag_id')],
+            ]],
+            // مرحلتان منها قد تتشاركان شحنة: الواصل الجزئي ينتظر موافقته وباقيه بيد المندوب —
+            // فتُعدّ في مجموع المجموعة مرّة. ومراحل كل مجموعةٍ غير ذلك لا تتشارك شحنة
+            'courier' => ['icon' => 'truck', 'label' => 'عند المندوب', 'hint' => 'خرجت للتوصيل ولم تُحسم',
+                'overlap' => ['return_with_courier', 'awaiting_approval'], 'stages' => [
                 'out_for_delivery' => ['label' => 'قيد التوصيل', 'tone' => 'blue',
                     'links' => [['courier-manifests.index', 'كشوف المناديب', 'transport.manage'], ['couriers.cash', 'النقد بيد المندوبين', 'money.view']],
                     'hint' => 'مع المندوب اليوم', 'apply' => $status(ShipmentStatus::OutForDelivery)],
-                'to_process' => ['label' => 'لم تُسلَّم (للمعالجة)', 'tone' => 'amber',
-                    'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
-                    'hint' => 'محاولة فاشلة: تُعاد أو تؤجَّل أو تُرجع', 'apply' => $status(ShipmentStatus::FailedAttempt)],
-                // المعتاد يسمّيها ولا يصفها (docs/plan/22 §٢): ما سلّمه المندوب بغير ما طُلب
-                // ينتظر من يعتمد مبلغه قبل أن يُبنى عليه حساب — والاعتماد تأكيد المبلغ نفسه
-                'awaiting_approval' => ['label' => 'انتظار موافقة التسليم', 'tone' => 'amber',
-                    'hint' => 'سُلّمت جزئياً أو بمبلغٍ غير المطلوب: يُعتمد مبلغها قبل التسوية',
-                    'apply' => fn (Builder $q) => self::awaitingApproval($q)],
                 'postponed' => ['label' => 'مؤجل', 'tone' => 'amber',
                     'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
                     'hint' => 'بطلب الزبون إلى موعدٍ آخر', 'apply' => $status(ShipmentStatus::Postponed)],
+                'to_process' => ['label' => 'لم تُسلَّم (للمعالجة)', 'tone' => 'amber',
+                    'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
+                    'hint' => 'محاولة فاشلة: تُعاد أو تؤجَّل أو تُرجع', 'apply' => $status(ShipmentStatus::FailedAttempt)],
                 // ومعه باقي الواصل الجزئي وقديم الاستبدال: القائمة التي يفتحها العدّاد نفسها
                 'return_with_courier' => ['label' => 'راجع عند المندوب', 'tone' => 'amber',
                     'links' => [['returns.incoming', 'استلام الراجع من المندوب', 'returns.manage']],
                     'hint' => 'قُرّر إرجاعها، أو قديم استبدالٍ أو باقي واصلٍ جزئي، وما زال بيده',
                     'apply' => fn (Builder $q) => $q->where(fn (Builder $w) => ReceiveReturns::withCourier($w))],
+                // المعتاد يسمّيها ولا يصفها (docs/plan/22 §٢): ما سلّمه المندوب بغير ما طُلب
+                // ينتظر من يعتمد مبلغه قبل أن يُبنى عليه حساب — والاعتماد تأكيد المبلغ نفسه
+                'awaiting_approval' => ['label' => 'انتظار موافقة التسليم', 'tone' => 'amber',
+                    'hint' => 'سُلّمت جزئياً أو بمبلغٍ غير المطلوب: يُعتمد مبلغها قبل التسوية',
+                    'apply' => fn (Builder $q) => self::awaitingApproval($q)],
             ]],
-            'returns' => ['label' => 'الراجع', 'hint' => 'عائدةٌ إلى أصحابها', 'stages' => [
-                'return_on_shelf' => ['label' => 'راجع بالمخزن', 'tone' => 'slate',
-                    'links' => [['returns.outgoing', 'تسليم الراجع للتاجر', 'returns.manage'], ['returns.pickup', 'تسليمه لمندوب الاستلام', 'returns.manage']],
-                    'hint' => 'استُلمت من المندوب ولم تُسلَّم لتاجرها', 'apply' => fn (Builder $q) => $q->returnOnShelf()],
-            ]],
-            'delivered' => ['label' => 'الواصل', 'hint' => 'سُلّمت ولم يُحاسَب عليها التاجر بعد', 'stages' => [
+            'delivered' => ['icon' => 'check', 'label' => 'الواصل', 'hint' => 'سُلّمت ولم يُحاسَب عليها التاجر بعد', 'stages' => [
                 'delivered' => ['label' => 'واصل', 'tone' => 'green',
                     'links' => [['settlements.merchants.index', 'تسوية التجّار', 'money.view']],
                     'hint' => 'بمبلغها كما هو',
@@ -99,20 +113,10 @@ final class ShipmentStages
                         ->where('shipments.type', '!=', 'exchange')
                         ->whereColumn('shipments.collected_amount', '!=', 'shipments.cod_amount'))],
             ]],
-            'branches' => ['label' => 'النقل بين الفروع', 'hint' => 'بين مركزٍ وآخر', 'stages' => [
-                'in_transit' => ['label' => 'بالطريق بين الفروع', 'tone' => 'blue',
-                    'links' => [['manifests.inbound', 'وارد المراكز', 'transport.manage'], ['manifests.index', 'كشوف النقل', 'transport.manage']],
-                    'hint' => 'في كيسٍ على كشف نقل', 'apply' => $status(ShipmentStatus::InTransit)],
-                'returns_to_sort' => ['label' => 'رواجع الفروع بالمخزن', 'tone' => 'amber',
-                    'links' => [['returns.sorting', 'فرز الراجع للفروع', 'returns.manage']],
-                    'hint' => 'راجعٌ على رفّنا وتاجره في فرعٍ آخر',
-                    'apply' => fn (Builder $q) => $q->returnOnShelf()->awayFromHomeBranch()],
-                'returns_on_the_way' => ['label' => 'رواجع بالطريق لفروعها', 'tone' => 'blue',
-                    'links' => [['bags.index', 'الأكياس', 'transport.manage']],
-                    'hint' => 'كُيِّست إلى فرع تاجرها',
-                    'apply' => fn (Builder $q) => $q->where('shipments.status', ShipmentStatus::Returning->value)
-                        ->whereNotNull('shipments.return_received_at')
-                        ->whereNotNull('shipments.current_bag_id')],
+            'returns' => ['icon' => 'undo', 'label' => 'الراجع', 'hint' => 'عائدةٌ إلى أصحابها', 'stages' => [
+                'return_on_shelf' => ['label' => 'راجع بالمخزن', 'tone' => 'slate',
+                    'links' => [['returns.outgoing', 'تسليم الراجع للتاجر', 'returns.manage'], ['returns.pickup', 'تسليمه لمندوب الاستلام', 'returns.manage']],
+                    'hint' => 'استُلمت من المندوب ولم تُسلَّم لتاجرها', 'apply' => fn (Builder $q) => $q->returnOnShelf()],
             ]],
         ];
     }

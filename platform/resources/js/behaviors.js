@@ -213,3 +213,14 @@ if (ticketPoll) {
         }
     }, 15000);
 }
+
+/**
+ * صفٌّ يُمرَّر أفقياً (مجموعات المراحل على الهاتف): التبويب الحاليّ data-scroll-into-view
+ * يُتوسَّط عند فتح الصفحة، فلا يبقى خارج الشاشة. يُمرَّر الصفّ وحده، لا الصفحة.
+ */
+for (const tab of document.querySelectorAll('[data-scroll-into-view]')) {
+    const row = tab.parentElement;
+    const at = tab.getBoundingClientRect();
+    const box = row.getBoundingClientRect();
+    row.scrollLeft += at.left + at.width / 2 - (box.left + box.width / 2);
+}
