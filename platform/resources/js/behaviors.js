@@ -9,6 +9,9 @@
  * تحمّله app.js، وتحمّله وحدها صفحاتُ الطباعة والأخطاء.
  */
 
+import { shipments } from './arabic';
+import { numberValue } from './number-inputs';
+
 /** «متأكّد؟» قبل فعلٍ لا يُتراجَع عنه: data-confirm على الزرّ أو الرابط أو النموذج */
 document.addEventListener('click', (event) => {
     const trigger = event.target.closest('button[data-confirm], a[data-confirm], input[type="submit"][data-confirm]');
@@ -223,4 +226,65 @@ for (const tab of document.querySelectorAll('[data-scroll-into-view]')) {
     const at = tab.getBoundingClientRect();
     const box = row.getBoundingClientRect();
     row.scrollLeft += at.left + at.width / 2 - (box.left + box.width / 2);
+}
+
+/**
+ * ما حُدِّد في جدولٍ يظهر أسفل الشاشة بعدده وما يُعمل به (الكشف المسودّة): data-picked-bar
+ * باسم النموذج الذي تُرسَل إليه الصفوف (input[form=…]).
+ * - data-picked-net: مجموع data-net للمحدَّد، ويُزاد عليه حقل data-picked-add (الخصومات).
+ * - الزرّ يسأل بـdata-confirm-some، أو بـdata-confirm-all إن حُدِّد كل ما في الكشف
+ *   (data-picked-total)، و{count} و{net} فيهما يُملآن.
+ * - data-picked-when / data-picked-unless في الصفحة: ما يظهر مع التحديد وما يختفي به.
+ * - «إلغاء التحديد» data-picked-clear يُفرغه.
+ */
+const pickedBars = [...document.querySelectorAll('[data-picked-bar]')];
+const pickedBoxes = (bar) => [...document.querySelectorAll(`input[type="checkbox"][form="${bar.dataset.pickedBar}"]`)];
+const amount = new Intl.NumberFormat('en-US');
+
+const refreshPicked = () => {
+    for (const bar of pickedBars) {
+        const form = bar.dataset.pickedBar;
+        const boxes = pickedBoxes(bar);
+        const picked = boxes.filter((box) => box.checked);
+        const count = picked.length;
+        const all = count > 0 && count >= Number(bar.dataset.pickedTotal || boxes.length);
+        const extra = bar.dataset.pickedAdd ? numberValue(document.getElementById(bar.dataset.pickedAdd)) : 0;
+        const net = picked.reduce((sum, box) => sum + Number(box.dataset.net || 0), 0) + extra;
+
+        bar.hidden = count === 0;
+        bar.querySelector('[data-picked-count]').textContent =
+            shipments(count) + (all && bar.dataset.pickedAll ? ` — ${bar.dataset.pickedAll}` : '');
+
+        const total = bar.querySelector('[data-picked-net]');
+        if (total) total.textContent = amount.format(net);
+
+        for (const button of bar.querySelectorAll('[data-confirm-some]')) {
+            const text = all && button.dataset.confirmAll ? button.dataset.confirmAll : button.dataset.confirmSome;
+            button.dataset.confirm = text.replace('{count}', shipments(count)).replace('{net}', amount.format(net));
+        }
+
+        // تحديد الكل كإقفال الكشف كلّه: لا يتبدّل له شيء
+        for (const el of document.querySelectorAll(`[data-picked-when="${form}"]`)) el.hidden = count === 0 || all;
+        for (const el of document.querySelectorAll(`[data-picked-unless="${form}"]`)) el.hidden = count > 0 && !all;
+    }
+};
+
+if (pickedBars.length > 0) {
+    // بعد «الكل» في رأس الجدول: مقبضه مسجَّلٌ قبل هذا فيُحدِّد أوّلاً. و«input» للخصومات وهي تُكتب
+    document.addEventListener('change', refreshPicked);
+    document.addEventListener('input', refreshPicked);
+
+    document.addEventListener('click', (event) => {
+        const bar = event.target instanceof Element ? event.target.closest('[data-picked-clear]')?.closest('[data-picked-bar]') : null;
+        if (!bar) return;
+
+        const boxes = pickedBoxes(bar);
+        for (const box of boxes) box.checked = false;
+        for (const all of new Set(boxes.map((box) => box.closest('table')?.querySelector('[data-check-all-in]')))) {
+            if (all) all.checked = false;
+        }
+        refreshPicked();
+    });
+
+    refreshPicked();
 }

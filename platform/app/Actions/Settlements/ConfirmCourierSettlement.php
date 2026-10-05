@@ -20,11 +20,19 @@ use Illuminate\Validation\ValidationException;
  */
 class ConfirmCourierSettlement
 {
-    public function __construct(protected Ledger $ledger, protected CashBook $cash) {}
+    public function __construct(protected Ledger $ledger, protected CashBook $cash, protected EditDraftSettlement $drafts) {}
 
-    public function handle(CourierSettlement $settlement, ?User $actor = null, int $deductions = 0, ?string $notes = null): CourierSettlement
+    /**
+     * @param  list<int>|null  $only  شحناتٌ بعينها من المسودّة: يُحاسَب عليها وحدها في كشفٍ جديد
+     *                                يُقفَل هنا، وتبقى البقية في المسودّة (EditDraftSettlement::split)
+     */
+    public function handle(CourierSettlement $settlement, ?User $actor = null, int $deductions = 0, ?string $notes = null, ?array $only = null): CourierSettlement
     {
-        return DB::transaction(function () use ($settlement, $actor, $deductions, $notes) {
+        return DB::transaction(function () use ($settlement, $actor, $deductions, $notes, $only) {
+            if ($only !== null) {
+                $settlement = $this->drafts->split($settlement, $only, $actor);
+            }
+
             /*
             | الحال من القاعدة بعد القفل: إقفالان متزامنان كانا يقيّدان
             | تسليم النقد مرّتين، ويُدخلانه الدرج مرّتين.

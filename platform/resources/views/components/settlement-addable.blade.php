@@ -5,16 +5,13 @@
     'party',          // 'courier' أو 'merchant' — العمود الأخير: عمولته، أو ما له
 ])
 
-{{-- تعديل المسودّة: ما سُلِّم أو رجع بعد فتح الكشف، أو أُخرج منه، يُحدَّد ويُضاف --}}
+{{-- تعديل المسودّة: ما سُلِّم أو رجع بعد فتح الكشف يُحدَّد ويُضاف من شريطٍ أسفل الشاشة --}}
 <section class="card overflow-hidden">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
         <div>
-            <h2 class="text-sm font-bold">تنتظر التسوية خارج الكشف — {{ \App\Support\Arabic::shipments((int) $count) }}</h2>
-            <p class="mt-0.5 text-xs text-ink-500">سُلِّمت أو رجعت بعد فتح الكشف، أو أُخرجت منه. حدّد ما تريد إضافته.</p>
+            <h2 class="text-sm font-bold">تنتظر التسوية خارج الكشف{{ $count ? ' — '.\App\Support\Arabic::shipments((int) $count) : '' }}</h2>
+            <p class="mt-0.5 text-xs text-ink-500">سُلِّمت أو رجعت بعد فتح الكشف. حدّد ما تريد إضافته.</p>
         </div>
-        @if ($shipments->isNotEmpty())
-            <button type="submit" form="add-lines" class="btn-ghost">أضِف المحدَّد للكشف</button>
-        @endif
     </div>
 
     @if ($shipments->isEmpty())

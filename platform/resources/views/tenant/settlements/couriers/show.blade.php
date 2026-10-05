@@ -17,7 +17,7 @@
     <a href="{{ route('settlements.couriers.index') }}" class="btn-ghost">رجوع</a>
 </div>
 
-<div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+<div @class(['grid grid-cols-1 gap-5 lg:grid-cols-3', 'pb-20' => $editable])>
     <div class="space-y-5 lg:col-span-2">
         <section class="card overflow-hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
@@ -25,12 +25,8 @@
                     سطور الكشف — {{ \App\Support\Arabic::shipments((int) $settlement->shipments_count) }}
                 </h2>
                 @if ($editable)
-                    {{-- المسودّة تُعدَّل: تُحدَّد شحناتٌ فتُخرَج، وتبقى بلا تسوية للكشف التالي --}}
-                    <form method="POST" action="{{ route('settlements.couriers.lines.remove', $settlement) }}" id="remove-lines">@csrf</form>
-                    <button type="submit" form="remove-lines" class="btn-danger"
-                            data-confirm="تُخرَج الشحنات المحدَّدة من كشف {{ $settlement->code }}؟ تبقى بلا تسوية وتدخل الكشف التالي.">
-                        إخراج المحدَّد من الكشف
-                    </button>
+                    {{-- ما يُحدَّد يظهر أسفل الشاشة بعدده وصافيه و«حاسب المندوب على المحدَّد» --}}
+                    <p class="text-xs text-ink-500">حدّد شحناتٍ لتحاسب المندوب عليها وحدها، وتبقى البقية في المسودّة.</p>
                 @endif
             </div>
 
@@ -56,7 +52,8 @@
                             <tr>
                                 @if ($editable)
                                     <td class="px-4 py-2.5">
-                                        <input type="checkbox" name="shipment_ids[]" value="{{ $line->shipment_id }}" form="remove-lines"
+                                        <input type="checkbox" name="shipment_ids[]" value="{{ $line->shipment_id }}" form="settle"
+                                               data-net="{{ (int) $line->collected_amount - (int) $line->commission }}"
                                                aria-label="الوصل {{ $line->shipment->number }}" class="size-4 accent-[var(--brand)]">
                                     </td>
                                 @endif
@@ -137,10 +134,15 @@
         </section>
 
         @if ($settlement->status === 'draft')
-            <form method="POST" action="{{ route('settlements.couriers.confirm', $settlement) }}"
+            <form method="POST" action="{{ route('settlements.couriers.confirm', $settlement) }}" id="settle"
                   class="card space-y-4 p-5">
                 @csrf
                 <h2 class="text-sm font-bold">استلام النقد</h2>
+                @if ($editable)
+                    <p class="rounded-lg bg-info-50 px-3 py-2 text-xs text-info-700 ring-1 ring-info-200" data-picked-when="settle" hidden>
+                        حدّدت شحنات: يُحاسَب المندوب عليها وحدها في كشفٍ جديد، وتبقى البقية في هذه المسودّة.
+                    </p>
+                @endif
 
                 <div>
                     <label class="field-label" for="deductions">خصومات عليه</label>
@@ -162,7 +164,12 @@
                     بعد التأكيد يُقفَل الكشف ولا يُعدَّل. أي تصحيح يكون بحركة معاكسة في الدفتر.
                 </div>
 
-                <button type="submit" class="btn-primary w-full">تأكيد استلام النقد وإقفال الكشف</button>
+                <button type="submit" class="btn-primary w-full">
+                    <span data-picked-unless="settle">تأكيد استلام النقد وإقفال الكشف</span>
+                    @if ($editable)
+                        <span data-picked-when="settle" hidden>حاسب المندوب على المحدَّد</span>
+                    @endif
+                </button>
             </form>
 
             @can('money.settle')
@@ -198,4 +205,21 @@
         @endif
     </div>
 </div>
+
+@if ($editable)
+    {{-- ما حُدِّد: يُحاسَب عليه، أو يُضاف إلى الكشف. والشريطان في حاويةٍ واحدة فلا يتراكبان --}}
+    <div class="fixed inset-x-0 bottom-0 z-40">
+        <x-picked-bar form="settle" :total="(int) $settlement->shipments_count" all="كل شحنات الكشف"
+                      net-label="الواجب تسليمه" add="deductions">
+            <button type="submit" form="settle" class="btn-primary h-9 px-4 text-sm"
+                    data-confirm-some="المحدَّد {count}: يُحاسَب المندوب عليها ويُستلم منه {net} د.ع، وتبقى البقية في المسودّة {{ $settlement->code }}. بعد التأكيد لا يُعدَّل ما حوسب عليه."
+                    data-confirm-all="حدّدت كل شحنات الكشف: يُقفَل كشف {{ $settlement->code }} كلّه ويُستلم من المندوب {net} د.ع. بعد التأكيد لا يُعدَّل.">
+                حاسب المندوب على المحدَّد
+            </button>
+        </x-picked-bar>
+        <x-picked-bar form="add-lines">
+            <button type="submit" form="add-lines" class="btn-primary h-9 px-4 text-sm">أضِف المحدَّد للكشف</button>
+        </x-picked-bar>
+    </div>
+@endif
 @endsection

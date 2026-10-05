@@ -9,16 +9,18 @@ use App\Models\MerchantSettlement;
 use App\Models\MerchantSettlementShipment;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Services\SequenceGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * تعديل الكشف المسودّة: تُخرَج منه شحناتٌ بعينها، وتُضاف إليه شحناتٌ تنتظر التسوية.
+ * تعديل الكشف المسودّة: يُحاسَب على شحناتٍ بعينها منه وتبقى البقية فيه، وتُضاف إليه شحناتٌ
+ * تنتظر التسوية.
  *
- * المسودّة لقطةٌ بلا أثر، فتعديلها آمن: ما أُخرج يبقى بلا تسوية ويدخل الكشف التالي،
- * وما أُضيف يُلتقط سطرُه ساعةَ يدخل كما يُلتقط عند البناء، والمجاميع تُعاد من السطور.
+ * المسودّة لقطةٌ بلا أثر، فتعديلها آمن: ما يُحاسَب عليه يُفصل في كشفٍ يُقفَل، وما أُضيف يُلتقط
+ * سطرُه ساعةَ يدخل كما يُلتقط عند البناء، والمجاميع تُعاد من السطور.
  * أمّا المُقفَل فلا يُمسّ: تصحيحه حركةٌ في الدفتر.
  */
 class EditDraftSettlement
@@ -26,33 +28,50 @@ class EditDraftSettlement
     /** ما يُعرض للإضافة في صفحة المسودّة — أكثر منه يُضاف ببناء كشفٍ بعدها */
     public const ADDABLE_SHOWN = 300;
 
-    /** @return list<string> أرقام ما أُخرج */
-    public function remove(CourierSettlement|MerchantSettlement $settlement, array $shipmentIds, User $actor): array
+    public function __construct(protected SequenceGenerator $sequences) {}
+
+    /**
+     * «حاسب على المحدَّد»: المحدَّد من سطور المسودّة يُفصل في كشفٍ جديدٍ للطرف نفسه، يُقفله
+     * المستدعي في المعاملة نفسها (ConfirmCourierSettlement، PayMerchantSettlement::confirm)،
+     * وتبقى البقية في المسودّة برمزها. فإن حُدِّد الكل فالمسودّة نفسها هي ما يُقفَل.
+     */
+    public function split(CourierSettlement|MerchantSettlement $settlement, array $shipmentIds, ?User $actor): CourierSettlement|MerchantSettlement
     {
-        return DB::transaction(function () use ($settlement, $shipmentIds, $actor) {
-            $draft = $this->claim($settlement);
+        $draft = $this->claim($settlement);
 
-            $lines = $draft->lines()->whereIn('shipment_id', array_map('intval', $shipmentIds))
-                ->with('shipment:id,number')->get();
+        $picked = $draft->lines()->whereIn('shipment_id', array_map('intval', $shipmentIds))->pluck('shipment_id');
 
-            if ($lines->isEmpty()) {
-                throw ValidationException::withMessages(['shipment_ids' => 'اختر شحنةً من سطور الكشف.']);
-            }
+        if ($picked->isEmpty()) {
+            throw ValidationException::withMessages(['shipment_ids' => 'اختر شحنةً من سطور الكشف.']);
+        }
 
-            if ($lines->count() >= $draft->lines()->count()) {
-                throw ValidationException::withMessages([
-                    'shipment_ids' => 'لا يبقى الكشف بلا شحنات — احذف الكشف كلّه بدل إخراج شحناته كلّها.',
-                ]);
-            }
+        if ($picked->count() >= $draft->lines()->count()) {
+            return $draft;
+        }
 
-            $draft->lines()->whereKey($lines->modelKeys())->delete();
-            $this->refreshTotals($draft);
+        $courier = $draft instanceof CourierSettlement;
+        $from = Shipment::whereIn('id', $picked)->min('status_changed_at');
 
-            $numbers = $lines->map(fn ($line) => $line->shipment?->number)->filter()->values()->all();
-            $this->audit($draft, $actor, ['removed' => $numbers]);
+        $part = $draft->newInstance()->forceFill([
+            ($courier ? 'courier_id' : 'merchant_id') => $courier ? $draft->courier_id : $draft->merchant_id,
+            'branch_id'          => $draft->branch_id,
+            'code'               => $this->sequences->next($courier ? 'courier_settlement' : 'merchant_settlement'),
+            'from_date'          => $from ? \Illuminate\Support\Carbon::parse($from)->toDateString() : $draft->from_date,
+            'to_date'            => $draft->to_date,
+            'status'             => 'draft',
+            'created_by_user_id' => $actor?->id,
+        ] + ($courier ? [] : ['payout_method' => $draft->payout_method]));
+        $part->save();
 
-            return $numbers;
-        });
+        $draft->lines()->whereIn('shipment_id', $picked)->update([$draft->lines()->getForeignKeyName() => $part->id]);
+
+        $this->refreshTotals($part);
+        $this->refreshTotals($draft);
+
+        $numbers = Shipment::whereIn('id', $picked)->orderBy('id')->pluck('number')->all();
+        $this->audit($draft, $actor, ['settled' => $numbers, 'into' => $part->code]);
+
+        return $part;
     }
 
     /** @return list<string> أرقام ما أُضيف */
@@ -91,7 +110,7 @@ class EditDraftSettlement
     }
 
     /**
-     * ما ينتظر التسوية لصاحب الكشف ولم يدخله: سُلِّم أو رجع بعد بنائه، أو أُخرج منه.
+     * ما ينتظر التسوية لصاحب الكشف ولم يدخله: سُلِّم أو رجع بعد بنائه.
      *
      * @return Collection<int, Shipment>
      */
@@ -140,11 +159,11 @@ class EditDraftSettlement
             : BuildMerchantSettlement::refreshTotals($draft);
     }
 
-    protected function audit(CourierSettlement|MerchantSettlement $draft, User $actor, array $change): void
+    protected function audit(CourierSettlement|MerchantSettlement $draft, ?User $actor, array $change): void
     {
         AuditLog::create([
-            'user_id'        => $actor->id,
-            'user_name'      => $actor->name,
+            'user_id'        => $actor?->id,
+            'user_name'      => $actor?->name,
             'action'         => 'settlement_draft_edited',
             'auditable_type' => $draft::class,
             'auditable_id'   => $draft->id,

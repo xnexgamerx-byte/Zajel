@@ -106,7 +106,7 @@ class CourierSettlementController extends Controller
     {
         $settlement->load('courier');
 
-        // المسودّة تُعدَّل لمن يملك التسوية: تُخرَج منها شحنات، ويُضاف إليها ما ينتظر خارجها
+        // المسودّة تُعدَّل لمن يملك التسوية: يُحاسَب على بعضها، ويُضاف إليها ما ينتظر خارجها
         $editable = $settlement->status === 'draft' && $request->user()->can('money.settle');
 
         return view('tenant.settlements.couriers.show', [
@@ -124,16 +124,28 @@ class CourierSettlementController extends Controller
     public function confirm(Request $request, CourierSettlement $settlement, ConfirmCourierSettlement $confirm): RedirectResponse
     {
         $data = $request->validate([
-            'deductions' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
-            'notes'      => ['nullable', 'string', 'max:500'],
+            'deductions'     => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'notes'          => ['nullable', 'string', 'max:500'],
+            // «حاسب المندوب على المحدَّد»: والبقية تبقى في المسودّة
+            'shipment_ids'   => ['nullable', 'array', 'max:5000'],
+            'shipment_ids.*' => ['integer'],
         ], [], ['deductions' => 'الخصومات']);
 
-        $confirm->handle(
+        $settled = $confirm->handle(
             $settlement,
             $request->user(),
             (int) ($data['deductions'] ?? 0),
             $data['notes'] ?? null,
+            $data['shipment_ids'] ?? null,
         );
+
+        if ($settled->isNot($settlement)) {
+            $left = (int) $settlement->fresh()->shipments_count;
+
+            return back()->with('success', 'حوسب المندوب على '.\App\Support\Arabic::shipments((int) $settled->shipments_count)
+                ." في كشف {$settled->code}، واستُلم منه ".number_format($settled->net_amount).' د.ع.'
+                .' وبقيت '.\App\Support\Arabic::shipments($left)." في المسودّة {$settlement->code}.");
+        }
 
         return back()->with('success', "أُقفِل كشف {$settlement->code} واستُلم النقد.");
     }
@@ -146,15 +158,6 @@ class CourierSettlementController extends Controller
         return redirect()
             ->route('settlements.couriers.index')
             ->with('success', "حُذف كشف {$settlement->code}. شحناته تدخل الكشف التالي كما هي.");
-    }
-
-    /** إخراج شحناتٍ بعينها من المسودّة: تبقى بلا تسوية وتدخل الكشف التالي */
-    public function removeLines(Request $request, CourierSettlement $settlement, EditDraftSettlement $edit): RedirectResponse
-    {
-        $removed = $edit->remove($settlement, $this->picked($request), $request->user());
-
-        return back()->with('success', 'أُخرجت من كشف '.$settlement->code.': '
-            .\App\Support\Arabic::shipments(count($removed)).'. تبقى بلا تسوية وتدخل الكشف التالي.');
     }
 
     /** إضافة شحناتٍ تنتظر التسوية إلى المسودّة */

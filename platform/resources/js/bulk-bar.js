@@ -1,3 +1,5 @@
+import { shipments } from './arabic';
+
 /**
  * شريط التحديث من القائمة (_bulk_bar): اختيار صفوفٍ — أو «الكل» — ثم حالةٌ
  * جديدة لها، بلا دخول كل شحنة.
@@ -28,13 +30,6 @@ export function initBulkBar(bar) {
 
     // «الكل»: كل ما يطابق البحث، لا الصفحة وحدها
     let everything = false;
-
-    /** «شحنة واحدة، شحنتان، 3 شحنات، 11 شحنة» — كما يكتبها الخادم (Arabic::shipments) */
-    const shipments = (n) => {
-        if (n === 1) return 'شحنة واحدة';
-        if (n === 2) return 'شحنتان';
-        return `${number.format(n)} ${n >= 3 && n <= 10 ? 'شحنات' : 'شحنة'}`;
-    };
 
     const checked = () => rows.filter((row) => row.checked);
 

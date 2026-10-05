@@ -26,8 +26,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * تعديل الكشف المسودّة: تُحدَّد شحناتٌ فتُخرَج منه — تبقى بلا تسوية وتدخل الكشف التالي —
- * وتُضاف إليه شحناتٌ تنتظر التسوية خارجه. المجاميع من السطور دائماً، والمُقفَل لا يُمسّ.
+ * تعديل الكشف المسودّة: تُحدَّد شحناتٌ فيُحاسَب عليها وحدها في كشفٍ يُقفَل — وتبقى البقية في
+ * المسودّة — وتُضاف إليه شحناتٌ تنتظر التسوية خارجه. المجاميع من السطور دائماً، والمُقفَل لا يُمسّ.
  */
 class EditDraftSettlementTest extends TestCase
 {
@@ -107,41 +107,65 @@ class EditDraftSettlementTest extends TestCase
         return Tenancy::runFor($this->company, fn () => $settlement->lines()->orderBy('shipment_id')->pluck('shipment_id')->all());
     }
 
-    public function test_selected_shipments_leave_the_draft_and_come_back(): void
+    /** «حاسب المندوب على المحدَّد»: يُقفَل كشفٌ بالمحدَّد ويُستلم نقده، وتبقى البقية في المسودّة برمزها */
+    public function test_the_courier_is_settled_on_the_selected_shipments_and_the_rest_stay_in_the_draft(): void
     {
         [$a, $b, $c] = [$this->delivered(60_000), $this->delivered(70_000), $this->delivered(50_000)];
         $draft = $this->courierDraft();
         $this->assertSame([3, 180_000, 12_000, 168_000], [(int) $draft->shipments_count, (int) $draft->cod_total,
             (int) $draft->commission_total, (int) $draft->net_amount]);
 
-        // الصفحة: مربّعٌ لكل سطر، وزرّ الإخراج — ولا شيء تحت «تنتظر التسوية» بعد
+        // الصفحة: مربّعٌ لكل سطرٍ بصافيه، وما يُحدَّد يظهر أسفلها بعدده و«حاسب المندوب على المحدَّد»
         $this->actingAs($this->owner)->get($this->host().'/settlements/couriers/'.$draft->id)
             ->assertOk()
-            ->assertSee('إخراج المحدَّد من الكشف')
-            ->assertSee('value="'.$b->id.'" form="remove-lines"', false)
+            ->assertSee('حدّد شحناتٍ لتحاسب المندوب عليها وحدها، وتبقى البقية في المسودّة.')
+            ->assertSee('data-picked-bar="settle"', false)->assertSee('data-picked-total="3"', false)
+            ->assertSee('value="'.$b->id.'" form="settle"', false)->assertSee('data-net="66000"', false)
+            ->assertSee('حاسب المندوب على المحدَّد')
             ->assertSee('لا شحنات أخرى تنتظر التسوية.');
 
-        // تُحدَّد شحنةٌ واحدة فتُخرَج وحدها
-        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/remove', ['shipment_ids' => [$b->id]])
-            ->assertSessionHasNoErrors()
-            ->assertSessionHas('success', "أُخرجت من كشف {$draft->code}: شحنة واحدة. تبقى بلا تسوية وتدخل الكشف التالي.");
+        $response = $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/confirm', [
+            'shipment_ids' => [$b->id], 'deductions' => 1000, 'notes' => 'دفعة أولى',
+        ])->assertSessionHasNoErrors();
 
-        $edited = $this->fresh($draft);
-        $this->assertSame([$a->id, $c->id], $this->onSheet($draft));
-        $this->assertSame([2, 110_000, 8000, 102_000], [(int) $edited->shipments_count, (int) $edited->cod_total,
-            (int) $edited->commission_total, (int) $edited->net_amount]);
+        $part = Tenancy::runFor($this->company, fn () => CourierSettlement::whereKeyNot($draft->id)->sole());
+        $response->assertSessionHas('success', "حوسب المندوب على شحنة واحدة في كشف {$part->code}، واستُلم منه 67,000 د.ع."
+            ." وبقيت شحنتان في المسودّة {$draft->code}.");
 
-        // وتظهر تحت «تنتظر التسوية» فتعود بتحديدها
+        $this->assertSame(['confirmed', [$b->id], 70_000, 4000, 1000, 67_000, 'دفعة أولى'], [$part->status, $this->onSheet($part),
+            (int) $part->cod_total, (int) $part->commission_total, (int) $part->deductions, (int) $part->net_amount, $part->notes]);
+
+        $left = $this->fresh($draft);
+        $this->assertSame(['draft', [$a->id, $c->id], 110_000, 8000, 102_000], [$left->status, $this->onSheet($draft),
+            (int) $left->cod_total, (int) $left->commission_total, (int) $left->net_amount]);
+
+        Tenancy::runFor($this->company, function () use ($a, $b, $c, $part) {
+            $this->assertSame([null, $part->id, null], [$a->fresh()->courier_settlement_id,
+                $b->fresh()->courier_settlement_id, $c->fresh()->courier_settlement_id]);
+            // بيد المندوب ما بقي في المسودّة، والدفتر مطابق
+            $this->assertSame(110_000, (int) $this->courier->fresh()->cash_in_hand);
+            $this->assertCount(0, app(Ledger::class)->balancesOff()['couriers']);
+
+            $log = AuditLog::where('action', 'settlement_draft_edited')->sole();
+            $this->assertSame([[$b->number], $part->code], [$log->new_values['settled'], $log->new_values['into']]);
+        });
+
+        // ما سُلِّم بعدها يُضاف إلى المسودّة، وإقفالها بلا تحديد يقبض البقية كلّها
+        $late = $this->delivered(30_000);
         $this->actingAs($this->owner)->get($this->host().'/settlements/couriers/'.$draft->id)
             ->assertOk()->assertSee('تنتظر التسوية خارج الكشف — شحنة واحدة')
-            ->assertSee('value="'.$b->id.'" form="add-lines"', false);
-
-        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/add', ['shipment_ids' => [$b->id]])
+            ->assertSee('value="'.$late->id.'" form="add-lines"', false);
+        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/add', ['shipment_ids' => [$late->id]])
             ->assertSessionHas('success', "أُضيفت إلى كشف {$draft->code}: شحنة واحدة.");
-        $this->assertSame(180_000, (int) $this->fresh($draft)->cod_total);
 
-        $this->assertSame(['removed', 'added'], Tenancy::runFor($this->company, fn () => AuditLog::where('action', 'settlement_draft_edited')
-            ->orderBy('id')->get()->map(fn ($log) => array_key_first(array_diff_key($log->new_values, ['code' => 1])))->all()));
+        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/confirm')
+            ->assertSessionHas('success', "أُقفِل كشف {$draft->code} واستُلم النقد.");
+        $this->assertSame(['confirmed', [$a->id, $c->id, $late->id]], [$this->fresh($draft)->status, $this->onSheet($draft)]);
+
+        Tenancy::runFor($this->company, function () {
+            $this->assertSame(0, (int) $this->courier->fresh()->cash_in_hand);
+            $this->assertCount(0, app(Ledger::class)->balancesOff()['couriers']);
+        });
     }
 
     /** ما سُلِّم بعد فتح الكشف يُضاف إليه، والإقفال يقبض ما في السطور وحده */
@@ -168,22 +192,28 @@ class EditDraftSettlementTest extends TestCase
         });
     }
 
-    public function test_a_draft_is_not_emptied_and_a_confirmed_one_is_not_touched(): void
+    /** تحديد الكل كالإقفال بلا تحديد: الكشف نفسه لا كشفٌ جديد — والمُقفَل لا يُمسّ */
+    public function test_selecting_every_shipment_settles_the_draft_itself_and_a_confirmed_one_is_not_touched(): void
     {
         [$a, $b] = [$this->delivered(60_000), $this->delivered(70_000)];
         $draft = $this->courierDraft();
 
-        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/remove', ['shipment_ids' => [$a->id, $b->id]])
-            ->assertSessionHasErrors(['shipment_ids' => 'لا يبقى الكشف بلا شحنات — احذف الكشف كلّه بدل إخراج شحناته كلّها.']);
-        $this->assertSame(2, (int) $this->fresh($draft)->shipments_count);
+        // ما ليس من سطوره لا يُحاسَب عليه
+        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/confirm', ['shipment_ids' => [999_999]])
+            ->assertSessionHasErrors(['shipment_ids' => 'اختر شحنةً من سطور الكشف.']);
+        $this->assertSame('draft', $this->fresh($draft)->status);
 
-        Tenancy::runFor($this->company, fn () => app(ConfirmCourierSettlement::class)->handle($this->fresh($draft), $this->owner));
+        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/confirm', ['shipment_ids' => [$a->id, $b->id]])
+            ->assertSessionHas('success', "أُقفِل كشف {$draft->code} واستُلم النقد.");
+        $this->assertSame(['confirmed', 1], [$this->fresh($draft)->status,
+            Tenancy::runFor($this->company, fn () => CourierSettlement::count())]);
 
         $this->actingAs($this->owner)->get($this->host().'/settlements/couriers/'.$draft->id)
-            ->assertOk()->assertDontSee('إخراج المحدَّد من الكشف')->assertDontSee('تنتظر التسوية خارج الكشف');
-        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/remove', ['shipment_ids' => [$a->id]])
+            ->assertOk()->assertDontSee('حاسب المندوب على المحدَّد')->assertDontSee('data-picked-bar', false)
+            ->assertDontSee('تنتظر التسوية خارج الكشف');
+        $this->actingAs($this->owner)->post($this->host().'/settlements/couriers/'.$draft->id.'/confirm', ['shipment_ids' => [$a->id]])
             ->assertSessionHasErrors(['settlement' => "كشف {$draft->code} مُقفَل فلا يُعدَّل — تصحيحه حركةٌ في الدفتر."]);
-        $this->assertSame(2, (int) $this->fresh($draft)->shipments_count);
+        $this->assertSame(1, Tenancy::runFor($this->company, fn () => CourierSettlement::count()));
     }
 
     public function test_only_who_may_settle_edits(): void
@@ -197,13 +227,14 @@ class EditDraftSettlementTest extends TestCase
         ]));
 
         $this->actingAs($viewer)->get($this->host().'/settlements/couriers/'.$draft->id)
-            ->assertOk()->assertDontSee('إخراج المحدَّد من الكشف')->assertDontSee('form="remove-lines"', false);
-        $this->actingAs($viewer)->post($this->host().'/settlements/couriers/'.$draft->id.'/remove', ['shipment_ids' => [$a->id]])
+            ->assertOk()->assertDontSee('حاسب المندوب على المحدَّد')->assertDontSee('form="settle"', false);
+        $this->actingAs($viewer)->post($this->host().'/settlements/couriers/'.$draft->id.'/confirm', ['shipment_ids' => [$a->id]])
             ->assertForbidden();
+        $this->assertSame('draft', $this->fresh($draft)->status);
     }
 
-    /** كشف التاجر: الراجع سطرُه بأجرة رجوعه، والمجاميع تُعاد من السطور بعد الإخراج */
-    public function test_a_merchant_draft_is_edited_and_its_totals_follow(): void
+    /** كشف التاجر: يُقفَل بالمحدَّد كشفٌ يُدفع من صفحته، وتبقى البقية في المسودّة بمجاميعها */
+    public function test_a_merchant_is_settled_on_the_selected_shipments_and_the_rest_stay_in_the_draft(): void
     {
         $sold = $this->delivered(60_000);   // له ٥٥٬٠٠٠
         $back = $this->returned();           // عليه ٢٬٥٠٠
@@ -214,24 +245,34 @@ class EditDraftSettlementTest extends TestCase
             (int) $draft->cod_total, (int) $draft->delivery_fees_total, (int) $draft->return_fees_total, (int) $draft->net_amount]);
 
         $this->actingAs($this->owner)->get($this->host().'/settlements/merchants/'.$draft->id)
-            ->assertOk()->assertSee('إخراج المحدَّد من الكشف');
+            ->assertOk()->assertSee('حاسب التاجر على المحدَّد')->assertSee('data-net="-2500"', false);
 
-        $this->actingAs($this->owner)->post($this->host().'/settlements/merchants/'.$draft->id.'/remove', ['shipment_ids' => [$back->id, $other->id]])
-            ->assertSessionHas('success', "أُخرجت من كشف {$draft->code}: شحنتان. تبقى بلا تسوية وتدخل الكشف التالي.");
+        $response = $this->actingAs($this->owner)->post($this->host().'/settlements/merchants/'.$draft->id.'/confirm', [
+            'shipment_ids' => [$sold->id], 'notes' => 'دفعة',
+        ]);
+        $part = Tenancy::runFor($this->company, fn () => MerchantSettlement::whereKeyNot($draft->id)->sole());
+        $response->assertRedirect($this->host().'/settlements/merchants/'.$part->id)
+            ->assertSessionHas('success', "أُقفِل كشف {$part->code} بالمحدَّد: شحنة واحدة. سجّل الدفع بعد تحويل المبلغ."
+                ." وبقيت شحنتان في المسودّة {$draft->code}.");
 
-        $edited = $this->fresh($draft);
-        $this->assertSame([1, 0, 60_000, 5000, 0, 55_000], [(int) $edited->shipments_count, (int) $edited->returned_count,
-            (int) $edited->cod_total, (int) $edited->delivery_fees_total, (int) $edited->return_fees_total, (int) $edited->net_amount]);
+        $this->assertSame(['confirmed', [$sold->id], 55_000, 'دفعة'], [$part->status, $this->onSheet($part), (int) $part->net_amount, $part->notes]);
+        $left = $this->fresh($draft);
+        $this->assertSame(['draft', 2, 1, 30_000, 5000, 2500, 22_500], [$left->status, (int) $left->shipments_count, (int) $left->returned_count,
+            (int) $left->cod_total, (int) $left->delivery_fees_total, (int) $left->return_fees_total, (int) $left->net_amount]);
 
-        // يُقفَل ويُدفع بما فيه وحده، ويبقى للتاجر صافي ما أُخرج: ٢٥٬٠٠٠ − ٢٬٥٠٠
-        Tenancy::runFor($this->company, function () use ($edited, $sold, $back) {
-            $pay = app(PayMerchantSettlement::class);
-            $pay->confirm($edited, $this->owner);
-            $pay->pay($edited->fresh(), $this->owner, 'cash');
+        // يُدفع الجديد وحده، ويبقى للتاجر صافي البقية: ٢٥٬٠٠٠ − ٢٬٥٠٠
+        Tenancy::runFor($this->company, function () use ($part, $sold, $back) {
+            app(PayMerchantSettlement::class)->pay($part->fresh(), $this->owner, 'cash');
 
             $this->assertSame(22_500, (int) $this->merchant->fresh()->balance);
-            $this->assertSame([$edited->id, null], [$sold->fresh()->merchant_settlement_id, $back->fresh()->merchant_settlement_id]);
+            $this->assertSame([$part->id, null], [$sold->fresh()->merchant_settlement_id, $back->fresh()->merchant_settlement_id]);
             $this->assertCount(0, app(Ledger::class)->balancesOff()['merchants']);
         });
+
+        // وتحديد كل ما بقي يُقفل المسودّة نفسها
+        $this->actingAs($this->owner)->post($this->host().'/settlements/merchants/'.$draft->id.'/confirm', ['shipment_ids' => [$back->id, $other->id]])
+            ->assertSessionHas('success', "أُقفِل كشف {$draft->code}. سجّل الدفع بعد تحويل المبلغ.");
+        $this->assertSame(['confirmed', 2], [$this->fresh($draft)->status,
+            Tenancy::runFor($this->company, fn () => MerchantSettlement::count())]);
     }
 }

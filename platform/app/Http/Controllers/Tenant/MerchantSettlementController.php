@@ -62,7 +62,7 @@ class MerchantSettlementController extends Controller
     {
         $settlement->load('merchant');
 
-        // المسودّة تُعدَّل لمن يملك التسوية: تُخرَج منها شحنات، ويُضاف إليها ما ينتظر خارجها
+        // المسودّة تُعدَّل لمن يملك التسوية: يُحاسَب على بعضها، ويُضاف إليها ما ينتظر خارجها
         $editable = $settlement->status === 'draft' && $request->user()->can('money.settle');
 
         return view('tenant.settlements.merchants.show', [
@@ -78,9 +78,23 @@ class MerchantSettlementController extends Controller
 
     public function confirm(Request $request, MerchantSettlement $settlement, PayMerchantSettlement $action): RedirectResponse
     {
-        $data = $request->validate(['notes' => ['nullable', 'string', 'max:500']]);
+        $data = $request->validate([
+            'notes'          => ['nullable', 'string', 'max:500'],
+            // «حاسب التاجر على المحدَّد»: والبقية تبقى في المسودّة
+            'shipment_ids'   => ['nullable', 'array', 'max:5000'],
+            'shipment_ids.*' => ['integer'],
+        ]);
 
-        $action->confirm($settlement, $request->user(), $data['notes'] ?? null);
+        $settled = $action->confirm($settlement, $request->user(), $data['notes'] ?? null, $data['shipment_ids'] ?? null);
+
+        // يُدفع من صفحة الكشف الجديد، والبقية في المسودّة
+        if ($settled->isNot($settlement)) {
+            $left = (int) $settlement->fresh()->shipments_count;
+
+            return redirect()->route('settlements.merchants.show', $settled)->with('success',
+                "أُقفِل كشف {$settled->code} بالمحدَّد: ".\App\Support\Arabic::shipments((int) $settled->shipments_count)
+                .'. سجّل الدفع بعد تحويل المبلغ. وبقيت '.\App\Support\Arabic::shipments($left)." في المسودّة {$settlement->code}.");
+        }
 
         return back()->with('success', "أُقفِل كشف {$settlement->code}. سجّل الدفع بعد تحويل المبلغ.");
     }
@@ -105,15 +119,6 @@ class MerchantSettlementController extends Controller
         return redirect()
             ->route('settlements.merchants.index')
             ->with('success', "حُذف كشف {$settlement->code}. شحناته تدخل الكشف التالي كما هي.");
-    }
-
-    /** إخراج شحناتٍ بعينها من المسودّة: تبقى بلا تسوية وتدخل الكشف التالي */
-    public function removeLines(Request $request, MerchantSettlement $settlement, EditDraftSettlement $edit): RedirectResponse
-    {
-        $removed = $edit->remove($settlement, $this->picked($request), $request->user());
-
-        return back()->with('success', 'أُخرجت من كشف '.$settlement->code.': '
-            .\App\Support\Arabic::shipments(count($removed)).'. تبقى بلا تسوية وتدخل الكشف التالي.');
     }
 
     /** إضافة شحناتٍ تنتظر التسوية إلى المسودّة */

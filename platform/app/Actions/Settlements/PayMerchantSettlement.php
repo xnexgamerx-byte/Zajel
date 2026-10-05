@@ -22,11 +22,19 @@ use Illuminate\Validation\ValidationException;
  */
 class PayMerchantSettlement
 {
-    public function __construct(protected Ledger $ledger, protected CashBook $cash) {}
+    public function __construct(protected Ledger $ledger, protected CashBook $cash, protected EditDraftSettlement $drafts) {}
 
-    public function confirm(MerchantSettlement $settlement, ?User $actor = null, ?string $notes = null): MerchantSettlement
+    /**
+     * @param  list<int>|null  $only  شحناتٌ بعينها من المسودّة: يُقفَل بها وحدها كشفٌ جديد، وتبقى
+     *                                البقية في المسودّة (EditDraftSettlement::split)
+     */
+    public function confirm(MerchantSettlement $settlement, ?User $actor = null, ?string $notes = null, ?array $only = null): MerchantSettlement
     {
-        return DB::transaction(function () use ($settlement, $actor, $notes) {
+        return DB::transaction(function () use ($settlement, $actor, $notes, $only) {
+            if ($only !== null) {
+                $settlement = $this->drafts->split($settlement, $only, $actor);
+            }
+
             // الحال من القاعدة بعد القفل، لا من النسخة التي بيد المستدعي
             $this->claim($settlement);
 
