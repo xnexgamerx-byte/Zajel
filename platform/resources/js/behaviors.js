@@ -218,17 +218,6 @@ if (ticketPoll) {
 }
 
 /**
- * صفٌّ يُمرَّر أفقياً (مجموعات المراحل على الهاتف): التبويب الحاليّ data-scroll-into-view
- * يُتوسَّط عند فتح الصفحة، فلا يبقى خارج الشاشة. يُمرَّر الصفّ وحده، لا الصفحة.
- */
-for (const tab of document.querySelectorAll('[data-scroll-into-view]')) {
-    const row = tab.parentElement;
-    const at = tab.getBoundingClientRect();
-    const box = row.getBoundingClientRect();
-    row.scrollLeft += at.left + at.width / 2 - (box.left + box.width / 2);
-}
-
-/**
  * ما حُدِّد في جدولٍ يظهر أسفل الشاشة بعدده وما يُعمل به (الكشف المسودّة): data-picked-bar
  * باسم النموذج الذي تُرسَل إليه الصفوف (input[form=…]).
  * - data-picked-net: مجموع data-net للمحدَّد، ويُزاد عليه حقل data-picked-add (الخصومات).

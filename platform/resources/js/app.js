@@ -27,9 +27,15 @@ if (document.getElementById('cities-data')) {
 // بعد ربط المناطق: الحقل يقرأ خياراتها الأولى
 initSearchableSelects();
 
-// «كل مراحل النقل» على الهاتف: المرحلة المختارة تُرى في صفّها المُمرَّر أفقياً
-document.querySelector('[data-stage-strip] [aria-current="page"]')
-    ?.scrollIntoView({ block: 'nearest', inline: 'center' });
+// «كل مراحل النقل» على الهاتف: المرحلة المختارة تُرى في صفّها المُمرَّر أفقياً.
+// يُمرَّر الصفّ وحده — scrollIntoView كان يُنزل الصفحة كلّها إليها
+const activeStage = document.querySelector('[data-stage-strip] [aria-current="page"]');
+if (activeStage) {
+    const row = activeStage.parentElement;
+    const at = activeStage.getBoundingClientRect();
+    const box = row.getBoundingClientRect();
+    row.scrollLeft += at.left + at.width / 2 - (box.left + box.width / 2);
+}
 
 const dailyChart = document.getElementById('daily-chart');
 if (dailyChart) initDailyChart(dailyChart);

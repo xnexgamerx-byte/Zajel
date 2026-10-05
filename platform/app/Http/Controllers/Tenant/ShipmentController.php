@@ -96,22 +96,6 @@ class ShipmentController extends Controller
                 ];
             })->all();
 
-            // مجموع المجموعة: عدّاداتها، والشحنة التي في مرحلتين منها (overlap) تُعدّ مرّة.
-            // استعلامٌ ضيّقٌ للمشترك وحده، لا عدٌّ ثانٍ للمجموعة كلّها
-            $group['total'] = (int) array_sum(array_column($group['stages'], 'count'));
-
-            if (isset($group['overlap'])) {
-                [$one, $other] = array_map(fn (string $key) => $group['stages'][$key], $group['overlap']);
-
-                if ($one['count'] > 0 && $other['count'] > 0) {
-                    $group['total'] -= ($one['apply'])(($other['apply'])(Shipment::query()->visibleTo($request->user())))->count();
-                }
-            }
-
-            // تبويب المجموعة يفتح أوّل مرحلةٍ فيها شحنات، وإلّا أوّل مراحلها
-            $busy = array_filter($group['stages'], fn (array $stage) => $stage['count'] > 0);
-            $group['entry'] = array_key_first($busy) ?? array_key_first($group['stages']);
-
             return $group;
         })->all();
 

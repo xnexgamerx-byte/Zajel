@@ -115,43 +115,6 @@ class StagesAndExportTest extends TestCase
         $this->assertEqualsCanonicalizing(array_keys($expected), $all);
     }
 
-    /**
-     * «رحلة الشحنة»: المجموعات بترتيب طريقها، ومجموع كلٍّ منها يعدّ الشحنة مرّةً ولو ظهرت في
-     * مرحلتين منها — الواصل الجزئي ينتظر موافقته وباقيه بيد المندوب. يُقارَن بعدٍّ مباشرٍ لمراحلها.
-     */
-    public function test_a_group_total_counts_each_shipment_once(): void
-    {
-        $this->shipment(['status' => 'out_for_delivery']);
-        $this->shipment(['status' => 'returning']);                                          // راجعٌ بيد المندوب
-        $this->shipment(['status' => 'partially_delivered', 'collected_amount' => 20_000]);  // ينتظر الموافقة وباقيه بيده
-        $this->shipment(['status' => 'delivered', 'collected_amount' => 40_000]);            // ينتظر الموافقة وحدها
-        $this->shipment(['status' => 'delivered', 'collected_amount' => 50_000]);
-        $this->shipment(['status' => 'at_hub']);
-        $this->shipment(['status' => 'in_transit']);
-
-        $page = $this->actingAs($this->owner)->get($this->host().'/shipments/stages')->assertOk()
-            ->assertSee('aria-label="رحلة الشحنة"', false)
-            ->assertSeeInOrder(['عند التاجر', 'المخزن', 'النقل بين الفروع', 'عند المندوب', 'الواصل', 'الراجع']);
-        $groups = $page->viewData('groups');
-
-        $this->assertSame(['customer', 'warehouse', 'branches', 'courier', 'delivered', 'returns'], array_keys($groups));
-
-        $courier = $groups['courier'];
-        $this->assertSame(2, $courier['stages']['return_with_courier']['count']);
-        $this->assertSame(2, $courier['stages']['awaiting_approval']['count']);
-        $this->assertSame(4, $courier['total'], 'خمسةٌ في العدّادات، والجزئيّ في اثنين منها');
-
-        foreach ($groups as $group) {
-            $distinct = Tenancy::runFor($this->company, fn () => Shipment::query()->where(function ($q) use ($group) {
-                foreach ($group['stages'] as $stage) {
-                    $q->orWhere(fn ($w) => ($stage['apply'])($w));
-                }
-            })->count());
-
-            $this->assertSame($distinct, $group['total'], "مجموع «{$group['label']}»");
-        }
-    }
-
     public function test_the_board_counts_only_what_the_user_may_see(): void
     {
         $there = Tenancy::runFor($this->company, fn () => Branch::create(['code' => 'B2', 'name' => 'فرع البصرة']));
