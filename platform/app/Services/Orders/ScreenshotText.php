@@ -477,8 +477,10 @@ final class ScreenshotText
     {
         File::put($list = "{$dir}/list-{$lang}-{$mode}.txt", implode("\n", $files)."\n");
 
+        // قراءةٌ على نواةٍ واحدة: بنوى المعالج كلّها (OpenMP) تتزاحم قراءتان معاً حتى تطول دقيقة
         try {
-            $result = Process::timeout(60)->run([config('zajel.ocr.binary'), $list, 'stdout', '-l', $lang, '--psm', (string) $mode]);
+            $result = Process::env(['OMP_THREAD_LIMIT' => '1'])->timeout(60)
+                ->run([config('zajel.ocr.binary'), $list, 'stdout', '-l', $lang, '--psm', (string) $mode]);
         } catch (ProcessTimedOutException) {
             throw new UnreadableImage('طالت قراءة الصورة — أرسل لقطة شاشةٍ أقصر.');
         }
