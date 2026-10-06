@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Company;
 use App\Models\Scopes\CurrentCompanyScope;
+use App\Support\Permissions\Ability;
 use App\Support\Tenancy\DefaultCompany;
 use App\Support\Tenancy\Tenancy;
 use Closure;
@@ -35,7 +36,7 @@ class IdentifyTenant
             abort(404, 'لم يُحدَّد النظام المطلوب. تأكّد من العنوان.');
         }
 
-        if (! $company->isOperational()) {
+        if (! $company->isOperational() && ! $company->isHeldForBilling()) {
             abort(403, 'اشتراك هذه الشركة موقوف حالياً. راجع إدارة المنصّة.');
         }
 
@@ -44,7 +45,31 @@ class IdentifyTenant
 
         view()->share('company', $company);
 
+        if ($company->isHeldForBilling() && ($held = $this->held($request))) {
+            return $held;
+        }
+
         return $next($request);
+    }
+
+    /**
+     * أوقفها تأخّر السداد (docs/plan/36): الدخول والخروج وصفحة «اشتراك الشركة وفواتيرها» وحدها
+     * — يدفع صاحبها منها فيعود نظامه. ومن يفتح غيرها: صاحب الصفحة إليها، وغيره يُقال له لماذا.
+     */
+    protected function held(Request $request): ?Response
+    {
+        // ونموذج الدخول نفسه: مساره بلا اسم (POST /login)
+        if ($request->routeIs('login', 'logout', 'billing', 'billing.*') || $request->is('login')) {
+            return null;
+        }
+
+        $user = $request->user();
+
+        if ($user && $user->can(Ability::SETTINGS_COMPANY) && ! $user->isBranchLimited()) {
+            return redirect()->route('billing');
+        }
+
+        abort(403, 'نظام هذه الشركة متوقّفٌ مؤقتاً لتأخّر سداد اشتراكه، ويعود حال تسديده. راجع إدارة شركتك.');
     }
 
     protected function fromSubdomain(Request $request): ?Company

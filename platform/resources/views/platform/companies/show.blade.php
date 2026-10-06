@@ -47,7 +47,7 @@
 
 @if ($company->status === 'suspended')
     <div class="mb-5 rounded-lg bg-bad-50 px-4 py-3 text-sm text-bad-700 ring-1 ring-bad-200">
-        <span class="font-semibold">موقوفة منذ {{ $company->suspended_at?->format('Y-m-d H:i') }}</span>
+        <span class="font-semibold">{{ $company->isHeldForBilling() ? 'أوقفها تأخّر السداد' : 'موقوفة' }} منذ {{ $company->suspended_at?->format('Y-m-d H:i') }}</span>
         @if ($company->suspended_reason) — {{ $company->suspended_reason }} @endif
     </div>
 @endif
@@ -144,6 +144,8 @@
                                 @endif
                                 @if ($entry->user_name)
                                     <span class="text-ink-500">— {{ $entry->user_name }}</span>
+                                @elseif ($entry->new_values['automatic'] ?? false)
+                                    <span class="text-ink-500">— تلقائياً {{ $entry->action === 'company_suspended' ? 'لتأخّر السداد' : 'بعد السداد' }}</span>
                                 @endif
                             </span>
                             <span class="shrink-0 text-xs text-ink-400" dir="ltr">
@@ -218,6 +220,40 @@
                     @endforeach
                 </ul>
             @endif
+        </section>
+
+        {{-- ما عليها ومتى يوقفها التأخّر، وإعفاؤها منه (docs/plan/36) --}}
+        @php $dues = \App\Support\Billing\Dues::for($company); @endphp
+        <section class="card p-5">
+            <h2 class="mb-4 text-sm font-bold">التحصيل</h2>
+            <dl class="space-y-2.5 text-sm">
+                <div class="flex justify-between gap-3">
+                    <dt class="text-ink-500">عليها الآن</dt>
+                    <dd class="num font-semibold {{ $dues->oldestOverdue() ? 'text-bad-700' : '' }}">{{ number_format($dues->balance()) }} د.ع</dd>
+                </div>
+                @if ($dues->oldestOverdue())
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-ink-500">متأخّرة</dt>
+                        <dd class="text-bad-700">منذ {{ \App\Support\Arabic::days(max(1, $dues->daysLate())) }}</dd>
+                    </div>
+                @endif
+                @if ($dues->suspendsOn())
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-ink-500">يتوقّف نظامها في</dt>
+                        <dd class="num font-semibold text-bad-700">{{ $dues->suspendsOn()->format('Y-m-d') }}</dd>
+                    </div>
+                @endif
+            </dl>
+            <form method="POST" action="{{ route('admin.companies.billing-exempt', $company) }}" class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-3">
+                @csrf
+                <input type="hidden" name="exempt" value="0">
+                <label class="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="exempt" value="1" @checked($company->billing_exempt)>
+                    معفاة من الإيقاف التلقائي
+                </label>
+                <button type="submit" class="btn-ghost py-1">احفظ</button>
+            </form>
+            <a href="{{ route('admin.settings') }}" class="mt-2 inline-block text-xs text-[var(--brand)] hover:underline">مهلة الإيقاف وطرق الدفع</a>
         </section>
 
         <section class="card p-5">

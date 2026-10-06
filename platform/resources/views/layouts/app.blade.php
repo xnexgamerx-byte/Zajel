@@ -181,6 +181,11 @@
 </header>
 
 <main class="shell pt-6 pb-12">
+    {{-- ما على الشركة للمنصّة، لمن يدفع عنها وحده (docs/plan/36). وفي صفحة الفواتير تفصيله فيها --}}
+    @if ($staff && isset($company) && ! request()->routeIs('billing*') && $user->can('settings.company') && ! $user->isBranchLimited())
+        <x-billing-banner />
+    @endif
+
     @if (session('success'))
         <div class="alert alert-ok mb-5" role="status">
             <x-icon name="check" class="size-5 shrink-0"/>

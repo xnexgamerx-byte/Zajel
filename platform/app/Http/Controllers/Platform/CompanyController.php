@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Platform;
 
 use App\Actions\Billing\ChangeSubscription;
+use App\Actions\Billing\EnforceDues;
 use App\Actions\Platform\RegisterCompany;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegisterCompanyRequest;
@@ -185,6 +186,37 @@ class CompanyController extends Controller
         return redirect()->route('admin.companies.show', $company)->with('success', "حُفظت بيانات {$company->name}.");
     }
 
+    /**
+     * لا يوقفها التأخّر (docs/plan/36) — شركة صاحب المنصّة مثلاً. والإعفاء يعيد فوراً نظاماً
+     * أوقفه التأخّر؛ ورفعه يتركها للّيلة التالية إن كانت متأخّرة.
+     */
+    public function billingExempt(Request $request, Company $company, EnforceDues $enforce): RedirectResponse
+    {
+        $exempt = $request->boolean('exempt');
+
+        if ($exempt === (bool) $company->billing_exempt) {
+            return back()->with('success', 'لم يتغيّر شيء.');
+        }
+
+        $company->forceFill(['billing_exempt' => $exempt])->save();
+
+        AuditLog::create([
+            'company_id' => $company->id,
+            'user_id'    => $request->user()->id,
+            'user_name'  => $request->user()->name,
+            'action'     => 'billing_exempt_changed',
+            'old_values' => ['billing_exempt' => ! $exempt],
+            'new_values' => ['billing_exempt' => $exempt],
+            'ip'         => $request->ip(),
+        ]);
+
+        $resumed = $exempt && $enforce->resume($company, $request->user());
+
+        return back()->with('success', $exempt
+            ? "أُعفيت {$company->name} من الإيقاف التلقائي".($resumed ? '، وعاد نظامها.' : '.')
+            : "رُفع إعفاء {$company->name}: إن تأخّرت فوق المهلة يتوقّف نظامها.");
+    }
+
     /** إيقاف فوري: الشركة تُمنع من الدخول في الطلب التالي مباشرة. */
     public function suspend(Request $request, Company $company): RedirectResponse
     {
@@ -193,9 +225,11 @@ class CompanyController extends Controller
         ], [], ['reason' => 'السبب']);
 
         $company->update([
-            'status'           => 'suspended',
-            'suspended_at'     => now(),
-            'suspended_reason' => $data['reason'],
+            'status'            => 'suspended',
+            'suspended_at'      => now(),
+            'suspended_reason'  => $data['reason'],
+            // بيد المنصّة: لا يرفعه سدادٌ ولا ليلة، يرفعه من أوقفه (docs/plan/36)
+            'suspension_source' => 'platform',
         ]);
 
         AuditLog::create([
@@ -213,9 +247,10 @@ class CompanyController extends Controller
     public function activate(Request $request, Company $company): RedirectResponse
     {
         $company->update([
-            'status'           => 'active',
-            'suspended_at'     => null,
-            'suspended_reason' => null,
+            'status'            => 'active',
+            'suspended_at'      => null,
+            'suspended_reason'  => null,
+            'suspension_source' => null,
         ]);
 
         AuditLog::create([

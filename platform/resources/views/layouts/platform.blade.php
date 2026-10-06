@@ -51,12 +51,17 @@
                 ['admin.subscriptions.index', 'الاشتراكات', 'admin.subscriptions.*', 'wallet'],
                 ['admin.invoices.index', 'الفواتير', 'admin.invoices.*', 'invoice'],
                 ['admin.plans.index', 'الباقات', 'admin.plans.*', 'tag'],
+                ['admin.settings', 'الإعدادات', 'admin.settings*', 'sliders'],
             ] as [$route, $label, $pattern, $icon])
                 @php $active = request()->routeIs($pattern); @endphp
                 <a href="{{ route($route) }}" class="tab-link {{ $active ? 'tab-link-active' : '' }}"
                    @if ($active) aria-current="page" @endif>
                     <x-icon :name="$icon" class="size-5"/>
                     {{ $label }}
+                    {{-- دفعاتٌ أبلغت عنها الشركات تنتظر التأكيد (docs/plan/36) --}}
+                    @if ($route === 'admin.invoices.index' && ($pending = \App\Models\PaymentNotice::acrossCompanies()->where('status', 'pending')->count()))
+                        <span class="nav-badge">{{ $pending }}</span>
+                    @endif
                 </a>
             @endforeach
         </div>

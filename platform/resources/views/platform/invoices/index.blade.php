@@ -5,7 +5,7 @@
 <div class="mb-5">
     <h1 class="page-title">الفواتير</h1>
     <p class="mt-1 text-sm text-ink-500">
-        اشتراك الشركة وعمولة شحناتها المسلَّمة. كل شحنة تدخل فاتورة واحدة فقط.
+        اشتراك الشركة وعمولة شحناتها المسلَّمة ورسوم ميزاتها. كل شحنة تدخل فاتورة واحدة فقط.
     </p>
 </div>
 
@@ -24,6 +24,50 @@
         </div>
     @endforeach
 </div>
+
+{{-- دفعاتٌ أبلغت عنها الشركات من صفحة فواتيرها: تُؤكَّد فتُسجَّل، أو تُرفض بسبب (docs/plan/36) --}}
+@if ($notices->isNotEmpty())
+    <section class="card mb-5 p-5" id="notices">
+        <h2 class="card-title">دفعاتٌ أبلغت عنها الشركات</h2>
+        <p class="card-hint">طابقها مع ما وصلك ثم أكّدها فتُسجَّل على الفاتورة — ويعود نظامٌ أوقفه التأخّر — أو ارفضها بسببٍ تقرؤه الشركة.</p>
+        <div class="mt-2 divide-y divide-ink-100">
+            @foreach ($notices as $notice)
+                <div class="grid grid-cols-1 items-center gap-3 py-3 lg:grid-cols-[1fr_auto]">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                        <span class="font-semibold">{{ $notice->company?->name }}</span>
+                        <span class="num font-bold text-[var(--brand)]">{{ number_format($notice->amount) }} د.ع</span>
+                        <span>{{ $notice->methodLabel() }}</span>
+                        @if ($notice->reference)
+                            <span class="num text-xs text-ink-600">رقم {{ $notice->reference }}</span>
+                        @endif
+                        @if ($notice->invoice)
+                            <a href="{{ route('admin.invoices.show', $notice->invoice) }}" class="num text-xs text-[var(--brand)] hover:underline">{{ $notice->invoice->number }}</a>
+                        @endif
+                        <span class="num text-xs text-ink-400">دُفعت {{ $notice->paid_on->format('Y-m-d') }}</span>
+                        @if ($notice->hasProof())
+                            <a href="{{ route('admin.notices.proof', $notice) }}" target="_blank" class="text-xs font-semibold text-[var(--brand)] hover:underline">الإيصال</a>
+                        @endif
+                        @if ($notice->note)
+                            <span class="w-full text-xs text-ink-500">{{ $notice->note }} — {{ $notice->user_name }}</span>
+                        @endif
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <form method="POST" action="{{ route('admin.notices.confirm', $notice) }}">
+                            @csrf
+                            <button type="submit" class="btn-primary py-1.5">أكّد وسجّل الدفعة</button>
+                        </form>
+                        <form method="POST" action="{{ route('admin.notices.reject', $notice) }}" class="flex items-center gap-2">
+                            @csrf
+                            <label class="sr-only" for="reason-{{ $notice->id }}">سبب الرفض</label>
+                            <input id="reason-{{ $notice->id }}" name="reason" class="field-input w-48 py-1.5" placeholder="سبب الرفض" required maxlength="255">
+                            <button type="submit" class="btn-ghost py-1.5">ارفض</button>
+                        </form>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </section>
+@endif
 
 <div class="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
     <form method="POST" action="{{ route('admin.invoices.generate') }}" class="card p-4 lg:col-span-1">

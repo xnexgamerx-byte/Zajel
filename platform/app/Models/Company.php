@@ -25,9 +25,10 @@ class Company extends Model
     protected function casts(): array
     {
         return [
-            'settings'      => 'array',
-            'trial_ends_at' => 'datetime',
-            'suspended_at'  => 'datetime',
+            'settings'       => 'array',
+            'trial_ends_at'  => 'datetime',
+            'suspended_at'   => 'datetime',
+            'billing_exempt' => 'boolean',
         ];
     }
 
@@ -141,6 +142,27 @@ class Company extends Model
     public function isOperational(): bool
     {
         return in_array($this->status, ['trial', 'active'], true);
+    }
+
+    /**
+     * تُفوتَر: العاملة، وما أوقفه تأخّر السداد — فشهرٌ عملت فيه ثم توقّفت يُفوتَر ولو صدرت
+     * فواتيره وهي متوقّفة (docs/plan/36). والموقوفة بيد المنصّة والملغاة لا.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder<self> $query
+     */
+    public function scopeBillable(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where(fn ($q) => $q->whereIn('status', ['active', 'trial'])
+            ->orWhere(fn ($held) => $held->where('status', 'suspended')->where('suspension_source', 'billing')));
+    }
+
+    /**
+     * أوقفها تأخّر السداد لا المنصّة بيدها (docs/plan/36): يدخلها صاحبها إلى «اشتراك الشركة
+     * وفواتيرها» وحدها ليدفع، وتعود وحدها حين يُسدَّد ما فات المهلة.
+     */
+    public function isHeldForBilling(): bool
+    {
+        return $this->status === 'suspended' && $this->suspension_source === 'billing';
     }
 
     /** قراءة مفتاح من settings بمسار منقوط. */

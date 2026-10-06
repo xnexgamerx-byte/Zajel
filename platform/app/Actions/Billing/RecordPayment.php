@@ -38,7 +38,7 @@ class RecordPayment
             ]);
         }
 
-        return DB::transaction(function () use ($invoice, $data, $amount, $actor) {
+        $payment = DB::transaction(function () use ($invoice, $data, $amount, $actor) {
             $company = $invoice->company;
 
             $payment = Tenancy::runFor($company, fn () => Payment::create([
@@ -72,5 +72,10 @@ class RecordPayment
 
             return $payment;
         });
+
+        // نظامٌ أوقفه التأخّر يعود فور سداد ما فات المهلة، لا في الليلة التالية (docs/plan/36)
+        app(EnforceDues::class)->resume(Tenancy::runAsPlatform(fn () => $invoice->company()->first()), $actor);
+
+        return $payment;
     }
 }

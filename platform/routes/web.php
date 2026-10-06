@@ -22,11 +22,14 @@ use App\Http\Controllers\Platform\FeatureController;
 use App\Http\Controllers\Platform\ImpersonationController;
 use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
+use App\Http\Controllers\Platform\PaymentNoticeController;
 use App\Http\Controllers\Platform\PlanController;
+use App\Http\Controllers\Platform\SettingsController as PlatformSettingsController;
 use App\Http\Controllers\Platform\SubscriptionController as PlatformSubscriptionController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Portal\SupportController as PortalSupportController;
+use App\Http\Controllers\Tenant\BillingController;
 use App\Http\Controllers\Tenant\AnnouncementController;
 use App\Http\Controllers\Tenant\HomeLayoutController;
 use App\Http\Controllers\Tenant\BranchAccountController;
@@ -339,6 +342,15 @@ Route::middleware('tenant')->group(function () {
                 Route::put('/settings/company', [CompanySettingsController::class, 'update'])->name('settings.company.update');
             });
 
+            // «اشتراك الشركة وفواتيرها»: ما عليها للمنصّة وكيف تدفع (docs/plan/36). وحين يوقفها
+            // التأخّر تبقى هذه وحدها مفتوحة (IdentifyTenant)
+            Route::middleware(['can:settings.company', 'main-branch'])->group(function () {
+                Route::get('/billing', [BillingController::class, 'index'])->name('billing');
+                Route::get('/billing/invoices/{invoice}', [BillingController::class, 'invoice'])->whereNumber('invoice')->name('billing.invoice');
+                Route::post('/billing/notices', [BillingController::class, 'notify'])->middleware('throttle:10,60,billing-notices')->name('billing.notify');
+                Route::get('/billing/notices/{notice}/proof', [BillingController::class, 'proof'])->whereNumber('notice')->name('billing.proof');
+            });
+
             // الإشعارات الجماعية: إعلانٌ واحد للمناديب أو للتجّار، ومَن قرأه
             Route::middleware(['feature:announcements', 'can:notify.send'])->group(function () {
                 Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
@@ -631,6 +643,14 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
         Route::post('/invoices/generate', [InvoiceController::class, 'generate'])->name('invoices.generate');
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
         Route::post('/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('invoices.pay');
+
+        // دفعاتٌ أبلغت عنها الشركات، وإعدادات المنصّة: طرق الدفع ومهلة الإيقاف (docs/plan/36)
+        Route::post('/payment-notices/{notice}/confirm', [PaymentNoticeController::class, 'confirm'])->whereNumber('notice')->name('notices.confirm');
+        Route::post('/payment-notices/{notice}/reject', [PaymentNoticeController::class, 'reject'])->whereNumber('notice')->name('notices.reject');
+        Route::get('/payment-notices/{notice}/proof', [PaymentNoticeController::class, 'proof'])->whereNumber('notice')->name('notices.proof');
+        Route::get('/settings', [PlatformSettingsController::class, 'edit'])->name('settings');
+        Route::put('/settings', [PlatformSettingsController::class, 'update'])->name('settings.update');
+        Route::post('/companies/{company}/billing-exempt', [PlatformCompanyController::class, 'billingExempt'])->name('companies.billing-exempt');
 
         Route::get('/plans', [PlanController::class, 'index'])->name('plans.index');
         Route::get('/plans/create', [PlanController::class, 'create'])->name('plans.create');

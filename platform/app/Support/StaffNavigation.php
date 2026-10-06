@@ -141,6 +141,8 @@ final class StaffNavigation
                 ['governorate-settings.index', 'إعدادات المحافظات', ['governorate-settings.*'], 'settings.pricing'],
                 ['areas.index', 'أجور المناطق والأطراف', ['areas.*'], 'settings.pricing'],
                 ['settings.company', 'بيانات الشركة', ['settings.company*'], 'settings.company'],
+                // ما على الشركة لإدارة المنصّة وكيف تدفع (docs/plan/36)
+                ['billing', 'اشتراك الشركة وفواتيرها', ['billing*'], 'settings.company'],
             ]],
         ];
     }

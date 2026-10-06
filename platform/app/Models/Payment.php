@@ -10,6 +10,18 @@ class Payment extends Model
 {
     use BelongsToCompany;
 
+    /** طرق الدفع بأسمائها — في الفاتورة، وفي إبلاغ الشركة عن دفعتها */
+    public const METHODS = [
+        'cash'          => 'نقد',
+        'zaincash'      => 'زين كاش',
+        'asiahawala'    => 'آسيا حوالة',
+        'fastpay'       => 'فاست باي',
+        'qi'            => 'Qi كارد',
+        'fib'           => 'FIB',
+        'bank_transfer' => 'حوالة مصرفية',
+        'other'         => 'أخرى',
+    ];
+
     protected $guarded = ['id'];
 
     protected function casts(): array

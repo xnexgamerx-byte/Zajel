@@ -68,9 +68,7 @@
                         <div class="flex flex-wrap items-center gap-3 py-2.5 text-sm">
                             <span class="font-semibold" dir="ltr">{{ number_format($payment->amount) }} د.ع</span>
                             <span class="text-ink-600">
-                                {{ ['cash' => 'نقد', 'zaincash' => 'زين كاش', 'asiahawala' => 'آسيا حوالة',
-                                    'fastpay' => 'فاست باي', 'qi' => 'Qi كارد', 'fib' => 'FIB',
-                                    'bank_transfer' => 'حوالة مصرفية', 'other' => 'أخرى'][$payment->method] ?? $payment->method }}
+                                {{ \App\Models\Payment::METHODS[$payment->method] ?? $payment->method }}
                             </span>
                             @if ($payment->reference)
                                 <span class="font-mono text-xs text-ink-500" dir="ltr">{{ $payment->reference }}</span>
@@ -150,9 +148,7 @@
                 <div>
                     <label class="field-label" for="method">الطريقة</label>
                     <select id="method" name="method" class="field-input" required>
-                        @foreach (['cash' => 'نقد', 'zaincash' => 'زين كاش', 'asiahawala' => 'آسيا حوالة',
-                                   'fastpay' => 'فاست باي', 'qi' => 'Qi كارد', 'fib' => 'FIB',
-                                   'bank_transfer' => 'حوالة مصرفية', 'other' => 'أخرى'] as $v => $l)
+                        @foreach (\App\Models\Payment::METHODS as $v => $l)
                             <option value="{{ $v }}" @selected(old('method') === $v)>{{ $l }}</option>
                         @endforeach
                     </select>

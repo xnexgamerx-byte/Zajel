@@ -30,7 +30,7 @@ class BillCompanies extends Command
             : CarbonImmutable::now()->subMonth();
 
         $companies = Tenancy::runAsPlatform(fn () => Company::query()
-            ->whereIn('status', ['active', 'trial'])
+            ->billable()
             ->when($this->option('company'), fn ($q, $slug) => $q->where('slug', $slug))
             ->orderBy('id')
             ->get());

@@ -252,7 +252,10 @@ class CompanyFeaturesTest extends TestCase
         $this->setFeature($this->company, Feature::OrderReading, true, 25_000);
         $this->setFeature($this->company, Feature::AppAds, false);
 
+        // في «اشتراك الشركة وفواتيرها» (docs/plan/36)، و«بيانات الشركة» تدلّ عليها
         $this->actingAs($this->owner)->get($this->host().'/settings/company')->assertOk()
+            ->assertSee($this->host().'/billing', false);
+        $this->actingAs($this->owner)->get($this->host().'/billing')->assertOk()
             ->assertSee('ميزات نظامك')
             ->assertSeeInOrder(['قراءة الطلب من صورة أو رسالة', '25,000 د.ع شهرياً', 'إعلانات التطبيق', 'غير مفعّلة']);
     }

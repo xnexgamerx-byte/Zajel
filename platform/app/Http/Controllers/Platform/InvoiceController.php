@@ -7,6 +7,8 @@ use App\Actions\Billing\RecordPayment;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\PaymentNotice;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -32,6 +34,8 @@ class InvoiceController extends Controller
             ->first();
 
         return view('platform.invoices.index', [
+            'notices'   => PaymentNotice::acrossCompanies()->where('status', 'pending')
+                ->with(['company:id,name', 'invoice:id,number'])->oldest('id')->get(),
             'invoices'  => $invoices,
             'totals'    => $totals,
             'companies' => Company::orderBy('name')->get(['id', 'name']),
@@ -51,7 +55,7 @@ class InvoiceController extends Controller
         $created = 0;
         $skipped = 0;
 
-        foreach (Company::whereIn('status', ['active', 'trial'])->orderBy('id')->get() as $company) {
+        foreach (Company::billable()->orderBy('id')->get() as $company) {
             try {
                 $generate->handle($company, $period);
                 $created++;
@@ -75,7 +79,7 @@ class InvoiceController extends Controller
     {
         $data = $request->validate([
             'amount'    => ['required', 'integer', 'min:1'],
-            'method'    => ['required', Rule::in(['cash', 'zaincash', 'asiahawala', 'fastpay', 'qi', 'fib', 'bank_transfer', 'other'])],
+            'method'    => ['required', Rule::in(array_keys(Payment::METHODS))],
             'reference' => ['nullable', 'string', 'max:120'],
             'paid_at'   => ['nullable', 'date'],
             'notes'     => ['nullable', 'string', 'max:500'],
