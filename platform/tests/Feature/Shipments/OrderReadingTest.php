@@ -238,6 +238,7 @@ class OrderReadingTest extends TestCase
             'رقمٌ وحده في سطره'          => ["07712345678\n25", 25_000],
             'والمذكور بكلمته يُقدَّم'      => ["السعر 30 الف\n25", 30_000],
             'سنةٌ ليست مبلغاً'           => ['2026', null],
+            'ولا رقمٌ بصفرٍ في أوّله'      => ["07712345678\n012", null],
             'k'                        => ['35k', 35_000],
             'المجموع يُقدَّم'            => ["السعر 25 الف\nالمجموع 30 الف مع التوصيل\nتمام", 30_000],
             'الأخير يصحّح ما قبله'       => ["السعر 20 الف\nلا خليها 22 الف", 22_000],
@@ -272,6 +273,18 @@ class OrderReadingTest extends TestCase
 
         $this->assertArrayNotHasKey('recipient_name', $reading['fields']);
         $this->assertArrayNotHasKey('recipient_name', $this->read("07712345678\nشكرا جزيلا")['fields']);
+        $this->assertArrayNotHasKey('recipient_name', $this->read("صباح الخير\n07712345678")['fields']);
+    }
+
+    public function test_a_line_beside_the_phone_is_a_name_only_when_it_starts_with_one(): void
+    {
+        // «شوكت تجون نطوني خبر» جملةٌ من المحادثة لا اسم؛ و«ام علي» و«عبد الله كريم» أسماء
+        $this->assertArrayNotHasKey('recipient_name', $this->read("نجف حي الحسين\n07712345678\nشوكت تجون نطوني خبر")['fields']);
+        $this->assertSame('ام علي', $this->read("ام علي\n07712345678")['fields']['recipient_name']);
+        $this->assertSame('عبد الله كريم', $this->read("عبد الله كريم\n07712345678")['fields']['recipient_name']);
+
+        // ورأس المحادثة اسمٌ في الصورة وحدها: النصّ الملصوق أوّله رسالة
+        $this->assertArrayNotHasKey('recipient_name', $this->read("الزهراء قدوتي\nنجف حي الحسين\nرقمي هو\n07712345678")['fields']);
     }
 
     public function test_messages_copied_together_from_whatsapp(): void
@@ -351,6 +364,23 @@ class OrderReadingTest extends TestCase
             'landmark'        => 'قرب ساحة كهرمانة',
             'recipient_name'  => 'علي حسين',
         ], $reading['fields']);
+    }
+
+    public function test_a_messenger_inbox_screenshot_is_read(): void
+    {
+        $this->needsTesseract();
+
+        // رأسٌ بصورةٍ واسمٍ وأزرار، وإعلانٌ بسعرٍ بأرقامٍ عربية، والرقم وحده في فقاعته
+        $reading = Tenancy::runFor($this->company, fn () => app(OrderReader::class)->fromImage($this->fixture('messenger-desktop.png')));
+
+        $this->assertSame([
+            'recipient_phone' => '07801234567',
+            'governorate_id'  => $this->governorate('BSR'),
+            'city_id'         => $this->city('العشار', 'BSR'),
+            'landmark'        => 'شارع المطاعم',
+            'recipient_name'  => 'نور الهدى حسن',
+        ], $reading['fields']);
+        $this->assertSame(['في الصورة سعرٌ لم تُقرأ أرقامه (الأرقام العربية ٠١٢… لا تُقرأ من الصور): اكتبه.'], $reading['warnings']);
     }
 
     public function test_a_dark_screenshot_is_read(): void

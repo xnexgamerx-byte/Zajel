@@ -43,7 +43,7 @@ final class OrderReader
     private const LANDMARK_WORDS = 'قرب|مقابل|خلف|جنب|يم|بجانب|شارع|زقاق|محله|دار|عماره|مجمع|تقاطع|ساحه|جامع|مسجد|مدرسه|مستشفي|سوق|بنايه';
 
     /** تحيّةٌ وردٌّ وعنوان محادثة: ليست اسماً — مطويّةً */
-    private const SMALL_TALK = '/^(?:السلام عليكم|سلام عليكم|مرحبا|هلا|اهلا|هلو|هاي|شكرا|تمام|اوكي|اوك|ok|okay|نعم|اي|زين|حاضر|وصل طلبك|طلب جديد|زبون جديد)(?:\s|$)/u';
+    private const SMALL_TALK = '/^(?:السلام عليكم|سلام عليكم|مرحبا|هلا|اهلا|هلو|هاي|شكرا|تمام|اوكي|اوك|ok|okay|نعم|اي|زين|حاضر|وصل طلبك|طلب جديد|زبون جديد|صباح الخير|صباح النور|مساء الخير|مساء النور|الله يسلمك|حياك الله|تسلم|مشكور)(?:\s|$)/u';
 
     /**
      * رسائلُ منسوخةٌ معاً من واتساب تبدأ بوقتها ومُرسلها: «[10:12 م، 5/10/2026] علي: …»،
@@ -65,14 +65,29 @@ final class OrderReader
     /** @return Reading */
     public function fromImage(string $path): array
     {
-        return $this->fromText($this->screenshots->read($path));
+        return $this->fromText($this->screenshots->read($path), titled: true);
     }
 
-    /** @return Reading */
-    public function fromText(string $text): array
+    /**
+     * @param bool $titled لقطة شاشة: في رأسها اسم المحادثة، وهو غالباً اسم الزبون
+     * @return Reading
+     */
+    public function fromText(string $text, bool $titled = false): array
     {
         [$lines, $senders] = $this->clean($text);
         $fields = [];
+
+        // رأس المحادثة في أوّل الصورة: اسمٌ أوّل وكلمةٌ أو أكثر («الزهراء قدوتي»)، بعد ما قد يسبقه
+        // من أيقونات. ليس عنواناً وإن شابه اسم منطقة («حي الزهراء»)
+        $title = null;
+        if ($titled) {
+            foreach (array_slice($lines, 0, 4, true) as $i => $line) {
+                if ($this->isName($line)) {
+                    $title = $i;
+                    break;
+                }
+            }
+        }
         $found = [];
         $warnings = [];
 
@@ -93,9 +108,13 @@ final class OrderReader
             $warnings[] = 'الرقم '.$phone.' رقم مُرسل الرسالة في واتساب: تأكّد أنّه رقم الاستلام.';
         }
 
-        if ($price = $this->price($lines)) {
+        // في الصورة: رقمٌ وحده في رأسها (أيقونةٌ قُرئت رقماً) ليس مبلغاً
+        if ($price = $this->price($lines, $titled ? max(2, ($title ?? -1) + 1) : 0)) {
             $fields['cod_amount'] = $price;
             $found['cod_amount'] = number_format($price).' د.ع';
+        } elseif ($titled && preg_grep('/(?:^| )(?:'.self::PRICE_WORDS.'|بسعر|الف)(?: |$)/u', array_map(fn (string $line) => $this->plain($line), $lines))) {
+            // «بسعر ٣٠ الف» في الصورة: الأرقام العربية لا تُقرأ من الصور
+            $warnings[] = 'في الصورة سعرٌ لم تُقرأ أرقامه (الأرقام العربية ٠١٢… لا تُقرأ من الصور): اكتبه.';
         }
 
         if ($pieces = $this->pieces($lines)) {
@@ -103,7 +122,7 @@ final class OrderReader
         }
 
         // العنوان: المحافظة والمنطقة من قوائم الشركة، وما بقي من سطرهما نقطةٌ دالّة
-        $address = $this->address($lines);
+        $address = $this->address($lines, $title);
         if ($address['governorate']) {
             $fields['governorate_id'] = $address['governorate']->id;
             $found['governorate_id'] = $address['governorate']->name_ar;
@@ -119,7 +138,8 @@ final class OrderReader
             $warnings[] = $address['warning'];
         }
 
-        // الاسم والملاحظة بعنوانيهما، وإلّا فالاسم سطرٌ كالاسم بجانب الهاتف
+        // الاسم والملاحظة بعنوانيهما، ثم اسم المحادثة في رأس الصورة، ثم سطرٌ باسمٍ أوّل بجانب
+        // الهاتف، ثم اسم مُرسل الرقم في واتساب كما حفظه التاجر
         foreach ($lines as $line) {
             if (! isset($fields['notes']) && preg_match(self::NOTE_LABEL, $line, $m)) {
                 $fields['notes'] = $this->trimValue($m[1]);
@@ -127,17 +147,19 @@ final class OrderReader
                 $fields['recipient_name'] = $this->trimValue($m[1]);
             }
         }
+        if (! isset($fields['recipient_name']) && $title !== null) {
+            $fields['recipient_name'] = $this->trimValue($lines[$title]);
+        }
         if (! isset($fields['recipient_name']) && $phones !== []) {
             foreach ([$phones[0]['line'] - 1, $phones[0]['line'] + 1] as $i) {
-                if (isset($lines[$i]) && ! in_array($i, $address['lines'], true) && $this->looksLikeName($lines[$i])) {
+                if (isset($lines[$i]) && ! in_array($i, $address['lines'], true) && $this->isName($lines[$i])) {
                     $fields['recipient_name'] = $this->trimValue($lines[$i]);
                     break;
                 }
             }
 
-            // وإلّا فاسم مُرسل الرقم في واتساب كما حفظه التاجر
             $sender = $senders[$phones[0]['line']] ?? null;
-            if (! isset($fields['recipient_name']) && $sender !== null && $this->looksLikeName($sender)) {
+            if (! isset($fields['recipient_name']) && $sender !== null && $this->isName($sender)) {
                 $fields['recipient_name'] = $this->trimValue($sender);
             }
         }
@@ -215,15 +237,16 @@ final class OrderReader
      * وعشرون ألفاً كما يُكتب. والمجموع يُقدَّم، ثم آخر ما ذُكر: الرسالة الأخيرة تصحّح ما قبلها.
      *
      * @param array<int, string> $lines
+     * @param int $loneFrom أوّل سطرٍ يُقبل فيه رقمٌ وحده مبلغاً
      */
-    private function price(array $lines): ?int
+    private function price(array $lines, int $loneFrom = 0): ?int
     {
         // الرقم كاملاً لا بعضه: «25 الف» لا تُقرأ «2» بعد كلمة السعر
         $number = '(\d{1,3}(?:[,.،\s]\d{3})+|\d+(?:[.,]\d{1,2})?)(?![\d.,،])';
         $best = null;
         $lone = null;
 
-        foreach ($lines as $line) {
+        foreach ($lines as $i => $line) {
             $folded = $this->plain((string) preg_replace(self::PHONE, ' ', $line));
             $total = preg_match('/(?:'.self::TOTAL_WORDS.')/u', $folded) === 1;
             $candidates = [];
@@ -251,7 +274,7 @@ final class OrderReader
             }
 
             // سطرٌ رقمٌ وحده («25»، «27500»): المبلغ إن لم يُذكر بكلمته — لا سنةٌ ولا رقم بيت
-            if ($candidates === [] && preg_match('/^'.$number.'$/u', trim($folded), $m)
+            if ($candidates === [] && $i >= $loneFrom && preg_match('/^(?!0)'.$number.'$/u', trim($folded), $m)
                 && ($amount = $this->amount($m[1], thousands: false)) && $amount % 250 === 0) {
                 $lone = $amount;
             }
@@ -303,14 +326,19 @@ final class OrderReader
      * أكثر من محافظة: تُترك ويُقال ذلك.
      *
      * @param array<int, string> $lines
+     * @param ?int $title سطر رأس المحادثة
      * @return array{governorate: ?Governorate, city: ?object{id: int, governorate_id: int, name_ar: string}, warning: ?string,
      *     landmark: string, lines: list<int>}
      */
-    private function address(array $lines): array
+    private function address(array $lines, ?int $title = null): array
     {
-        // سطرا الاسم والملاحظة ليسا عنواناً («علي حسين»، و«حي الحسين» منطقة)، والتحيّة ليست منطقة
-        $folded = array_map(fn (string $line) => preg_match(self::NAME_LABEL, $line) || preg_match(self::NOTE_LABEL, $line)
-            ? '' : ' '.$this->matchFold((string) preg_replace(self::GREETINGS, ' ', $this->fold($line))).' ', $lines);
+        // سطر الاسم والملاحظة ورأس المحادثة ليست عنواناً، ولا سطرٌ كالاسم يبدأ باسمٍ أوّل: «ام علي»
+        // اسمٌ وإن كانت «ال علي» منطقةً في النجف. والتحيّة ليست منطقة
+        $folded = [];
+        foreach ($lines as $i => $line) {
+            $folded[$i] = $i === $title || preg_match(self::NAME_LABEL, $line) || preg_match(self::NOTE_LABEL, $line) || $this->isName($line)
+                ? '' : ' '.$this->matchFold((string) preg_replace(self::GREETINGS, ' ', $this->fold($line))).' ';
+        }
         $governorates = Governorate::offered()->get(['governorates.id', 'governorates.code', 'governorates.name_ar']);
 
         $governorate = null;
@@ -515,6 +543,12 @@ final class OrderReader
             && min(array_map('mb_strlen', $words)) >= 2
             && preg_match(self::SMALL_TALK, $folded) === 0
             && preg_match('/(?:^| )(?:'.self::LANDMARK_WORDS.'|'.self::PRICE_WORDS.'|اريد|ابي|اطلب|عندي|رقمي|رقم|الرقم|موبايل)(?: |$)/u', $folded) === 0;
+    }
+
+    /** سطرٌ كالاسم يبدأ باسمٍ أوّل معروف: «زينب كاظم» لا «شوكت تجون نطوني خبر» */
+    private function isName(string $text): bool
+    {
+        return $this->looksLikeName($text) && FirstNames::starts($this->trimValue($text));
     }
 
     /** بلا مسافاتٍ وفواصل في طرفيه — trim() يقصّ بايتات فيقطع الحروف العربية من أوّلها */

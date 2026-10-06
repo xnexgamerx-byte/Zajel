@@ -2,6 +2,7 @@
 
 namespace App\Services\Orders;
 
+use App\Support\Phone;
 use GdImage;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Cache;
@@ -157,6 +158,72 @@ final class ScreenshotText
 
     private function lines(GdImage $image, string $dir): string
     {
+        $segments = $this->segments($image);
+
+        // لا أسطر تُفصل (صورة كاميرا، أو صفحةٌ كلّها حبر): الصفحة كاملةً قراءةٌ واحدة
+        if ($segments === []) {
+            imagepng($image, $file = "{$dir}/page.png");
+
+            return implode("\n", array_filter(array_map(fn (string $line) => $this->tidy($line),
+                explode("\n", $this->ocr([$file], $dir, 4, raw: true)[0]))));
+        }
+
+        // كل مقطعٍ مقصوصٌ على حبره بهامشٍ أبيض؛ وشريطٌ ملوّنٌ بنصٍّ فاتح (رأس المحادثة) يُقلب
+        foreach ($segments as $i => $segment) {
+            $crop = imagecreatetruecolor($segment['w'] + 32, $segment['h'] + 32);
+            imagefill($crop, 0, 0, imagecolorallocate($crop, 255, 255, 255));
+            imagecopy($crop, $image, 16, 16, $segment['x'], $segment['y'], $segment['w'], $segment['h']);
+            if ($segment['invert']) {
+                imagefilter($crop, IMG_FILTER_NEGATE);
+            }
+            imagepng($crop, $segments[$i]['file'] = "{$dir}/{$i}.png");
+        }
+
+        // السطر الواحد يُقرأ سطراً، والمقطع العالي (اسمٌ وتحته سطر، كرأس المحادثة) كتلةً.
+        // ونموذج الإنجليزية للأرقام: العربيّ يقرأ الرقم وحده في فقاعته حروفاً
+        $read = function (string $lang) use ($segments, $dir): array {
+            $texts = [];
+            foreach ([7 => false, 6 => true] as $mode => $tall) {
+                $group = array_filter($segments, fn (array $segment) => $segment['tall'] === $tall);
+                if ($group !== []) {
+                    $texts += array_combine(array_keys($group), $this->ocr(array_column($group, 'file'), $dir, $mode, $lang, raw: $tall));
+                }
+            }
+            ksort($texts);
+
+            return $texts;
+        };
+        $texts = $read('ara');
+        $latin = $read('eng');
+
+        // سطرٌ عريض رجع فارغاً: قراءته الخام تلتقطه
+        $w = imagesx($image);
+        $empty = array_filter($segments, fn (array $segment, int $i) => ! $segment['tall']
+            && mb_strlen((string) preg_replace('/\s+/u', '', $texts[$i])) < 3 && $segment['w'] > $w / 9, ARRAY_FILTER_USE_BOTH);
+        if ($empty !== []) {
+            $texts = array_replace($texts, array_combine(array_keys($empty), $this->ocr(array_column($empty, 'file'), $dir, 13)));
+        }
+
+        $lines = [];
+        foreach ($texts as $i => $text) {
+            foreach (explode("\n", $this->withDigits($text, $latin[$i])) as $line) {
+                if (($line = $this->tidy($line)) !== '') {
+                    $lines[] = $line;
+                }
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * مقاطع الكتابة من أعلى الصورة إلى أسفلها: صفوفٌ فيها حبرٌ تُجمع أشرطة، وكلّ شريطٍ يُفصل
+     * عند الفراغ العريض — أزرار رأس المحادثة عن اسم الزبون، وأيقونات الردّ عن الفقاعة.
+     *
+     * @return array<int, array{x: int, y: int, w: int, h: int, tall: bool, invert: bool}>
+     */
+    private function segments(GdImage $image): array
+    {
         [$w, $h] = [imagesx($image), imagesy($image)];
         $limit = $this->threshold($image);
         $ink = fn (int $x, int $y) => (imagecolorat($image, $x, $y) & 0xFF) < $limit;
@@ -201,65 +268,117 @@ final class ScreenshotText
         if ($start !== null) {
             $bands[] = [$start, $end];
         }
-        $bands = array_slice($bands, 0, self::MAX_LINES * 2, true);
 
-        // كل سطرٍ مقصوصٌ على حبره بهامشٍ أبيض؛ وشريطٌ ملوّنٌ بنصٍّ فاتح (رأس المحادثة) يُقلب
-        $crops = [];
-        foreach ($bands as $i => [$top, $bottom]) {
+        $segments = [];
+        foreach (array_slice($bands, 0, self::MAX_LINES * 2) as [$top, $bottom]) {
             $height = $bottom - $top + 1;
             if ($height < $w / 90 || $height > $w / 6) {
                 continue;   // نقطةٌ شاردة، أو صورةٌ وملصق
             }
 
-            [$left, $right, $dots] = [$w, 0, 0];
-            for ($y = $top; $y <= $bottom; $y++) {
-                foreach ($columns as $x) {
+            // حبر كل عمودٍ في الشريط، وما بين الكلمات أضيق من سطرٍ ونصف
+            $inked = [];
+            foreach ($columns as $x) {
+                for ($y = $top; $y <= $bottom; $y++) {
                     if ($ink($x, $y)) {
-                        [$left, $right] = [min($left, $x), max($right, $x)];
-                        $dots++;
+                        $inked[] = $x;
+                        break;
                     }
                 }
             }
-
-            $width = $right - $left + 2;
-            if ($width < 8) {
-                continue;
+            $wide = max(24, (int) round($height * 1.5));
+            $runs = [];
+            foreach ($inked as $x) {
+                if ($runs !== [] && $x - $runs[array_key_last($runs)][1] <= $wide) {
+                    $runs[array_key_last($runs)][1] = $x;
+                } else {
+                    $runs[] = [$x, $x];
+                }
             }
 
-            $crop = imagecreatetruecolor($width + 32, $height + 32);
-            imagefill($crop, 0, 0, imagecolorallocate($crop, 255, 255, 255));
-            imagecopy($crop, $image, 16, 16, $left, $top, $width, $height);
-            if ($dots * 2 / ($width * $height) > 0.55) {
-                imagefilter($crop, IMG_FILTER_NEGATE);
+            foreach ($runs as [$left, $right]) {
+                $width = $right - $left + 2;
+                if ($width < 8) {
+                    continue;
+                }
+
+                // المقطع مقصوصٌ على حبره من أعلى وأسفل أيضاً
+                [$y0, $y1, $dots] = [$bottom, $top, 0];
+                for ($y = $top; $y <= $bottom; $y++) {
+                    for ($x = $left; $x <= $right; $x += 2) {
+                        if ($ink($x, $y)) {
+                            [$y0, $y1] = [min($y0, $y), max($y1, $y)];
+                            $dots++;
+                        }
+                    }
+                }
+                if ($dots < 4) {
+                    continue;
+                }
+
+                $segments[] = ['x' => $left, 'y' => $y0, 'w' => $width, 'h' => $y1 - $y0 + 1,
+                    'invert' => $dots * 2 / ($width * ($y1 - $y0 + 1)) > 0.55];
             }
 
-            imagepng($crop, $file = "{$dir}/{$i}.png");
-            $crops[$i] = ['file' => $file, 'width' => $width];
-
-            if (count($crops) === self::MAX_LINES) {
+            if (count($segments) >= self::MAX_LINES) {
                 break;
             }
         }
 
-        // لا أسطر تُفصل (صورةٌ بإطارٍ داكن، أو صورة كاميرا): الصفحة كاملةً قراءةٌ واحدة
-        if ($crops === []) {
-            imagepng($image, $file = "{$dir}/page.png");
+        // أعلى من سطرٍ ونصف من الأسطر المعتادة: أكثر من سطر، يُقرأ كتلة
+        $heights = array_column($segments, 'h');
+        sort($heights);
+        $usual = $heights[intdiv(count($heights), 2)] ?? 0;
 
-            return implode("\n", array_filter(array_map('trim', explode("\n", $this->ocr([$file], $dir, 4, raw: true)[0]))));
+        return array_map(fn (array $segment) => $segment + ['tall' => count($segments) > 2 && $segment['h'] > $usual * 1.6],
+            array_slice($segments, 0, self::MAX_LINES));
+    }
+
+    /**
+     * الأرقام من قراءة الإنجليزية حيث العربية أخطأتها: سطرٌ بلا كلمةٍ عربية (رقم الهاتف وحده
+     * في فقاعته) يُؤخذ منها كلّه، وفي غيره يُضاف رقم الهاتف إن لم تقرأه العربية.
+     */
+    private function withDigits(string $arabic, string $latin): string
+    {
+        $digits = fn (string $text) => (string) preg_replace('/\D/', '', $text);
+        $runs = preg_match_all('/\+?\d[\d \-:.,]*\d/', $latin, $m) ? $m[0] : [];
+
+        // رقمٌ بمسافاتٍ في سطرٍ عربيّ يُرسم معكوس الأجزاء («4567 123 0750»): يُقبل بالترتيب الذي هو هاتف
+        $phone = function (string $run): ?string {
+            $parts = preg_split('/[ \-]+/', $run) ?: [];
+            foreach ([$parts, array_reverse($parts)] as $order) {
+                if (Phone::normalise(implode('', $order)) !== null) {
+                    return implode(' ', $order);
+                }
+            }
+
+            return null;
+        };
+
+        if (! preg_match('/\p{Arabic}{2}/u', $arabic) && $runs !== []
+            && strlen($digits($latin)) >= max(2, strlen($digits($arabic)))) {
+            return implode(' ', array_map(fn (string $run) => $phone($run) ?? $run, $runs));
         }
 
-        $texts = array_combine(array_keys($crops), $this->ocr(array_column($crops, 'file'), $dir, 7));
-
-        // سطرٌ عريض رجع فارغاً: قراءته الخام تلتقطه
-        $empty = array_filter($crops, fn (array $crop, int $i) => mb_strlen(preg_replace('/\s+/u', '', $texts[$i])) < 3
-            && $crop['width'] > $w / 9, ARRAY_FILTER_USE_BOTH);
-        if ($empty !== []) {
-            foreach (array_combine(array_keys($empty), $this->ocr(array_column($empty, 'file'), $dir, 13)) as $i => $text) {
-                $texts[$i] = $text;
+        foreach ($runs as $run) {
+            $found = $phone($run);
+            if ($found !== null && ! str_contains($digits($arabic), $digits($found))) {
+                $arabic .= ' '.$found;
             }
         }
 
-        return implode("\n", array_filter($texts, fn (string $text) => $text !== ''));
+        return $arabic;
+    }
+
+    /** بلا رموزٍ شاردة من الأيقونات والصور: ما لا حرف فيه ولا رقم، وحرفٌ برقمٍ ملتصقين («9ه)») */
+    private function tidy(string $line): string
+    {
+        $tokens = preg_split('/\s+/u', trim($line), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $tokens = array_map(fn (string $token) => trim($token, '()[]{}<>|*#"\'`~^_'), $tokens);
+        $tokens = array_map(fn (string $token) => (string) preg_replace('/^[©®«»•·“”‘’]+|[©®«»•·“”‘’]+$/u', '', $token), $tokens);
+
+        return implode(' ', array_filter($tokens, fn (string $token) => preg_match('/[\p{L}\d]/u', $token) === 1
+            && preg_match('/^(?=\S*\d)(?=\S*\p{L})[\p{L}\d]{1,2}$/u', $token) === 0));
     }
 
     /**
@@ -267,12 +386,12 @@ final class ScreenshotText
      * @param bool $raw أسطر الصفحة كما هي، لا سطراً واحداً لكل صورة
      * @return list<string> نصّ كل صورة بترتيبها
      */
-    private function ocr(array $files, string $dir, int $mode, bool $raw = false): array
+    private function ocr(array $files, string $dir, int $mode, string $lang = 'ara', bool $raw = false): array
     {
-        File::put($list = "{$dir}/list-{$mode}.txt", implode("\n", $files)."\n");
+        File::put($list = "{$dir}/list-{$lang}-{$mode}.txt", implode("\n", $files)."\n");
 
         try {
-            $result = Process::timeout(60)->run([config('zajel.ocr.binary'), $list, 'stdout', '-l', 'ara', '--psm', (string) $mode]);
+            $result = Process::timeout(60)->run([config('zajel.ocr.binary'), $list, 'stdout', '-l', $lang, '--psm', (string) $mode]);
         } catch (ProcessTimedOutException) {
             throw new UnreadableImage('طالت قراءة الصورة — أرسل لقطة شاشةٍ أقصر.');
         }
@@ -283,8 +402,8 @@ final class ScreenshotText
 
         // صفحةٌ لكل صورة يفصلها \f، وعلامات الاتّجاه الخفيّة تُحذف
         $pages = explode("\f", rtrim($result->output(), "\f\n "));
-        $pages = array_map(fn (string $page) => trim((string) preg_replace($raw ? '/[\x{200E}\x{200F}\x{202A}-\x{202E}]+/u'
-            : '/[\x{200E}\x{200F}\x{202A}-\x{202E}\s]+/u', $raw ? '' : ' ', $page)), $pages);
+        $pages = array_map(fn (string $page) => trim((string) preg_replace($raw ? ['/[\x{200E}\x{200F}\x{202A}-\x{202E}]+/u', '/\n\s*\n/u']
+            : ['/[\x{200E}\x{200F}\x{202A}-\x{202E}\s]+/u'], $raw ? ['', "\n"] : [' '], $page)), $pages);
 
         return array_pad(array_slice($pages, 0, count($files)), count($files), '');
     }
