@@ -39,5 +39,7 @@
     </div>
 @endif
 
+<x-order-reader :url="route('shipments.read')" form="shipment-form" />
+
 @include('tenant.shipments._form', ['shipment' => null, 'reroutable' => true])
 @endsection

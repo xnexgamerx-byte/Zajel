@@ -23,6 +23,7 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-in
         --ignore-platform-req=ext-*
 
 # ── التطبيق: PHP من Ubuntu LTS نفسها، فتحديثاته الأمنية تأتي مع كل بناء ──
+# وTesseract بالعربية: «اقرأ الطلب من صورة» يقرأ لقطة الشاشة هنا لا في خدمةٍ خارجية (docs/plan/34)
 FROM ubuntu:26.04 AS app
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -30,6 +31,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         php8.5-fpm php8.5-cli php8.5-mysql php8.5-mbstring php8.5-xml php8.5-curl \
         php8.5-zip php8.5-gd php8.5-intl php8.5-bcmath ca-certificates tzdata \
+        tesseract-ocr tesseract-ocr-ara \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /run/php
 

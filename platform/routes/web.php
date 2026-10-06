@@ -23,6 +23,7 @@ use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Platform\SubscriptionController as PlatformSubscriptionController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Portal\SupportController as PortalSupportController;
 use App\Http\Controllers\Tenant\AnnouncementController;
 use App\Http\Controllers\Tenant\HomeLayoutController;
@@ -125,6 +126,8 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.create'])->name('shipments.store');
 
         Route::middleware(['staff', 'can:shipments.create'])->group(function () {
+            // «اقرأ الطلب من صورة أو رسالة»: يملأ النموذج ولا يحفظ (docs/plan/34)
+            Route::post('/shipments/read', OrderReadingController::class)->middleware('throttle:30,1,order-reading')->name('shipments.read');
             Route::get('/shipments/quick', [QuickEntryController::class, 'create'])->name('shipments.quick');
             Route::post('/shipments/quick', [QuickEntryController::class, 'store'])->name('shipments.quick.store');
             Route::get('/shipments/import', [ShipmentImportController::class, 'create'])->name('shipments.import');
@@ -530,6 +533,7 @@ Route::middleware('tenant')->group(function () {
             Route::post('/shipments/import', [PortalShipmentImportController::class, 'store'])->name('shipments.import.store');
             Route::post('/shipments/import/confirm', [PortalShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
             Route::post('/shipments', [PortalShipmentController::class, 'store'])->name('shipments.store');
+            Route::post('/shipments/read', OrderReadingController::class)->middleware('throttle:30,1,order-reading')->name('shipments.read');
             Route::get('/shipments/labels', [ShipmentLabelController::class, 'portal'])->name('shipments.labels');
             // وصولاتٌ يطبعها التاجر ويكتب عليها بيده (بحدٍّ للدفاتر في الساعة)
             Route::get('/waybills', [PortalWaybillController::class, 'index'])->name('waybills.index');

@@ -46,4 +46,12 @@ return [
         'phone'    => env('ZAJEL_ADMIN_PHONE'),
         'password' => env('ZAJEL_ADMIN_PASSWORD'),
     ],
+
+    /*
+    | قراءة الطلب من لقطة شاشة على الخادم نفسه (Tesseract، docs/plan/34): لا يخرج
+    | منها شيء. وبلا البرنامج تبقى قراءة النصّ الملصوق وحدها.
+    */
+    'ocr' => [
+        'binary' => env('ZAJEL_OCR_BINARY', 'tesseract'),
+    ],
 ];

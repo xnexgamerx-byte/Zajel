@@ -70,6 +70,10 @@ jobs:
       - name: Composer
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      # قراءة لقطات الشاشة كما في صورة الإنتاج (docs/plan/34): بدونه تُتخطّى اختباراتها
+      - name: Tesseract
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends tesseract-ocr tesseract-ocr-ara
+
       # الصفحات تُرسَم في الاختبارات، و@vite يحتاج البيان المبنيّ
       - name: Assets
         run: npm ci && npm run build

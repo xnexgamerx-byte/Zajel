@@ -42,7 +42,9 @@
     </div>
 @endif
 
-<form method="POST" action="{{ route('portal.shipments.store') }}" class="mx-auto max-w-3xl">
+<x-order-reader :url="route('portal.shipments.read')" form="order-form" />
+
+<form method="POST" action="{{ route('portal.shipments.store') }}" id="order-form" class="mx-auto max-w-3xl">
     @csrf
 
     <section class="card overflow-hidden">
