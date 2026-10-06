@@ -40,7 +40,7 @@ final class OrderReader
     private const TOTAL_WORDS = 'المجموع|مجموع|الاجمالي|اجمالي|الكلي|مع التوصيل|شامل التوصيل';
 
     /** كلماتٌ تبدأ بها النقطة الدالّة — مطويّةً */
-    private const LANDMARK_WORDS = 'قرب|مقابل|خلف|جنب|يم|بجانب|شارع|زقاق|محله|دار|عماره|مجمع|تقاطع|ساحه|جامع|مسجد|مدرسه|مستشفي|سوق|بنايه';
+    private const LANDMARK_WORDS = 'قرب|مقابل|خلف|جنب|يم|بجانب|شارع|زقاق|محله|منطقه|حي|قريه|ناحيه|دار|عماره|مجمع|تقاطع|ساحه|جامع|مسجد|مدرسه|مستشفي|سوق|بنايه';
 
     /** تحيّةٌ وردٌّ وعنوان محادثة: ليست اسماً — مطويّةً */
     private const SMALL_TALK = '/^(?:السلام عليكم|سلام عليكم|مرحبا|هلا|اهلا|هلو|هاي|شكرا|تمام|اوكي|اوك|ok|okay|نعم|اي|زين|حاضر|وصل طلبك|طلب جديد|زبون جديد|صباح الخير|صباح النور|مساء الخير|مساء النور|الله يسلمك|حياك الله|تسلم|مشكور)(?:\s|$)/u';
@@ -56,6 +56,26 @@ final class OrderReader
 
     /** علامة الوقت بعد الساعة: م/ص، أو AM/PM */
     private const MERIDIEM = '(?:[مص]|[AaPp]\.?[Mm]\.?)';
+
+    /** كلماتٌ في أسماء المناطق لا تميّز منطقةً من أخرى — مطويّةً للمطابقة (matchFold) */
+    private const GENERIC_WORDS = ['حي', 'منطقا', 'محلا', 'شارع', 'زقاق', 'قريا', 'ناحيا', 'قضاء', 'مركز', 'مجمع', 'قرب', 'طريق',
+        'مدينا', 'قطاع', 'دور', 'تقاطع', 'ساحا', 'جسر', 'مقابل', 'خلف'];
+
+    /** الجهات: تميّز منطقةً من أختها («الحمزة الغربي»)، ولا تكفي وحدها */
+    private const DIRECTIONS = ['غربي', 'شرقي', 'شمالي', 'جنوبي', 'غرب', 'شرق', 'شمال', 'جنوب', 'غربيا', 'شرقيا', 'شماليا', 'جنوبيا'];
+
+    /** وصفٌ كالجهة لا يكفي وحده: «جديد» في «طلب جديد» ليست «جسر ديالى الجديد» */
+    private const WEAK_WORDS = [...self::DIRECTIONS, 'جديد', 'جديدا', 'قديم', 'قديما', 'كبير', 'كبيرا', 'صغير', 'صغيرا', 'اول', 'اولي',
+        'ثاني', 'ثانيا', 'ثالث', 'ثالثا', 'عام', 'عاما', 'اعلي', 'وسط', 'وسطي'];
+
+    /** كلمات النقطة الدالّة مطويّةً للمطابقة: ما بعدها ليس منطقة */
+    private const LANDMARK_TOKENS = ['قرب', 'مقابل', 'خلف', 'جنب', 'يم', 'بجانب', 'شارع', 'زقاق', 'جامع', 'مسجد', 'مدرسا', 'مستشفي', 'سوق', 'بنايا'];
+
+    /** كلماتٌ يبدأ بها كلام المحادثة لا الطلب — مطويّةً */
+    private const CHAT_WORDS = ['اريد', 'ابي', 'ابغي', 'اريدها', 'اريده', 'شوكت', 'شلون', 'وين', 'شنو', 'ليش', 'متي', 'هل', 'دزلي', 'دز',
+        'ارسل', 'ارسلي', 'اكيد', 'مرات', 'يعني', 'بس', 'لا', 'نعم', 'اي', 'ايه', 'عندي', 'عدكم', 'عدك', 'اكو', 'ماكو', 'حبيبي',
+        'حبيبتي', 'اخي', 'اختي', 'عيوني', 'ممكن', 'رجاء', 'رجاءا', 'لو', 'اذا', 'كم', 'متوفر', 'موجود', 'انطلع', 'اطلع', 'خلي',
+        'خليها', 'خليه', 'هسه', 'باچر', 'باجر', 'اليوم', 'وصل', 'وصلت', 'ان', 'انشاء', 'الله', 'والله', 'هاي', 'هذا', 'هذه', 'هذي'];
 
     /** عناوين حقولٍ تُكتب قبل العنوان — مطويّةً، تُحذف من النقطة الدالّة */
     private const ADDRESS_LABELS = ['العنوان', 'عنوان', 'المحافظه', 'محافظه', 'المنطقه', 'منطقه', 'اقرب', 'نقطه', 'داله'];
@@ -74,7 +94,7 @@ final class OrderReader
      */
     public function fromText(string $text, bool $titled = false): array
     {
-        [$lines, $senders] = $this->clean($text);
+        [$lines, $senders, $blocks] = $this->clean($text);
         $fields = [];
 
         // رأس المحادثة في أوّل الصورة: اسمٌ أوّل وكلمةٌ أو أكثر («الزهراء قدوتي»)، بعد ما قد يسبقه
@@ -113,8 +133,8 @@ final class OrderReader
             $fields['cod_amount'] = $price;
             $found['cod_amount'] = number_format($price).' د.ع';
         } elseif ($titled && preg_grep('/(?:^| )(?:'.self::PRICE_WORDS.'|بسعر|الف)(?: |$)/u', array_map(fn (string $line) => $this->plain($line), $lines))) {
-            // «بسعر ٣٠ الف» في الصورة: الأرقام العربية لا تُقرأ من الصور
-            $warnings[] = 'في الصورة سعرٌ لم تُقرأ أرقامه (الأرقام العربية ٠١٢… لا تُقرأ من الصور): اكتبه.';
+            // «بسعر ٣٠ الف» في سطر إعلانٍ صغير لم تُقرأ أرقامه
+            $warnings[] = 'في الصورة سعرٌ لم تُقرأ أرقامه: اكتبه.';
         }
 
         if ($pieces = $this->pieces($lines)) {
@@ -140,20 +160,25 @@ final class OrderReader
 
         // الاسم والملاحظة بعنوانيهما، ثم اسم المحادثة في رأس الصورة، ثم سطرٌ باسمٍ أوّل بجانب
         // الهاتف، ثم اسم مُرسل الرقم في واتساب كما حفظه التاجر
-        foreach ($lines as $line) {
+        $used = [];
+        foreach ($lines as $i => $line) {
             if (! isset($fields['notes']) && preg_match(self::NOTE_LABEL, $line, $m)) {
                 $fields['notes'] = $this->trimValue($m[1]);
+                $used[] = $i;
             } elseif (! isset($fields['recipient_name']) && preg_match(self::NAME_LABEL, $line, $m) && $this->looksLikeName($m[1])) {
                 $fields['recipient_name'] = $this->trimValue($m[1]);
+                $used[] = $i;
             }
         }
         if (! isset($fields['recipient_name']) && $title !== null) {
             $fields['recipient_name'] = $this->trimValue($lines[$title]);
+            $used[] = $title;
         }
         if (! isset($fields['recipient_name']) && $phones !== []) {
             foreach ([$phones[0]['line'] - 1, $phones[0]['line'] + 1] as $i) {
                 if (isset($lines[$i]) && ! in_array($i, $address['lines'], true) && $this->isName($lines[$i])) {
                     $fields['recipient_name'] = $this->trimValue($lines[$i]);
+                    $used[] = $i;
                     break;
                 }
             }
@@ -165,6 +190,22 @@ final class OrderReader
         }
         if (isset($fields['recipient_name'])) {
             $found['recipient_name'] = $fields['recipient_name'];
+        }
+
+        // وما بقي في رسالة الطلب نفسها («منقلة»، «توصيل مستعجل») ملاحظة
+        $order = $phones !== [] ? $phones[0]['line'] : ($address['lines'][0] ?? null);
+        if ($order !== null) {
+            $used = [...$used, ...array_column($phones, 'line'), ...$address['lines']];
+            $rest = [];
+            foreach ($lines as $i => $line) {
+                if (($blocks[$i] ?? 0) === ($blocks[$order] ?? 0) && ! in_array($i, $used, true) && $this->isNote($line)) {
+                    $rest[] = $this->trimValue($line);
+                }
+            }
+            if ($rest !== []) {
+                $fields['notes'] = mb_substr(implode('، ', array_filter([$fields['notes'] ?? null, ...$rest])), 0, 500);
+                $found['notes'] = $fields['notes'];
+            }
         }
 
         return [
@@ -180,7 +221,8 @@ final class OrderReader
      * أسطرٌ بلا أوقات الرسائل، ولا ما لا حرف فيه ولا رقم — ومُرسل كلّ سطرٍ إن نُسخت الرسائل
      * معاً من واتساب (والسطر بلا بادئةٍ تكملةُ رسالة مُرسله).
      *
-     * @return array{0: array<int, string>, 1: array<int, string>}
+     * @return array{0: array<int, string>, 1: array<int, string>, 2: array<int, int>} الأسطر، ومُرسلوها،
+     *     ورقم رسالة كلّ سطر
      */
     private function clean(string $text): array
     {
@@ -188,12 +230,19 @@ final class OrderReader
         $text = strtr($text, ['٫' => '.', '٬' => ',']);
         $lines = [];
         $senders = [];
+        $blocks = [];
         $sender = null;
+        $block = 0;
 
         foreach (preg_split('/\R/u', $text) ?: [] as $line) {
+            // رسالةٌ عن رسالة: سطرٌ فارغ (وبين فقاعات الصورة سطرٌ فارغ)، أو بادئة رسالةٍ منسوخة
+            if (trim($line) === '' && $lines !== [] && ($blocks[array_key_last($lines)] ?? 0) === $block) {
+                $block++;
+            }
             if (preg_match(self::CHAT_PREFIX, $line, $m)) {
                 $sender = $this->trimValue($m['sender']);
                 $line = mb_substr($line, mb_strlen($m[0]));
+                $block += $lines !== [] && ($blocks[array_key_last($lines)] ?? 0) === $block ? 1 : 0;
             }
 
             // وقت الرسالة: «10:42 م» في آخر الفقاعة، أو ما بقي منه بعد القراءة («2 م»). وبنقطةٍ
@@ -206,12 +255,13 @@ final class OrderReader
             }
 
             $lines[] = $line;
+            $blocks[array_key_last($lines)] = $block;
             if ($sender !== null) {
                 $senders[array_key_last($lines)] = $sender;
             }
         }
 
-        return [$lines, $senders];
+        return [$lines, $senders, $blocks];
     }
 
     /** @param array<int, string> $lines @return list<array{phone: string, line: int}> */
@@ -333,22 +383,28 @@ final class OrderReader
     private function address(array $lines, ?int $title = null): array
     {
         // سطر الاسم والملاحظة ورأس المحادثة ليست عنواناً، ولا سطرٌ كالاسم يبدأ باسمٍ أوّل: «ام علي»
-        // اسمٌ وإن كانت «ال علي» منطقةً في النجف. والتحيّة ليست منطقة
-        $folded = [];
+        // اسمٌ وإن كانت «ال علي» منطقةً في النجف. والتحيّة ليست منطقة. وكلّ سطرٍ كلماتٌ مطويّة
+        $words = [];
         foreach ($lines as $i => $line) {
-            $folded[$i] = $i === $title || preg_match(self::NAME_LABEL, $line) || preg_match(self::NOTE_LABEL, $line) || $this->isName($line)
-                ? '' : ' '.$this->matchFold((string) preg_replace(self::GREETINGS, ' ', $this->fold($line))).' ';
+            $words[$i] = $i === $title || preg_match(self::NAME_LABEL, $line) || preg_match(self::NOTE_LABEL, $line) || $this->isName($line)
+                ? [] : $this->tokens((string) preg_replace(self::GREETINGS, ' ', $this->fold($line)));
         }
         $governorates = Governorate::offered()->get(['governorates.id', 'governorates.code', 'governorates.name_ar']);
 
-        $governorate = null;
-        $governorateLine = null;
-        foreach ($folded as $i => $line) {
-            foreach ($governorates as $candidate) {
-                foreach ($this->governorateNames($candidate) as $needle) {
-                    if (str_contains($line, ' '.$needle.' ')) {
-                        [$governorate, $governorateLine] = [$candidate, $i];
-                        break 3;
+        // المحافظة باسمها أو بمركزها، وبخطأ نقطةٍ أيضاً («تجف» هي «نجف»)
+        [$governorate, $governorateLine] = [null, null];
+        foreach ([false, true] as $loose) {
+            foreach ($words as $i => $tokens) {
+                foreach ($governorates as $candidate) {
+                    foreach ($this->governorateNames($candidate) as $name) {
+                        $size = substr_count($name, ' ') + 1;
+                        for ($t = 0; $t + $size <= count($tokens); $t++) {
+                            $said = implode(' ', array_slice($tokens, $t, $size));
+                            if ($said === $name || ($loose && mb_strlen($name) >= 3 && $this->skeleton($said) === $this->skeleton($name))) {
+                                [$governorate, $governorateLine] = [$candidate, $i];
+                                break 5;
+                            }
+                        }
                     }
                 }
             }
@@ -361,95 +417,185 @@ final class OrderReader
                 fn ($q) => $q->whereIn('governorate_id', $governorates->modelKeys()))
             ->toBase()
             ->get(['id', 'governorate_id', 'name_ar']);
-        $governorateNames = $governorate ? $this->governorateNames($governorate) : [];
-        $anyGovernorate = $governorates->flatMap(fn (Governorate $g) => $this->governorateNames($g))->all();
-        $landmarkWord = '/ (?:'.self::LANDMARK_WORDS.') /u';
+        // واسم أيّ محافظة، ولو أوقفتها الشركة: «طريق اربيل» في كركوك لا تُعرف بـ«اربيل»
+        $generic = array_fill_keys([...self::GENERIC_WORDS, ...Governorate::all(['id', 'code', 'name_ar'])
+            ->flatMap(fn (Governorate $g) => $this->governorateNames($g))->flatMap(fn (string $name) => explode(' ', $name))->all()], true);
 
-        // الأسطر نصّاً واحداً يُبحث فيه مرّةً لكل اسم، وكل سطرٍ بين مسافتين فلا يعبر اسمٌ سطرين
-        $haystack = implode("\n", $folded);
-        $matches = [];
-        foreach ($cities as $city) {
-            foreach ($this->cityNeedles($city->name_ar) as [$needle, $label, $segment]) {
-                if ($segment && in_array($needle, $anyGovernorate, true)) {
-                    continue;   // «بغداد / حي عامل» لا تُعرف بـ«بغداد»
+        // كلمات كلّ منطقةٍ وما يميّزها منها، وفهرسٌ من الكلمة (وهيكلها بلا نقاط) إلى مناطقها
+        $areas = [];
+        $index = [];
+        foreach ($cities as $c => $city) {
+            $cityTokens = $this->tokens($city->name_ar);
+            $own = array_keys(array_filter($cityTokens, fn (string $token) => ! isset($generic[$token])));
+            // منطقةٌ لا اسم لها إلّا «حي» والمحافظة («حي بابل»، «الموصل»): باسمها كاملاً وحده
+            $plain = array_filter($own, fn (int $k) => ! in_array($cityTokens[$k], self::WEAK_WORDS, true)) === [];
+            $areas[$c] = ['city' => $city, 'tokens' => $cityTokens, 'own' => $own, 'plain' => $plain];
+            if ($plain) {
+                $index['='.$cityTokens[0]][] = [$c, 0];
+                continue;
+            }
+            foreach ($own as $k) {
+                $index[$cityTokens[$k]][] = [$c, $k];
+                if (mb_strlen($cityTokens[$k]) >= 4) {
+                    $index['~'.$this->skeleton($cityTokens[$k])][] = [$c, $k];
                 }
-                $at = strpos($haystack, ' '.$needle.' ');
-                if ($at === false) {
-                    continue;
-                }
-                $start = strrpos(substr($haystack, 0, $at), "\n");
-                $start = $start === false ? 0 : $start + 1;
-                $matches[] = [
-                    'city'      => $city,
-                    'needle'    => $needle,
-                    'label'     => $label,
-                    'segment'   => $segment,
-                    'line'      => substr_count($haystack, "\n", 0, $at),
-                    'at'        => $at,
-                    // «الموصل» منطقةٌ في نينوى واسمٌ لها: ذكرُ المحافظة لا المنطقة
-                    'isRegion'  => in_array($needle, $governorateNames, true),
-                    'landmark'  => preg_match($landmarkWord, substr($haystack, $start, $at - $start + 1)) === 1,
-                ];
-                continue 2;
             }
         }
 
-        if (count($matches) > 1) {
-            $matches = array_values(array_filter($matches, fn (array $m) => ! $m['isRegion'])) ?: $matches;
-        }
-        // الأطول أدقّ («قطاع 39» قبل «حي الصدر»)، وعند التساوي الاسم كاملاً قبل جزء اسمٍ آخر
-        $rank = fn (array $m) => [$m['landmark'], -mb_strlen($m['needle']), $m['segment'], $m['line'], $m['at']];
-        usort($matches, fn (array $a, array $b) => $rank($a) <=> $rank($b));
+        // كلّ سطرٍ: أطول ما يتّصل من كلماته بكلمات منطقة، ونصيبُ ما يميّزها منه
+        $same = fn (string $a, string $b) => $a === $b || (mb_strlen($a) >= 4 && $this->skeleton($a) === $this->skeleton($b));
+        $matches = [];
+        foreach ($words as $i => $tokens) {
+            foreach ($tokens as $p => $token) {
+                $candidates = [...($index[$token] ?? []), ...(mb_strlen($token) >= 4 ? $index['~'.$this->skeleton($token)] ?? [] : [])];
+                foreach ($index['='.$token] ?? [] as [$c]) {
+                    $area = $areas[$c];
+                    $length = count($area['tokens']);
+                    if (array_slice($tokens, $p, $length) === $area['tokens']) {
+                        $match = ['city' => $area['city'], 'line' => $i, 'from' => $p, 'length' => $length, 'said' => implode(' ', $area['tokens']),
+                            'key' => implode(' ', $area['tokens']), 'whole' => true, 'exact' => true, 'fuzzy' => false, 'plain' => true, 'chars' => $length, 'span' => $length,
+                            'prefix' => true, 'left' => 0, 'landmark' => array_intersect(array_slice($tokens, 0, $p), self::LANDMARK_TOKENS) !== [],
+                            'tokens' => $area['tokens']];
+                        $matches[$c.'@'.$i] ??= $match;
+                    }
+                }
+                foreach ($candidates as [$c, $k]) {
+                    $area = $areas[$c];
+                    // «قرب» وأخواتها في الرسالة تبدأ نقطةً دالّة: لا تمتدّ المطابقة عبرها
+                    $joins = fn (string $said, string $named) => ! in_array($said, self::LANDMARK_TOKENS, true) && $same($said, $named);
+                    [$back, $ahead] = [0, 1];
+                    while ($p - $back - 1 >= 0 && $k - $back - 1 >= 0 && $joins($tokens[$p - $back - 1], $area['tokens'][$k - $back - 1])) {
+                        $back++;
+                    }
+                    while (isset($tokens[$p + $ahead], $area['tokens'][$k + $ahead]) && $joins($tokens[$p + $ahead], $area['tokens'][$k + $ahead])) {
+                        $ahead++;
+                    }
+                    [$from, $to, $start] = [$p - $back, $p + $ahead, $k - $back];
+                    $length = $to - $from;
 
+                    // جهةٌ بعد ما تطابق ليست في اسم المنطقة: «الحمزة الشرقي» ليست «الحمزة الغربي» ولا «حمزة دلي»
+                    $saidNext = $tokens[$to] ?? null;
+                    if (in_array($saidNext, self::DIRECTIONS, true) && ! in_array($saidNext, $area['tokens'], true)) {
+                        continue;
+                    }
+
+                    $covered = array_values(array_filter($area['own'], fn (int $o) => $o >= $start && $o < $start + $length));
+                    if (array_filter($covered, fn (int $o) => ! in_array($area['tokens'][$o], self::WEAK_WORDS, true)) === []) {
+                        continue;
+                    }
+                    // الجهة في اسم المنطقة لا تُطلب إن لم تُذكر: «الحمزة» تكفي لـ«الحمزة الغربي جنوب بابل»
+                    $needed = array_filter($area['own'], fn (int $o) => in_array($o, $covered, true) || ! in_array($area['tokens'][$o], self::WEAK_WORDS, true));
+                    $coverage = count($covered) / max(1, count($needed));
+                    $chars = array_sum(array_map(fn (int $o) => mb_strlen($area['tokens'][$o]), $covered));
+                    if ($coverage < 1 && ($coverage < 0.5 || $chars < 4)) {
+                        continue;
+                    }
+
+                    $said = array_slice($tokens, $from, $length);
+                    $first = array_key_first(array_filter($area['tokens'], fn (string $t) => ! isset($generic[$t]))) ?? 0;
+                    $match = [
+                        'city'     => $area['city'],
+                        'line'     => $i,
+                        'from'     => $from,
+                        'length'   => $length,
+                        'said'     => implode(' ', $said),
+                        'key'      => implode(' ', array_map(fn (int $o) => $area['tokens'][$o], $covered)),
+                        'whole'    => $coverage >= 1,
+                        'exact'    => $start === 0 && $length === count($area['tokens']),
+                        'fuzzy'    => $said !== array_slice($area['tokens'], $start, $length),
+                        'plain'    => false,
+                        'chars'    => $chars,
+                        'span'     => array_sum(array_map('mb_strlen', $said)),
+                        'prefix'   => $start <= $first,
+                        'left'     => count($needed) - count($covered),
+                        // ما بعد «قرب» وأخواتها نقطةٌ دالّة لا منطقة
+                        'landmark' => array_intersect(array_slice($tokens, 0, $from), self::LANDMARK_TOKENS) !== [],
+                        'tokens'   => $area['tokens'],
+                    ];
+                    $key = $c.'@'.$i;
+                    if (! isset($matches[$key]) || $this->rank($match) < $this->rank($matches[$key])) {
+                        $matches[$key] = $match;
+                    }
+                }
+            }
+        }
+
+        $matches = array_values($matches);
+        usort($matches, fn (array $a, array $b) => $this->rank($a) <=> $this->rank($b));
         $top = $matches[0] ?? null;
         $city = $top['city'] ?? null;
 
         // الاسم نفسه لأكثر من منطقة («الجزائر» في بغداد والبصرة، و«حي السلام» في «حي السلام /
         // الطوبجي» و«حي السلام / قرب حي الجهاد»): لا تخمين، والمحافظة إن كانت واحدة
         $warning = null;
-        $rivals = $top ? array_filter($matches, fn (array $m) => $m['needle'] === $top['needle']
-            && $m['segment'] === $top['segment'] && $m['landmark'] === $top['landmark'] && $m['city']->id !== $city->id) : [];
+        $rivals = $top ? array_filter($matches, fn (array $m) => $m['city']->id !== $city->id && $m['key'] === $top['key']
+            && $this->rank($m, false) === $this->rank($top, false)) : [];
         if ($rivals !== []) {
             $oneGovernorate = collect($rivals)->every(fn (array $m) => $m['city']->governorate_id === $city->governorate_id);
             $governorate ??= $oneGovernorate ? $governorates->firstWhere('id', $city->governorate_id) : null;
+            $label = $this->written($lines[$top['line']], $top['from'], $top['length']);
             $warning = $governorate
-                ? '«'.$top['label'].'» يطابق أكثر من منطقة في '.$governorate->name_ar.': اختر المنطقة.'
-                : '«'.$top['label'].'» منطقةٌ في أكثر من محافظة: اختر المحافظة ثم المنطقة.';
+                ? '«'.$label.'» يطابق أكثر من منطقة في '.$governorate->name_ar.': اختر المنطقة.'
+                : '«'.$label.'» منطقةٌ في أكثر من محافظة: اختر المحافظة ثم المنطقة.';
             $city = null;
         }
 
         $governorate ??= $city ? $governorates->firstWhere('id', $city->governorate_id) : null;
         $cityLine = $top['line'] ?? null;
-        $needle = $top['needle'] ?? null;
 
         $addressLines = array_values(array_unique(array_filter([$governorateLine, $cityLine], fn ($l) => $l !== null)));
-        $cityWords = $top ? array_values(array_filter(array_map(fn (string $word) => $this->matchFold($word),
-            preg_split('/[\s\-–\/]+/u', $top['city']->name_ar, -1, PREG_SPLIT_NO_EMPTY) ?: []))) : [];
         [$landmark, $landmarkLines] = $this->landmark($lines, $addressLines,
-            $governorate ? $this->governorateNames($governorate) : [], $needle, $cityWords);
+            $governorate ? $this->governorateNames($governorate) : [], $top['said'] ?? null,
+            $top ? array_map(fn (string $t) => $this->skeleton($t), $top['tokens']) : []);
 
         return ['governorate' => $governorate, 'city' => $city, 'warning' => $warning, 'landmark' => $landmark,
             'lines' => array_values(array_unique(array_merge($addressLines, $landmarkLines)))];
     }
 
     /**
-     * ما تُعرف به المنطقة في الرسالة: اسمها كاملاً، ثم كلّ جزءٍ من اسمٍ مركّب — «حي السلام /
-     * الطوبجي» تُعرف بـ«الطوبجي»، و«مدينة الصدر - قطاع 39» بـ«قطاع 39».
+     * ترتيب ما طابق من المناطق: لا بعد «قرب»، ثم ما يميّز الاسم كلّه، ثم بلا خطأ نقطة، ثم الأطول،
+     * ثم الاسم بحروفه كلّها، ثم أوّل الاسم، ثم الأقلّ نقصاً — ثم الأسبق في الرسالة.
      *
-     * @return list<array{0: string, 1: string, 2: bool}> [مطويّاً، كما يُعرض، جزءٌ أم الاسم كاملاً]
+     * @param array<string, mixed> $m
+     * @return list<int|bool>
      */
-    private function cityNeedles(string $name): array
+    private function rank(array $m, bool $where = true): array
     {
-        $needles = [[$this->matchFold($name), $name, false]];
+        return [$m['landmark'], $m['plain'], ! $m['whole'], $m['fuzzy'], -$m['chars'], -$m['span'], ! $m['exact'], ! $m['prefix'], $m['left'],
+            ...($where ? [$m['line'], $m['from']] : [])];
+    }
 
-        $parts = preg_split('/\s*\/\s*|\s+[\-–]\s+/u', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        if (count($parts) > 1) {
-            foreach ($parts as $part) {
-                $needles[] = [$this->matchFold($part), trim($part), true];
-            }
+    /** الكلمات كما كُتبت في الرسالة، ومعها «حي» أو «منطقة» قبلها: للتنبيه بالاسم كما كتبه الزبون */
+    private function written(string $line, int $from, int $length): string
+    {
+        $source = preg_split('/[\s\-–،,:：|\/]+/u', trim((string) preg_replace(self::GREETINGS, ' ', $this->fold($line))), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $original = preg_split('/[\s\-–،,:：|\/]+/u', trim($line), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (count($original) === count($source)) {
+            $source = $original;
+        }
+        if ($from > 0 && in_array($this->matchFold($source[$from - 1]), ['حي', 'منطقا', 'محلا'], true)) {
+            [$from, $length] = [$from - 1, $length + 1];
         }
 
-        return array_values(array_filter($needles, fn (array $needle) => mb_strlen($needle[0]) >= 3));
+        return implode(' ', array_slice($source, $from, $length));
+    }
+
+    /** @return list<string> كلمات النصّ مطويّةً للمطابقة كلمةً كلمة («الكرادة» → «كرادا») */
+    private function tokens(string $text): array
+    {
+        $tokens = preg_split('/[\s\-–،,:：|\/]+/u', trim($this->fold($text)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_filter(array_map(fn (string $token) => $this->matchFold($token), $tokens), fn (string $t) => $t !== ''));
+    }
+
+    /**
+     * هيكل الكلمة بلا نقاط: «الجمزة» و«الحمزة»، و«تجف» و«نجف» سواء — أكثر أخطاء الكتابة والقراءة
+     * نقطةٌ زائدة أو ناقصة.
+     */
+    private function skeleton(string $word): string
+    {
+        return strtr($word, ['ب' => 'ٮ', 'ت' => 'ٮ', 'ث' => 'ٮ', 'ن' => 'ٮ', 'ي' => 'ٮ', 'ج' => 'ح', 'خ' => 'ح', 'ذ' => 'د',
+            'ز' => 'ر', 'ش' => 'س', 'ض' => 'ص', 'ظ' => 'ط', 'غ' => 'ع', 'ق' => 'ف', 'ة' => 'ه']);
     }
 
     /** @return list<string> أسماء المحافظة مطويّةً: اسمها، وأسماء مراكزها كما تُكتب */
@@ -479,7 +625,8 @@ final class OrderReader
         $taken = [];
         // المنطقة أوّلاً: «دهوك مالطا» منطقةٌ باسمها كاملاً، لا «دهوك» ثم «مالطا»
         $names = array_values(array_unique(array_filter([$cityNeedle, ...$governorateNames])));
-        $before = ['حي', 'منطقا', 'محلا', ...$cityWords];
+        $before = array_map(fn (string $word) => $this->skeleton($word), ['حي', 'منطقا', 'محلا', ...$cityWords]);
+        $shape = fn (string $token) => $this->skeleton($this->matchFold($token));
 
         foreach ($lines as $i => $line) {
             $isAddress = in_array($i, $addressLines, true);
@@ -502,14 +649,15 @@ final class OrderReader
             for ($t = 0; $t < count($tokens); $t++) {
                 foreach ($names as $needle) {
                     $size = substr_count($needle, ' ') + 1;
-                    if (! isset($removed[$needle]) && $this->matchFold(implode(' ', array_slice($tokens, $t, $size))) === $needle) {
+                    $said = implode(' ', $this->tokens(implode(' ', array_slice($tokens, $t, $size))));
+                    if (! isset($removed[$needle]) && ($said === $needle || $this->skeleton($said) === $this->skeleton($needle))) {
                         $removed[$needle] = true;
                         $t += $size - 1;
                         if ($needle === $cityNeedle) {
-                            while ($keep !== [] && in_array($this->matchFold(end($keep)), $before, true)) {
+                            while ($keep !== [] && in_array($shape(end($keep)), $before, true)) {
                                 array_pop($keep);
                             }
-                            while (isset($tokens[$t + 1]) && in_array($this->matchFold($tokens[$t + 1]), $cityWords, true)) {
+                            while (isset($tokens[$t + 1]) && in_array($shape($tokens[$t + 1]), $cityWords, true)) {
                                 $t++;
                             }
                         }
@@ -543,6 +691,21 @@ final class OrderReader
             && min(array_map('mb_strlen', $words)) >= 2
             && preg_match(self::SMALL_TALK, $folded) === 0
             && preg_match('/(?:^| )(?:'.self::LANDMARK_WORDS.'|'.self::PRICE_WORDS.'|اريد|ابي|اطلب|عندي|رقمي|رقم|الرقم|موبايل)(?: |$)/u', $folded) === 0;
+    }
+
+    /**
+     * سطرٌ قصيرٌ من رسالة الطلب يُكتب ملاحظة: «منقلة»، «توصيل مستعجل» — لا مبلغ ولا عدد ولا
+     * تحيّة، ولا كلام محادثة («اريد اطلب…»، «شوكت تجون…»).
+     */
+    private function isNote(string $line): bool
+    {
+        $folded = $this->fold($line);
+        $words = explode(' ', $folded);
+
+        return count($words) <= 3 && preg_match('/\p{Arabic}{3}/u', $line) === 1 && ! preg_match('/\d/', $line)
+            && preg_match(self::SMALL_TALK, $folded) === 0 && ! $this->isName($line)
+            && preg_match('/(?:^| )(?:'.self::PRICE_WORDS.'|'.self::TOTAL_WORDS.'|الف|الاف|دينار|عدد|العدد|قطع|قطعه|قطعتين)(?: |$)/u', $folded) === 0
+            && ! in_array($words[0], self::CHAT_WORDS, true);
     }
 
     /** سطرٌ كالاسم يبدأ باسمٍ أوّل معروف: «زينب كاظم» لا «شوكت تجون نطوني خبر» */

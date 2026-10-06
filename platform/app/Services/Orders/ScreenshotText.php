@@ -11,16 +11,15 @@ use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 
 /**
- * نصّ لقطة شاشة محادثة (واتساب، ماسنجر) بقراءةٍ على الخادم نفسه (Tesseract): لا يخرج
+ * نصّ لقطة شاشة محادثة (واتساب، ماسنجر، إنستغرام) بقراءةٍ على الخادم نفسه (Tesseract): لا يخرج
  * منها شيء، ولا تُحفظ الصورة.
  *
- * تُقرأ سطراً سطراً لا صفحةً واحدة: قراءة الصفحة كاملةً كانت تُسقط أسطراً بعينها
- * («الاسم: علي حسين»)، والسطر وحده يُقرأ. فتُهيَّأ الصورة رماديّة، ويُقلب الوضع الداكن،
- * وتُجمع الصفوف التي فيها حبرٌ أسطراً تُقصّ على حبرها، وتُقرأ كلّها في عمليةٍ واحدة.
- * وما رجع منها فارغاً يُعاد بقراءة السطر الخام.
- *
- * والأرقام العربية الشرقية (٠-٩) لا يعرفها نموذج العربية المجاني فتُقرأ خطأً: يُقال ذلك
- * في الشاشة، والنصّ المنسوخ من الرسالة يُقرأ بها كاملةً.
+ * - **سطراً سطراً لا صفحةً واحدة:** قراءة الصفحة كاملةً تُسقط أسطراً بعينها. فتُهيَّأ الصورة
+ *   رماديّةً بأقلّ قنواتها (الكتابة البيضاء في فقاعةٍ بنفسجية تبقى بيضاء)، ويُقلب الوضع الداكن،
+ *   وتُجمع الصفوف التي فيها حبرٌ أسطراً، ويُفصل السطر عند الفراغ العريض (أزرار الرأس عن الاسم).
+ * - **مرّتين:** بنموذج العربية، وبنموذج الإنجليزية للأرقام اللاتينية (الرقم وحده في فقاعته).
+ * - **والأرقام العربية (٠١٢…)** لا يعرفها أيّ نموذجٍ مجاني: تُقرأ بشكلها (IndicDigits).
+ * - **وبين فقاعتين سطرٌ فارغ:** فيُعرف ما في رسالة الطلب نفسها.
  */
 final class ScreenshotText
 {
@@ -95,7 +94,15 @@ final class ScreenshotText
         imagecopy($flat, $image, 0, 0, 0, 0, imagesx($image), imagesy($image));
         $image = $flat;
 
-        imagefilter($image, IMG_FILTER_GRAYSCALE);
+        // رماديّةٌ بأقلّ القنوات الثلاث لا بإضاءتها: الأبيض وحده أبيض، فالكتابة البيضاء في فقاعةٍ
+        // ملوّنة (بنفسجية إنستغرام) تبقى أبعد ما يكون عن فقاعتها
+        [$w, $h] = [imagesx($image), imagesy($image)];
+        for ($y = 0; $y < $h; $y++) {
+            for ($x = 0; $x < $w; $x++) {
+                $rgb = imagecolorat($image, $x, $y);
+                imagesetpixel($image, $x, $y, min(($rgb >> 16) & 0xFF, ($rgb >> 8) & 0xFF, $rgb & 0xFF) * 0x010101);
+            }
+        }
 
         if ($this->brightness($image) < 110) {
             imagefilter($image, IMG_FILTER_NEGATE);
@@ -119,7 +126,11 @@ final class ScreenshotText
         return $n ? $sum / $n : 255;
     }
 
-    /** عتبة الحبر من توزيع الإضاءة (Otsu): تصلح للّقطة وللصورة بإضاءةٍ غير مستوية */
+    /**
+     * عتبة الحبر من توزيع الإضاءة (Otsu): تصلح للّقطة وللصورة بإضاءةٍ غير مستوية. والكتابة أقلّ
+     * الصورة: إن جاوز ما تحت العتبة خُمسها فتحتها فقاعةٌ ملوّنة مع الكتابة (أبيض على بنفسجيّ)،
+     * فتُقسم ثانيةً بين الكتابة والفقاعة.
+     */
     private function threshold(GdImage $image): int
     {
         [$w, $h] = [imagesx($image), imagesy($image)];
@@ -131,29 +142,43 @@ final class ScreenshotText
             }
         }
 
+        $limit = $this->otsu($histogram, 256);
+        for ($round = 0; $round < 2; $round++) {
+            $below = array_sum(array_slice($histogram, 0, $limit));
+            if ($below <= array_sum($histogram) / 5 || $limit < 60) {
+                break;
+            }
+            $limit = $this->otsu($histogram, $limit);
+        }
+
+        // حبر الكتابة أغمق من أيّ فقاعةٍ فاتحة: لا تعلو العتبة إلى ألوانها
+        return min(max($limit, 40), 190);
+    }
+
+    /** @param array<int, int> $histogram عتبة Otsu بين ما تحت $end */
+    private function otsu(array $histogram, int $end): int
+    {
+        $histogram = array_slice($histogram, 0, $end);
         $total = array_sum($histogram);
         $sum = 0;
         foreach ($histogram as $value => $count) {
             $sum += $value * $count;
         }
 
-        [$best, $chosen, $weight, $below] = [0.0, 128, 0, 0];
+        [$best, $chosen, $weight, $below] = [0.0, intdiv($end, 2), 0, 0];
         foreach ($histogram as $value => $count) {
             $weight += $count;
             if ($weight === 0 || $weight === $total) {
                 continue;
             }
             $below += $value * $count;
-            $meanBelow = $below / $weight;
-            $meanAbove = ($sum - $below) / ($total - $weight);
-            $between = $weight * ($total - $weight) * ($meanBelow - $meanAbove) ** 2;
+            $between = $weight * ($total - $weight) * ($below / $weight - ($sum - $below) / ($total - $weight)) ** 2;
             if ($between > $best) {
                 [$best, $chosen] = [$between, $value];
             }
         }
 
-        // حبر الكتابة أغمق من أيّ فقاعة: لا تنزل العتبة إلى ألوان الفقاعات الفاتحة
-        return min(max($chosen, 90), 190);
+        return $chosen + 1;
     }
 
     private function lines(GdImage $image, string $dir): string
@@ -177,6 +202,7 @@ final class ScreenshotText
                 imagefilter($crop, IMG_FILTER_NEGATE);
             }
             imagepng($crop, $segments[$i]['file'] = "{$dir}/{$i}.png");
+            $crops[$i] = $crop;
         }
 
         // السطر الواحد يُقرأ سطراً، والمقطع العالي (اسمٌ وتحته سطر، كرأس المحادثة) كتلةً.
@@ -204,8 +230,56 @@ final class ScreenshotText
             $texts = array_replace($texts, array_combine(array_keys($empty), $this->ocr(array_column($empty, 'file'), $dir, 13)));
         }
 
+        // الأرقام العربية (٠١٢…): السطر كلّه عددٌ («٣٠٠٠٠٠») يُستبدل، وعددٌ في جملةٍ يُقرأ ما حوله
+        // وحده ثم يُوضع العدد في مكانه. إلّا سطراً قرأت الإنجليزية فيه أرقامه («40,000» ليست «٥٥٥٠»)
+        $digits = new IndicDigits;
+        $around = [];
+        foreach ($segments as $i => $segment) {
+            if ($segment['tall']) {
+                continue;
+            }
+            $found = $digits->read($crops[$i], preg_match('/(?:الف|ألف|آلاف|دينار|بسعر|السعر|المبلغ|سعر)/u', $texts[$i]) === 1);
+            $count = strlen((string) preg_replace('/\D/', '', implode('', array_column($found['runs'], 'digits'))));
+            if ($count === 0 || strlen((string) preg_replace('/\D/', '', $latin[$i])) >= max(2, $count * 0.6)) {
+                continue;
+            }
+            $latin[$i] = '';
+            if ($found['whole']) {
+                $texts[$i] = implode(' ', array_map(fn (array $run) => $this->ordered($run['digits']), $found['runs']));
+                continue;
+            }
+            $run = collect($found['runs'])->sortByDesc(fn (array $run) => strlen($run['digits']))->first();
+            foreach (['right' => [$run['right'] + 4, imagesx($crops[$i])], 'left' => [0, $run['left'] - 4]] as $side => [$from, $to]) {
+                if ($to - $from > 8) {
+                    $part = imagecreatetruecolor($to - $from, imagesy($crops[$i]));
+                    imagecopy($part, $crops[$i], 0, 0, $from, 0, $to - $from, imagesy($crops[$i]));
+                    imagepng($part, $file = "{$dir}/{$i}-{$side}.png");
+                    $around[] = ['segment' => $i, 'side' => $side, 'file' => $file];
+                }
+            }
+            $texts[$i] = ['right' => '', 'digits' => $this->ordered($run['digits']), 'left' => ''];
+        }
+        if ($around !== []) {
+            foreach ($this->ocr(array_column($around, 'file'), $dir, 7) as $k => $text) {
+                $texts[$around[$k]['segment']][$around[$k]['side']] = $text;
+            }
+        }
+
+        // فقاعةٌ عن فقاعة: سطرٌ فارغ حيث الفراغ بين سطرين أوسع من سطرٍ ونصف
+        $heights = array_column($segments, 'h');
+        sort($heights);
+        $usual = $heights[intdiv(count($heights), 2)];
+
         $lines = [];
+        $bottom = null;
         foreach ($texts as $i => $text) {
+            if (is_array($text)) {
+                $text = trim($text['right'].' '.$text['digits'].' '.$text['left']);
+            }
+            if ($bottom !== null && $segments[$i]['y'] - $bottom > $usual * 1.5 && $lines !== [] && end($lines) !== '') {
+                $lines[] = '';
+            }
+            $bottom = max($bottom ?? 0, $segments[$i]['y'] + $segments[$i]['h']);
             foreach (explode("\n", $this->withDigits($text, $latin[$i])) as $line) {
                 if (($line = $this->tidy($line)) !== '') {
                     $lines[] = $line;
@@ -213,7 +287,20 @@ final class ScreenshotText
             }
         }
 
-        return implode("\n", $lines);
+        return trim(implode("\n", $lines));
+    }
+
+    /** رقمٌ بمسافاتٍ يُرسم في سطرٍ عربيّ معكوس الأجزاء («4567 123 0750»): يُعاد إلى ترتيبٍ هو هاتف */
+    private function ordered(string $digits): string
+    {
+        $parts = explode(' ', $digits);
+        foreach ([$parts, array_reverse($parts)] as $order) {
+            if (Phone::normalise(implode('', $order)) !== null) {
+                return implode(' ', $order);
+            }
+        }
+
+        return $digits;
     }
 
     /**

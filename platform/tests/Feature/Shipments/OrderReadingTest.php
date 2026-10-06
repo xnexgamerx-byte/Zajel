@@ -216,6 +216,42 @@ class OrderReadingTest extends TestCase
         $this->assertSame('قرب الجامع', $reading['fields']['landmark']);
     }
 
+    public function test_a_misspelt_area_or_governorate_is_still_found(): void
+    {
+        // نقطةٌ زائدة أو ناقصة: «الجمزة» هي «الحمزة»، و«تجف» هي «نجف»
+        $reading = $this->read("بابل الجمزة الغربي\n07712345678");
+        $this->assertSame($this->city('الحمزة الغربي جنوب بابل', 'BBL'), $reading['fields']['city_id']);
+
+        $reading = $this->read("تجف حي الحسين شارع السوق العصري\n07712345678");
+        $this->assertSame($this->governorate('NJF'), $reading['fields']['governorate_id']);
+        $this->assertSame('شارع السوق العصري', $reading['fields']['landmark']);
+
+        // وجهةٌ مخالفة ليست خطأً إملائياً: «الحمزة الشرقي» لا «الحمزة الغربي» ولا «حمزة دلي»
+        $reading = $this->read("بابل الحمزة الشرقي\n07712345678");
+        $this->assertArrayNotHasKey('city_id', $reading['fields']);
+        $this->assertSame('الحمزة الشرقي', $reading['fields']['landmark']);
+    }
+
+    public function test_the_rest_of_the_order_message_becomes_the_note(): void
+    {
+        // رسالة الطلب كما يرسلها الزبون، بأرقامٍ عربية: ما ليس اسماً ولا رقماً ولا عنواناً ولا سعراً ملاحظة
+        $reading = $this->read("حسن كريم\n٠٧٨٠١٢٣٤٥٦٧\nبابل الحمزة الغربي\nمنطقة العوادل\nمنقلة\n٣٠٠٠٠٠\nتوصيل مستعجل");
+
+        $this->assertSame([
+            'recipient_phone' => '07801234567',
+            'cod_amount'      => 300_000,
+            'governorate_id'  => $this->governorate('BBL'),
+            'city_id'         => $this->city('الحمزة الغربي جنوب بابل', 'BBL'),
+            'landmark'        => 'العوادل',
+            'recipient_name'  => 'حسن كريم',
+            'notes'           => 'منقلة، توصيل مستعجل',
+        ], $reading['fields']);
+
+        // وكلام المحادثة ليس ملاحظة، ولا ما في رسالةٍ أخرى
+        $notes = $this->read("حسن كريم\n07712345678\nبغداد الكرادة\nشوكت توصلون\nجاكيت اسود\n\nتمام\nكرتونة كبيرة")['fields']['notes'];
+        $this->assertSame('جاكيت اسود', $notes);
+    }
+
     #[DataProvider('prices')]
     public function test_the_amount_as_it_is_written_in_iraq(string $text, ?int $amount): void
     {
@@ -366,6 +402,23 @@ class OrderReadingTest extends TestCase
         ], $reading['fields']);
     }
 
+    public function test_an_instagram_chat_with_arabic_digits_and_a_typo_is_read(): void
+    {
+        $this->needsTesseract();
+
+        // وضعٌ داكن وفقاعةٌ بنفسجية متدرّجة بكتابةٍ بيضاء، والرقم والسعر بأرقامٍ عربية، و«الجمزة» خطأٌ في «الحمزة»
+        $reading = Tenancy::runFor($this->company, fn () => app(OrderReader::class)->fromImage($this->fixture('instagram-dark.png')));
+
+        $this->assertSame('حسن كريم', $reading['fields']['recipient_name']);
+        $this->assertSame('07801234567', $reading['fields']['recipient_phone']);
+        $this->assertSame(300_000, $reading['fields']['cod_amount']);
+        $this->assertSame($this->governorate('BBL'), $reading['fields']['governorate_id']);
+        $this->assertSame($this->city('الحمزة الغربي جنوب بابل', 'BBL'), $reading['fields']['city_id']);
+        $this->assertSame('العوادل', $reading['fields']['landmark']);
+        $this->assertStringEndsWith('توصيل مستعجل', $reading['fields']['notes']);
+        $this->assertSame([], $reading['missing']);
+    }
+
     public function test_a_messenger_inbox_screenshot_is_read(): void
     {
         $this->needsTesseract();
@@ -380,7 +433,7 @@ class OrderReadingTest extends TestCase
             'landmark'        => 'شارع المطاعم',
             'recipient_name'  => 'نور الهدى حسن',
         ], $reading['fields']);
-        $this->assertSame(['في الصورة سعرٌ لم تُقرأ أرقامه (الأرقام العربية ٠١٢… لا تُقرأ من الصور): اكتبه.'], $reading['warnings']);
+        $this->assertSame(['في الصورة سعرٌ لم تُقرأ أرقامه: اكتبه.'], $reading['warnings']);
     }
 
     public function test_a_dark_screenshot_is_read(): void
