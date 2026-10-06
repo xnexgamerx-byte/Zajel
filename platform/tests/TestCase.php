@@ -2,9 +2,11 @@
 
 namespace Tests;
 
+use App\Enums\Feature;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\CompanyFeature;
 use App\Models\Governorate;
 use App\Models\Merchant;
 use App\Models\PriceList;
@@ -110,6 +112,19 @@ abstract class TestCase extends BaseTestCase
             ['phone' => $this->phoneFrom($company->slug.$role->value)],
             ['name' => 'مستخدم', 'password' => 'password', 'role' => $role, 'is_active' => true],
         ));
+    }
+
+    /**
+     * يفتح ميزةً للشركة كما تفتحها المنصّة (docs/plan/35): الإضافات مطفأةٌ في كل شركةٍ جديدة،
+     * و$enabled = false يغلق ما كان في أصل النظام.
+     */
+    protected function setFeature(Company $company, Feature $feature, bool $enabled = true, int $price = 0): void
+    {
+        Tenancy::runFor($company, fn () => CompanyFeature::create([
+            'company_id' => $company->id, 'feature' => $feature->value, 'enabled' => $enabled,
+            'monthly_price' => $price, 'starts_at' => now(),
+        ]));
+        $company->forgetFeatures();
     }
 
     protected function baghdad(): Governorate

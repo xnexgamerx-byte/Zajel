@@ -536,7 +536,7 @@
             </section>
         @endif
 
-        @can('support.reply')
+        @if (auth()->user()->can('support.reply') && \App\Support\FeatureGate::enabled('conversations'))
             {{-- «محادثة الشحنة»: ما دار مع التاجر عنها، وصورها وملفّاتها في المحادثة نفسها --}}
             <section class="card p-5">
                 <div class="mb-3 flex items-center justify-between gap-3">
@@ -560,7 +560,7 @@
                     <p class="text-sm text-ink-500">لا محادثة عن هذه الشحنة.</p>
                 @endforelse
             </section>
-        @endcan
+        @endif
     </div>
 </div>
 @endsection

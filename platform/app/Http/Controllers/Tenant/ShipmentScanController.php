@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Shipments\ReceiveAtHub;
 use App\Actions\Waybills\CreateFromWaybill;
+use App\Enums\Feature;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Shipment;
+use App\Support\FeatureGate;
 use App\Support\ScanCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -50,7 +52,7 @@ class ShipmentScanController extends Controller
 
         if (! $shipment) {
             // وصلٌ مطبوعٌ مسبقاً لم تُدخَل شحنته بعد: يُدلّ على مكان إدخاله
-            $error = ! $scan->isLink() && CreateFromWaybill::problem($scan->code) === null
+            $error = ! $scan->isLink() && FeatureGate::enabled(Feature::Waybills) && CreateFromWaybill::problem($scan->code) === null
                 ? "الوصل المطبوع {$scan->code} لم تُدخَل شحنته بعد — أدخِلها من «شحنة من وصلٍ مطبوع»."
                 : $scan->notFound();
 

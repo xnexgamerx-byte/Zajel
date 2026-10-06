@@ -5,6 +5,7 @@ use App\Http\Controllers\TlsAskController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
+use App\Http\Controllers\Platform\CompanySystemController;
 use App\Http\Controllers\Courier\ActionController as CourierActionController;
 use App\Http\Controllers\Courier\CashController as CourierCashController;
 use App\Http\Controllers\Courier\PickupController as CourierPickupController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
 use App\Http\Controllers\Portal\ShipmentImportController as PortalShipmentImportController;
 use App\Http\Controllers\Portal\StatementController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
+use App\Http\Controllers\Platform\FeatureController;
 use App\Http\Controllers\Platform\ImpersonationController;
 use App\Http\Controllers\Platform\InvoiceController;
 use App\Http\Controllers\Platform\LoginController as PlatformLoginController;
@@ -117,7 +119,7 @@ Route::middleware('tenant')->group(function () {
         Route::get('/home/customize', [HomeLayoutController::class, 'edit'])->middleware('staff')->name('home.customize');
         Route::post('/home/customize', [HomeLayoutController::class, 'update'])->middleware('staff')->name('home.customize.update');
         // صورة إعلان التطبيق: لكل مستخدمي الشركة — ربط المسار يفلتر بها
-        Route::get('/app-ads/{ad}/image', [AppAdController::class, 'image'])->whereNumber('ad')->name('app-ads.image');
+        Route::get('/app-ads/{ad}/image', [AppAdController::class, 'image'])->whereNumber('ad')->middleware('feature:app_ads')->name('app-ads.image');
 
         Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
         Route::get('/shipments/create', [ShipmentController::class, 'create'])
@@ -126,20 +128,26 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.create'])->name('shipments.store');
 
         Route::middleware(['staff', 'can:shipments.create'])->group(function () {
-            // «اقرأ الطلب من صورة أو رسالة»: يملأ النموذج ولا يحفظ (docs/plan/34)
-            Route::post('/shipments/read', OrderReadingController::class)->middleware('throttle:30,1,order-reading')->name('shipments.read');
-            Route::get('/shipments/quick', [QuickEntryController::class, 'create'])->name('shipments.quick');
-            Route::post('/shipments/quick', [QuickEntryController::class, 'store'])->name('shipments.quick.store');
-            Route::get('/shipments/import', [ShipmentImportController::class, 'create'])->name('shipments.import');
-            Route::get('/shipments/import/template', [ShipmentImportController::class, 'template'])->name('shipments.import.template');
-            Route::post('/shipments/import', [ShipmentImportController::class, 'store'])->name('shipments.import.store');
-            Route::post('/shipments/import/confirm', [ShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
+            // «اقرأ الطلب من صورة أو رسالة»: يملأ النموذج ولا يحفظ (docs/plan/34) — ميزةٌ تُفتح لكل شركة (docs/plan/35)
+            Route::post('/shipments/read', OrderReadingController::class)->middleware(['feature:order_reading', 'throttle:30,1,order-reading'])->name('shipments.read');
+            Route::middleware('feature:quick_entry')->group(function () {
+                Route::get('/shipments/quick', [QuickEntryController::class, 'create'])->name('shipments.quick');
+                Route::post('/shipments/quick', [QuickEntryController::class, 'store'])->name('shipments.quick.store');
+            });
+            Route::middleware('feature:excel_import')->group(function () {
+                Route::get('/shipments/import', [ShipmentImportController::class, 'create'])->name('shipments.import');
+                Route::get('/shipments/import/template', [ShipmentImportController::class, 'template'])->name('shipments.import.template');
+                Route::post('/shipments/import', [ShipmentImportController::class, 'store'])->name('shipments.import.store');
+                Route::post('/shipments/import/confirm', [ShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
+            });
             // الوصولات المطبوعة مسبقاً: شحنةٌ من وصلٍ مُسح، ودفاتر الأرقام (قبل /shipments/{shipment})
-            Route::get('/shipments/waybill', [ShipmentWaybillController::class, 'show'])->name('shipments.waybill');
-            Route::get('/waybill-books', [WaybillBookController::class, 'index'])->name('waybill-books.index');
-            Route::post('/waybill-books', [WaybillBookController::class, 'store'])->name('waybill-books.store');
-            Route::post('/waybill-books/{book}/assign', [WaybillBookController::class, 'assign'])->whereNumber('book')->name('waybill-books.assign');
-            Route::get('/waybill-books/{book}/print', [WaybillBookController::class, 'print'])->whereNumber('book')->name('waybill-books.print');
+            Route::middleware('feature:waybills')->group(function () {
+                Route::get('/shipments/waybill', [ShipmentWaybillController::class, 'show'])->name('shipments.waybill');
+                Route::get('/waybill-books', [WaybillBookController::class, 'index'])->name('waybill-books.index');
+                Route::post('/waybill-books', [WaybillBookController::class, 'store'])->name('waybill-books.store');
+                Route::post('/waybill-books/{book}/assign', [WaybillBookController::class, 'assign'])->whereNumber('book')->name('waybill-books.assign');
+                Route::get('/waybill-books/{book}/print', [WaybillBookController::class, 'print'])->whereNumber('book')->name('waybill-books.print');
+            });
         });
         // قبل /shipments/{shipment}: وإلا قُرئت «labels» رقمَ شحنة
         Route::get('/shipments/labels', [ShipmentLabelController::class, 'staff'])
@@ -315,7 +323,7 @@ Route::middleware('tenant')->group(function () {
             });
 
             // المحادثات مع التجّار: للشركة لا لموظّفٍ بعينه
-            Route::middleware('can:support.reply')->group(function () {
+            Route::middleware(['feature:conversations', 'can:support.reply'])->group(function () {
                 Route::get('/conversations', [ConversationController::class, 'index'])->name('conversations.index');
                 Route::post('/conversations', [ConversationController::class, 'store'])->name('conversations.store');
                 Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->name('conversations.show');
@@ -332,7 +340,7 @@ Route::middleware('tenant')->group(function () {
             });
 
             // الإشعارات الجماعية: إعلانٌ واحد للمناديب أو للتجّار، ومَن قرأه
-            Route::middleware('can:notify.send')->group(function () {
+            Route::middleware(['feature:announcements', 'can:notify.send'])->group(function () {
                 Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
                 Route::post('/announcements', [AnnouncementController::class, 'store'])->name('announcements.store');
                 Route::get('/announcements/{announcement}', [AnnouncementController::class, 'show'])->name('announcements.show');
@@ -384,7 +392,7 @@ Route::middleware('tenant')->group(function () {
             });
 
             // «إعلانات الصفحة الرئيسية بالتطبيق»: مع الإشعارات
-            Route::middleware(['can:notify.send', 'main-branch'])->group(function () {
+            Route::middleware(['feature:app_ads', 'can:notify.send', 'main-branch'])->group(function () {
                 Route::get('/app-ads', [AppAdController::class, 'index'])->name('app-ads.index');
                 Route::post('/app-ads', [AppAdController::class, 'store'])->name('app-ads.store');
                 Route::put('/app-ads/{ad}', [AppAdController::class, 'update'])->whereNumber('ad')->name('app-ads.update');
@@ -528,29 +536,35 @@ Route::middleware('tenant')->group(function () {
 
             Route::get('/shipments', [PortalShipmentController::class, 'index'])->name('shipments.index');
             Route::get('/shipments/create', [PortalShipmentController::class, 'create'])->name('shipments.create');
-            Route::get('/shipments/import', [PortalShipmentImportController::class, 'create'])->name('shipments.import');
-            Route::get('/shipments/import/template', [PortalShipmentImportController::class, 'template'])->name('shipments.import.template');
-            Route::post('/shipments/import', [PortalShipmentImportController::class, 'store'])->name('shipments.import.store');
-            Route::post('/shipments/import/confirm', [PortalShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
+            Route::middleware('feature:excel_import')->group(function () {
+                Route::get('/shipments/import', [PortalShipmentImportController::class, 'create'])->name('shipments.import');
+                Route::get('/shipments/import/template', [PortalShipmentImportController::class, 'template'])->name('shipments.import.template');
+                Route::post('/shipments/import', [PortalShipmentImportController::class, 'store'])->name('shipments.import.store');
+                Route::post('/shipments/import/confirm', [PortalShipmentImportController::class, 'confirm'])->name('shipments.import.confirm');
+            });
             Route::post('/shipments', [PortalShipmentController::class, 'store'])->name('shipments.store');
-            Route::post('/shipments/read', OrderReadingController::class)->middleware('throttle:30,1,order-reading')->name('shipments.read');
+            Route::post('/shipments/read', OrderReadingController::class)->middleware(['feature:order_reading', 'throttle:30,1,order-reading'])->name('shipments.read');
             Route::get('/shipments/labels', [ShipmentLabelController::class, 'portal'])->name('shipments.labels');
             // وصولاتٌ يطبعها التاجر ويكتب عليها بيده (بحدٍّ للدفاتر في الساعة)
-            Route::get('/waybills', [PortalWaybillController::class, 'index'])->name('waybills.index');
-            Route::post('/waybills', [PortalWaybillController::class, 'store'])->middleware('throttle:20,60')->name('waybills.store');
-            Route::get('/waybills/{book}/print', [PortalWaybillController::class, 'print'])->whereNumber('book')->name('waybills.print');
+            Route::middleware('feature:waybills')->group(function () {
+                Route::get('/waybills', [PortalWaybillController::class, 'index'])->name('waybills.index');
+                Route::post('/waybills', [PortalWaybillController::class, 'store'])->middleware('throttle:20,60')->name('waybills.store');
+                Route::get('/waybills/{book}/print', [PortalWaybillController::class, 'print'])->whereNumber('book')->name('waybills.print');
+            });
             Route::get('/shipments/{shipment}', [PortalShipmentController::class, 'show'])->name('shipments.show');
 
             Route::get('/statement', StatementController::class)->name('statement');
             Route::post('/settlements/{settlement}/confirm', [StatementController::class, 'confirm'])->whereNumber('settlement')->name('settlements.confirm');
             Route::get('/inbox', [InboxController::class, 'portal'])->name('inbox');
 
-            Route::get('/support', [PortalSupportController::class, 'index'])->name('support.index');
-            Route::post('/support', [PortalSupportController::class, 'store'])->name('support.store');
-            Route::get('/support/{conversation}', [PortalSupportController::class, 'show'])->name('support.show');
-            Route::post('/support/{conversation}/reply', [PortalSupportController::class, 'reply'])->name('support.reply');
-            Route::get('/support/{conversation}/files/{message}', [PortalSupportController::class, 'attachment'])
-                ->whereNumber('message')->name('support.attachment');
+            Route::middleware('feature:conversations')->group(function () {
+                Route::get('/support', [PortalSupportController::class, 'index'])->name('support.index');
+                Route::post('/support', [PortalSupportController::class, 'store'])->name('support.store');
+                Route::get('/support/{conversation}', [PortalSupportController::class, 'show'])->name('support.show');
+                Route::post('/support/{conversation}/reply', [PortalSupportController::class, 'reply'])->name('support.reply');
+                Route::get('/support/{conversation}/files/{message}', [PortalSupportController::class, 'attachment'])
+                    ->whereNumber('message')->name('support.attachment');
+            });
 
             Route::get('/pickups', [PickupRequestController::class, 'index'])->name('pickups.index');
             Route::post('/pickups', [PickupRequestController::class, 'store'])->name('pickups.store');
@@ -595,6 +609,16 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
         Route::post('/companies/{company}/suspend', [PlatformCompanyController::class, 'suspend'])->name('companies.suspend');
         Route::post('/companies/{company}/activate', [PlatformCompanyController::class, 'activate'])->name('companies.activate');
         Route::post('/companies/{company}/impersonate', [ImpersonationController::class, 'start'])->name('companies.impersonate');
+
+        // نظام كل شركة: ميزاته ورسومها الشهرية، ومظهره، وترتيب قوائم موظّفيه (docs/plan/35)
+        Route::get('/companies/{company}/system', [CompanySystemController::class, 'show'])->name('companies.system');
+        Route::post('/companies/{company}/features', [CompanySystemController::class, 'feature'])->name('companies.features.update');
+        Route::post('/companies/{company}/theme', [CompanySystemController::class, 'theme'])->name('companies.theme');
+        Route::post('/companies/{company}/navigation', [CompanySystemController::class, 'navigation'])->name('companies.navigation');
+
+        // الميزات من جهة الميزة: أيّ الشركات فُتحت لها، وكم تُدخل
+        Route::get('/features', [FeatureController::class, 'index'])->name('features.index');
+        Route::get('/features/{feature}', [FeatureController::class, 'show'])->name('features.show');
 
         // مال المنصّة مع الشركات: اشتراك كلٍّ منها وما عليها. أسعار التوصيل ليست هنا —
         // تلك بين الشركة وتجّارها، في «التسعيرات» من نظامها

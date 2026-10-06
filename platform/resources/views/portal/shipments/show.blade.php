@@ -149,6 +149,7 @@
         </section>
 
         {{-- «محادثة الشحنة»: سؤالك عنها وصورها في مكانٍ واحد --}}
+        @feature('conversations')
         <section class="card p-5">
             <div class="mb-3 flex items-center justify-between gap-3">
                 <h2 class="text-sm font-bold">محادثة عن الشحنة</h2>
@@ -171,6 +172,7 @@
                 <p class="text-sm text-ink-500">سؤالٌ عنها مع صورةٍ يصل الشركة هنا ويبقى معها.</p>
             @endforelse
         </section>
+        @endfeature
     </div>
 </div>
 @endsection

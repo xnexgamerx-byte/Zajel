@@ -30,6 +30,9 @@
             <span class="num">{{ number_format($mrr) }}</span>
             <span class="text-sm font-medium text-ink-500">د.ع</span>
         </div>
+        @if ($featureFees)
+            <div class="mt-1 text-xs text-ink-500">منها رسوم ميزات <span class="num">{{ number_format($featureFees) }}</span></div>
+        @endif
     </div>
 </div>
 

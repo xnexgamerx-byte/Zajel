@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsurePlatformUser;
 use App\Http\Middleware\EnsureMainBranch;
 use App\Http\Middleware\EnsureCourier;
+use App\Http\Middleware\EnsureFeature;
 use App\Http\Middleware\EnsureMerchant;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\IdentifyPlatform;
@@ -75,6 +76,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'courier'       => EnsureCourier::class,
             'platform-user' => EnsurePlatformUser::class,
             'main-branch'   => EnsureMainBranch::class,
+            // ميزةٌ تفتحها المنصّة لكل شركةٍ وحدها: feature:order_reading (docs/plan/35)
+            'feature'       => EnsureFeature::class,
         ]);
 
         // زائر لوحة النواة يُعاد إلى دخولها لا إلى دخول شركة لا وجود لها. ومن أرسل نموذجاً

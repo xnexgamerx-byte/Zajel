@@ -42,7 +42,9 @@
     </div>
 @endif
 
-<x-order-reader :url="route('portal.shipments.read')" form="order-form" />
+@feature('order_reading')
+    <x-order-reader :url="route('portal.shipments.read')" form="order-form" />
+@endfeature
 
 <form method="POST" action="{{ route('portal.shipments.store') }}" id="order-form" class="mx-auto max-w-3xl">
     @csrf
@@ -172,6 +174,7 @@
             </div>
 
             {{-- «البروموكود» في النظام المعتاد: رقم الوصل المطبوع الملصوق على الطرد، إن وُجد --}}
+            @feature('waybills')
             <div class="px-5 py-5 sm:px-7">
                 <label class="field-label flex items-center gap-2" for="waybill">
                     <x-icon name="receipt" class="size-4 text-ink-500"/>
@@ -185,6 +188,7 @@
                 </p>
                 @error('waybill') <p class="field-error">{{ $message }}</p> @enderror
             </div>
+            @endfeature
         </div>
 
         <div class="border-t border-ink-100 bg-ink-50/70 px-5 py-4 sm:px-7">

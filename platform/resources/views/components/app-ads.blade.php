@@ -1,9 +1,11 @@
 @props(['audience'])
 
 @php
-    // إعلانٌ ضاعت صورته (قرصٌ استُبدل) يُتخطّى بدل صورةٍ مكسورة أعلى الصفحة
-    $ads = \App\Models\AppAd::shownTo($audience)->limit(6)->get(['id', 'title', 'link_url', 'image_path'])
-        ->filter(fn ($ad) => \Illuminate\Support\Facades\Storage::disk('local')->exists($ad->image_path));
+    // إعلانٌ ضاعت صورته (قرصٌ استُبدل) يُتخطّى بدل صورةٍ مكسورة أعلى الصفحة. وفي شركةٍ
+    // أُغلقت فيها إعلانات التطبيق لا شريط (docs/plan/35)
+    $ads = ! \App\Support\FeatureGate::enabled('app_ads') ? collect()
+        : \App\Models\AppAd::shownTo($audience)->limit(6)->get(['id', 'title', 'link_url', 'image_path'])
+            ->filter(fn ($ad) => \Illuminate\Support\Facades\Storage::disk('local')->exists($ad->image_path));
 @endphp
 
 {{-- «إعلانات الصفحة الرئيسية بالتطبيق»: شريطٌ ينزلق أفقياً على الهاتف --}}

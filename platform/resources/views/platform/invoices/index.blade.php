@@ -81,6 +81,7 @@
                     <th >اشتراك</th>
                     <th >شحنات</th>
                     <th >عمولة</th>
+                    <th >ميزات</th>
                     <th >الإجمالي</th>
                     <th >المتبقّي</th>
                     <th >الحالة</th>
@@ -108,6 +109,9 @@
                         <td class="px-4 py-3 text-ink-600" dir="ltr">
                             {{ number_format($invoice->commission_amount) }}
                         </td>
+                        <td class="px-4 py-3 text-ink-600" dir="ltr">
+                            {{ number_format($invoice->features_amount) }}
+                        </td>
                         <td class="px-4 py-3 font-bold" dir="ltr">{{ number_format($invoice->total) }}</td>
                         <td class="px-4 py-3 font-semibold {{ $invoice->balanceDue() > 0 ? 'text-warn-700' : 'text-ok-700' }}"
                             dir="ltr">{{ number_format($invoice->balanceDue()) }}</td>
@@ -115,7 +119,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="px-4 py-16 text-center text-ink-500">
+                        <td colspan="10" class="px-4 py-16 text-center text-ink-500">
                             لا فواتير بعد. أصدر فواتير شهر من الأعلى.
                         </td>
                     </tr>

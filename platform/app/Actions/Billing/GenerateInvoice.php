@@ -2,18 +2,22 @@
 
 namespace App\Actions\Billing;
 
+use App\Enums\Feature;
 use App\Models\Company;
+use App\Models\CompanyFeature;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Shipment;
 use App\Models\Subscription;
+use App\Support\Arabic;
 use App\Support\Tenancy\Tenancy;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * فاتورة شهر واحد على شركة واحدة: اشتراك + عمولة الشحنات المسلَّمة.
+ * فاتورة شهر واحد على شركة واحدة: اشتراك + عمولة الشحنات المسلَّمة + رسوم ميزاتها
+ * المفتوحة برسمٍ شهريّ (docs/plan/35).
  *
  * ثلاثة قرارات تحكم هذا الإجراء:
  *  1) رقم الفاتورة مشتقّ من الشركة والفترة، فمحاولة فوترة الشهر نفسه
@@ -55,21 +59,23 @@ class GenerateInvoice
 
                 $subscriptionAmount = $this->addSubscriptionLine($invoice, $subscription, $start);
                 [$commission, $count] = $this->addCommissionLines($invoice, $subscription, $start, $end);
+                $features = $this->addFeatureLines($invoice, $start, $end);
 
                 // فاتورة بصفر ليست فاتورة: شركة اشتركت بعد الفترة أو لم
                 // تسلّم شيئاً لا تُرسَل لها ورقة فارغة. المعاملة تُلغى كاملة
                 // فلا يبقى رقم فاتورة محجوزاً بلا مقابل.
-                if ($subscriptionAmount === 0 && $commission === 0) {
+                if ($subscriptionAmount === 0 && $commission === 0 && $features === 0) {
                     throw ValidationException::withMessages([
-                        'period' => 'لا اشتراك ولا شحنات مفوترة في هذه الفترة.',
+                        'period' => 'لا اشتراك ولا شحنات مفوترة ولا ميزات برسمٍ في هذه الفترة.',
                     ]);
                 }
 
                 $invoice->forceFill([
                     'subscription_amount' => $subscriptionAmount,
                     'commission_amount'   => $commission,
+                    'features_amount'     => $features,
                     'billable_shipments'  => $count,
-                    'total'               => $subscriptionAmount + $commission,
+                    'total'               => $subscriptionAmount + $commission + $features,
                 ])->save();
 
                 return $invoice->refresh();
@@ -118,6 +124,64 @@ class GenerateInvoice
         ]);
 
         return $amount;
+    }
+
+    /**
+     * رسوم الميزات المفتوحة برسمٍ شهريّ، يوماً بيوم: ميزةٌ فُتحت في منتصف الشهر أو أُغلقت
+     * فيه تُحسب بأيّامها — واليوم الذي استُعملت فيه ولو ساعةً يومٌ — ويومٌ تغيّر فيه رسمها
+     * بآخر رسمٍ فيه. ولكل ميزةٍ سطرٌ مقرَّبٌ إلى ٢٥٠ دينار، أصغر ورقةٍ تُدفع.
+     */
+    protected function addFeatureLines(Invoice $invoice, CarbonImmutable $start, CarbonImmutable $end): int
+    {
+        $decisions = CompanyFeature::query()
+            ->where('enabled', true)
+            ->where('monthly_price', '>', 0)
+            ->where('starts_at', '<=', $end)
+            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $start))
+            ->orderBy('starts_at')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('feature');
+
+        $month = $start->daysInMonth;
+        $total = 0;
+
+        foreach ($decisions as $key => $periods) {
+            // يومٌ من الشهر => الرسم الشهريّ الساري فيه
+            $days = [];
+            foreach ($periods as $period) {
+                $from = $start->max(CarbonImmutable::instance($period->starts_at)->startOfDay());
+                $until = $period->ends_at ? $end->min(CarbonImmutable::instance($period->ends_at)) : $end;
+
+                for ($day = $from; $day <= $until; $day = $day->addDay()) {
+                    $days[$day->day] = (int) $period->monthly_price;
+                }
+            }
+
+            $amount = (int) (round(array_sum($days) / $month / 250) * 250);
+
+            if ($amount === 0) {
+                continue;
+            }
+
+            $label = Feature::tryFrom($key)?->label() ?? $key;
+            $whole = count($days) === $month && count(array_unique($days)) === 1;
+
+            InvoiceItem::create([
+                'invoice_id'  => $invoice->id,
+                'type'        => 'addon',
+                'description' => "ميزة «{$label}» — ".($whole
+                    ? $start->format('Y-m')
+                    : Arabic::days(count($days))." من {$month} في ".$start->format('Y-m')),
+                'quantity'    => 1,
+                'unit_price'  => $amount,
+                'amount'      => $amount,
+            ]);
+
+            $total += $amount;
+        }
+
+        return $total;
     }
 
     /** @return array{0:int,1:int} [مبلغ العمولة, عدد الشحنات] */

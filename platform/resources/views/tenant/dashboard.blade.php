@@ -144,9 +144,11 @@
                 <span class="dash-card-plus"><x-icon name="plus" class="size-6"/></span>
                 <span class="font-heading text-base">شحنة جديدة</span>
             </a>
-            <a href="{{ route('shipments.import') }}" class="text-xs font-normal text-primary-700 hover:underline">
-                أو ارفع دفعةً من ملف
-            </a>
+            @feature('excel_import')
+                <a href="{{ route('shipments.import') }}" class="text-xs font-normal text-primary-700 hover:underline">
+                    أو ارفع دفعةً من ملف
+                </a>
+            @endfeature
         </div>
     @endif
 </div>

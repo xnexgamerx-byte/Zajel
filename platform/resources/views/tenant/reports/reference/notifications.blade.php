@@ -95,11 +95,11 @@
                     @endphp
                     <tr class="{{ $announcement->isExpired() ? 'text-ink-400' : '' }}">
                         <td class="max-w-80">
-                            @can('notify.send')
+                            @if (auth()->user()->can('notify.send') && \App\Support\FeatureGate::enabled('announcements'))
                                 <a href="{{ route('announcements.show', $announcement) }}" class="font-medium hover:underline">{{ $announcement->title }}</a>
                             @else
                                 <span class="font-medium">{{ $announcement->title }}</span>
-                            @endcan
+                            @endif
                             <span class="block truncate text-xs text-ink-500">{{ $announcement->body }}</span>
                         </td>
                         <td class="whitespace-nowrap text-sm">

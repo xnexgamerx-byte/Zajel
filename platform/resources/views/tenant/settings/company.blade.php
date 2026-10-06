@@ -84,4 +84,25 @@
         <button type="submit" class="btn-primary w-full">احفظ</button>
     </section>
 </form>
+
+{{-- ما يعمل في نظامها من ميزات وبكم: تفتحها إدارة المنصّة وتُفوتَر عليها (docs/plan/35) --}}
+<section class="card mt-5 p-5" id="features">
+    <h2 class="card-title">ميزات نظامك</h2>
+    <p class="card-hint">ما يعمل في نظام شركتك من ميزات، ورسم كلٍّ منها الشهري على فاتورتك. وما ليس مفتوحاً يُفتح بطلبٍ إلى إدارة المنصّة.</p>
+    <ul class="mt-2 divide-y divide-ink-100">
+        @foreach ($company->featureStates() as $row)
+            <li class="flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm">
+                <span class="min-w-0">
+                    <span class="font-medium text-ink-900">{{ $row['feature']->label() }}</span>
+                    <span class="block text-xs text-ink-500">{{ $row['feature']->description() }}</span>
+                </span>
+                @if ($row['enabled'])
+                    <span class="chip chip-ok shrink-0">{{ $row['price'] ? number_format($row['price']).' د.ع شهرياً' : 'مفتوحة' }}</span>
+                @else
+                    <span class="chip chip-mute shrink-0">غير مفعّلة</span>
+                @endif
+            </li>
+        @endforeach
+    </ul>
+</section>
 @endsection

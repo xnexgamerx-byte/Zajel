@@ -6,6 +6,7 @@ use App\Actions\Shipments\ChangeStatusInBulk;
 use App\Actions\Shipments\CreateShipment;
 use App\Actions\Shipments\UpdateShipment;
 use App\Actions\Waybills\CreateFromWaybill;
+use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreShipmentRequest;
@@ -23,6 +24,7 @@ use App\Models\User;
 use App\Models\WaybillBook;
 use App\Services\Shipments\ShipmentFilters;
 use App\Services\Shipments\ShipmentStages;
+use App\Support\FeatureGate;
 use App\Support\StaffNavigation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -165,9 +167,10 @@ class ShipmentController extends Controller
 
     public function create(Request $request): View|RedirectResponse
     {
-        // من «شحنة من وصلٍ مطبوع»: الرقم الممسوح وتاجر دفتره — وما لا يصحّ يُعاد إلى المسح بسببه
+        // من «شحنة من وصلٍ مطبوع»: الرقم الممسوح وتاجر دفتره — وما لا يصحّ يُعاد إلى المسح بسببه.
+        // وفي شركةٍ أُغلقت فيها الوصولات المطبوعة شحنةٌ عادية
         $waybill = null;
-        if (filled($code = WaybillBook::fromInput($request->query('waybill')))) {
+        if (FeatureGate::enabled(Feature::Waybills) && filled($code = WaybillBook::fromInput($request->query('waybill')))) {
             if (CreateFromWaybill::problem($code, $request->user())) {
                 return redirect()->route('shipments.waybill', ['code' => $code]);
             }
@@ -194,7 +197,7 @@ class ShipmentController extends Controller
     public function store(StoreShipmentRequest $request, CreateShipment $action, CreateFromWaybill $fromWaybill): RedirectResponse
     {
         // وصلٌ مطبوع: يُحفظ برقمه، ثم يعود الموظّف إلى المسح للوصل التالي
-        if (filled($code = $request->validated('waybill'))) {
+        if (FeatureGate::enabled(Feature::Waybills) && filled($code = $request->validated('waybill'))) {
             $shipment = $fromWaybill->handle($code, $request->validated(), $request->user());
 
             return redirect()->route('shipments.waybill')->with('success',

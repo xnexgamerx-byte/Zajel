@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Portal;
 
 use App\Actions\Shipments\CreateShipment;
 use App\Actions\Waybills\CreateFromWaybill;
+use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PortalShipmentRequest;
@@ -12,6 +13,7 @@ use App\Models\Conversation;
 use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\WaybillBook;
+use App\Support\FeatureGate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -73,7 +75,8 @@ class ShipmentController extends Controller
     {
         $merchant = $request->attributes->get('merchant');
         $data = $request->validated() + ['source' => 'merchant_portal'];
-        $code = WaybillBook::fromInput($data['waybill'] ?? null);
+        // رقم الوصل المطبوع في شركةٍ فيها الوصولات المطبوعة وحدها
+        $code = FeatureGate::enabled(Feature::Waybills) ? WaybillBook::fromInput($data['waybill'] ?? null) : '';
         unset($data['waybill']);
 
         if ($code === '') {

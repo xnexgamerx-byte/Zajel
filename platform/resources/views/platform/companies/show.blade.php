@@ -26,6 +26,10 @@
 
     <div class="flex flex-wrap gap-2">
         <a href="{{ route('admin.companies.edit', $company) }}" class="btn-ghost">تعديل البيانات</a>
+        <a href="{{ route('admin.companies.system', $company) }}" class="btn-ghost">
+            <x-icon name="sliders" class="size-4"/>
+            الميزات والمظهر
+        </a>
 
         <form method="POST" action="{{ route('admin.companies.impersonate', $company) }}">
             @csrf
@@ -132,6 +136,12 @@
                                     'impersonation_started'  => 'دخول من المنصّة',
                                     'impersonation_ended'    => 'خروج من المنصّة',
                                 ][$entry->action] ?? $entry->actionLabel() }}
+                                {{-- أيّ ميزةٍ وبكم، وأيّ مظهر --}}
+                                @if ($named = \App\Enums\Feature::tryFrom((string) ($entry->new_values['feature'] ?? '')))
+                                    «{{ $named->label() }}»@if ($entry->new_values['monthly_price'] ?? 0) بـ <span class="num">{{ number_format($entry->new_values['monthly_price']) }}</span> د.ع شهرياً@endif
+                                @elseif ($entry->action === 'theme_changed')
+                                    «{{ \App\Support\Theme::NAMES[$entry->new_values['theme'] ?? ''] ?? '' }}»
+                                @endif
                                 @if ($entry->user_name)
                                     <span class="text-ink-500">— {{ $entry->user_name }}</span>
                                 @endif
@@ -168,6 +178,46 @@
                     </div>
                 @endforeach
             </dl>
+        </section>
+
+        @php
+            $features = $company->featureStates();
+            $open = collect($features)->where('enabled', true);
+            $theme = $company->theme();
+        @endphp
+        <section class="card p-5">
+            <div class="mb-4 flex items-center justify-between gap-2">
+                <h2 class="text-sm font-bold">نظامها</h2>
+                <a href="{{ route('admin.companies.system', $company) }}"
+                   class="text-xs font-semibold text-[var(--brand)] hover:underline">الميزات والمظهر</a>
+            </div>
+            <dl class="space-y-2.5 text-sm">
+                <div class="flex justify-between gap-3">
+                    <dt class="text-ink-500">ميزاتٌ مفتوحة</dt>
+                    <dd><span class="num font-semibold">{{ $open->count() }}</span> من <span class="num">{{ count($features) }}</span></dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                    <dt class="text-ink-500">رسومها الشهرية</dt>
+                    <dd class="font-semibold" dir="ltr">{{ number_format($open->sum('price')) }} د.ع</dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                    <dt class="text-ink-500">المظهر</dt>
+                    <dd class="flex items-center gap-2">
+                        <span class="size-3.5 rounded-full" style="background: {{ $theme->shades[600] }}"></span>
+                        {{ $theme->name() }}
+                    </dd>
+                </div>
+            </dl>
+            @if ($open->where('price', '>', 0)->isNotEmpty())
+                <ul class="mt-3 space-y-1 border-t border-ink-100 pt-3 text-xs text-ink-600">
+                    @foreach ($open->where('price', '>', 0) as $row)
+                        <li class="flex justify-between gap-3">
+                            <span>{{ $row['feature']->label() }}</span>
+                            <span class="num" dir="ltr">{{ number_format($row['price']) }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
         </section>
 
         <section class="card p-5">

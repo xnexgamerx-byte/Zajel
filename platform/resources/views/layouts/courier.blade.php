@@ -10,7 +10,7 @@
     @include('partials.fonts')
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <style>:root { --company: {{ $company->primary_color }}; }</style>
+    @include('partials.company-style')
 </head>
 <body class="min-h-screen pb-24 antialiased">
 

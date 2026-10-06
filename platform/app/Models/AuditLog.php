@@ -50,6 +50,10 @@ class AuditLog extends Model
         'settlement_draft_deleted' => 'حُذف كشفٌ مسودّة',
         'settlement_draft_edited'  => 'عُدِّل كشفٌ مسودّة',
         'login_changed'            => 'تغيّر اسم الدخول أو كلمة المرور',
+        'feature_enabled'          => 'فُتحت ميزة',
+        'feature_disabled'         => 'أُغلقت ميزة',
+        'feature_price_changed'    => 'تغيّر رسم ميزة',
+        'theme_changed'            => 'تغيّر مظهر النظام',
     ];
 
     public function actionLabel(): string

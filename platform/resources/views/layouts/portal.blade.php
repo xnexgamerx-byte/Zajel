@@ -12,7 +12,7 @@
 
     {{-- البوابة تحمل علامة شركة التوصيل لا علامة المنصّة: التاجر
          يتعامل مع "الزاجل" لا مع "وهج" المنصّة. --}}
-    <style>:root { --company: {{ $company->primary_color }}; }</style>
+    @include('partials.company-style')
 </head>
 <body class="min-h-screen antialiased">
 
@@ -36,7 +36,11 @@
         $toProcess = \App\Models\Shipment::where('merchant_id', $merchant->id)
             ->where('status', \App\Enums\ShipmentStatus::FailedAttempt->value)->count();
     }
-    $replies = \App\Models\Conversation::where('merchant_id', auth()->user()->merchant_id)->where('merchant_unread', true)->count();
+    // ميزةٌ أغلقتها المنصّة لهذه الشركة لا تبويب لها (docs/plan/35)
+    $portalNav = array_values(array_filter($portalNav, fn (array $item) => \App\Support\FeatureGate::allowsRoute($item[0])));
+    $replies = \App\Support\FeatureGate::enabled('conversations')
+        ? \App\Models\Conversation::where('merchant_id', auth()->user()->merchant_id)->where('merchant_unread', true)->count()
+        : 0;
 @endphp
 <header class="ds-header">
     <div class="mx-auto flex max-w-screen-xl items-center gap-3 px-4 py-3">

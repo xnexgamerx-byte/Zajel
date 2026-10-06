@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Support\FeatureGate;
 use App\Support\Permissions\Ability;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -42,6 +44,9 @@ class AppServiceProvider extends ServiceProvider
 
         // «صندوقي»: صاحب صندوق الموظّف وحده — الملكيّة هي الصلاحية
         Gate::define('cash.own-box', fn (User $user) => \App\Models\CashBox::where('user_id', $user->id)->exists());
+
+        // ميزةٌ تفتحها المنصّة لكل شركة (docs/plan/35): @feature('order_reading') … @endfeature
+        Blade::if('feature', fn (string $feature) => FeatureGate::enabled($feature));
 
         $this->registerDateMacros();
     }

@@ -43,7 +43,7 @@
                     @empty
                         <tr>
                             <td colspan="4" class="px-4 py-10 text-center text-ink-500">
-                                لا بنود — لا اشتراك ولا شحنات مفوترة في هذه الفترة.
+                                لا بنود — لا اشتراك ولا شحنات مفوترة ولا ميزات برسمٍ في هذه الفترة.
                             </td>
                         </tr>
                     @endforelse
@@ -102,6 +102,12 @@
                     </dt>
                     <dd dir="ltr">{{ number_format($invoice->commission_amount) }}</dd>
                 </div>
+                @if ($invoice->features_amount)
+                    <div class="flex justify-between">
+                        <dt class="text-ink-600">الميزات الإضافية</dt>
+                        <dd dir="ltr">{{ number_format($invoice->features_amount) }}</dd>
+                    </div>
+                @endif
                 <div class="flex justify-between border-t border-ink-200 pt-2">
                     <dt class="font-semibold">الإجمالي</dt>
                     <dd class="font-bold" dir="ltr">{{ number_format($invoice->total) }}</dd>

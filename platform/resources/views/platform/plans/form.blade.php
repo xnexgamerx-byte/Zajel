@@ -58,7 +58,12 @@
         </section>
 
         <section class="card p-5">
-            <h2 class="mb-4 text-sm font-bold">الوحدات المتاحة</h2>
+            <h2 class="text-sm font-bold">الوحدات المتاحة</h2>
+            {{-- وصفٌ للباقة لا مفتاح: ما يعمل فعلاً في نظام كل شركة يُفتح لها من «الميزات» (docs/plan/35) --}}
+            <p class="mt-1 mb-4 text-xs text-ink-500">
+                وصفٌ للباقة يُعرض عند البيع. أمّا ما يعمل فعلاً في نظام كل شركة فيُفتح لها ويُسعَّر من
+                <a href="{{ route('admin.features.index') }}" class="font-semibold text-[var(--brand)] hover:underline">«الميزات»</a>.
+            </p>
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 @foreach ($features as $key => $label)
                     <label class="flex items-center gap-2 rounded-lg border border-ink-200 px-3 py-2 text-sm">

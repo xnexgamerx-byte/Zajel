@@ -2,9 +2,12 @@
 
 namespace App\Support;
 
+use App\Enums\Feature;
+use App\Models\Company;
 use App\Models\Conversation;
 use App\Models\ShipmentTicket;
 use App\Models\User;
+use App\Support\Tenancy\Tenancy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
@@ -21,23 +24,27 @@ use Illuminate\Support\Facades\Route;
  * كل رابط يحمل صلاحيته: ما لا يُفتح لا يظهر (قائمةٌ تُفضي إلى 403 أسوأ من
  * قائمة قصيرة، وتُطلع الموظّف على ما لا يخصّه)، والقائمة التي لا يبقى فيها
  * رابطٌ لا تظهر.
+ *
+ * وهذا ترتيبها الأصليّ؛ ولكل شركةٍ ترتيبها إن ضبطته المنصّة (ordered()، docs/plan/35):
+ * القوائم بأسمائها الثابتة، والروابط في كل قائمةٍ بمفاتيحها (linkKey()).
  */
 final class StaffNavigation
 {
     /**
-     * [العنوان، الأيقونة، الروابط]؛ والرابط [المسار، النصّ، أنماط التمييز، الصلاحية، معاملات الرابط].
+     * [اسمها الثابت => [العنوان، الأيقونة، الروابط]]؛ والرابط [المسار، النصّ، أنماط التمييز،
+     * الصلاحية، معاملات الرابط]. والاسم الثابت به يُحفظ ترتيب كل شركة: لا يتغيّر.
      *
-     * @return list<array{0: string, 1: string, 2: list<array{0: string, 1: string, 2: list<string>, 3: ?string, 4?: array<string, string>}>}>
+     * @return array<string, array{0: string, 1: string, 2: list<array{0: string, 1: string, 2: list<string>, 3: ?string, 4?: array<string, string>}>}>
      */
     public static function menus(): array
     {
         return [
             // لوحة اليوم وحدها: رابطٌ مباشر لا قائمة تنسدل
-            ['الرئيسية', 'home', [
+            'home' => ['الرئيسية', 'home', [
                 ['dashboard', 'لوحة اليوم', ['dashboard'], null],
             ]],
             // كل ما يخصّ الشحنة نفسها: إدخالها، وقائمتها، وما انتهى منها
-            ['الشحنات', 'boxes', [
+            'shipments' => ['الشحنات', 'boxes', [
                 ['shipments.index', 'كل الشحنات', ['shipments.index', 'shipments.show', 'shipments.edit'], 'shipments.view'],
                 ['shipments.create', 'شحنة جديدة', ['shipments.create'], 'shipments.create'],
                 ['shipments.quick', 'إدخال سريع (حتى ٣٠ شحنة)', ['shipments.quick*'], 'shipments.create'],
@@ -51,7 +58,7 @@ final class StaffNavigation
                 ['shipments.trash', 'شحنات ممسوحة', ['shipments.trash'], 'shipments.delete'],
             ]],
             // رحلة الشحنة يوماً بيوم: من استلامها من التاجر حتى الزبون، وبين الفروع
-            ['التوصيل', 'truck', [
+            'delivery' => ['التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],
                 ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
                 ['shipments.scan', 'استلام وتوزيع بالمسح', ['shipments.scan'], 'shipments.status'],
@@ -63,7 +70,7 @@ final class StaffNavigation
                 ['manifests.archive', 'أرشيف الكشوف', ['manifests.archive', 'manifests.print'], 'transport.manage'],
             ]],
             // الراجع من المندوب إلى المخزن، ومن المخزن إلى تاجره
-            ['الراجع', 'undo', [
+            'returns' => ['الراجع', 'undo', [
                 ['returns.incoming', 'استلام الراجع من المندوب', ['returns.incoming'], 'returns.manage'],
                 ['returns.sorting', 'فرز الراجع للفروع', ['returns.sorting'], 'returns.manage'],
                 ['returns.outgoing', 'تسليم الراجع للتاجر', ['returns.outgoing'], 'returns.manage'],
@@ -72,7 +79,7 @@ final class StaffNavigation
                 ['return-batches.index', 'إيصالات الراجع', ['return-batches.*'], 'returns.manage'],
             ]],
             // مال اليوم: ما يدخل الصندوق وما يُدفع، والمحاسبة مع المناديب والتجّار
-            ['الحسابات المالية', 'cash', [
+            'money' => ['الحسابات المالية', 'cash', [
                 ['cash.index', 'الصندوق', ['cash.index'], 'money.cash'],
                 ['prepaid-fees.index', 'استلام أجور مدفوعة مقدّماً', ['prepaid-fees.*'], 'money.cash'],
                 ['couriers.cash', 'النقد بيد المندوبين', ['couriers.cash'], 'money.view'],
@@ -84,7 +91,7 @@ final class StaffNavigation
                 ['pickup-agents.objections', 'اعتراضات مندوبي الاستلام', ['pickup-agents.objections'], 'money.view'],
             ]],
             // الصورة الكاملة: موقف الشركة، وتدقيق حساباتها، وحساب كل فرعٍ مع غيره
-            ['الموقف المالي والفروع', 'bank', [
+            'position' => ['الموقف المالي والفروع', 'bank', [
                 ['money.position', 'الموقف المالي', ['money.position'], 'money.view'],
                 ['money.position.history', 'تاريخ الموقف المالي', ['money.position.history'], 'money.view'],
                 ['money.reconcile', 'تدقيق الحسابات', ['money.reconcile'], 'money.view'],
@@ -96,7 +103,7 @@ final class StaffNavigation
                 ['branch-accounts.deposits', 'تأمينات التجّار', ['branch-accounts.deposits'], 'money.view'],
             ]],
             // الأكثر سؤالاً هنا، والباقي كلّه في «كل التقارير»
-            ['التقارير', 'chart', [
+            'reports' => ['التقارير', 'chart', [
                 ['reports.index', 'كل التقارير', ['reports.index'], 'reports.view'],
                 ['reports.daily', 'الحركة اليومية', ['reports.daily'], 'reports.view'],
                 ['reports.returns', 'أسباب الراجع', ['reports.returns'], 'reports.view'],
@@ -107,7 +114,7 @@ final class StaffNavigation
                 ['reports.profit', 'أرباح الشحنات', ['reports.profit'], 'reports.financial'],
             ]],
             // الكلام مع التجّار والمناديب، وما يُراجَع قبل أن يمضي
-            ['المتابعة', 'review', [
+            'followup' => ['المتابعة', 'review', [
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
                 // المندوب عند الباب والزبون يقول مبلغاً آخر: ينتظر جوابنا الآن
                 ['tickets.index', 'طلبات المناديب لتغيير المبلغ', ['tickets.*'], 'tickets.handle'],
@@ -120,7 +127,7 @@ final class StaffNavigation
                 ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
             ]],
             // الناس والأسعار والشركة: ما يُضبط مرّةً ويُعدَّل أحياناً
-            ['الإعدادات', 'building', [
+            'settings' => ['الإعدادات', 'building', [
                 ['merchants.index', 'التجّار', ['merchants.*'], 'settings.merchants'],
                 ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit'], 'settings.couriers'],
                 ['zones.index', 'مناطق المندوبين', ['zones.*'], 'settings.zones'],
@@ -142,12 +149,12 @@ final class StaffNavigation
      * القوائم كما يراها $user في الطلب الحاليّ: روابطه وحدها، وأيّها الحاليّ،
      * وما ينتظر ردّه.
      *
-     * @return list<array{label: string, icon: string, active: bool, badge: int, links: list<array{label: string, url: string, active: bool, badge: int}>}>
+     * @return list<array{key: string, label: string, icon: string, active: bool, badge: int, links: list<array{label: string, url: string, active: bool, badge: int}>}>
      */
     public static function for(User $user, Request $request): array
     {
         // ما ينتظر ردّنا يُعَدّ على الرابط نفسه: لا يُكتشف بفتح الشاشة
-        $waiting = $user->can('support.reply')
+        $waiting = $user->can('support.reply') && FeatureGate::enabled(Feature::Conversations)
             ? Conversation::visibleTo($user)->where('status', 'open')->where('last_author', 'merchant')->count()
             : 0;
 
@@ -156,7 +163,7 @@ final class StaffNavigation
 
         $menus = [];
 
-        foreach (static::menus() as [$label, $icon, $links]) {
+        foreach (static::ordered(Tenancy::company()) as $key => [$label, $icon, $links]) {
             $visible = [];
 
             foreach ($links as $link) {
@@ -193,6 +200,7 @@ final class StaffNavigation
             }
 
             $menus[] = [
+                'key'    => $key,
                 'label'  => $label,
                 'icon'   => $icon,
                 'active' => in_array(true, array_column($visible, 'here'), true),
@@ -207,12 +215,65 @@ final class StaffNavigation
     }
 
     /**
+     * القوائم بترتيب الشركة كما ضبطته المنصّة (settings.navigation: menus قائمة الأسماء،
+     * وlinks.<القائمة> قائمة مفاتيح روابطها)، وما لم يُرتَّب بعدها بمكانه الأصليّ — فقائمةٌ
+     * أو رابطٌ يُضاف إلى النظام بعد ترتيب شركةٍ يظهر فيها، ومفتاحٌ أُزيل لا يُسقط شيئاً.
+     *
+     * @return array<string, array{0: string, 1: string, 2: list<array{0: string, 1: string, 2: list<string>, 3: ?string, 4?: array<string, string>}>}>
+     */
+    public static function ordered(?Company $company): array
+    {
+        $menus = static::menus();
+        $order = $company?->setting('navigation');
+
+        if (! is_array($order)) {
+            return $menus;
+        }
+
+        $menus = self::arrange($menus, $order['menus'] ?? []);
+
+        foreach ($menus as $key => $menu) {
+            $links = array_combine(array_map(self::linkKey(...), $menu[2]), $menu[2]);
+            $menus[$key][2] = array_values(self::arrange($links, $order['links'][$key] ?? []));
+        }
+
+        return $menus;
+    }
+
+    /** مفتاح الرابط في قائمته: مساره ومعاملاته — «announcements.index?audience=merchants» */
+    public static function linkKey(array $link): string
+    {
+        $params = $link[4] ?? [];
+
+        return $link[0].($params ? '?'.http_build_query($params) : '');
+    }
+
+    /**
+     * ما في $order أوّلاً بترتيبه — المعروف منه وحده — ثم الباقي بمكانه.
+     *
+     * @template T
+     * @param array<string, T> $items
+     * @return array<string, T>
+     */
+    private static function arrange(array $items, mixed $order): array
+    {
+        $order = is_array($order) ? array_filter($order, 'is_string') : [];
+
+        return array_replace(array_intersect_key(array_flip($order), $items), $items);
+    }
+
+    /**
      * يفتح $user هذه الشاشة؟ صلاحيتها، وليست للشركة كلّها (main-branch) وهو في
-     * فرعٍ غير الرئيسي. ما لا يُفتح لا يُعرَض رابطاً — في الشريط وفي غيره.
+     * فرعٍ غير الرئيسي، وميزتها مفتوحةٌ لشركته (feature:…، docs/plan/35). ما لا يُفتح
+     * لا يُعرَض رابطاً — في الشريط وفي غيره.
      */
     public static function allows(User $user, string $route, ?string $ability): bool
     {
         if ($ability !== null && ! $user->can($ability)) {
+            return false;
+        }
+
+        if (! FeatureGate::allowsRoute($route)) {
             return false;
         }
 

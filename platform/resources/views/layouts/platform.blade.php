@@ -47,6 +47,7 @@
             @foreach ([
                 ['admin.dashboard', 'نظرة عامة', 'admin.dashboard', 'grid'],
                 ['admin.companies.index', 'الشركات', 'admin.companies.*', 'building'],
+                ['admin.features.index', 'الميزات', 'admin.features.*', 'bolt'],
                 ['admin.subscriptions.index', 'الاشتراكات', 'admin.subscriptions.*', 'wallet'],
                 ['admin.invoices.index', 'الفواتير', 'admin.invoices.*', 'invoice'],
                 ['admin.plans.index', 'الباقات', 'admin.plans.*', 'tag'],

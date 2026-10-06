@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Shipments;
 
+use App\Enums\Feature;
 use App\Enums\UserRole;
 use App\Models\City;
 use App\Models\Company;
@@ -42,6 +43,8 @@ class OrderReadingTest extends TestCase
 
         $this->seedReference();
         $this->company = $this->makeCompany('zajel', 'الزاجل');
+        // ميزةٌ تُفتح لكل شركةٍ من المنصّة، ومطفأةٌ حتى تُفتح (docs/plan/35)
+        $this->setFeature($this->company, Feature::OrderReading);
         $this->merchant = $this->makeMerchant($this->company);
         $this->owner = $this->makeUser($this->company);
     }

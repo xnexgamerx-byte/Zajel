@@ -135,7 +135,7 @@ final class HomeLayout
                 }
 
                 $items[] = [
-                    'id'    => $route.($params ? '?'.http_build_query($params) : ''),
+                    'id'    => StaffNavigation::linkKey($link),
                     'label' => $label,
                     'url'   => route($route, $params),
                     'icon'  => $icon,

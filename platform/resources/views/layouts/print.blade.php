@@ -10,7 +10,7 @@
     @vite(['resources/css/app.css', 'resources/js/behaviors.js'])
 
     @isset($company)
-        <style>:root { --company: {{ $company->primary_color }}; }</style>
+        @include('partials.company-style')
     @endisset
 </head>
 <body class="bg-ink-100 antialiased print:bg-white">

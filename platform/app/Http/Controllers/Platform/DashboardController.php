@@ -6,6 +6,7 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Company;
+use App\Models\CompanyFeature;
 use App\Models\Subscription;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -45,6 +46,12 @@ class DashboardController extends Controller
                 ? (int) round($s->price / 12)
                 : $s->price);
 
+        // ورسوم الميزات المفتوحة برسمٍ للشركات العاملة (docs/plan/35)
+        $featureFees = (int) CompanyFeature::acrossCompanies()->current()
+            ->where('enabled', true)
+            ->whereIn('company_id', Company::where('status', 'active')->select('id'))
+            ->sum('monthly_price');
+
         return view('platform.dashboard', [
             'companies' => [
                 'total'     => Company::count(),
@@ -53,7 +60,8 @@ class DashboardController extends Controller
                 'suspended' => Company::where('status', 'suspended')->count(),
             ],
             'shipments' => $shipments,
-            'mrr'       => $mrr,
+            'mrr'       => $mrr + $featureFees,
+            'featureFees' => $featureFees,
             'expiring'  => $expiring,
             'audit'     => AuditLog::latest('id')->limit(15)->get(),
         ]);
