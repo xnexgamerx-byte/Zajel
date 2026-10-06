@@ -114,7 +114,15 @@
         </section>
 
         <section class="card p-5" id="notify">
-            <h2 class="card-title">دفعتُ — أبلغ عن دفعة</h2>
+            {{-- كيف تدفع أوّلاً، في البطاقة التي يُبلغ منها: على الهاتف لا تبقى تحت النموذج --}}
+            <h2 class="card-title">كيف تدفع</h2>
+            @if (filled($methods))
+                <p class="mt-2 rounded-2xl bg-ink-50 px-4 py-3 text-sm leading-7 whitespace-pre-line text-ink-800">{{ $methods }}</p>
+            @else
+                <p class="mt-2 text-sm text-ink-500">تواصل مع إدارة المنصّة لتعرف طريقة الدفع.</p>
+            @endif
+
+            <h2 class="card-title mt-6">دفعتُ — أبلغ عن دفعة</h2>
             <p class="card-hint">بعد أن تحوّل المبلغ اكتب رقم الحوالة وأرفق صورة الإيصال إن شئت. تُسجَّل على الفاتورة حين تؤكّدها إدارة المنصّة، وتقرأ هنا ما يُقرَّر فيها.</p>
 
             @if ($open->isEmpty())
@@ -201,15 +209,6 @@
     </div>
 
     <div class="space-y-5">
-        <section class="card p-5">
-            <h2 class="card-title">كيف تدفع</h2>
-            @if (filled($methods))
-                <p class="mt-2 text-sm leading-7 whitespace-pre-line text-ink-800">{{ $methods }}</p>
-            @else
-                <p class="mt-2 text-sm text-ink-500">تواصل مع إدارة المنصّة لتعرف طريقة الدفع.</p>
-            @endif
-        </section>
-
         <section class="card p-5">
             <h2 class="card-title">الاشتراك</h2>
             @if ($subscription)
