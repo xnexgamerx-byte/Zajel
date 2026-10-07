@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Cash\RecordExpense;
+use App\Exceptions\InsufficientCash;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\CashBox;
@@ -123,7 +124,7 @@ class ExpenseController extends Controller
 
         if ($box->balance < $expense->amount) {
             return back()->withErrors([
-                'cash_box_id' => "رصيد {$box->name} ".number_format($box->balance).' دينار فقط.',
+                'cash_box_id' => InsufficientCash::sentence($box, (int) $box->balance, (int) $expense->amount, 'expense'),
             ]);
         }
 

@@ -2,6 +2,7 @@
 
 namespace App\Actions\Cash;
 
+use App\Exceptions\InsufficientCash;
 use App\Models\Branch;
 use App\Models\BranchRemittance;
 use App\Models\CashBox;
@@ -36,7 +37,7 @@ class RemitBetweenBranches
             $fresh = CashBox::query()->lockForUpdate()->findOrFail($box->id);
 
             if ($fresh->balance < $amount) {
-                throw ValidationException::withMessages(['amount' => "في {$fresh->name} ".number_format($fresh->balance).' دينار فقط.']);
+                throw InsufficientCash::for($fresh, (int) $fresh->balance, $amount, 'branch_remittance_out');
             }
 
             $remittance = BranchRemittance::create([

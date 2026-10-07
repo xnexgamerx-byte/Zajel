@@ -7,6 +7,7 @@ use App\Actions\Settlements\DeleteDraftSettlement;
 use App\Actions\Settlements\EditDraftSettlement;
 use App\Actions\Settlements\PayMerchantSettlement;
 use App\Http\Controllers\Controller;
+use App\Models\CashBox;
 use App\Models\Merchant;
 use App\Models\MerchantSettlement;
 use Illuminate\Http\RedirectResponse;
@@ -65,8 +66,15 @@ class MerchantSettlementController extends Controller
         // المسودّة تُعدَّل لمن يملك التسوية: يُحاسَب على بعضها، ويُضاف إليها ما ينتظر خارجها
         $editable = $settlement->status === 'draft' && $request->user()->can('money.settle');
 
+        // الدفع النقدي يخرج من صندوق: يُرى رصيده قبل الضغط، لا بعد أن يُرفض — لمن يدفع وحده
+        $paying = $settlement->status === 'confirmed' && $request->user()->can('money.pay');
+
         return view('tenant.settlements.merchants.show', [
             'settlement' => $settlement,
+            'boxes'      => $paying ? CashBox::payableBy($request->user())
+                ->orderByRaw("case when type = 'main' then 0 else 1 end")->orderBy('name')
+                ->get(['id', 'name', 'balance', 'user_id']) : collect(),
+            'defaultBox' => $paying ? PayMerchantSettlement::defaultBox($settlement, $request->user()) : null,
             // كشف تاجرٍ كبير قد يحمل آلاف السطور: تُعرض صفحةً صفحة، والمجاميع من الكشف نفسه
             'lines'      => $settlement->lines()->with('shipment.governorate:id,name_ar')
                 ->orderBy('id')->paginate(100),
@@ -104,9 +112,22 @@ class MerchantSettlementController extends Controller
         $data = $request->validate([
             'payout_method'    => ['required', Rule::in(array_keys(\App\Models\Merchant::PAYOUT_METHODS))],
             'payout_reference' => ['nullable', 'string', 'max:120'],
-        ], [], ['payout_method' => 'طريقة الدفع', 'payout_reference' => 'رقم الحوالة']);
+            'cash_box_id'      => ['nullable', 'integer'],
+        ], [], ['payout_method' => 'طريقة الدفع', 'payout_reference' => 'رقم الحوالة', 'cash_box_id' => 'الصندوق']);
 
-        $action->pay($settlement, $request->user(), $data['payout_method'], $data['payout_reference'] ?? null);
+        $box = null;
+
+        // الحوالة لا تمسّ درجاً: لا يُسأل عن الصندوق المختار في النموذج
+        if ($data['payout_method'] === 'cash' && filled($data['cash_box_id'] ?? null)) {
+            $box = CashBox::payableBy($request->user())->find($data['cash_box_id']);
+
+            if (! $box) {
+                return back()->withErrors(['cash_box_id' => 'اختر صندوقاً مفعّلاً تدفع منه.'])->withInput();
+            }
+        }
+
+        // رصيدٌ لا يكفي يرجع برسالته (InsufficientCash) ولا يُكتب شيء
+        $action->pay($settlement, $request->user(), $data['payout_method'], $data['payout_reference'] ?? null, $box);
 
         return back()->with('success', "سُجِّل دفع كشف {$settlement->code}.");
     }

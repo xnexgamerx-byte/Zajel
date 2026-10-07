@@ -48,9 +48,21 @@
                 </div>
                 <div class="stat">
                     <div class="stat-label">الرصيد الآن</div>
-                    <div class="num mt-1 text-2xl font-bold">{{ number_format($box->balance) }}</div>
+                    <div class="num mt-1 text-2xl font-bold {{ $box->balance < 0 ? 'text-bad-700' : '' }}">{{ number_format($box->balance) }}</div>
                 </div>
             </div>
+
+            @if ($box->balance < 0)
+                {{-- رصيدٌ تحت الصفر من دفعاتٍ سبقت المنع: لا يخرج منه شيء حتى يُصحَّح (CashBook) --}}
+                <div class="alert alert-bad mb-4 text-sm" role="alert">
+                    <x-icon name="alert" class="size-5 shrink-0"/>
+                    <p>
+                        رصيد هذا الصندوق تحت الصفر بـ<span class="num font-bold">{{ number_format(-$box->balance) }}</span> د.ع،
+                        من دفعاتٍ سُجّلت قبل أن يُمنع الدفع بلا رصيد. لا يخرج منه شيءٌ حتى يرتفع فوق الصفر: سجّل ما
+                        سلّمه المندوبون، أو عُدّ ما في الدرج وقيّده في «جرد الصندوق».
+                    </p>
+                </div>
+            @endif
 
             @unless ($check['matches'])
                 {{-- الرصيد المخزَّن خالف مجموع الحركات: خلل يجب أن يُرى لا أن يُخفى --}}
@@ -119,7 +131,7 @@
                     <div>
                         <label class="field-label" for="counted">المبلغ المعدود</label>
                         <input id="counted" name="counted" type="number" min="0" step="1" required
-                               class="field-input num" value="{{ old('counted', $box->balance) }}">
+                               class="field-input num" value="{{ old('counted', max(0, (int) $box->balance)) }}">
                         @error('counted') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
                     <div>

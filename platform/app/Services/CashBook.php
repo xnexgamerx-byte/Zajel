@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\InsufficientCash;
 use App\Models\CashBox;
 use App\Models\CashMovement;
 use App\Models\User;
@@ -15,9 +16,14 @@ use Illuminate\Support\Facades\DB;
  * الدرج». سؤالان مختلفان: مندوب سلّم نقده فبرئت ذمّته وامتلأ الصندوق،
  * وتاجر قُيّد له مستحقّ ولم يُدفَع له بعد فلم يتغيّر الدرج بشيء.
  *
- * وقاعدتا الدفتر نفسهما هنا:
+ * وقواعد الدفتر هنا:
  *  1) لا يتغيّر رصيد صندوق إلّا بصفّ في cash_movements، في المعاملة نفسها.
  *  2) لا تعديل ولا حذف لصفّ. التصحيح بحركة معاكسة تحمل سببها.
+ *  3) لا يخرج من صندوقٍ أكثر ممّا فيه: الرصيد لا ينزل تحت الصفر أبداً،
+ *     فيبقى مطابقاً لعدّ اليد. يُفحَص هنا بعد قفل الصفّ — لا في كل شاشة
+ *     قبل المعاملة — فلا تفلت منه عمليةٌ ولا ضغطتان متزامنتان. وما غطّاه
+ *     واردٌ في العملية نفسها لا يُسأل عنه الدرج (coveredBy): عمولة المندوب
+ *     تُقتطع ممّا سلّمه للتوّ قبل أن تُمسّ نقود الصندوق.
  */
 class CashBook
 {
@@ -41,8 +47,9 @@ class CashBook
         ?User $actor = null,
         ?string $referenceType = null,
         ?int $referenceId = null,
+        int $coveredBy = 0,
     ): ?CashMovement {
-        return $this->post($box, 'out', $category, $amount, $description, $actor, $referenceType, $referenceId);
+        return $this->post($box, 'out', $category, $amount, $description, $actor, $referenceType, $referenceId, coveredBy: $coveredBy);
     }
 
     /**
@@ -76,6 +83,7 @@ class CashBook
         ?string $referenceType,
         ?int $referenceId,
         ?int $counterpartBoxId = null,
+        int $coveredBy = 0,
     ): ?CashMovement {
         if ($amount === 0) {
             return null;
@@ -87,9 +95,16 @@ class CashBook
             ]);
         }
 
-        return DB::transaction(function () use ($box, $direction, $category, $amount, $description, $actor, $referenceType, $referenceId, $counterpartBoxId) {
+        return DB::transaction(function () use ($box, $direction, $category, $amount, $description, $actor, $referenceType, $referenceId, $counterpartBoxId, $coveredBy) {
             // القفل يمنع حركتين متزامنتين من كتابة balance_after نفسه
             $fresh = CashBox::query()->lockForUpdate()->findOrFail($box->id);
+
+            // الفحص على الرصيد بعد القفل: حركتان متزامنتان لا تقرآن الرصيد نفسه فتمرّان معاً.
+            // وخروجٌ غطّاه واردُ العملية نفسها لا يأخذ من الدرج شيئاً، ولو كان الدرج تحت الصفر من قبل
+            if ($direction === 'out' && $amount > $coveredBy && (int) $fresh->balance < $amount) {
+                throw InsufficientCash::for($fresh, (int) $fresh->balance, $amount, $category);
+            }
+
             $balance = $fresh->balance + ($direction === 'in' ? $amount : -$amount);
 
             $fresh->forceFill(['balance' => $balance])->save();

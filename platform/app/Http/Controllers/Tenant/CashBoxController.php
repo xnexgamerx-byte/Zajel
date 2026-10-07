@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Exceptions\InsufficientCash;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\CashBox;
@@ -134,8 +135,8 @@ class CashBoxController extends Controller
 
         if ($from->balance < $data['amount']) {
             return back()->withErrors([
-                'amount' => "رصيد {$from->name} ".number_format($from->balance).' دينار فقط.',
-            ]);
+                'amount' => InsufficientCash::sentence($from, (int) $from->balance, (int) $data['amount'], 'transfer_out'),
+            ])->withInput();
         }
 
         $this->cash->transfer($from, $to, $data['amount'], $data['description'] ?? null, $request->user());

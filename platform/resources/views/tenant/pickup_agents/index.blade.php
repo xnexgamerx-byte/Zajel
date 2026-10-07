@@ -62,10 +62,10 @@
                                 <form method="POST" action="{{ route('pickup-agents.pay', $agent) }}"
                                       class="flex items-center justify-end gap-1">
                                     @csrf
-                                    <select name="cash_box_id" class="field-input w-auto py-1 text-xs">
+                                    <select name="cash_box_id" class="field-input w-auto py-1 text-xs" aria-label="يُدفع من">
                                         <option value="">بلا صندوق</option>
                                         @foreach ($boxes as $box)
-                                            <option value="{{ $box->id }}">{{ $box->name }}</option>
+                                            <option value="{{ $box->id }}" @selected($agent->default_box_id === $box->id)>{{ $box->name }} ({{ number_format($box->balance) }})</option>
                                         @endforeach
                                     </select>
                                     <button type="submit" class="btn-ghost px-2 py-1 text-xs">ادفع</button>

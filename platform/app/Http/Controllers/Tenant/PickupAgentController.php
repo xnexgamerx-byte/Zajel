@@ -36,7 +36,7 @@ class PickupAgentController extends Controller
             ->visibleTo($request->user())
             ->orderByDesc('commission_balance')
             ->get()
-            ->map(function (Courier $courier) use ($from, $to) {
+            ->map(function (Courier $courier) use ($from, $to, $request) {
                 $courier->setAttribute('period', PickupShare::query()
                     ->where('courier_id', $courier->id)
                     ->whereBetween('created_at', [$from, $to])
@@ -44,6 +44,9 @@ class PickupAgentController extends Controller
                                  sum(amount + adjustment) as earned')
                     ->toBase()
                     ->first());
+
+                // يُدفع افتراضاً من صندوق الدافع أو صندوق فرع المندوب: يُختار سلفاً في القائمة
+                $courier->setAttribute('default_box_id', CashBox::forActor($request->user(), $courier->branch_id)?->id);
 
                 return $courier;
             });
@@ -71,6 +74,7 @@ class PickupAgentController extends Controller
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString(),
             'boxes'   => CashBox::active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name', 'balance']),
+            'defaultBox' => CashBox::forActor($request->user(), $courier->branch_id),
             'payouts' => $courier->payouts()->with('paidBy:id,name')->latest('id')->limit(20)->get(),
         ]);
     }
@@ -84,7 +88,10 @@ class PickupAgentController extends Controller
 
         $box = empty($data['cash_box_id']) ? null : CashBox::active()->visibleTo($request->user())->find($data['cash_box_id']);
 
-        $paid = $this->payout->handle($courier, $request->user(), $box, $data['note'] ?? null);
+        // «بلا صندوق» اختيارٌ صريح: قيدٌ محاسبيّ لا يمسّ درجاً — لا يُستبدل بصندوق الدافع
+        $withoutBox = $request->has('cash_box_id') && blank($data['cash_box_id'] ?? null);
+
+        $paid = $this->payout->handle($courier, $request->user(), $box, $data['note'] ?? null, $withoutBox);
 
         $cut = (int) $courier->payouts()->latest('id')->value('centre_amount');
 

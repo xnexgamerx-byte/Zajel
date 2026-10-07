@@ -54,6 +54,16 @@ class CashBox extends Model
         return $q->where('is_active', true);
     }
 
+    /**
+     * ما يدفع منه هذا الموظّف: صناديق فرعه المفعّلة وصندوقه هو — لا صندوق
+     * موظّفٍ آخر، فذاك نقدٌ في يد غيره.
+     */
+    public function scopePayableBy(Builder $q, User $user): Builder
+    {
+        return $q->active()->visibleTo($user)
+            ->where(fn (Builder $q) => $q->whereNull('user_id')->orWhere('user_id', $user->id));
+    }
+
     public function typeLabel(): string
     {
         return match ($this->type) {

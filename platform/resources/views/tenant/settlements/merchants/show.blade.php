@@ -211,6 +211,37 @@
                     @error('payout_reference') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
 
+                {{-- النقد يخرج من صندوق: لا يُدفع منه أكثر ممّا فيه (CashBook) --}}
+                @if ($boxes->isNotEmpty())
+                    @php
+                        $from = $boxes->firstWhere('id', (int) old('cash_box_id', $defaultBox?->id)) ?? $boxes->first();
+                        $due = (int) $settlement->net_amount;
+                    @endphp
+                    <div>
+                        <label class="field-label" for="cash_box_id">يُدفع النقد من</label>
+                        <select id="cash_box_id" name="cash_box_id" class="field-input">
+                            @foreach ($boxes as $item)
+                                <option value="{{ $item->id }}" @selected($from->id === $item->id)>
+                                    {{ $item->name }} ({{ number_format($item->balance) }})
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="field-hint">للدفع النقدي وحده. الحوالات لا تُخرج شيئاً من الصندوق.</p>
+                        @error('cash_box_id') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    @if ($due > 0 && (int) $from->balance < $due)
+                        <div class="alert alert-warn text-sm" role="status">
+                            <x-icon name="alert" class="size-5 shrink-0"/>
+                            <p>
+                                رصيد «{{ $from->name }}» <span class="num">{{ number_format($from->balance) }}</span> د.ع،
+                                ومبلغ الكشف <span class="num">{{ number_format($due) }}</span> د.ع: لا يُدفع نقداً منه حتى
+                                تُحصَّل المبالغ من المندوبين. اختر صندوقاً فيه المبلغ، أو ادفع بحوالة.
+                            </p>
+                        </div>
+                    @endif
+                @endif
+
                 <button type="submit" class="btn-primary w-full">سجّل الدفع</button>
             </form>
         @else

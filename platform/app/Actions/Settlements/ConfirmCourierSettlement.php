@@ -90,6 +90,9 @@ class ConfirmCourierSettlement
      * الدرج يستقبل ما سلّمه المندوب ويدفع عمولته — حركتان لا واحدة
      * صافية، لأن «كم جلب المندوبون اليوم» و«كم دفعنا عمولات» سؤالان.
      * بلا صندوق مفعّل لا حركة: الدفتر المحاسبي كامل على أي حال.
+     *
+     * والعمولة يأخذها ممّا سلّمه: لا يُسأل الصندوق إلّا عمّا زاد منها عليه.
+     * فصندوقٌ تحت الصفر من قبلُ يستقبل الكشف ويرتفع، ولا يُحبَس عمّا يُصلحه.
      */
     protected function recordInCashBox(CourierSettlement $settlement, ?User $actor): void
     {
@@ -99,10 +102,12 @@ class ConfirmCourierSettlement
             return;
         }
 
+        $handed = $settlement->cod_total + $settlement->deductions;
+
         $this->cash->in(
             box: $box,
             category: 'courier_handover',
-            amount: $settlement->cod_total + $settlement->deductions,
+            amount: $handed,
             description: "تسليم نقد المندوب {$settlement->courier?->name} — كشف {$settlement->code}",
             actor: $actor,
             referenceType: 'courier_settlement',
@@ -117,6 +122,7 @@ class ConfirmCourierSettlement
             actor: $actor,
             referenceType: 'courier_settlement',
             referenceId: $settlement->id,
+            coveredBy: $handed,
         );
     }
 }

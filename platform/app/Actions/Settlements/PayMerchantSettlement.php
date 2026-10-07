@@ -73,13 +73,18 @@ class PayMerchantSettlement
         });
     }
 
+    /**
+     * @param  CashBox|null  $box  صندوقٌ يُدفع منه النقد؛ بلا اختيارٍ: صندوق الدافع أو صندوق الفرع.
+     *                            وصندوقٌ ليس فيه المبلغ يمنع الدفع كلّه (CashBook)
+     */
     public function pay(
         MerchantSettlement $settlement,
         ?User $actor = null,
         ?string $method = null,
         ?string $reference = null,
+        ?CashBox $box = null,
     ): MerchantSettlement {
-        return DB::transaction(function () use ($settlement, $actor, $method, $reference) {
+        return DB::transaction(function () use ($settlement, $actor, $method, $reference, $box) {
             /*
             | الفحص بعد القفل لا قبله.
             |
@@ -106,10 +111,16 @@ class PayMerchantSettlement
             ])->save();
 
             $this->ledger->recordMerchantPayout($settlement, $actor);
-            $this->recordInCashBox($settlement, $actor);
+            $this->recordInCashBox($settlement, $actor, $box);
 
             return $settlement->refresh();
         });
+    }
+
+    /** الصندوق الذي يُدفع منه النقد إن لم يُختر غيره: صندوق الدافع، وإلّا صندوق الفرع */
+    public static function defaultBox(MerchantSettlement $settlement, ?User $actor): ?CashBox
+    {
+        return CashBox::forActor($actor, $settlement->branch_id);
     }
 
     /**
@@ -128,13 +139,13 @@ class PayMerchantSettlement
      * حوالة زين كاش لا تُفرّغ الدرج. الصندوق يتحرّك بالنقد وحده، وإلّا
      * صار رصيده رقماً لا يُقارَن بعدّ اليد آخر اليوم.
      */
-    protected function recordInCashBox(MerchantSettlement $settlement, ?User $actor): void
+    protected function recordInCashBox(MerchantSettlement $settlement, ?User $actor, ?CashBox $box = null): void
     {
         if ($settlement->payout_method !== 'cash') {
             return;
         }
 
-        $box = CashBox::forActor($actor, $settlement->branch_id);
+        $box ??= self::defaultBox($settlement, $actor);
 
         if (! $box) {
             return;

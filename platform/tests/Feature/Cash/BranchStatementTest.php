@@ -110,14 +110,15 @@ class BranchStatementTest extends TestCase
 
     public function test_every_line_carries_the_running_balance(): void
     {
+        // النثريّة تُملأ قبل أن يُصرف منها: لا يخرج من صندوقٍ أكثر ممّا فيه
         Tenancy::runFor($this->company, function () {
             $this->cash()->in($this->main, 'courier_handover', 300_000, null, $this->owner);
-            $this->cash()->out($this->petty, 'expense', 20_000, null, $this->owner);
             $this->cash()->in($this->petty, 'courier_handover', 50_000, null, $this->owner);
+            $this->cash()->out($this->petty, 'expense', 20_000, null, $this->owner);
         });
 
         $this->assertSame(
-            [300_000, 280_000, 330_000],
+            [300_000, 350_000, 330_000],
             $this->statement()->viewData('movements')->pluck('running')->all(),
         );
     }

@@ -36,7 +36,7 @@
             <select id="cash_box_id" name="cash_box_id" class="field-input">
                 <option value="">بلا صندوق (قيد محاسبيّ فقط)</option>
                 @foreach ($boxes as $box)
-                    <option value="{{ $box->id }}">{{ $box->name }} ({{ number_format($box->balance) }})</option>
+                    <option value="{{ $box->id }}" @selected($defaultBox?->id === $box->id)>{{ $box->name }} ({{ number_format($box->balance) }})</option>
                 @endforeach
             </select>
         </div>

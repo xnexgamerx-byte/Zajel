@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Exceptions\InsufficientCash;
 use App\Http\Controllers\Controller;
 use App\Models\CashBox;
 use App\Models\CashMovement;
@@ -50,7 +51,7 @@ class MyCashBoxController extends Controller
         }
 
         if ($data['amount'] > $box->balance) {
-            return back()->withErrors(['amount' => 'في صندوقك '.number_format($box->balance).' دينار فقط.']);
+            return back()->withErrors(['amount' => InsufficientCash::sentence($box, (int) $box->balance, (int) $data['amount'], 'transfer_out')])->withInput();
         }
 
         $this->cash->transfer($box, $to, (int) $data['amount'],

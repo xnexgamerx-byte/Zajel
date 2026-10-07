@@ -27,7 +27,10 @@ class PayPickupCommission
         protected SequenceGenerator $sequences,
     ) {}
 
-    public function handle(Courier $courier, ?User $actor = null, ?CashBox $box = null, ?string $note = null): int
+    /**
+     * @param  bool  $withoutBox  «بلا صندوق»: قيدٌ محاسبيّ وحده، لا يخرج نقدٌ من درج
+     */
+    public function handle(Courier $courier, ?User $actor = null, ?CashBox $box = null, ?string $note = null, bool $withoutBox = false): int
     {
         $due = (int) $courier->commission_balance;
 
@@ -44,7 +47,7 @@ class PayPickupCommission
             ]);
         }
 
-        return DB::transaction(function () use ($courier, $actor, $box, $due, $note) {
+        return DB::transaction(function () use ($courier, $actor, $box, $due, $note, $withoutBox) {
             /*
             | الشريك: يُقفل استحقاقه كلّه، ويُدفع له ما بعد حصّة المركز. حصّة
             | المركز لا تخرج من صندوق — تبقى للشركة — فالصندوق يُنقص بالمدفوع
@@ -56,7 +59,7 @@ class PayPickupCommission
             $split = $cut > 0 ? 'للمركز '.number_format($cut).' وللشريك '.number_format($paid) : null;
             $this->ledger->payCommission($courier, $due, $actor, collect([$note, $split])->filter()->implode('، ') ?: null);
 
-            $box ??= CashBox::forActor($actor, $courier->branch_id);
+            $box = $withoutBox ? null : ($box ?? CashBox::forActor($actor, $courier->branch_id));
 
             if ($box && $paid > 0) {
                 $this->cash->out(
