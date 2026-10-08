@@ -34,6 +34,7 @@ class ShipmentStatusController extends Controller
             'note'              => $request->validated('note'),
             'collected_amount'  => $request->validated('collected_amount'),
             'force'             => $request->boolean('force') ?: null,
+            'retry'             => $request->boolean('retry') ?: null,
             'forced_reason'     => $request->boolean('force') ? $request->validated('forced_reason') : null,
         ], fn ($v) => $v !== null));
 

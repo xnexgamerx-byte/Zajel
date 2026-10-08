@@ -60,6 +60,7 @@ use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\PrepaidFeeController;
 use App\Http\Controllers\Tenant\ShipmentWaybillController;
+use App\Http\Controllers\Tenant\TransferController;
 use App\Http\Controllers\Tenant\WaybillBookController;
 use App\Http\Controllers\Portal\WaybillController as PortalWaybillController;
 use App\Http\Controllers\Tenant\ManifestController;
@@ -361,6 +362,11 @@ Route::middleware('tenant')->group(function () {
 
             // النقل بين المراكز: كيس مختوم على كشف، والوارد يُستلَم كيساً كيساً
             Route::middleware('can:transport.manage')->group(function () {
+            // النقل بين الفروع بخطوةٍ واحدة: يُرسَل ويُستلَم، والكيس والكشف يُبنيان وحدهما (docs/plan/38)
+            Route::get('/transfers', [TransferController::class, 'index'])->name('transfers.index');
+            Route::post('/transfers', [TransferController::class, 'send'])->name('transfers.send');
+            Route::post('/transfers/{manifest}/receive', [TransferController::class, 'receive'])->name('transfers.receive');
+
             Route::get('/bags', [BagController::class, 'index'])->name('bags.index');
             Route::post('/bags', [BagController::class, 'store'])->name('bags.store');
             Route::get('/bags/{bag}', [BagController::class, 'show'])->name('bags.show');

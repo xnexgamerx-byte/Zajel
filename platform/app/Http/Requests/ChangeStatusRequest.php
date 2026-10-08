@@ -27,6 +27,8 @@ class ChangeStatusRequest extends FormRequest
             'collected_amount'  => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'note'              => ['nullable', 'string', 'max:500'],
             'force'             => ['nullable', 'boolean'],
+            // إعادة توصيل الراجع بطلب التاجر: قرارٌ صريح بسببه (docs/plan/38)
+            'retry'             => ['nullable', 'boolean'],
             'forced_reason'     => ['required_if:force,1', 'nullable', 'string', 'max:255'],
         ];
     }
@@ -44,6 +46,14 @@ class ChangeStatusRequest extends FormRequest
 
             // الانتقال يُفحَص هنا أيضاً، لا في الخدمة وحدها: الرسالة تصل
             // للمستخدم كخطأ حقل لا كصفحة خطأ. والإجبار يتخطّاه بسبب مكتوب.
+            if ($shipment->status === ShipmentStatus::Returning && $to === ShipmentStatus::AtHub && ! $this->boolean('force')) {
+                if (! $this->boolean('retry')) {
+                    $validator->errors()->add('status', 'الشحنة راجعةٌ لتاجرها: إعادتها للتوصيل قرارٌ بطلب التاجر.');
+                } elseif (! filled($this->input('note'))) {
+                    $validator->errors()->add('note', 'اكتب سبب إعادة التوصيل: من طلبها من التاجر ولماذا.');
+                }
+            }
+
             if (! $this->boolean('force') && ! $shipment->status->canMoveTo($to)) {
                 $validator->errors()->add(
                     'status',

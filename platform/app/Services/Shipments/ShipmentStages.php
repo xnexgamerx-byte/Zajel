@@ -118,14 +118,14 @@ final class ShipmentStages
             ]],
             'branches' => ['icon' => 'exchange', 'label' => 'النقل بين الفروع', 'hint' => 'بين مركزٍ وآخر', 'stages' => [
                 'in_transit' => ['label' => 'بالطريق بين الفروع', 'tone' => 'blue',
-                    'links' => [['manifests.inbound', 'وارد المراكز', 'transport.manage'], ['manifests.index', 'كشوف النقل', 'transport.manage']],
+                    'links' => [['transfers.index', 'النقل بين الفروع', 'transport.manage']],
                     'hint' => 'في كيسٍ على كشف نقل', 'apply' => $status(ShipmentStatus::InTransit)],
                 'returns_to_sort' => ['label' => 'رواجع الفروع بالمخزن', 'tone' => 'amber',
-                    'links' => [['returns.sorting', 'فرز الراجع للفروع', 'returns.manage']],
+                    'links' => [['transfers.index', 'أرسله لفرع تاجره', 'transport.manage'], ['returns.sorting', 'فرز الراجع للفروع', 'returns.manage']],
                     'hint' => 'راجعٌ على رفّنا وتاجره في فرعٍ آخر',
                     'apply' => fn (Builder $q) => $q->returnOnShelf()->awayFromHomeBranch()],
                 'returns_on_the_way' => ['label' => 'رواجع بالطريق لفروعها', 'tone' => 'blue',
-                    'links' => [['bags.index', 'الأكياس', 'transport.manage']],
+                    'links' => [['transfers.index', 'النقل بين الفروع', 'transport.manage']],
                     'hint' => 'كُيِّست إلى فرع تاجرها',
                     'apply' => fn (Builder $q) => $q->where('shipments.status', ShipmentStatus::Returning->value)
                         ->whereNotNull('shipments.return_received_at')

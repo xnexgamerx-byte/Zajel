@@ -102,6 +102,21 @@ class ChangeShipmentStatus
             ]);
         }
 
+        /*
+        | الراجع لا يعود شحنةً جديدة بتغيير حالة (docs/plan/38).
+        |
+        | «قيد الإرجاع ← في المخزن» انتقالٌ مشروع لإعادة توصيلٍ يطلبها التاجر، فكان يُختار
+        | «بالمخزن» لراجعٍ وصل من فرعٍ آخر — والموظّف يقصد «استلمته» — فيعود شحنةً على الرفّ
+        | تنتظر مندوب توصيل إلى الزبون الذي رفضها، ويختفي من تسليم الراجع. فلا يمرّ إلّا قراراً
+        | صريحاً بإعادة التوصيل (retry) بسببه، والوصول من فرعٍ آخر استلامٌ لا تغيير حالة.
+        */
+        if ($from === ShipmentStatus::Returning && $to === ShipmentStatus::AtHub
+            && empty($options['retry']) && empty($options['force'])) {
+            throw ValidationException::withMessages([
+                'status' => "الشحنة {$shipment->number} راجعةٌ لتاجرها فلا تعود «بالمخزن» شحنةً للتوصيل. إن وصلتك من فرعٍ آخر فاستلمها من «النقل بين الفروع»، وإن طلب التاجر إعادة توصيلها فاختر «إعادة للتوصيل بطلب التاجر» بسببه.",
+            ]);
+        }
+
         // المعلَّقة للمراجعة لا تخرج مع مندوبٍ حتى تُجاز (والإجباريّ يمرّ بسببه المكتوب)
         if ($to === ShipmentStatus::OutForDelivery && empty($options['force']) && $shipment->isHeldForReview()) {
             throw ValidationException::withMessages([

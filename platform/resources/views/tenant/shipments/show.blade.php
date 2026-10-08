@@ -226,7 +226,9 @@
                             <option value="">اختر</option>
                             @foreach ($nextStatuses as $next)
                                 <option value="{{ $next->value }}" @selected(old('status') === $next->value)>
-                                    {{ $next->label() }}
+                                    {{-- الراجع لا يعود «بالمخزن» إلّا إعادةَ توصيلٍ يطلبها التاجر (docs/plan/38) --}}
+                                    {{ $shipment->status === \App\Enums\ShipmentStatus::Returning && $next === \App\Enums\ShipmentStatus::AtHub
+                                        ? 'إعادة للتوصيل بطلب التاجر' : $next->label() }}
                                 </option>
                             @endforeach
                         </select>
@@ -248,6 +250,16 @@
                         </select>
                         @error('courier_id') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
+
+                    @if ($shipment->status === \App\Enums\ShipmentStatus::Returning)
+                        <div data-when="at_hub">
+                            <input type="hidden" name="retry" value="1">
+                            <p class="rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-700 ring-1 ring-warn-200">
+                                تعود الشحنة شحنةً تُسلَّم للزبون، وتخرج من الراجع. لراجعٍ وصلك من فرعٍ آخر لا تختر هذا:
+                                استلمه من «النقل بين الفروع». واكتب في الملاحظة من طلب إعادة التوصيل.
+                            </p>
+                        </div>
+                    @endif
 
                     <div data-when="at_hub in_transit">
                         <label class="field-label" for="hub_id">المركز</label>

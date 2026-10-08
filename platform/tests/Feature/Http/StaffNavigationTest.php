@@ -55,6 +55,8 @@ class StaffNavigationTest extends TestCase
         'cash.mine',
         // «خصّص الرئيسية» من زرّها في «لوحة اليوم»، و«رئيسيّتها» بجانب كل مرتبة
         'home.customize',
+        // الأكياس والكشوف اليدوية و«وصل ناقص؟» من داخل «النقل بين الفروع»
+        'bags.index', 'manifests.index', 'manifests.inbound',
     ];
 
     private Company $company;

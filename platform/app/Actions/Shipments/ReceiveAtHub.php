@@ -71,7 +71,10 @@ class ReceiveAtHub
         // راجعٌ بيد المندوب، ومثله باقي الواصل الجزئي وقديم الاستبدال: يُستلم راجعاً
         if ($status === ShipmentStatus::Returning || $status === ShipmentStatus::PartiallyDelivered) {
             if ($shipment->return_received_at !== null) {
-                return 'راجع مستلَم سلفاً';
+                // راجعٌ وصل في كيسٍ من فرعٍ آخر: يُستلم كشفه فيصل راجعاً (docs/plan/38)
+                return $shipment->current_bag_id
+                    ? 'راجعٌ في كيس نقل: استلم كشفه من «النقل بين الفروع»'
+                    : 'راجع مستلَم سلفاً';
             }
 
             $this->returns->handle([$shipment->id], $actor, $options['note']);

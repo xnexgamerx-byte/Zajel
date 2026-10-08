@@ -64,9 +64,8 @@ final class StaffNavigation
                 ['shipments.scan', 'استلام وتوزيع بالمسح', ['shipments.scan'], 'shipments.status'],
                 ['courier-manifests.index', 'كشوف المناديب', ['courier-manifests.*'], 'transport.manage'],
                 ['processing.index', 'شحنات لم تُسلَّم (للمعالجة)', ['processing.*'], 'shipments.status'],
-                ['bags.index', 'الأكياس', ['bags.*'], 'transport.manage'],
-                ['manifests.index', 'كشوف النقل بين الفروع', ['manifests.index', 'manifests.show'], 'transport.manage'],
-                ['manifests.inbound', 'الواصل من الفروع', ['manifests.inbound'], 'transport.manage'],
+                // إرسالٌ واستلامٌ بضغطة، والأكياس والكشوف اليدوية من داخلها (docs/plan/38)
+                ['transfers.index', 'النقل بين الفروع (إرسال واستلام)', ['transfers.*', 'bags.*', 'manifests.index', 'manifests.show', 'manifests.inbound'], 'transport.manage'],
                 ['manifests.archive', 'أرشيف الكشوف', ['manifests.archive', 'manifests.print'], 'transport.manage'],
             ]],
             // الراجع من المندوب إلى المخزن، ومن المخزن إلى تاجره

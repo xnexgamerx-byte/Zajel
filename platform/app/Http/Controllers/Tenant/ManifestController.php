@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\Transport\ReceiveFromBranch;
 use App\Actions\Transport\RunManifest;
 use App\Http\Controllers\Controller;
 use App\Models\Bag;
@@ -200,11 +201,16 @@ class ManifestController extends Controller
             'notes'     => ['nullable', 'string', 'max:500'],
         ], [], ['bag_ids' => 'الأكياس']);
 
-        $this->manifests->receive($manifest, $data['bag_ids'] ?? [], $request->user(), $data['notes'] ?? null);
+        // الاستلام يفتح الأكياس الواصلة معاً (docs/plan/38): كيسٌ استُلم ولم يُفتح كانت شحناته تبقى
+        // «بالطريق» وراجعه معلّقاً، فيُستلم بتغيير حالته بيده فيعود شحنةً جديدة
+        $result = app(ReceiveFromBranch::class)->handle(
+            $manifest, $request->user(), array_map('intval', $data['bag_ids'] ?? []), $data['notes'] ?? null,
+        );
 
         $missing = $manifest->refresh()->missingBags();
 
-        $message = "استُلم الكشف {$manifest->code}.";
+        $message = "استُلم الكشف {$manifest->code}، ودخلت مخزنك ".\App\Support\Arabic::shipments($result['shipments'])
+            .($result['returns'] ? "، منها {$result['returns']} راجع وصل راجعاً" : '').'.';
 
         if ($missing) {
             $message .= " وسُجّلت أكياس مفقودة، عددها {$missing} — راجعها فوراً.";

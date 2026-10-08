@@ -38,7 +38,17 @@
                 </h2>
                 <p class="card-hint">على رفّ: {{ $origins->implode('، ') ?: '—' }}</p>
             </div>
-            <button type="submit" class="btn-primary">كيّس المُختار لـ {{ $branch?->name }}</button>
+            <div class="flex flex-wrap items-center gap-2">
+                {{-- بضغطةٍ واحدة: يُكيَّس ويُرسَل مع من يحمله، ويصل راجعاً (docs/plan/38) --}}
+                @php $toHub = $branch ? \App\Models\Hub::forBranch($branch->id) : null; @endphp
+                @if ($toHub && auth()->user()->can('transport.manage'))
+                    <a href="{{ route('transfers.index', array_filter(['to' => $toHub->id, 'from' => auth()->user()->isBranchLimited() ? null : $shipments->first()->hub_id])) }}"
+                       class="btn-primary">أرسله الآن إلى {{ $branch->name }}</a>
+                    <button type="submit" class="btn-ghost">كيّس المُختار فقط</button>
+                @else
+                    <button type="submit" class="btn-primary">كيّس المُختار لـ {{ $branch?->name }}</button>
+                @endif
+            </div>
         </div>
 
         <div class="overflow-x-auto">
