@@ -30,6 +30,17 @@ class MerchantSettlement extends Model
         return $this->belongsTo(Merchant::class);
     }
 
+    /** من أقفل الكشف */
+    public function confirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by_user_id');
+    }
+
+    public function paidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paid_by_user_id');
+    }
+
     public function lines(): HasMany
     {
         return $this->hasMany(MerchantSettlementShipment::class);

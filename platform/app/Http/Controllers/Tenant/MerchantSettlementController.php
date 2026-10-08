@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CashBox;
 use App\Models\Merchant;
 use App\Models\MerchantSettlement;
+use App\Support\Money\SettlementFilters;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,17 +18,27 @@ use Illuminate\View\View;
 
 class MerchantSettlementController extends Controller
 {
+    /** من قام بالكشف: بناه، أو أقفله، أو دفعه */
+    private const ACTORS = ['created_by_user_id', 'confirmed_by_user_id', 'paid_by_user_id'];
+
     public function index(Request $request): View
     {
+        $filters = SettlementFilters::fromRequest($request);
+        $match = fn ($q) => $filters->matchParty($q, ['business_name', 'owner_name']);
+
         return view('tenant.settlements.merchants.index', [
-            'settlements' => MerchantSettlement::visibleTo($request->user())->with('merchant:id,business_name,code')
-                ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            'filters'     => $filters,
+            'actors'      => SettlementFilters::actors(MerchantSettlement::visibleTo($request->user()), self::ACTORS),
+            'settlements' => $filters->apply(
+                MerchantSettlement::visibleTo($request->user())->with(['merchant:id,business_name,code', 'confirmedBy:id,name', 'paidBy:id,name']),
+                'merchant_id', $match(Merchant::withTrashed()), self::ACTORS,
+            )
                 ->when($request->query('merchant_id'), fn ($q, $m) => $q->where('merchant_id', $m))
                 ->latest('id')
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString(),
 
-            'pending' => Merchant::query()
+            'pending' => $match(Merchant::query())
                 ->visibleTo($request->user())
                 ->where('balance', '!=', 0)
                 ->orderByDesc('balance')

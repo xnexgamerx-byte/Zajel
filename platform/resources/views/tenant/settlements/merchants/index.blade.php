@@ -9,6 +9,13 @@
     </p>
 </div>
 
+<x-settlement-filters :filters="$filters" :actors="$actors" :action="route('settlements.merchants.index')"
+                      placeholder="ابحث عن تاجر بالاسم أو الكود أو الهاتف" />
+
+@if ($filters->q !== '' && $pending->isEmpty())
+    <p class="card mb-5 p-5 text-center text-sm text-ink-500">لا التاجر بهذا البحث بحاجة إلى تسوية.</p>
+@endif
+
 @if ($pending->isNotEmpty())
     <section class="card mb-5 p-5">
         <h2 class="mb-3 text-sm font-bold">تجّار لهم أو عليهم رصيد</h2>
@@ -51,6 +58,8 @@
                     <th >الأجور</th>
                     <th >الصافي له</th>
                     <th >الحالة</th>
+                    <th >بواسطة</th>
+                    <th >التاريخ</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-ink-100">
@@ -74,10 +83,12 @@
                         <td class="px-4 py-3">
                             <x-settlement-status :status="$settlement->status" />
                         </td>
+                        <td class="px-4 py-3 text-xs text-ink-600">{{ $settlement->paidBy?->name ?? $settlement->confirmedBy?->name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">{{ $settlement->created_at->format('Y-m-d H:i') }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-4 py-16 text-center text-ink-500">لا كشوفات بعد.</td>
+                        <td colspan="10" class="px-4 py-16 text-center text-ink-500">{{ $filters->active() ? 'لا كشوف بهذا البحث.' : 'لا كشوفات بعد.' }}</td>
                     </tr>
                 @endforelse
             </tbody>

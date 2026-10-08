@@ -65,6 +65,17 @@
             @endforeach
         </select>
     </div>
+    @if ($actors->isNotEmpty())
+        <div>
+            <label class="field-label" for="by">بواسطة</label>
+            <select id="by" name="by" class="field-input">
+                <option value="">أيّ موظّف</option>
+                @foreach ($actors as $actor)
+                    <option value="{{ $actor->id }}" @selected(request()->integer('by') === $actor->id)>{{ $actor->name }}</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
     @if ($departments->isNotEmpty())
         <div>
             <label class="field-label" for="department">القسم</label>

@@ -76,6 +76,42 @@
 
             <section class="card overflow-hidden">
                 <h2 class="card-title border-b border-ink-100 px-5 py-4">حركات {{ $box->name }}</h2>
+                {{-- من قام بالحركة ونوعها ومدّتها: حركةٌ فيها مشكلة تُراجَع بصاحبها --}}
+                <form method="GET" action="{{ route('cash.index') }}" class="grid grid-cols-1 items-end gap-3 border-b border-ink-100 px-5 py-4 sm:grid-cols-2 lg:grid-cols-5">
+                    <input type="hidden" name="box_id" value="{{ $box->id }}">
+                    <div>
+                        <label class="field-label" for="mv-by">بواسطة</label>
+                        <select id="mv-by" name="by" class="field-input">
+                            <option value="">أيّ موظّف</option>
+                            @foreach ($movers as $mover)
+                                <option value="{{ $mover->id }}" @selected($filters['by'] === $mover->id)>{{ $mover->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="mv-category">نوع الحركة</label>
+                        <select id="mv-category" name="category" class="field-input">
+                            <option value="">كل الحركات</option>
+                            @foreach ($categories as $value => $label)
+                                <option value="{{ $value }}" @selected($filters['category'] === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="mv-from">من تاريخ</label>
+                        <input id="mv-from" name="from" type="date" value="{{ $filters['from'] }}" class="field-input">
+                    </div>
+                    <div>
+                        <label class="field-label" for="mv-to">إلى تاريخ</label>
+                        <input id="mv-to" name="to" type="date" value="{{ $filters['to'] }}" class="field-input">
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="btn-primary flex-1">فلترة</button>
+                        @if (array_filter($filters))
+                            <a href="{{ route('cash.index', ['box_id' => $box->id]) }}" class="btn-ghost">إلغاء</a>
+                        @endif
+                    </div>
+                </form>
                 <div class="overflow-x-auto">
                     <table class="tbl">
                         <thead>
@@ -111,7 +147,7 @@
                                     <td class="text-sm text-ink-500">{{ $movement->user?->name ?? 'النظام' }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="7" class="py-10 text-center text-ink-500">لا حركة في هذا الصندوق بعد.</td></tr>
+                                <tr><td colspan="7" class="py-10 text-center text-ink-500">{{ array_filter($filters) ? 'لا حركة بهذه الفلترة.' : 'لا حركة في هذا الصندوق بعد.' }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -182,6 +218,30 @@
                             @error('amount') <p class="field-error">{{ $message }}</p> @enderror
                         </div>
                         <button type="submit" class="btn-ghost w-full">نفّذ المناقلة</button>
+                    </form>
+                </section>
+            @endif
+
+            @if ($box->type !== 'main')
+                {{-- صاحب الصندوق: ما يقبضه بيده — محاسبة المندوبين وغيرها — يدخل صندوقه --}}
+                <section class="card h-fit p-5">
+                    <h2 class="card-title">صاحب {{ $box->name }}</h2>
+                    <p class="card-hint">
+                        {{ $owner ? 'صندوق '.$owner->name.': ما يقبضه بيده يدخل هنا.' : 'صندوق فرعٍ لا صاحب له. اربطه بموظّفه فيدخله ما يقبضه هو بدل القاصة الرئيسية.' }}
+                    </p>
+                    <form method="POST" action="{{ route('cash.owner', $box) }}" class="mt-3 space-y-3">
+                        @csrf
+                        <select name="user_id" class="field-input" data-searchable aria-label="صاحب الصندوق">
+                            <option value="">— بلا صاحب (صندوق فرع)</option>
+                            @if ($owner)
+                                <option value="{{ $owner->id }}" selected>{{ $owner->name }}</option>
+                            @endif
+                            @foreach ($staff as $member)
+                                <option value="{{ $member->id }}">{{ $member->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('user_id') <p class="field-error">{{ $message }}</p> @enderror
+                        <button type="submit" class="btn-ghost w-full">احفظ صاحب الصندوق</button>
                     </form>
                 </section>
             @endif

@@ -31,6 +31,23 @@ final class HomeLayout
         'cash_limit'   => ['تجاوزوا سقف النقد', 'مندوبون يُسوّى معهم قبل إسناد شحناتٍ جديدة'],
     ];
 
+    /**
+     * ما يُشترط لرؤية كل قسم: المال لمن يرى المال وحده. كانت الأقسام تظهر لكل موظّف،
+     * فيرى موظّف الإدخال والكول سنتر نقد المندوبين ومستحقّ التجّار والمبالغ المعلّقة.
+     * والاختيار في «خصّص الرئيسية» لا يفتح قسماً لا يملك صاحبه صلاحيته.
+     */
+    public const SECTION_ABILITIES = [
+        'today'        => 'shipments.view',
+        'where'        => 'shipments.view',
+        'money'        => 'money.view',
+        'stale'        => 'shipments.view',
+        'alerts'       => null,
+        'stuck'        => 'shipments.view',
+        'governorates' => 'shipments.view',
+        'pickups'      => 'pickups.manage',
+        'cash_limit'   => 'money.view',
+    ];
+
     /** بطاقات التنبيه (HomeAlerts) بأسمائها، كلٌّ لمن يفتح ما خلفها */
     public const ALERTS = [
         'tickets'      => 'طلبات المناديب لتغيير المبلغ',
@@ -63,7 +80,9 @@ final class HomeLayout
         $available = collect(static::shortcuts($user))->keyBy('id');
 
         return [
-            'sections'  => array_fill_keys($layout['sections'], true),
+            'sections'  => array_fill_keys(array_values(array_filter(
+                $layout['sections'], fn (string $section) => static::allowsSection($user, $section),
+            )), true),
             'alerts'    => $layout['alerts'],
             'shortcuts' => collect($layout['shortcuts'])
                 ->map(fn (string $id) => $available->get($id))->filter()->values()->all(),
@@ -145,6 +164,34 @@ final class HomeLayout
         }
 
         return $items;
+    }
+
+    /** يرى $user هذا القسم؟ صلاحيته، وما لا صلاحية له يراه الجميع */
+    public static function allowsSection(User $user, string $section): bool
+    {
+        $ability = self::SECTION_ABILITIES[$section] ?? null;
+
+        return $ability === null || $user->can($ability);
+    }
+
+    /**
+     * الأقسام التي يُختار منها في «خصّص الرئيسية»: لموظّفٍ ما يراه، ولمرتبةٍ ما تفتحه
+     * صلاحياتها — فلا يُعرض اختيارٌ لا أثر له.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function sectionsFor(User|Rank|null $for = null): array
+    {
+        return array_filter(self::SECTIONS, function (string $section) use ($for) {
+            $ability = self::SECTION_ABILITIES[$section] ?? null;
+
+            return match (true) {
+                $ability === null    => true,
+                $for instanceof User => $for->can($ability),
+                $for instanceof Rank => in_array($ability, $for->abilities ?? [], true),
+                default              => true,
+            };
+        }, ARRAY_FILTER_USE_KEY);
     }
 
     /** @return list<string> */

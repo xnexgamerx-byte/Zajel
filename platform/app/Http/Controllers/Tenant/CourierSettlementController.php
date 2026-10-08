@@ -7,8 +7,11 @@ use App\Actions\Settlements\DeleteDraftSettlement;
 use App\Actions\Settlements\EditDraftSettlement;
 use App\Actions\Settlements\ConfirmCourierSettlement;
 use App\Http\Controllers\Controller;
+use App\Models\CashBox;
+use App\Models\CashMovement;
 use App\Models\Courier;
 use App\Models\CourierSettlement;
+use App\Support\Money\SettlementFilters;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -16,18 +19,28 @@ use Illuminate\View\View;
 
 class CourierSettlementController extends Controller
 {
+    /** من قام بالكشف: بناه، أو أقفله واستلم النقد */
+    private const ACTORS = ['created_by_user_id', 'confirmed_by_user_id'];
+
     public function index(Request $request): View
     {
+        $filters = SettlementFilters::fromRequest($request);
+        $match = fn ($q) => $filters->matchParty($q, ['name']);
+
         return view('tenant.settlements.couriers.index', [
-            'settlements' => CourierSettlement::visibleTo($request->user())->with('courier:id,name,code')
-                ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            'filters'     => $filters,
+            'actors'      => SettlementFilters::actors(CourierSettlement::visibleTo($request->user()), self::ACTORS),
+            'settlements' => $filters->apply(
+                CourierSettlement::visibleTo($request->user())->with(['courier:id,name,code', 'confirmedBy:id,name']),
+                'courier_id', $match(Courier::withTrashed()), self::ACTORS,
+            )
                 ->when($request->query('courier_id'), fn ($q, $c) => $q->where('courier_id', $c))
                 ->latest('id')
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString(),
 
-            // من عنده نقد أو عمولة معلّقة هو من يحتاج كشفاً
-            'pending' => Courier::query()
+            // من عنده نقد أو عمولة معلّقة هو من يحتاج كشفاً — ومنهم من يُبحث عنه بالاسم
+            'pending' => $match(Courier::query())
                 ->visibleTo($request->user())
                 ->where(fn ($q) => $q->where('cash_in_hand', '!=', 0)->orWhere('commission_balance', '!=', 0)
                     // والأب الذي بيد فريقه نقد، ولو لم يكن بيده شيء
@@ -108,6 +121,7 @@ class CourierSettlementController extends Controller
 
         // المسودّة تُعدَّل لمن يملك التسوية: يُحاسَب على بعضها، ويُضاف إليها ما ينتظر خارجها
         $editable = $settlement->status === 'draft' && $request->user()->can('money.settle');
+        $user = $request->user();
 
         return view('tenant.settlements.couriers.show', [
             'settlement' => $settlement,
@@ -116,6 +130,17 @@ class CourierSettlementController extends Controller
             'lines'      => $settlement->lines()->with('shipment.governorate:id,name_ar')
                 ->orderBy('id')->paginate(100),
             'editable'     => $editable,
+            // أين يدخل النقد: صندوقه هو إن كان له صندوق، ويختار غيره ممّا يقبض فيه
+            'boxes'        => $editable ? CashBox::payableBy($user)->orderByRaw('case when user_id = ? then 0 else 1 end', [$user->id])
+                ->orderBy('name')->get(['id', 'name', 'balance', 'user_id']) : collect(),
+            'defaultBox'   => $editable ? ConfirmCourierSettlement::defaultBox($settlement, $user) : null,
+            // وبعد الإقفال: في أيّ صندوقٍ دخل، وبيد من
+            'receivedIn'   => $settlement->status === 'draft' ? null : CashMovement::query()
+                ->with(['cashBox:id,name', 'user:id,name'])
+                ->where('reference_type', 'courier_settlement')
+                ->where('reference_id', $settlement->id)
+                ->where('category', 'courier_handover')
+                ->first(),
             'addable'      => $editable ? $edit->addable($settlement) : collect(),
             'addableCount' => $editable ? $edit->addableCount($settlement) : 0,
         ]);
@@ -129,7 +154,19 @@ class CourierSettlementController extends Controller
             // «حاسب المندوب على المحدَّد»: والبقية تبقى في المسودّة
             'shipment_ids'   => ['nullable', 'array', 'max:5000'],
             'shipment_ids.*' => ['integer'],
-        ], [], ['deductions' => 'الخصومات']);
+            'cash_box_id'    => ['nullable', 'integer'],
+        ], [], ['deductions' => 'الخصومات', 'cash_box_id' => 'الصندوق']);
+
+        // صندوقٌ يقبض فيه هو: صناديق فرعه وصندوقه — لا صندوق موظّفٍ آخر
+        $box = null;
+
+        if (filled($data['cash_box_id'] ?? null)) {
+            $box = CashBox::payableBy($request->user())->find($data['cash_box_id']);
+
+            if (! $box) {
+                return back()->withErrors(['cash_box_id' => 'اختر صندوقاً تقبض فيه: صندوقك أو صندوق فرعك.'])->withInput();
+            }
+        }
 
         $settled = $confirm->handle(
             $settlement,
@@ -137,6 +174,7 @@ class CourierSettlementController extends Controller
             (int) ($data['deductions'] ?? 0),
             $data['notes'] ?? null,
             $data['shipment_ids'] ?? null,
+            $box,
         );
 
         if ($settled->isNot($settlement)) {

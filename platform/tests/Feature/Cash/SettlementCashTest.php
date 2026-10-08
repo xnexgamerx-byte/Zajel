@@ -194,4 +194,110 @@ class SettlementCashTest extends TestCase
             $this->assertSame(0, (int) $this->courier->refresh()->cash_in_hand);
         });
     }
+
+    private function host(): string
+    {
+        return 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain');
+    }
+
+    /** محاسبٌ له صندوقه، وصندوقٌ آخر لموظّفٍ غيره */
+    private function accountantWithBox(): array
+    {
+        return Tenancy::runFor($this->company, function () {
+            $accountant = User::create([
+                'name' => 'سامر المحاسب', 'phone' => '07701110002', 'password' => 'password',
+                'role' => \App\Enums\UserRole::Accountant, 'is_active' => true,
+            ]);
+            $own = CashBox::create(['code' => 'SAMER', 'name' => 'صندوق سامر', 'type' => 'employee',
+                'user_id' => $accountant->id, 'balance' => 0, 'is_active' => true]);
+
+            return [$accountant, $own];
+        });
+    }
+
+    /** من يحاسب المندوب وله صندوق يقبض في صندوقه، لا في القاصة الرئيسية */
+    public function test_the_settling_user_receives_the_cash_in_his_own_box(): void
+    {
+        [$accountant, $own] = $this->accountantWithBox();
+        $this->deliver(100_000);
+
+        $sheet = Tenancy::runFor($this->company, fn () => app(BuildCourierSettlement::class)->handle($this->courier, $accountant));
+
+        $this->actingAs($accountant)->get($this->host().'/settlements/couriers/'.$sheet->id)
+            ->assertOk()
+            ->assertSee('يدخل النقد في')
+            ->assertSee('<option value="'.$own->id.'" selected>', false);
+
+        $this->actingAs($accountant)->post($this->host().'/settlements/couriers/'.$sheet->id.'/confirm', [])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(98_500, (int) $own->refresh()->balance);   // ١٠٠ ألف ناقص عمولة ١٥٠٠
+        $this->assertSame(0, (int) $this->box->refresh()->balance);
+
+        $this->actingAs($accountant)->get($this->host().'/settlements/couriers/'.$sheet->id)
+            ->assertOk()->assertSee('دخل النقد في')->assertSee('صندوق سامر')->assertSee('سامر المحاسب');
+    }
+
+    /** ويختار صندوقاً آخر يقبض فيه — لا صندوق موظّفٍ غيره */
+    public function test_he_can_choose_a_branch_box_but_not_another_employees_box(): void
+    {
+        [$accountant, $own] = $this->accountantWithBox();
+        $other = Tenancy::runFor($this->company, function () {
+            $clerk = User::create(['name' => 'زينب', 'phone' => '07701110009', 'password' => 'password',
+                'role' => \App\Enums\UserRole::Accountant, 'is_active' => true]);
+
+            return CashBox::create(['code' => 'ZAINAB', 'name' => 'صندوق زينب', 'type' => 'employee',
+                'user_id' => $clerk->id, 'balance' => 0, 'is_active' => true]);
+        });
+        $this->deliver(100_000);
+
+        $sheet = Tenancy::runFor($this->company, fn () => app(BuildCourierSettlement::class)->handle($this->courier, $accountant));
+
+        $this->actingAs($accountant)->post($this->host().'/settlements/couriers/'.$sheet->id.'/confirm', ['cash_box_id' => $other->id])
+            ->assertSessionHasErrors('cash_box_id');
+        $this->assertSame('draft', $sheet->refresh()->status);
+
+        $this->actingAs($accountant)->post($this->host().'/settlements/couriers/'.$sheet->id.'/confirm', ['cash_box_id' => $this->box->id])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(98_500, (int) $this->box->refresh()->balance);
+        $this->assertSame(0, (int) $own->refresh()->balance);
+        $this->assertSame(0, (int) $other->refresh()->balance);
+    }
+
+    /** صندوقٌ أُنشئ صندوقَ فرعٍ باسم المحاسب يُربط به، فيدخله ما يقبضه بعدها */
+    public function test_an_existing_box_is_linked_to_its_employee(): void
+    {
+        [$accountant] = Tenancy::runFor($this->company, function () {
+            $accountant = User::create(['name' => 'مها المحاسبة', 'phone' => '07701110005', 'password' => 'password',
+                'role' => \App\Enums\UserRole::Accountant, 'is_active' => true]);
+
+            return [$accountant];
+        });
+        $box = Tenancy::runFor($this->company, fn () => CashBox::create(['code' => 'MAHA', 'name' => 'صندوق مها',
+            'type' => 'branch', 'balance' => 0, 'is_active' => true]));
+
+        $this->actingAs($this->staff)->post($this->host().'/cash/'.$this->box->id.'/owner', ['user_id' => $accountant->id])
+            ->assertSessionHasErrors('user_id');   // القاصة الرئيسية لا تُربط بموظّف
+
+        $this->actingAs($this->staff)->post($this->host().'/cash/'.$box->id.'/owner', ['user_id' => $accountant->id])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($accountant->id, $box->refresh()->user_id);
+        $this->assertSame('employee', $box->type);
+
+        $this->deliver(100_000);
+        Tenancy::runFor($this->company, function () use ($accountant) {
+            $sheet = app(BuildCourierSettlement::class)->handle($this->courier, $accountant);
+            app(ConfirmCourierSettlement::class)->handle($sheet, $accountant);
+        });
+
+        $this->assertSame(98_500, (int) $box->refresh()->balance);
+
+        // وفكّه يعيده صندوق فرع
+        $this->actingAs($this->staff)->post($this->host().'/cash/'.$box->id.'/owner', ['user_id' => ''])
+            ->assertSessionHasNoErrors();
+        $this->assertNull($box->refresh()->user_id);
+        $this->assertSame('branch', $box->type);
+    }
 }

@@ -160,6 +160,21 @@
                     <textarea id="notes" name="notes" rows="2" class="field-input">{{ old('notes') }}</textarea>
                 </div>
 
+                @if ($boxes->isNotEmpty())
+                    {{-- يقبض في صندوقه إن كان له صندوق، لا في القاصة الرئيسية --}}
+                    <div>
+                        <label class="field-label" for="cash_box_id">يدخل النقد في</label>
+                        <select id="cash_box_id" name="cash_box_id" class="field-input">
+                            @foreach ($boxes as $choice)
+                                <option value="{{ $choice->id }}" @selected((int) old('cash_box_id', $defaultBox?->id) === $choice->id)>
+                                    {{ $choice->name }}{{ $choice->user_id === auth()->id() ? ' (صندوقي)' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('cash_box_id') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+
                 <div class="rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-700 ring-1 ring-warn-200">
                     بعد التأكيد يُقفَل الكشف ولا يُعدَّل. أي تصحيح يكون بحركة معاكسة في الدفتر.
                 </div>
@@ -194,6 +209,18 @@
                         <dt class="text-ink-500">أُقفِل في</dt>
                         <dd class="font-medium" dir="ltr">{{ $settlement->confirmed_at?->format('Y-m-d H:i') }}</dd>
                     </div>
+                    @if ($receivedIn)
+                        <div class="flex justify-between gap-3">
+                            <dt class="text-ink-500">دخل النقد في</dt>
+                            <dd class="text-end font-medium">{{ $receivedIn->cashBox?->name }}</dd>
+                        </div>
+                        @if ($receivedIn->user)
+                            <div class="flex justify-between gap-3">
+                                <dt class="text-ink-500">حاسبه</dt>
+                                <dd class="text-end font-medium">{{ $receivedIn->user->name }}</dd>
+                            </div>
+                        @endif
+                    @endif
                     @if ($settlement->notes)
                         <div class="border-t border-ink-100 pt-2">
                             <dt class="mb-1 text-ink-500">ملاحظات</dt>

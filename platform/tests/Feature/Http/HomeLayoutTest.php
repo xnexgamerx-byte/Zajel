@@ -57,6 +57,40 @@ class HomeLayoutTest extends TestCase
             ->assertSee('شحنات متعثّرة')->assertSee('قيد التنفيذ حسب المحافظة')->assertSee('تجاوزوا سقف النقد');
     }
 
+    /**
+     * موظّفٌ عاديّ لا يرى المال في الرئيسية: لا نقد المندوبين ولا مستحقّ التجّار ولا المبالغ
+     * المعلّقة ولا من تجاوز سقف نقده — ولو اختار القسم في تخصيصه أو اختارته مرتبته.
+     */
+    public function test_staff_without_money_permission_do_not_see_money_on_the_home_page(): void
+    {
+        $clerk = $this->staff(['permissions' => [Ability::SHIPMENTS_VIEW, Ability::SHIPMENTS_CREATE, Ability::SHIPMENTS_STATUS]]);
+
+        $this->actingAs($clerk)->get($this->host().'/')
+            ->assertOk()
+            ->assertSee('سُلّمت اليوم')->assertSee('مع المندوبين')
+            ->assertDontSee('المال المعلّق')
+            ->assertDontSee('نقد بيد المندوبين')
+            ->assertDontSee('مستحقّ للتجّار')
+            ->assertDontSee('مبالغ لم تُحصَّل')
+            ->assertDontSee('تجاوزوا سقف النقد');
+
+        // ولا يُعرض عليه اختيار القسم، ولا يفتحه حفظُه بالقوّة
+        $this->actingAs($clerk)->get($this->host().'/home/customize')
+            ->assertOk()
+            ->assertDontSee('value="money"', false)
+            ->assertDontSee('value="cash_limit"', false);
+
+        $clerk->forceFill(['home_layout' => ['sections' => ['money', 'cash_limit', 'today'], 'alerts' => [], 'shortcuts' => []]])->save();
+
+        $this->actingAs($clerk->fresh())->get($this->host().'/')
+            ->assertOk()
+            ->assertSee('سُلّمت اليوم')
+            ->assertDontSee('نقد بيد المندوبين')
+            ->assertDontSee('تجاوزوا سقف النقد');
+
+        $this->assertSame(['today' => true], HomeLayout::for($clerk->fresh())['sections']);
+    }
+
     /** المحاسب يضع الحسابات المالية أمامه، ويُخفي ما لا يخصّه */
     public function test_an_accountant_pins_the_money_screens_and_hides_the_rest(): void
     {

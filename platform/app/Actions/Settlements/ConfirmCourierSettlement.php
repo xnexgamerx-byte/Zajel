@@ -25,10 +25,12 @@ class ConfirmCourierSettlement
     /**
      * @param  list<int>|null  $only  شحناتٌ بعينها من المسودّة: يُحاسَب عليها وحدها في كشفٍ جديد
      *                                يُقفَل هنا، وتبقى البقية في المسودّة (EditDraftSettlement::split)
+     * @param  CashBox|null  $box  الصندوق الذي يدخله النقد؛ بلا اختيارٍ: صندوق من يحاسب إن كان
+     *                             له صندوق، وإلّا صندوق الفرع (CashBox::forActor)
      */
-    public function handle(CourierSettlement $settlement, ?User $actor = null, int $deductions = 0, ?string $notes = null, ?array $only = null): CourierSettlement
+    public function handle(CourierSettlement $settlement, ?User $actor = null, int $deductions = 0, ?string $notes = null, ?array $only = null, ?CashBox $box = null): CourierSettlement
     {
-        return DB::transaction(function () use ($settlement, $actor, $deductions, $notes, $only) {
+        return DB::transaction(function () use ($settlement, $actor, $deductions, $notes, $only, $box) {
             if ($only !== null) {
                 $settlement = $this->drafts->split($settlement, $only, $actor);
             }
@@ -80,10 +82,19 @@ class ConfirmCourierSettlement
             }
 
             $this->ledger->recordCourierHandover($settlement, $actor);
-            $this->recordInCashBox($settlement, $actor);
+            $this->recordInCashBox($settlement, $actor, $box);
 
             return $settlement->refresh();
         });
+    }
+
+    /**
+     * أين يدخل النقد إن لم يُختر غيره: صندوق من يحاسب بيده إن كان له صندوق — المحاسب
+     * يقبض في صندوقه لا في القاصة الرئيسية — وإلّا صندوق الفرع.
+     */
+    public static function defaultBox(CourierSettlement $settlement, ?User $actor): ?CashBox
+    {
+        return CashBox::forActor($actor, $settlement->branch_id);
     }
 
     /**
@@ -94,9 +105,9 @@ class ConfirmCourierSettlement
      * والعمولة يأخذها ممّا سلّمه: لا يُسأل الصندوق إلّا عمّا زاد منها عليه.
      * فصندوقٌ تحت الصفر من قبلُ يستقبل الكشف ويرتفع، ولا يُحبَس عمّا يُصلحه.
      */
-    protected function recordInCashBox(CourierSettlement $settlement, ?User $actor): void
+    protected function recordInCashBox(CourierSettlement $settlement, ?User $actor, ?CashBox $box = null): void
     {
-        $box = CashBox::forActor($actor, $settlement->branch_id);
+        $box ??= static::defaultBox($settlement, $actor);
 
         if (! $box) {
             return;

@@ -41,7 +41,10 @@ class ExpenseController extends Controller
             ->when($archive, fn ($q) => $q->whereNotNull('archived_at'), fn ($q) => $q->whereNull('archived_at'))
             ->when($request->integer('category_id'), fn ($q, $id) => $q->where('expense_category_id', $id))
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
-            ->when(trim((string) $request->query('department')), fn ($q, $d) => $q->where('department', $d));
+            ->when(trim((string) $request->query('department')), fn ($q, $d) => $q->where('department', $d))
+            // من سجّله أو دفعه: مصروفٌ فيه مشكلة يُراجَع بصاحبه
+            ->when($request->integer('by'), fn ($q, $by) => $q->where(fn ($w) => $w
+                ->where('created_by_user_id', $by)->orWhere('paid_by_user_id', $by)));
 
         $expenses = $listed()
             ->with(['category:id,name_ar,group,code', 'branch:id,name', 'cashBox:id,name'])
@@ -54,6 +57,9 @@ class ExpenseController extends Controller
             'archive'    => $archive,
             'listedSum'  => (int) $listed()->where('status', '!=', 'cancelled')->sum('amount'),
             'departments' => Expense::visibleTo($request->user())->whereNotNull('department')->distinct()->orderBy('department')->pluck('department'),
+            'actors'     => \App\Models\User::query()->whereIn('id', Expense::visibleTo($request->user())->distinct()->pluck('created_by_user_id')
+                ->merge(Expense::visibleTo($request->user())->distinct()->pluck('paid_by_user_id'))->filter()->unique()->values())
+                ->orderBy('name')->get(['id', 'name']),
             'from'       => $from,
             'to'         => $to,
             'total'      => (int) $base()->sum('amount'),

@@ -256,4 +256,34 @@ class CashBoxTest extends TestCase
 
         Tenancy::runFor($this->company, fn () => $this->assertSame(0, (int) $this->box->refresh()->balance));
     }
+
+    /** حركةٌ فيها مشكلة تُراجَع بصاحبها: فلترة حركات الصندوق بمن قام بها ونوعها */
+    public function test_movements_are_filtered_by_who_made_them_and_their_kind(): void
+    {
+        $clerk = Tenancy::runFor($this->company, fn () => User::create([
+            'name' => 'سامر المحاسب', 'phone' => '07701110002', 'password' => 'password',
+            'role' => \App\Enums\UserRole::Accountant, 'is_active' => true,
+        ]));
+
+        Tenancy::runFor($this->company, function () use ($clerk) {
+            $this->cash()->in($this->box, 'opening', 100_000, 'افتتاح القاصة', $this->staff);
+            $this->cash()->out($this->box, 'expense', 7_000, 'قرطاسية سامر', $clerk);
+            $this->cash()->in($this->box, 'adjustment', 3_000, 'زيادة جرد سامر', $clerk);
+        });
+
+        $url = $this->host().'/cash?box_id='.$this->box->id;
+
+        $this->actingAs($this->staff)->get($url)->assertOk()
+            ->assertSee('افتتاح القاصة')->assertSee('قرطاسية سامر')
+            ->assertSee('<option value="'.$clerk->id.'"', false);
+
+        $this->actingAs($this->staff)->get($url.'&by='.$clerk->id)->assertOk()
+            ->assertDontSee('افتتاح القاصة')->assertSee('قرطاسية سامر')->assertSee('زيادة جرد سامر');
+
+        $this->actingAs($this->staff)->get($url.'&by='.$clerk->id.'&category=expense')->assertOk()
+            ->assertSee('قرطاسية سامر')->assertDontSee('زيادة جرد سامر');
+
+        $this->actingAs($this->staff)->get($url.'&from=2000-01-01&to=2000-01-02')->assertOk()
+            ->assertSee('لا حركة بهذه الفلترة.');
+    }
 }

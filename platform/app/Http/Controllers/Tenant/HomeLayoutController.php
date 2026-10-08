@@ -31,6 +31,8 @@ class HomeLayoutController extends Controller
             'ranks'     => $this->managesRanks($user) ? Rank::orderBy('name')->get(['id', 'name', 'home_layout']) : collect(),
             'layout'    => HomeLayout::stored($current),
             'shortcuts' => collect(HomeLayout::shortcuts($rank ?? $user))->groupBy('group'),
+            // الأقسام التي يراها صاحب الرئيسية وحدها: المال لمن يرى المال
+            'sections'  => HomeLayout::sectionsFor($rank ?? $user),
             // من أين لوحته اليوم: تخصيصه، أو مرتبته، أو الافتراضيّ
             'source'    => $rank ? (is_array($rank->home_layout) ? 'rank' : 'default') : HomeLayout::for($user)['source'],
             'userRank'  => $user->rank,

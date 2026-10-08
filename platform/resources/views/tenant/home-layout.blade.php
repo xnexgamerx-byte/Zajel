@@ -82,7 +82,7 @@
         <h2 class="card-title">أقسام اللوحة</h2>
         <p class="card-hint mb-4">ما لا يهمّك يُخفى، ويرجع متى شئت.</p>
         <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
-            @foreach (\App\Support\HomeLayout::SECTIONS as $key => [$label, $hint])
+            @foreach ($sections as $key => [$label, $hint])
                 <label class="flex items-start gap-2 rounded-xl border border-ink-200 p-3 text-sm">
                     <input type="checkbox" name="sections[]" value="{{ $key }}" class="mt-0.5 size-4 accent-[var(--brand)]"
                            @checked(in_array($key, old('sections', $layout['sections']), true))>

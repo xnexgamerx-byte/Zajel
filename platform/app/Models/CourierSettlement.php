@@ -29,6 +29,12 @@ class CourierSettlement extends Model
         return $this->belongsTo(Courier::class);
     }
 
+    /** من أقفل الكشف */
+    public function confirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by_user_id');
+    }
+
     public function lines(): HasMany
     {
         return $this->hasMany(CourierSettlementShipment::class);

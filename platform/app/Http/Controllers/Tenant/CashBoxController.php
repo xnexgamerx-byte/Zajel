@@ -35,9 +35,22 @@ class CashBoxController extends Controller
             ? $boxes->firstWhere('id', $request->integer('box_id'))
             : $boxes->first();
 
+        // من قام بالحركة، ونوعها، ومدّتها: حركةٌ فيها مشكلة تُراجَع بصاحبها
+        $date = fn (string $key) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($key)) ? (string) $request->query($key) : null;
+        $filters = [
+            'by'       => $request->integer('by') ?: null,
+            'category' => is_string($request->query('category')) && $request->query('category') !== '' ? $request->query('category') : null,
+            'from'     => $date('from'),
+            'to'       => $date('to'),
+        ];
+
         $movements = $box
             ? CashMovement::with('user:id,name')
                 ->where('cash_box_id', $box->id)
+                ->when($filters['by'], fn ($q, $by) => $q->where('created_by_user_id', $by))
+                ->when($filters['category'], fn ($q, $category) => $q->where('category', $category))
+                ->when($filters['from'], fn ($q, $from) => $q->whereFromDate('created_at', $from))
+                ->when($filters['to'], fn ($q, $to) => $q->whereUntilDate('created_at', $to))
                 ->latest('id')
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString()
@@ -47,6 +60,12 @@ class CashBoxController extends Controller
             'boxes'     => $boxes,
             'box'       => $box,
             'movements' => $movements,
+            'filters'   => $filters,
+            // من حرّك هذا الصندوق، وبأيّ نوع: خيارات الفلترة
+            'movers'    => $box ? User::query()->whereIn('id', CashMovement::where('cash_box_id', $box->id)
+                ->whereNotNull('created_by_user_id')->distinct()->select('created_by_user_id'))->orderBy('name')->get(['id', 'name']) : collect(),
+            'categories' => $box ? CashMovement::where('cash_box_id', $box->id)->distinct()->pluck('category')
+                ->mapWithKeys(fn ($category) => [$category => CashMovement::labelFor((string) $category)])->sort() : collect(),
             'total'     => $boxes->where('is_active', true)->sum('balance'),
             // الجرد: هل الرصيد المخزَّن يطابق مجموع الحركات؟
             'check'     => $box ? $this->cash->reconcile($box) : null,
@@ -59,6 +78,7 @@ class CashBoxController extends Controller
                 ->whereNotIn('role', [UserRole::Courier->value, UserRole::Merchant->value])
                 ->whereNotIn('id', CashBox::whereNotNull('user_id')->select('user_id'))
                 ->orderBy('name')->get(['id', 'name']),
+            'owner'     => $box?->user_id ? User::find($box->user_id, ['id', 'name']) : null,
         ]);
     }
 
@@ -114,6 +134,43 @@ class CashBoxController extends Controller
 
         return redirect()->route('cash.index', ['box_id' => $box->id])
             ->with('success', "أُنشئ الصندوق {$box->name}.");
+    }
+
+    /**
+     * صاحب الصندوق: صندوقٌ أُنشئ باسم المحاسب صندوقَ فرعٍ لا يعرف أنه له، فكان ما يقبضه
+     * يدخل القاصة الرئيسية. ربطه بموظّفه يجعل ما يقبضه — محاسبة المندوبين والأجور
+     * المقبوضة مقدّماً — يدخله هو (CashBox::forActor). والقاصة الرئيسية للشركة لا لموظّف.
+     */
+    public function owner(Request $request, CashBox $box): RedirectResponse
+    {
+        $data = $request->validate(['user_id' => ['nullable', 'integer']], [], ['user_id' => 'الموظّف']);
+
+        abort_unless(CashBox::visibleTo($request->user())->whereKey($box->id)->exists(), 404);
+
+        if ($box->type === 'main') {
+            return back()->withErrors(['user_id' => 'القاصة الرئيسية للشركة كلّها، لا تُربط بموظّف.']);
+        }
+
+        if (! filled($data['user_id'] ?? null)) {
+            $box->forceFill(['user_id' => null, 'type' => 'branch'])->save();
+
+            return back()->with('success', "صار {$box->name} صندوق فرع، لا صندوق موظّف.");
+        }
+
+        $owner = User::query()->whereKey($data['user_id'])->visibleTo($request->user())->where('is_active', true)
+            ->whereNotIn('role', [UserRole::Courier->value, UserRole::Merchant->value])->first();
+
+        if (! $owner) {
+            return back()->withErrors(['user_id' => 'اختر موظّفاً مفعّلاً من موظّفي الشركة.']);
+        }
+
+        if (CashBox::where('user_id', $owner->id)->whereKeyNot($box->id)->exists()) {
+            return back()->withErrors(['user_id' => "لـ{$owner->name} صندوقٌ سلفاً."]);
+        }
+
+        $box->forceFill(['user_id' => $owner->id, 'type' => 'employee'])->save();
+
+        return back()->with('success', "صار {$box->name} صندوق {$owner->name}: ما يقبضه بيده يدخله.");
     }
 
     public function transfer(Request $request): RedirectResponse
