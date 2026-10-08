@@ -129,7 +129,8 @@ class BuildMerchantSettlement
             'delivery_fees_total' => (int) $sums->delivery,
             'cod_fees_total'      => (int) $sums->cod_fees,
             'return_fees_total'   => (int) $sums->return_fees,
-            'net_amount'          => (int) $sums->net,
+            // ما اقتُطع لسلف التاجر عند الإقفال يبقى مقتطعاً (docs/plan/38)
+            'net_amount'          => (int) $sums->net - (int) $settlement->advance_deduction,
         ])->save();
     }
 

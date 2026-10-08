@@ -49,6 +49,8 @@ class CashMovement extends Model
             'commission_paid'  => 'عمولة مندوب',
             'merchant_deposit' => 'تأمين تاجر',
             'prepaid_fee'      => 'أجور مدفوعة مقدّماً',
+            'merchant_advance' => 'سلفة لتاجر',
+            'advance_repaid'   => 'سداد سلفة تاجر',
             'expense'          => 'مصروف',
             'transfer_in'      => 'مناقلة واردة',
             'transfer_out'     => 'مناقلة صادرة',

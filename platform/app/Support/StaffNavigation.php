@@ -81,6 +81,8 @@ final class StaffNavigation
             'money' => ['الحسابات المالية', 'cash', [
                 ['cash.index', 'الصندوق', ['cash.index'], 'money.cash'],
                 ['prepaid-fees.index', 'استلام أجور مدفوعة مقدّماً', ['prepaid-fees.*'], 'money.cash'],
+                // سلفةٌ للتاجر تُستردّ من مستحقّاته (docs/plan/38)
+                ['merchant-advances.index', 'سلف التجّار', ['merchant-advances.*'], 'money.cash'],
                 ['couriers.cash', 'النقد بيد المندوبين', ['couriers.cash'], 'money.view'],
                 ['settlements.couriers.index', 'محاسبة المندوبين', ['settlements.couriers.*'], 'money.view'],
                 ['settlements.merchants.index', 'محاسبة التجّار', ['settlements.merchants.*'], 'money.view'],

@@ -61,6 +61,7 @@ use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\PrepaidFeeController;
 use App\Http\Controllers\Tenant\ShipmentWaybillController;
 use App\Http\Controllers\Tenant\TransferController;
+use App\Http\Controllers\Tenant\MerchantAdvanceController;
 use App\Http\Controllers\Tenant\WaybillBookController;
 use App\Http\Controllers\Portal\WaybillController as PortalWaybillController;
 use App\Http\Controllers\Tenant\ManifestController;
@@ -395,6 +396,10 @@ Route::middleware('tenant')->group(function () {
 
             // القاصة والمصروفات: كم في الدرج، وأين ذهب
             Route::middleware('can:money.cash')->group(function () {
+                // سلف التجّار: تُعطى من صندوق، وتُستردّ من كشوفهم (docs/plan/38)
+                Route::get('/merchant-advances', [MerchantAdvanceController::class, 'index'])->name('merchant-advances.index');
+                Route::post('/merchant-advances', [MerchantAdvanceController::class, 'store'])->name('merchant-advances.store');
+                Route::post('/merchant-advances/repay', [MerchantAdvanceController::class, 'repay'])->name('merchant-advances.repay');
                 Route::get('/cash', [CashBoxController::class, 'index'])->name('cash.index');
                 Route::post('/cash', [CashBoxController::class, 'store'])->name('cash.store');
                 Route::post('/cash/transfer', [CashBoxController::class, 'transfer'])->name('cash.transfer');

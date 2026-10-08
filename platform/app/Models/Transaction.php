@@ -33,6 +33,8 @@ class Transaction extends Model
         'commission_paid'   => 'دفع عمولة',
         'cash_handover'     => 'تسليم نقد',
         'deduction'         => 'خصم',
+        'advance'           => 'سلفة',
+        'advance_repaid'    => 'سداد سلفة',
     ];
 
     public function categoryLabel(): string

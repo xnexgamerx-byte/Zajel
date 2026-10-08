@@ -108,6 +108,12 @@
                                     {{ number_format($settlement->net_amount) }}
                                 </span>
                             </div>
+                            @if ($settlement->advance_deduction)
+                                {{-- خُصم منه ما بقي من سلفته (docs/plan/38) --}}
+                                <div class="mt-0.5 text-xs text-warn-700">
+                                    خُصم منه <span class="num">{{ number_format($settlement->advance_deduction) }}</span> سداداً لسلفتك
+                                </div>
+                            @endif
                             @if ($settlement->status === 'paid')
                                 <div class="mt-0.5 text-xs text-ok-700">
                                     دُفع {{ $settlement->paid_at?->format('Y-m-d') }}

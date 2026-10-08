@@ -2,6 +2,7 @@
 
 namespace App\Actions\Settlements;
 
+use App\Actions\Cash\MerchantAdvances;
 use App\Models\CashBox;
 use App\Models\MerchantSettlement;
 use App\Models\Shipment;
@@ -22,7 +23,12 @@ use Illuminate\Validation\ValidationException;
  */
 class PayMerchantSettlement
 {
-    public function __construct(protected Ledger $ledger, protected CashBook $cash, protected EditDraftSettlement $drafts) {}
+    public function __construct(
+        protected Ledger $ledger,
+        protected CashBook $cash,
+        protected EditDraftSettlement $drafts,
+        protected MerchantAdvances $advances,
+    ) {}
 
     /**
      * @param  list<int>|null  $only  شحناتٌ بعينها من المسودّة: يُقفَل بها وحدها كشفٌ جديد، وتبقى
@@ -68,6 +74,9 @@ class PayMerchantSettlement
                     'note'        => "دخلت كشف التاجر {$settlement->code}",
                 ]);
             }
+
+            // سلف التاجر المفتوحة تُقتطع من صافيه الآن، فيُدفع له الكشف ناقصاً بها (docs/plan/38)
+            $this->advances->recoverFrom($settlement, $actor);
 
             return $settlement->refresh();
         });

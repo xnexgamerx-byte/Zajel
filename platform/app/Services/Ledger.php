@@ -315,6 +315,35 @@ class Ledger
         );
     }
 
+    /** سلفةٌ أُعطيت للتاجر: صار مديناً بها، فينقص رصيده (docs/plan/38). */
+    public function recordAdvance(\App\Models\MerchantAdvance $advance, ?User $actor = null): void
+    {
+        $this->post(
+            merchant: $advance->merchant,
+            direction: 'debit',
+            category: 'advance',
+            amount: (int) $advance->amount,
+            description: "سلفة {$advance->number}".($advance->note ? " — {$advance->note}" : ''),
+            actor: $actor,
+            referenceType: 'merchant_advance',
+            referenceId: $advance->id,
+        );
+    }
+
+    /** سدّد التاجر من سلفه نقداً: يعود رصيده بما سدّد. والمستردّ من كشفٍ لا قيد له — الكشف دُفع ناقصاً. */
+    public function recordAdvanceRepaid(Merchant $merchant, int $amount, ?User $actor = null, ?string $description = null): void
+    {
+        $this->post(
+            merchant: $merchant,
+            direction: 'credit',
+            category: 'advance_repaid',
+            amount: $amount,
+            description: $description ?? 'سداد سلفة نقداً',
+            actor: $actor,
+            referenceType: 'merchant_advance',
+        );
+    }
+
     /**
      * يكتب الحركة ويُحدّث الرصيد المشتقّ معاً.
      * القفل على صفّ الحساب يمنع تضارب رصيدين عند تسليمين متزامنين.

@@ -95,7 +95,8 @@
                             <td class="px-4 py-3 text-warn-700" dir="ltr">
                                 {{ $settlement->return_fees_total ? '−'.number_format($settlement->return_fees_total) : '' }}
                             </td>
-                            <td class="px-4 py-3 text-[var(--brand)]" dir="ltr">{{ number_format($settlement->net_amount) }}</td>
+                            {{-- مجموع السطور: ما اقتُطع لسلف التاجر يُطرح منه في «الحساب» --}}
+                            <td class="px-4 py-3 text-[var(--brand)]" dir="ltr">{{ number_format($settlement->net_amount + $settlement->advance_deduction) }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -136,6 +137,12 @@
                         <dd dir="ltr">−{{ number_format($settlement->return_fees_total) }}</dd>
                     </div>
                 @endif
+                @if ($settlement->advance_deduction)
+                    <div class="flex justify-between text-warn-700">
+                        <dt>خصم سلفة</dt>
+                        <dd dir="ltr">−{{ number_format($settlement->advance_deduction) }}</dd>
+                    </div>
+                @endif
                 <div class="flex justify-between border-t-2 border-ink-300 pt-2">
                     <dt class="font-bold">{{ $settlement->net_amount >= 0 ? 'الواجب دفعه له' : 'الواجب تحصيله منه' }}</dt>
                     <dd class="text-lg font-bold {{ $settlement->net_amount >= 0 ? 'text-[var(--brand)]' : 'text-bad-700' }}"
@@ -152,6 +159,14 @@
                 <p class="text-xs text-ink-500">
                     يُثبَّت الرقم وتُوسَم الشحنات فلا تدخل كشفاً آخر. الدفع خطوة تالية.
                 </p>
+                @php $owed = \App\Actions\Cash\MerchantAdvances::outstanding($settlement->merchant_id); @endphp
+                @if ($owed > 0)
+                    {{-- السلفة تُقتطع عند الإقفال بقدر صافي الكشف (docs/plan/38) --}}
+                    <p class="rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-700 ring-1 ring-warn-200">
+                        على التاجر سلفٌ باقية <span class="num">{{ number_format($owed) }}</span> د.ع: يُخصم منها عند الإقفال
+                        <span class="num">{{ number_format(min($owed, max(0, (int) $settlement->net_amount))) }}</span> د.ع.
+                    </p>
+                @endif
                 @if ($editable)
                     <p class="rounded-lg bg-info-50 px-3 py-2 text-xs text-info-700 ring-1 ring-info-200" data-picked-when="settle" hidden>
                         حدّدت شحنات: يُقفَل بها وحدها كشفٌ جديد تدفعه من صفحته، وتبقى البقية في هذه المسودّة.
