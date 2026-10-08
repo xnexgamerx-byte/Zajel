@@ -43,6 +43,16 @@ class Ability
     /** مسح ما أُنشئ خطأً قبل أن يصلنا، واسترجاعه — «صلاحية تعديل وحذف الشحنات» في المعتاد */
     public const SHIPMENTS_DELETE = 'shipments.delete';
 
+    /**
+     * تعديل أجور الشحنة (التاجر والمندوب) وطلبيتها أيّاً كانت حالها، ولو انتهت أو كان فيها
+     * مشكلة — والفرق قيدٌ في الحساب بسببه (docs/plan/38). لصاحب الشركة وحده افتراضاً،
+     * ويُمنح لمن يشاء من الفروع بمرتبةٍ أو صلاحيةٍ استثنائية.
+     */
+    public const SHIPMENTS_OVERRIDE = 'shipments.override';
+
+    /** ما لا يُعطى بالدور: لصاحب الشركة، ولمن يُمنح بعينه */
+    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE];
+
     // التوصيل · الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
 
@@ -135,6 +145,7 @@ class Ability
                 self::SHIPMENTS_ASSIGN => 'إسناد للمندوبين',
                 self::SHIPMENTS_EXPORT => 'تصدير القوائم (Excel وPDF) بأرقام الزبائن',
                 self::SHIPMENTS_DELETE => 'مسح الشحنات قبل استلامها، واسترجاعها',
+                self::SHIPMENTS_OVERRIDE => 'تعديل أجور التاجر والمندوب والطلبية لأيّ شحنة، ولو انتهت',
             ]],
             'delivery' => ['label' => 'التوصيل', 'abilities' => [
                 self::PICKUPS_MANAGE   => 'طلبات الاستلام',
@@ -251,7 +262,8 @@ class Ability
 
         $abilities = match ($role) {
             // وصاحب الفرع مثلهما في فرعه: ما يسري على الشركة كلّها يُنزَع منه (COMPANY_WIDE)
-            UserRole::CompanyOwner, UserRole::CompanyAdmin, UserRole::BranchOwner => static::all(),
+            UserRole::CompanyOwner => static::all(),
+            UserRole::CompanyAdmin, UserRole::BranchOwner => array_diff(static::all(), self::OWNER_ONLY),
 
             // مدير الفرع يُدير العمليات ويرى المال ولا يُحرّكه؛ وله التقارير المالية كما في المعتاد
             UserRole::BranchManager => [

@@ -222,7 +222,10 @@ class ChangeShipmentStatus
                     : $shipment->cod_amount;
 
                 $courier = $shipment->deliveryCourier;
-                $attributes['courier_commission'] = $courier?->payForDelivery($shipment) ?? 0;
+                // ما كتبه صاحب الصلاحية بيده يبقى (docs/plan/38)
+                if (! $shipment->courier_commission_fixed) {
+                    $attributes['courier_commission'] = $courier?->payForDelivery($shipment) ?? 0;
+                }
 
                 // وما دفعه التاجر مقدّماً من الأجور يعود إليه هنا: لا تُخصم أجرةٌ دُفعت
                 $attributes['merchant_due'] = ($shipment->fees_paid_by === 'customer'
@@ -239,7 +242,7 @@ class ChangeShipmentStatus
             if ($to === ShipmentStatus::Returned) {
                 // باقي الواصل الجزئي يرجع بلا عمولة إرجاع: عمولة التوصيل قُيِّدت كاملةً
                 // عند التسليم وتبقى عمولةَ الشحنة (الوثيقة ٢٤)
-                if (! $shipment->wasDelivered()) {
+                if (! $shipment->wasDelivered() && ! $shipment->courier_commission_fixed) {
                     $courier = $shipment->deliveryCourier;
                     $attributes['courier_commission'] = $courier?->commission_per_return ?? 0;
                 }

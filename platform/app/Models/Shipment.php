@@ -54,6 +54,7 @@ class Shipment extends Model
             'returned_at'       => 'datetime',
             'return_received_at' => 'datetime',
             'amount_confirmed'  => 'boolean',
+            'courier_commission_fixed' => 'boolean',
             'amount_confirmed_at' => 'datetime',
             'cancelled_at'      => 'datetime',
             'courier_settled_at' => 'datetime',

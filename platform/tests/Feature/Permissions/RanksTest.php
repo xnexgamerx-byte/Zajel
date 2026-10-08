@@ -138,7 +138,7 @@ class RanksTest extends TestCase
             ->assertOk()
             ->assertSee($clerk->name)
             // الشاشات تحت كل صلاحية، من الشريط نفسه
-            ->assertSee('كشوف المناديب · الأكياس · كشوف النقل بين الفروع');
+            ->assertSee('كشوف المناديب · النقل بين الفروع (إرسال واستلام) · أرشيف الكشوف');
 
         $this->actingAs($this->owner)
             ->put($this->host()."/permissions/ranks/{$rank->id}", [

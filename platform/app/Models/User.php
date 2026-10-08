@@ -152,8 +152,9 @@ class User extends Authenticatable
         $base = match (true) {
             is_array($this->permissions)            => $this->permissions,
             $this->role === UserRole::CompanyOwner  => Ability::all(),
-            // صاحب الفرع كل شيء في فرعه: لا مرتبة تقيّده، وما للشركة كلّها يُنزَع أدناه
-            $this->role === UserRole::BranchOwner   => Ability::all(),
+            // صاحب الفرع كل شيء في فرعه: لا مرتبة تقيّده، وما للشركة كلّها يُنزَع أدناه.
+            // وما لصاحب الشركة وحده (تعديل أجور شحنةٍ انتهت) يُمنح له بعينه لا بدوره
+            $this->role === UserRole::BranchOwner   => array_diff(Ability::all(), Ability::OWNER_ONLY),
             $this->rank_id !== null && $this->rank !== null => $this->rank->abilities ?? [],
             default                                 => Ability::defaultsFor($this->role),
         };

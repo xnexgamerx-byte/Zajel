@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\DB;
 class Ledger
 {
     /** ما يُقيَّد في حساب التاجر عن شحنةٍ بعينها: مجموعه مستحقّها (merchant_due) */
-    public const SHIPMENT_CATEGORIES = ['shipment_due', 'return_fee', 'amount_correction', 'prepaid_fee'];
+    public const SHIPMENT_CATEGORIES = ['shipment_due', 'return_fee', 'amount_correction', 'prepaid_fee', 'fee_correction'];
 
     /** الشحنة سُلِّمت: التاجر يستحقّ، والمندوب صار بيده نقد الشركة. */
     public function recordDelivery(Shipment $shipment, ?User $actor = null): void
@@ -169,6 +169,41 @@ class Ledger
                 );
             }
         });
+    }
+
+    /**
+     * تعديل أجور شحنةٍ قُيِّد مالها (docs/plan/38): الفرق في مستحقّ التاجر قيدٌ بسببه،
+     * لا تغييرٌ صامت في رقمٍ قُيِّد. وموجبه له، وسالبه عليه.
+     */
+    public function recordFeeCorrection(Shipment $shipment, int $delta, ?User $actor = null, ?string $reason = null): void
+    {
+        $this->post(
+            merchant: $shipment->merchant,
+            direction: $delta > 0 ? 'credit' : 'debit',
+            category: 'fee_correction',
+            amount: abs($delta),
+            shipment: $shipment,
+            description: "تعديل أجور الشحنة {$shipment->number}".($reason ? " — {$reason}" : ''),
+            actor: $actor,
+        );
+    }
+
+    /** تعديل أجرة المندوب عن شحنةٍ قُيِّدت عمولتها: الفرق في عمولته المستحقّة. */
+    public function recordCommissionCorrection(Shipment $shipment, int $delta, ?User $actor = null, ?string $reason = null): void
+    {
+        if (! $courier = $shipment->deliveryCourier) {
+            return;
+        }
+
+        $this->post(
+            courier: $courier,
+            direction: $delta > 0 ? 'credit' : 'debit',
+            category: 'commission',
+            amount: abs($delta),
+            shipment: $shipment,
+            description: "تعديل أجرة المندوب عن الشحنة {$shipment->number}".($reason ? " — {$reason}" : ''),
+            actor: $actor,
+        );
     }
 
     /**

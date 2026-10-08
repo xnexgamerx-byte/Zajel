@@ -65,7 +65,10 @@ class ShipmentAmountController extends Controller
         $waiting = ShipmentStages::awaitingApproval(clone $query)->pluck('shipments.id')->flip();
         $result = ['moved' => [], 'skipped' => []];
 
-        set_time_limit(180);
+        // يرفع الحدّ ولا يخفضه: «بلا حدّ» (0) في سطر الأوامر والاختبارات يبقى كما هو
+        if (($limit = (int) ini_get('max_execution_time')) > 0 && $limit < 180) {
+            set_time_limit(180);
+        }
 
         foreach ($query->get() as $shipment) {
             if (! $waiting->has($shipment->id)) {

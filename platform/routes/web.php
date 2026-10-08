@@ -61,6 +61,7 @@ use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\PrepaidFeeController;
 use App\Http\Controllers\Tenant\ShipmentWaybillController;
 use App\Http\Controllers\Tenant\TransferController;
+use App\Http\Controllers\Tenant\ShipmentOverrideController;
 use App\Http\Controllers\Tenant\MerchantAdvanceController;
 use App\Http\Controllers\Tenant\WaybillBookController;
 use App\Http\Controllers\Portal\WaybillController as PortalWaybillController;
@@ -182,6 +183,11 @@ Route::middleware('tenant')->group(function () {
         Route::middleware(['staff', 'can:shipments.edit'])->group(function () {
             Route::get('/shipments/{shipment}/edit', [ShipmentController::class, 'edit'])->name('shipments.edit');
             Route::put('/shipments/{shipment}', [ShipmentController::class, 'update'])->name('shipments.update');
+        });
+        // أجور الشحنة وطلبيتها بصلاحيةٍ خاصّة، ولو انتهت (docs/plan/38)
+        Route::middleware(['staff', 'can:shipments.override'])->group(function () {
+            Route::get('/shipments/{shipment}/override', [ShipmentOverrideController::class, 'edit'])->name('shipments.override');
+            Route::put('/shipments/{shipment}/override', [ShipmentOverrideController::class, 'update'])->name('shipments.override.update');
         });
         Route::delete('/shipments/{shipment}', [ShipmentTrashController::class, 'destroy'])
             ->middleware(['staff', 'can:shipments.delete'])->name('shipments.destroy');

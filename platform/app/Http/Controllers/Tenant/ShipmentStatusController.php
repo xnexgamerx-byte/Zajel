@@ -107,7 +107,10 @@ class ShipmentStatusController extends Controller
         }
 
         // ألف شحنة تمرّ كلٌّ منها بمدخلها وقيودها: مهلةٌ تكفيها، لا مهلة الطلب العاديّ
-        set_time_limit(180);
+        // يرفع الحدّ ولا يخفضه: «بلا حدّ» (0) في سطر الأوامر والاختبارات يبقى كما هو
+        if (($limit = (int) ini_get('max_execution_time')) > 0 && $limit < 180) {
+            set_time_limit(180);
+        }
 
         $result = $bulk->handle($query->get(), $to, $user, [
             'courier'           => $courier,

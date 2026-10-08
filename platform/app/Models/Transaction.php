@@ -33,6 +33,7 @@ class Transaction extends Model
         'commission_paid'   => 'دفع عمولة',
         'cash_handover'     => 'تسليم نقد',
         'deduction'         => 'خصم',
+        'fee_correction'    => 'تعديل أجور',
         'advance'           => 'سلفة',
         'advance_repaid'    => 'سداد سلفة',
     ];

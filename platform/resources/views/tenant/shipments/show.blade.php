@@ -24,6 +24,13 @@
                 </a>
             @endcan
         @endif
+        {{-- بصلاحيةٍ خاصّة: الأجور والطلبية ولو انتهت الشحنة (docs/plan/38) --}}
+        @can('shipments.override')
+            <a href="{{ route('shipments.override', $shipment) }}" class="btn-ghost">
+                <x-icon name="cash" class="size-5"/>
+                تعديل الأجور والطلبية
+            </a>
+        @endcan
         <a href="{{ route('shipments.labels', ['ids' => [$shipment->id]]) }}" target="_blank" class="btn-ghost">
             <x-icon name="printer" class="size-5"/>
             طباعة الوصل
