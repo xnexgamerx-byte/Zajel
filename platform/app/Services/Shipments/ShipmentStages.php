@@ -48,12 +48,21 @@ final class ShipmentStages
                     'hint' => 'استلمها مندوب الاستلام ولم تدخل المخزن', 'apply' => $status(ShipmentStatus::PickedUp)],
                 'in_store' => ['label' => 'بالمخزن', 'tone' => 'blue',
                     'links' => [['shipments.scan', 'استلام وإسناد بالمسح', 'shipments.status'], ['courier-manifests.index', 'كشوف المناديب', 'transport.manage']],
-                    'hint' => 'على الرفّ تنتظر مندوب توصيل', 'apply' => $status(ShipmentStatus::AtHub)],
+                    'hint' => 'على الرفّ تنتظر مندوب توصيل',
+                    // وما أعاده الكول سنتر للتوصيل في خانته «إعادة توصيل» لا هنا
+                    'apply' => fn (Builder $q) => $status(ShipmentStatus::AtHub)($q)->whereNull('shipments.redelivery_at')],
             ]],
             'courier' => ['icon' => 'truck', 'label' => 'عند المندوب', 'hint' => 'خرجت للتوصيل ولم تُحسم', 'stages' => [
                 'out_for_delivery' => ['label' => 'قيد التوصيل', 'tone' => 'blue',
                     'links' => [['courier-manifests.index', 'كشوف المناديب', 'transport.manage'], ['couriers.cash', 'النقد بيد المندوبين', 'money.view']],
-                    'hint' => 'مع المندوب اليوم', 'apply' => $status(ShipmentStatus::OutForDelivery)],
+                    'hint' => 'مع المندوب اليوم',
+                    'apply' => fn (Builder $q) => $status(ShipmentStatus::OutForDelivery)($q)->whereNull('shipments.redelivery_at')],
+                // ما عالجه الكول سنتر فأعاده للتوصيل: خانةٌ وحدها لا «قيد التوصيل» (docs/plan/38)
+                'redelivery' => ['label' => 'إعادة توصيل', 'tone' => 'blue',
+                    'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
+                    'hint' => 'عالجها الكول سنتر فأعادها: مع المندوب أو في المخزن تنتظره',
+                    'apply' => fn (Builder $q) => $q->whereNotNull('shipments.redelivery_at')
+                        ->whereIn('shipments.status', [ShipmentStatus::OutForDelivery->value, ShipmentStatus::AtHub->value])],
                 'to_process' => ['label' => 'لم تُسلَّم (للمعالجة)', 'tone' => 'amber',
                     'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
                     'hint' => 'محاولة فاشلة: تُعاد أو تؤجَّل أو تُرجع', 'apply' => $status(ShipmentStatus::FailedAttempt)],
@@ -65,11 +74,19 @@ final class ShipmentStages
                 'postponed' => ['label' => 'مؤجل', 'tone' => 'amber',
                     'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
                     'hint' => 'بطلب الزبون إلى موعدٍ آخر', 'apply' => $status(ShipmentStatus::Postponed)],
-                // ومعه باقي الواصل الجزئي وقديم الاستبدال: القائمة التي يفتحها العدّاد نفسها
+                // «راجع مؤكد»: لم تُعالَج فتأكّد رجوعها، وما زالت بيد المندوب يسلّمها للمخزن (docs/plan/38)
+                'confirmed_return' => ['label' => 'راجع مؤكد', 'tone' => 'amber',
+                    'links' => [['returns.incoming', 'استلام الراجع من المندوب', 'returns.manage']],
+                    'hint' => 'تأكّد رجوعها بقرار المعالجة، وما زالت بيد المندوب',
+                    'apply' => fn (Builder $q) => $q->where('shipments.status', ShipmentStatus::Returning->value)
+                        ->whereNull('shipments.return_received_at')->whereNotNull('shipments.return_confirmed_at')],
+                // وما سواه بيد المندوب: باقي الواصل الجزئي وقديم الاستبدال
                 'return_with_courier' => ['label' => 'راجع عند المندوب', 'tone' => 'amber',
                     'links' => [['returns.incoming', 'استلام الراجع من المندوب', 'returns.manage']],
-                    'hint' => 'قُرّر إرجاعها، أو قديم استبدالٍ أو باقي واصلٍ جزئي، وما زال بيده',
-                    'apply' => fn (Builder $q) => $q->where(fn (Builder $w) => ReceiveReturns::withCourier($w))],
+                    'hint' => 'قديم استبدالٍ أو باقي واصلٍ جزئي، وما زال بيده',
+                    'apply' => fn (Builder $q) => $q->where(fn (Builder $w) => ReceiveReturns::withCourier($w))
+                        ->where(fn (Builder $w) => $w->whereNull('shipments.return_confirmed_at')
+                            ->orWhere('shipments.status', '!=', ShipmentStatus::Returning->value))],
             ]],
             'returns' => ['icon' => 'undo', 'label' => 'الراجع', 'hint' => 'عائدةٌ إلى أصحابها', 'stages' => [
                 'return_on_shelf' => ['label' => 'راجع بالمخزن', 'tone' => 'slate',

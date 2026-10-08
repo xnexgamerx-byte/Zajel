@@ -18,7 +18,11 @@
 
 <form method="GET" class="card mb-4 flex flex-wrap items-end gap-3 p-4">
     <div class="min-w-48 flex-1">
-        <label class="field-label" for="merchant_id">التاجر</label>
+        <label class="field-label" for="q">اسم التاجر</label>
+        <input id="q" name="q" value="{{ $term }}" class="field-input" placeholder="الاسم أو الكود أو الهاتف" autocomplete="off">
+    </div>
+    <div class="min-w-48 flex-1">
+        <label class="field-label" for="merchant_id">أو اختره</label>
         <select id="merchant_id" name="merchant_id" class="field-input" data-searchable>
             <option value="">الكل</option>
             @foreach ($merchants as $merchant)
@@ -63,6 +67,67 @@
     <button type="submit" class="btn-primary">بحث</button>
     <a href="{{ route('return-batches.index') }}" class="btn-ghost">مسح البحث</a>
 </form>
+
+@if ($chosen)
+    {{-- كل رواجع التاجر التي استلمها في المدّة المختارة: شحنةً شحنة، لا إيصالاً إيصالاً --}}
+    <section class="card mb-5 overflow-hidden">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
+            <div>
+                <h2 class="card-title">كل رواجع {{ $chosen->business_name }}</h2>
+                <p class="card-hint">
+                    @if (request('from') || request('to'))
+                        ما استلمه {{ request('from') ? 'من '.request('from') : '' }} {{ request('to') ? 'إلى '.request('to') : '' }}
+                    @else
+                        كل ما استلمه منذ البداية — اختر المدّة أعلاه لتضييقها.
+                    @endif
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <span class="text-sm">العدد: <b class="num">{{ number_format($returnsTotals->shipments) }}</b></span>
+                <span class="text-sm">أجرة الراجع: <b class="num">{{ number_format($returnsTotals->fees) }}</b> د.ع</span>
+                <a href="{{ route('return-batches.merchant', array_filter(['merchant_id' => $chosen->id, 'from' => request('from'), 'to' => request('to')])) }}"
+                   target="_blank" class="btn-ghost py-1">
+                    <x-icon name="printer" class="size-4"/> اطبع الكشف
+                </a>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th>رقم الوصل</th>
+                        <th>الزبون</th>
+                        <th>الوجهة</th>
+                        <th>السبب</th>
+                        <th class="num">المبلغ</th>
+                        <th class="num">أجرة الراجع</th>
+                        <th>الإيصال</th>
+                        <th>استلمه في</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($returns as $shipment)
+                        <tr>
+                            <td><a href="{{ route('shipments.show', $shipment) }}" class="num font-semibold text-[var(--brand)] hover:underline">{{ $shipment->number }}</a></td>
+                            <td>{{ $shipment->recipient_name }}</td>
+                            <td class="text-xs">{{ $shipment->governorate?->name_ar }}{{ $shipment->city ? ' · '.$shipment->city->name_ar : '' }}</td>
+                            <td class="text-xs text-ink-600">{{ $shipment->returnReason() ?? '—' }}</td>
+                            <td class="num">{{ number_format($shipment->cod_amount) }}</td>
+                            <td class="num">{{ number_format($shipment->wasDelivered() ? 0 : $shipment->return_fee) }}</td>
+                            <td class="num text-xs">{{ $shipment->returnBatch?->number ?? '—' }}</td>
+                            <td class="num text-xs text-ink-500">{{ $shipment->returned_at?->format('Y-m-d H:i') }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="8" class="px-4 py-10 text-center text-ink-500">لا رواجع استلمها في هذه المدّة.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if ($returns->hasPages())
+            <div class="border-t border-ink-100 px-4 py-3">{{ $returns->links() }}</div>
+        @endif
+    </section>
+@endif
 
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">

@@ -94,10 +94,16 @@ class StagesAndExportTest extends TestCase
         $this->shipment(['status' => 'partially_delivered', 'collected_amount' => 50_000, 'type' => 'exchange']);
         $this->shipment(['status' => 'delivered', 'collected_amount' => 50_000, 'merchant_settled_at' => now()]); // خرجت
         $this->shipment(['status' => 'in_transit']);
+        // أعادها الكول سنتر للتوصيل: خانتها «إعادة توصيل» لا «قيد التوصيل» ولا «بالمخزن» (docs/plan/38)
+        $this->shipment(['status' => 'out_for_delivery', 'redelivery_at' => now()]);
+        $this->shipment(['status' => 'at_hub', 'redelivery_at' => now()]);
+        // «راجع مؤكد» بيد المندوب: خانته وحدها، لا «راجع عند المندوب»
+        $this->shipment(['status' => 'returning', 'return_confirmed_at' => now()]);
 
         $expected = [
             'ready_to_print' => 1, 'ready_for_pickup' => 1, 'incoming' => 0, 'in_store' => 1,
-            'out_for_delivery' => 1, 'to_process' => 1, 'awaiting_approval' => 1, 'postponed' => 0, 'return_with_courier' => 2,
+            'out_for_delivery' => 1, 'redelivery' => 2, 'to_process' => 1, 'awaiting_approval' => 1, 'postponed' => 0,
+            'confirmed_return' => 1, 'return_with_courier' => 2,
             'return_on_shelf' => 1, 'delivered' => 1, 'partial_or_exchange' => 2, 'amount_changed' => 1,
             'in_transit' => 1, 'returns_to_sort' => 0, 'returns_on_the_way' => 0,
         ];

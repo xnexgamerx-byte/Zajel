@@ -2,14 +2,7 @@
 @section('title', 'كشوف المناديب')
 
 @section('content')
-<div class="mb-5 flex flex-wrap items-start justify-between gap-3">
-    <div>
-        <h1 class="page-title">كشوف مناديب التوصيل</h1>
-        <p class="mt-1 text-sm text-ink-500">
-            ما بيد كل مندوب الآن — ورقةٌ تُطبَع ويوقّع عليها عند الخروج، ويُطابَق بها عند العودة.
-        </p>
-    </div>
-</div>
+@include('tenant.courier_manifests._tabs', ['tab' => 'now'])
 
 <div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
     <div class="stat">
@@ -28,7 +21,7 @@
 
 @if ($couriers->isEmpty())
     <section class="card p-10 text-center">
-        <p class="font-medium">لا مندوب في الطريق الآن.</p>
+        <p class="font-medium">{{ $filters['q'] !== '' ? 'لا مندوب بهذا البحث بيده شحنات الآن.' : 'لا مندوب في الطريق الآن.' }}</p>
         <p class="mt-1 text-sm text-ink-500">تظهر هنا كشوف المناديب الذين أُسنِدت إليهم شحنات ولم يُقفلوها بعد.</p>
     </section>
 @else
@@ -77,6 +70,7 @@
                             <td class="num text-ink-600">{{ number_format($courier->cash_in_hand) }}</td>
                             <td class="text-end">
                                 <a href="{{ route('courier-manifests.show', $courier) }}" class="btn-ghost">افتح الكشف</a>
+                                <a href="{{ route('settlements.couriers.index', ['courier_id' => $courier->id]) }}" class="btn-ghost">محاسباته</a>
                             </td>
                         </tr>
                     @endforeach

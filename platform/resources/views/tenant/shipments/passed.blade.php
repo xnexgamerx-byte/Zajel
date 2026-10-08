@@ -75,7 +75,7 @@
                         <td class="whitespace-nowrap">{{ $shipment->hub?->branch?->name ?? $shipment->hub?->name ?? '—' }}</td>
                         <td class="num whitespace-nowrap">{{ number_format($shipment->cod_amount) }}</td>
                         <td>{{ $shipment->governorate?->name_ar }}</td>
-                        <td><x-status-badge :status="$shipment->status" /></td>
+                        <td><x-status-badge :status="$shipment->status" :shipment="$shipment" /></td>
                         <td class="num whitespace-nowrap text-xs text-ink-500">{{ $shipment->status_changed_at?->format('Y-m-d H:i') }}</td>
                         <td class="num whitespace-nowrap text-xs text-ink-500">{{ $shipment->created_at->format('Y-m-d') }}</td>
                     </tr>

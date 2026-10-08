@@ -116,7 +116,7 @@
                             {{ $shipment->deliveryCourier?->name ?? '—' }}
                         </td>
                         <td class="cell-status px-4 py-3">
-                            <x-status-badge :status="$shipment->status" />
+                            <x-status-badge :status="$shipment->status" :shipment="$shipment" />
                         </td>
                         @if ($sinceStage ?? false)
                             @php

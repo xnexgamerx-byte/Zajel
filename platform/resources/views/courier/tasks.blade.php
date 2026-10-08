@@ -41,6 +41,26 @@
     <button type="submit" class="btn-primary shrink-0 px-5">ابحث</button>
 </form>
 
+@if ($returns->isNotEmpty())
+    {{-- ما يُرجعه للمخزن: «راجع مؤكد» لا يُسلَّم للزبون، يُسلَّم للشركة --}}
+    <section class="mb-4 rounded-xl border border-warn-200 bg-warn-50 p-4">
+        <h2 class="text-sm font-bold text-warn-700">رواجع بيدك — سلّمها للمخزن ({{ $returns->count() }})</h2>
+        <ul class="mt-2 space-y-1.5 text-sm">
+            @foreach ($returns as $return)
+                <li class="flex items-center justify-between gap-2">
+                    <span class="min-w-0 truncate">
+                        <span class="font-mono text-xs text-ink-500" dir="ltr">{{ $return->number }}</span>
+                        · {{ $return->merchant?->business_name }}
+                    </span>
+                    <span class="shrink-0 rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-warn-700">
+                        {{ $return->isConfirmedReturnWithCourier() ? 'راجع مؤكد' : ($return->type === 'exchange' ? 'قديم استبدال' : 'باقي واصل جزئي') }}
+                    </span>
+                </li>
+            @endforeach
+        </ul>
+    </section>
+@endif
+
 @forelse ($tasks as $governorate => $group)
     <h2 class="mb-2 mt-4 px-1 text-sm font-bold text-ink-600">
         {{ $governorate }}
@@ -71,6 +91,9 @@
 
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <span class="font-mono text-ink-400" dir="ltr">{{ $shipment->number }}</span>
+                    @if ($shipment->isRedelivery())
+                        <span class="rounded bg-info-50 px-1.5 py-0.5 font-semibold text-info-700">إعادة توصيل</span>
+                    @endif
                     @if ($shipment->attempts_count > 0)
                         <span class="rounded bg-warn-50 px-1.5 py-0.5 font-semibold text-warn-700">
                             محاولة {{ $shipment->attempts_count + 1 }}

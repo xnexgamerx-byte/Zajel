@@ -18,10 +18,11 @@ use Illuminate\Validation\ValidationException;
  */
 class ProcessFailedAttempt
 {
+    /** «راجع مؤكد»: لم تُعالَج فتأكّد رجوعها لتاجرها (docs/plan/38) */
     public const ACTIONS = [
         'redeliver' => 'إعادة توصيل',
         'postpone'  => 'مؤجل',
-        'return'    => 'راجع للتاجر',
+        'return'    => 'راجع مؤكد',
     ];
 
     public function __construct(protected ChangeShipmentStatus $change) {}
@@ -52,9 +53,10 @@ class ProcessFailedAttempt
 
             [$to, $options] = match ($action) {
                 // مع مندوبها نفسه إن كان لها مندوب، وإلّا إلى المخزن تنتظر الإسناد
+                // «إعادة توصيل» خانةٌ وحدها: يُعرف بها ما عالجه الكول سنتر (docs/plan/38)
                 'redeliver' => $shipment->delivery_courier_id
-                    ? [ShipmentStatus::OutForDelivery, $options + ['courier_id' => $shipment->delivery_courier_id]]
-                    : [ShipmentStatus::AtHub, $options],
+                    ? [ShipmentStatus::OutForDelivery, $options + ['courier_id' => $shipment->delivery_courier_id, 'redelivery' => true]]
+                    : [ShipmentStatus::AtHub, $options + ['redelivery' => true]],
                 'postpone'  => [ShipmentStatus::Postponed, $options + ['scheduled_at' => Carbon::parse($until)->startOfDay()]],
                 'return'    => [ShipmentStatus::Returning, $options],
             };

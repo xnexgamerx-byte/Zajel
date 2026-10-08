@@ -45,7 +45,7 @@
                                    class="font-mono font-semibold text-[var(--brand)] hover:underline" dir="ltr">{{ $shipment->number }}</a>
                             </td>
                             <td class="px-4 py-2.5">{{ $shipment->recipient_name }}</td>
-                            <td class="px-4 py-2.5"><x-status-badge :status="$shipment->status" /></td>
+                            <td class="px-4 py-2.5"><x-status-badge :status="$shipment->status" :shipment="$shipment" /></td>
                             <td class="px-4 py-2.5 font-semibold" dir="ltr">
                                 {{ $shipment->collected_amount !== null ? number_format($shipment->collected_amount) : '—' }}
                             </td>

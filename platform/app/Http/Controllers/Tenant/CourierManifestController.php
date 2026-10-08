@@ -6,6 +6,8 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Shipment;
+use App\Services\Couriers\CourierManifests;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -24,8 +26,57 @@ use Illuminate\View\View;
  */
 class CourierManifestController extends Controller
 {
-    /** مَن بيده شيء، وكم، وبكم. */
-    public function index(Request $request): View
+    /**
+     * كل الكشوف — لا يوم واحد (docs/plan/38): كشفٌ لكل مندوبٍ عن كل يومٍ خرج فيه، بما صارت
+     * إليه شحناته، مع البحث بالمندوب والمدّة. و«بيدهم الآن» تبويبٌ في الشاشة نفسها.
+     */
+    public function index(Request $request, CourierManifests $manifests): View
+    {
+        $date = fn (string $key) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($key)) ? (string) $request->query($key) : null;
+        $filters = [
+            'q'          => mb_substr(trim((string) $request->query('q')), 0, 60),
+            'courier_id' => $request->integer('courier_id') ?: null,
+            'from'       => $date('from'),
+            'to'         => $date('to'),
+        ];
+
+        if ($request->query('tab') === 'now') {
+            return $this->now($request, $filters);
+        }
+
+        return view('tenant.courier_manifests.history', [
+            'filters'   => $filters,
+            'manifests' => $manifests->page($request->user(), $filters),
+            'couriers'  => Courier::withTrashed()->visibleTo($request->user())->whereIn('type', ['delivery', 'pickup'])
+                ->orderBy('name')->get(['id', 'name']),
+            'buckets'   => CourierManifests::BUCKETS,
+        ]);
+    }
+
+    /** كشف مندوبٍ في يومٍ بعينه: شحناته بما صارت إليه، ورقةً تُطبع */
+    public function day(Request $request, Courier $courier, string $date, CourierManifests $manifests): View
+    {
+        abort_unless(Courier::withTrashed()->visibleTo($request->user())->whereKey($courier->id)->exists(), 404);
+        $day = Carbon::parse($date);
+
+        $shipments = $manifests->shipmentsOf($request->user(), $courier, $day);
+
+        return view('tenant.courier_manifests.day', [
+            'courier'   => $courier,
+            'day'       => $day,
+            'shipments' => $shipments,
+            'buckets'   => $shipments->countBy(fn (Shipment $s) => CourierManifests::bucketOf($s, $courier->id)),
+            'labels'    => CourierManifests::BUCKETS,
+            'totals'    => (object) [
+                'shipments' => $shipments->count(),
+                'cod'       => (int) $shipments->sum('cod_amount'),
+                'collected' => (int) $shipments->whereNotNull('delivered_at')->sum('collected_amount'),
+            ],
+        ]);
+    }
+
+    /** مَن بيده شيء الآن، وكم، وبكم. */
+    protected function now(Request $request, array $filters): View
     {
         // مناديب فرعه وحدهم إن كان مقيَّداً بفرع — ولو محذوفين وبيدهم عهدة
         $held = Shipment::query()
@@ -53,10 +104,17 @@ class CourierManifestController extends Controller
         $couriers = Courier::withTrashed()
             ->visibleTo($request->user())
             ->whereIn('id', $held->keys()->all() ?: [0])
+            // البحث بالاسم أو الكود أو الهاتف
+            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', '%'.$filters['q'].'%')
+                ->orWhere('code', 'like', $filters['q'].'%')
+                ->orWhere('phone', 'like', '%'.\App\Support\Phone::latinDigits($filters['q']).'%')))
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'type', 'status', 'cash_in_hand', 'cash_limit', 'branch_id', 'deleted_at']);
 
+        $held = $held->only($couriers->pluck('id')->all());
+
         return view('tenant.courier_manifests.index', [
+            'filters'  => $filters,
             'couriers' => $couriers,
             'held'     => $held,
             'totals'   => (object) [

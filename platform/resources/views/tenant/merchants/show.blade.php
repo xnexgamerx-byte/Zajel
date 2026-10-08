@@ -110,7 +110,7 @@
                             </span>
                             <span class="flex-1 truncate text-sm text-ink-600">{{ $shipment->recipient_name }}</span>
                             <span class="text-sm font-semibold" dir="ltr">{{ number_format($shipment->cod_amount) }}</span>
-                            <x-status-badge :status="$shipment->status" />
+                            <x-status-badge :status="$shipment->status" :shipment="$shipment" />
                         </a>
                     @endforeach
                 </div>

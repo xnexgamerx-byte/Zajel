@@ -70,7 +70,7 @@
                   class="order-last basis-full md:order-none md:ms-auto md:max-w-md md:flex-1 md:basis-auto">
                 <label for="global-search" class="sr-only">ابحث عن شحنة</label>
                 <div class="relative">
-                    <input id="global-search" name="q" value="{{ request('q') }}" class="field-input pe-11"
+                    <input id="global-search" name="q" value="{{ request()->routeIs('shipments.index') ? request('q') : '' }}" class="field-input pe-11"
                            placeholder="ابحث برقم الوصل أو هاتف الزبون…">
                     <x-icon name="search" class="pointer-events-none absolute end-3.5 top-1/2 size-5 -translate-y-1/2 text-primary-700"/>
                 </div>

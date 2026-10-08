@@ -158,6 +158,28 @@ class ChangeShipmentStatus
                 $attributes['attempts_count'] = $shipment->attempts_count + 1;
             }
 
+            /*
+            | «إعادة توصيل» (docs/plan/38): قرار المعالجة يُعلِّمها، فتُعرض في خانتها لا مع ما
+            | خرج أوّل مرّة. وتفشل ثانيةً أو تؤجَّل فيُمحى: لها قرارٌ جديد ينتظر.
+            */
+            if (! empty($options['redelivery'])) {
+                $attributes['redelivery_at'] = now();
+            } elseif (in_array($to, [ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed], true)) {
+                $attributes['redelivery_at'] = null;
+            }
+
+            /*
+            | «راجع مؤكد»: قرارٌ بالإرجاع بعد محاولةٍ فاشلة أو تأجيل — من الكول سنتر أو التاجر
+            | أو موظّف — أو لشحنةٍ في المخزن. يُكتب بصاحبه، وتسير بعده راجعاً لا شحنةً جديدة.
+            | وباقي الواصل الجزئي يرجع بحكم التسليم لا بقرار، فلا يُعلَّم.
+            */
+            if ($to === ShipmentStatus::Returning
+                && in_array($from, [ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed, ShipmentStatus::AtHub], true)) {
+                $attributes['return_confirmed_at'] = now();
+                $attributes['return_confirmed_by_user_id'] = $actor?->id;
+                $attributes['redelivery_at'] = null;
+            }
+
             if (isset($options['failure_reason_id'])) {
                 $attributes['last_failure_reason_id'] = $options['failure_reason_id'];
             }

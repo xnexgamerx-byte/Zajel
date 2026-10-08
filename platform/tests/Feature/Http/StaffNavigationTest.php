@@ -49,6 +49,8 @@ class StaffNavigationTest extends TestCase
         'shipments.scan.lookup', 'returns.lookup',
         // إيصالات التسليم لمندوب الاستلام، من رسالة نجاحه
         'return-batches.print-many',
+        // كشف كل رواجع التاجر في مدّة، من «إيصالات الراجع» بعد اختياره
+        'return-batches.merchant',
         // «صندوقي» من شارة رصيده في الرأس، لصاحب الصندوق وحده
         'cash.mine',
         // «خصّص الرئيسية» من زرّها في «لوحة اليوم»، و«رئيسيّتها» بجانب كل مرتبة

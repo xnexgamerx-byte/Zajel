@@ -67,10 +67,18 @@ class ReturnBatchController extends Controller
     /** «دفعات الراجع»: كل تسليمٍ بإيصاله، ومن أين خرج، وهل استُلم فعلاً. */
     public function index(Request $request): View
     {
+        // التاجر بالاسم أو الكود أو الهاتف، أو من القائمة؛ وبحثٌ يطابق تاجراً واحداً يختاره
+        $term = mb_substr(trim((string) $request->query('q')), 0, 60);
+        $named = $term !== '' ? $this->merchantsMatching($request, $term) : null;
+        $merchant = $request->integer('merchant_id')
+            ? Merchant::visibleTo($request->user())->find($request->integer('merchant_id'))
+            : ($named && $named->count() === 1 ? $named->first() : null);
+
         $batches = ReturnBatch::query()
             ->visibleTo($request->user())
             ->with(['merchant:id,business_name,code', 'courier:id,name', 'handedBy:id,name'])
-            ->when($request->integer('merchant_id'), fn ($q, $id) => $q->where('merchant_id', $id))
+            ->when($merchant, fn ($q) => $q->where('merchant_id', $merchant->id))
+            ->when(! $merchant && $named, fn ($q) => $q->whereIn('merchant_id', $named->pluck('id')->all() ?: [0]))
             ->when($request->integer('courier_id'), fn ($q, $id) => $q->where('courier_id', $id))
             ->when(in_array($request->query('via'), array_keys(ReturnBatch::VIA), true), fn ($q) => $q->where('via', $request->query('via')))
             ->when($request->query('received') === 'no', fn ($q) => $q->whereNull('received_at'))
@@ -83,10 +91,68 @@ class ReturnBatchController extends Controller
 
         return view('tenant.returns.batches', [
             'batches'   => $batches,
+            'term'      => $term,
+            'chosen'    => $merchant,
+            // كل رواجع التاجر التي استلمها في المدّة: شحنةً شحنة، بإيصالها إن كان لها إيصال
+            'returns'   => $merchant ? $this->returnsOf($request, $merchant)
+                ->with(['governorate:id,name_ar', 'city:id,name_ar', 'lastFailureReason:id,name_ar', 'returnBatch:id,number'])
+                ->orderByDesc('shipments.returned_at')
+                ->paginate(100, ['*'], 'returns_page')
+                ->withQueryString() : null,
+            'returnsTotals' => $merchant ? $this->returnsOf($request, $merchant)->toBase()
+                ->selectRaw('count(*) as shipments, coalesce(sum(case when shipments.delivered_at is null then shipments.return_fee else 0 end), 0) as fees')
+                ->first() : null,
             'merchants' => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
             'couriers'  => Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             'waiting'   => ReturnBatch::visibleTo($request->user())->whereNull('received_at')->count(),
         ]);
+    }
+
+    /** ورقة كل رواجع التاجر في المدّة: يوقّع عليها حين يُسأل «شنو استلمت هالشهر؟» */
+    public function merchantReturns(Request $request): View
+    {
+        $merchant = Merchant::visibleTo($request->user())->findOrFail($request->integer('merchant_id'));
+        $returns = $this->returnsOf($request, $merchant)
+            ->with(['governorate:id,name_ar', 'city:id,name_ar', 'lastFailureReason:id,name_ar', 'returnBatch:id,number'])
+            ->orderBy('shipments.returned_at')
+            ->limit(3000)
+            ->get();
+
+        return view('tenant.returns.merchant-returns', [
+            'merchant' => $merchant,
+            'returns'  => $returns,
+            'from'     => $request->date('from'),
+            'to'       => $request->date('to'),
+            'back'     => route('return-batches.index', $request->only('merchant_id', 'from', 'to')),
+        ]);
+    }
+
+    /**
+     * رواجع التاجر التي استلمها: شحناته «راجع للتاجر» — كلّها، أو ما سُلّم منها في المدّة.
+     * من الشحنات لا من الإيصالات، فيدخل ما سُلّم بتغيير حالةٍ قبل أن تكون للراجع إيصالات.
+     */
+    protected function returnsOf(Request $request, Merchant $merchant)
+    {
+        return \App\Models\Shipment::query()
+            ->visibleTo($request->user())
+            ->where('shipments.merchant_id', $merchant->id)
+            ->where('shipments.status', \App\Enums\ShipmentStatus::Returned->value)
+            ->when($request->date('from'), fn ($q, $d) => $q->whereFromDate('shipments.returned_at', $d->toDateString()))
+            ->when($request->date('to'), fn ($q, $d) => $q->whereUntilDate('shipments.returned_at', $d->toDateString()));
+    }
+
+    /** التجّار الذين يطابقهم البحث: الاسم في أيّ موضع، والكود والهاتف من أوّلهما */
+    protected function merchantsMatching(Request $request, string $term)
+    {
+        $digits = \App\Support\Phone::latinDigits($term);
+
+        return Merchant::visibleTo($request->user())
+            ->where(fn ($w) => $w->where('business_name', 'like', '%'.$term.'%')
+                ->orWhere('owner_name', 'like', '%'.$term.'%')
+                ->orWhere('code', 'like', $term.'%')
+                ->orWhere('phone', 'like', '%'.$digits.'%'))
+            ->limit(50)
+            ->get(['id', 'business_name']);
     }
 
     public function confirm(Request $request, ReturnBatch $batch): RedirectResponse

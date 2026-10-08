@@ -188,4 +188,79 @@ class ProcessingTest extends TestCase
         $this->actingAs($agent)->get($this->host().'/processing')->assertForbidden();
         $this->actingAs($agent)->post($this->host()."/processing/{$shipment->id}", ['action' => 'return'])->assertForbidden();
     }
+
+    /**
+     * «إعادة توصيل» خانةٌ وحدها (docs/plan/38): ما عالجه الكول سنتر فأعاده لا يختلط بما خرج
+     * أوّل مرّة — في «كل مراحل النقل»، وفي شارته، وعند المندوب. ويفشل ثانيةً فيعود للمعالجة.
+     */
+    public function test_redelivery_is_its_own_stage_and_clears_when_it_fails_again(): void
+    {
+        $shipment = $this->failed();
+
+        $this->actingAs($this->owner)->post($this->host()."/processing/{$shipment->id}", ['action' => 'redeliver'])
+            ->assertSessionHas('success');
+
+        $shipment->refresh();
+        $this->assertSame(ShipmentStatus::OutForDelivery, $shipment->status);
+        $this->assertNotNull($shipment->redelivery_at);
+        $this->assertTrue($shipment->isRedelivery());
+        $this->assertSame('إعادة توصيل', $shipment->statusLabel());
+
+        $count = fn (string $stage) => Tenancy::runFor($this->company, fn () => \App\Services\Shipments\ShipmentStages::apply(Shipment::query(), $stage)->count());
+        $this->assertSame(1, $count('redelivery'));
+        $this->assertSame(0, $count('out_for_delivery'));
+
+        $this->actingAs($this->owner)->get($this->host().'/shipments/'.$shipment->id)->assertOk()->assertSee('إعادة توصيل');
+
+        // المندوب يراها «إعادة توصيل» في مهامّه
+        $courierUser = Tenancy::runFor($this->company, fn () => User::create([
+            'name' => 'مندوب', 'phone' => '07720000001', 'password' => 'password',
+            'role' => UserRole::Courier, 'courier_id' => $this->courier->id, 'is_active' => true,
+        ]));
+        $this->actingAs($courierUser)->get($this->host().'/courier')->assertOk()->assertSee('إعادة توصيل');
+
+        // فشلت ثانيةً: تعود للمعالجة، ولا تبقى «إعادة توصيل»
+        Tenancy::runFor($this->company, fn () => app(\App\Actions\Shipments\ChangeShipmentStatus::class)
+            ->handle($shipment->refresh(), ShipmentStatus::FailedAttempt, $this->owner));
+        $this->assertNull($shipment->refresh()->redelivery_at);
+        $this->assertSame(0, $count('redelivery'));
+    }
+
+    /**
+     * «راجع مؤكد»: قرار المعالجة بالإرجاع يُكتب بصاحبه، وتُعرض الشحنة «راجع مؤكد» في خانتها
+     * وعند المندوب حتى يسلّمها للمخزن — ثم تصير راجعاً على الرفّ لا شحنةً جديدة.
+     */
+    public function test_a_return_decision_is_a_confirmed_return_until_the_courier_hands_it_in(): void
+    {
+        $shipment = $this->failed();
+
+        $this->actingAs($this->owner)->post($this->host()."/processing/{$shipment->id}", ['action' => 'return', 'note' => 'رفض الاستلام'])
+            ->assertSessionHas('success', fn ($m) => str_contains($m, 'راجع مؤكد'));
+
+        $shipment->refresh();
+        $this->assertSame(ShipmentStatus::Returning, $shipment->status);
+        $this->assertNotNull($shipment->return_confirmed_at);
+        $this->assertSame($this->owner->id, $shipment->return_confirmed_by_user_id);
+        $this->assertSame('راجع مؤكد', $shipment->statusLabel());
+
+        $count = fn (string $stage) => Tenancy::runFor($this->company, fn () => \App\Services\Shipments\ShipmentStages::apply(Shipment::query(), $stage)->count());
+        $this->assertSame(1, $count('confirmed_return'));
+        $this->assertSame(0, $count('return_with_courier'));
+
+        $courierUser = Tenancy::runFor($this->company, fn () => User::create([
+            'name' => 'مندوب', 'phone' => '07720000001', 'password' => 'password',
+            'role' => UserRole::Courier, 'courier_id' => $this->courier->id, 'is_active' => true,
+        ]));
+        $this->actingAs($courierUser)->get($this->host().'/courier')->assertOk()
+            ->assertSee('رواجع بيدك')->assertSee($shipment->number)->assertSee('راجع مؤكد');
+
+        // سلّمها المندوب للمخزن: راجعٌ على الرفّ، لا «راجع مؤكد» ولا شحنةٌ جديدة
+        Tenancy::runFor($this->company, fn () => app(\App\Actions\Returns\ReceiveReturns::class)->handle([$shipment->id], $this->owner));
+        $shipment->refresh();
+        $this->assertSame(ShipmentStatus::Returning, $shipment->status);
+        $this->assertFalse($shipment->isConfirmedReturnWithCourier());
+        $this->assertSame(0, $count('confirmed_return'));
+        $this->assertSame(1, $count('return_on_shelf'));
+        $this->actingAs($courierUser)->get($this->host().'/courier')->assertOk()->assertDontSee('رواجع بيدك');
+    }
 }

@@ -217,6 +217,7 @@ Route::middleware('tenant')->group(function () {
                 // دفعات الراجع: كل تسليمٍ بإيصاله
                 Route::get('/return-batches', [ReturnBatchController::class, 'index'])->name('return-batches.index');
                 Route::get('/return-batches/print', [ReturnBatchController::class, 'printMany'])->name('return-batches.print-many');
+                Route::get('/return-batches/merchant', [ReturnBatchController::class, 'merchantReturns'])->name('return-batches.merchant');
                 Route::get('/return-batches/{batch}/print', [ReturnBatchController::class, 'print'])->whereNumber('batch')->name('return-batches.print');
                 Route::post('/return-batches/{batch}/confirm', [ReturnBatchController::class, 'confirm'])->whereNumber('batch')->name('return-batches.confirm');
             });
@@ -371,6 +372,8 @@ Route::middleware('tenant')->group(function () {
             // كشف عهدة المندوب — ورقة تخرج معه وتُطابَق عند عودته
             Route::get('/courier-manifests', [CourierManifestController::class, 'index'])->name('courier-manifests.index');
             Route::get('/courier-manifests/{courier}', [CourierManifestController::class, 'show'])->name('courier-manifests.show');
+            Route::get('/courier-manifests/{courier}/{date}', [CourierManifestController::class, 'day'])->withTrashed()
+                ->where('date', '\d{4}-\d{2}-\d{2}')->name('courier-manifests.day');
 
             Route::get('/manifests', [ManifestController::class, 'index'])->name('manifests.index');
             Route::post('/manifests', [ManifestController::class, 'store'])->name('manifests.store');

@@ -54,7 +54,7 @@
                         <td class="num font-semibold"><a href="{{ route('shipments.show', $shipment) }}" class="text-[var(--brand)] hover:underline">{{ $shipment->number }}</a></td>
                         <td>{{ $shipment->merchant?->business_name }}</td>
                         <td class="text-sm">{{ $shipment->branch?->name ?? '—' }}</td>
-                        <td><x-status-badge :status="$shipment->status" /></td>
+                        <td><x-status-badge :status="$shipment->status" :shipment="$shipment" /></td>
                         <td class="text-sm">{{ $shipment->hub?->branch?->name ?? '—' }}</td>
                         <td class="num text-xs text-ink-500 whitespace-nowrap">{{ $shipment->status_changed_at?->format('Y-m-d H:i') }}</td>
                         <td class="text-sm">{{ $shipment->deliveryCourier?->name ?? '—' }}</td>

@@ -61,7 +61,7 @@
                                     {{ $shipment->lastFailureReason->name_ar }}
                                 </span>
                             @endif
-                            <x-status-badge :status="$shipment->status" />
+                            <x-status-badge :status="$shipment->status" :shipment="$shipment" />
                         </a>
                     @endforeach
                 </div>
@@ -93,7 +93,7 @@
                             <span class="text-sm font-semibold" dir="ltr">
                                 {{ number_format($shipment->cod_amount) }}
                             </span>
-                            <x-status-badge :status="$shipment->status" />
+                            <x-status-badge :status="$shipment->status" :shipment="$shipment" />
                         </a>
                     @endforeach
                 </div>

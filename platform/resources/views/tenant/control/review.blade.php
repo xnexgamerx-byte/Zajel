@@ -28,7 +28,7 @@
                         <td>{{ $shipment->recipient_name }}<div class="text-xs text-ink-500"><x-phone :number="$shipment->recipient_phone" :name="$shipment->recipient_name" /></div></td>
                         <td>{{ $shipment->governorate?->name_ar }}@if ($shipment->city) · <span class="text-xs text-ink-500">{{ $shipment->city->name_ar }}</span>@endif</td>
                         <td class="num">{{ number_format($shipment->cod_amount) }}</td>
-                        <td><x-status-badge :status="$shipment->status" /></td>
+                        <td><x-status-badge :status="$shipment->status" :shipment="$shipment" /></td>
                         <td class="num text-xs text-ink-500">{{ $shipment->review_hold_at->format('Y-m-d H:i') }}</td>
                     </tr>
                 @empty

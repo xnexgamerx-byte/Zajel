@@ -48,6 +48,8 @@ class Shipment extends Model
             'scheduled_at'      => 'datetime',
             'picked_up_at'      => 'datetime',
             'assigned_at'       => 'datetime',
+            'redelivery_at'     => 'datetime',
+            'return_confirmed_at' => 'datetime',
             'delivered_at'      => 'datetime',
             'returned_at'       => 'datetime',
             'return_received_at' => 'datetime',
@@ -364,6 +366,48 @@ class Shipment extends Model
     }
 
     // ---------------------------------------------------------------- مساعدات
+
+    /**
+     * «إعادة توصيل»: عالج الكول سنتر محاولتها الفاشلة فأعادها للتوصيل، وما زالت مع المندوب أو
+     * في المخزن تنتظره (docs/plan/38). خانةٌ وحدها لا «قيد التوصيل».
+     */
+    public function isRedelivery(): bool
+    {
+        return $this->redelivery_at !== null
+            && in_array($this->status, [ShipmentStatus::OutForDelivery, ShipmentStatus::AtHub], true);
+    }
+
+    /** «راجع مؤكد» ما زال بيد المندوب: تأكّد رجوعه ولم يُسلّمه للمخزن بعد */
+    public function isConfirmedReturnWithCourier(): bool
+    {
+        return $this->status === ShipmentStatus::Returning
+            && $this->return_confirmed_at !== null
+            && $this->return_received_at === null;
+    }
+
+    /**
+     * الحالة كما تُعرض: حالتها في التعداد، ومعها المرحلتان اللتان لا حالة لهما —
+     * «إعادة توصيل» و«راجع مؤكد».
+     */
+    public function statusLabel(): string
+    {
+        return match (true) {
+            $this->isRedelivery() && $this->status === ShipmentStatus::AtHub => 'إعادة توصيل — بالمخزن',
+            $this->isRedelivery()               => 'إعادة توصيل',
+            $this->isConfirmedReturnWithCourier() => 'راجع مؤكد',
+            default                             => $this->status->label(),
+        };
+    }
+
+    /** لون الشارة: «إعادة توصيل» زرقاء كالتوصيل، و«راجع مؤكد» كهرمانية كالمتعثّرة */
+    public function statusColor(): string
+    {
+        return match (true) {
+            $this->isRedelivery()                 => 'blue',
+            $this->isConfirmedReturnWithCourier() => 'amber',
+            default                               => $this->status->color(),
+        };
+    }
 
     public function isTerminal(): bool
     {

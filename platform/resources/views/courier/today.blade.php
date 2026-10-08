@@ -24,7 +24,7 @@
                     · <span dir="ltr">{{ $shipment->status_changed_at?->format('H:i') }}</span>
                 </div>
             </div>
-            <x-status-badge :status="$shipment->status" />
+            <x-status-badge :status="$shipment->status" :shipment="$shipment" />
         </div>
 
         @if ($shipment->collected_amount)

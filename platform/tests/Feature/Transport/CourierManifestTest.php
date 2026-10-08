@@ -120,7 +120,7 @@ class CourierManifestTest extends TestCase
         $this->outForDelivery();
 
         $couriers = $this->actingAs($this->staff)
-            ->get($this->host().'/courier-manifests')
+            ->get($this->host().'/courier-manifests?tab=now')
             ->assertOk()
             ->viewData('couriers');
 
@@ -143,7 +143,7 @@ class CourierManifestTest extends TestCase
             ->update(['delivery_courier_id' => $pickup->id]));
 
         $this->assertContains($pickup->id, $this->actingAs($this->staff)
-            ->get($this->host().'/courier-manifests')
+            ->get($this->host().'/courier-manifests?tab=now')
             ->viewData('couriers')->pluck('id'));
     }
 
@@ -154,7 +154,7 @@ class CourierManifestTest extends TestCase
         Tenancy::runFor($this->company, fn () => $this->delivery->update(['status' => 'suspended']));
 
         $this->assertContains($this->delivery->id, $this->actingAs($this->staff)
-            ->get($this->host().'/courier-manifests')
+            ->get($this->host().'/courier-manifests?tab=now')
             ->viewData('couriers')->pluck('id'));
     }
 
@@ -227,5 +227,57 @@ class CourierManifestTest extends TestCase
         $this->actingAs($otherStaff)
             ->get('http://barq.'.config('zajel.tenant_domain').'/courier-manifests/'.$this->delivery->id)
             ->assertNotFound();
+    }
+
+    // ── كل الكشوف ───────────────────────────────────────────────────
+
+    /**
+     * كل الكشوف لا يوم واحد (docs/plan/38): كشفٌ لكل مندوبٍ عن كل يومٍ خرج فيه، بما صارت إليه
+     * شحناته — ويُبحث فيها بالمندوب والمدّة، ويُفتح كشف اليوم ورقةً.
+     */
+    public function test_every_days_manifest_is_listed_with_what_became_of_its_shipments(): void
+    {
+        $other = $this->makeCourier('C9', 'كرار حسين', 'delivery');
+
+        $old = $this->outForDelivery();
+        $delivered = $this->outForDelivery();
+        $today = $this->outForDelivery();
+        $his = $this->outForDelivery($other);
+
+        Tenancy::runFor($this->company, function () use ($old, $delivered) {
+            // كشف أمس: شحنتان، سُلّمت إحداهما وما زالت الأخرى بيده
+            \App\Models\ShipmentEvent::whereIn('shipment_id', [$old->id, $delivered->id])
+                ->where('to_status', 'out_for_delivery')->update(['created_at' => now()->subDay()]);
+            app(ChangeShipmentStatus::class)->handle($delivered->refresh(), ShipmentStatus::Delivered, $this->staff);
+        });
+
+        $page = $this->actingAs($this->staff)->get($this->host().'/courier-manifests')->assertOk();
+        $rows = collect($page->viewData('manifests')->items());
+
+        $this->assertCount(3, $rows);   // أحمد اليوم، وكرار اليوم، وأحمد أمس
+        $yesterday = $rows->first(fn ($r) => $r->courier_id === $this->delivery->id && $r->day->isYesterday());
+        $this->assertSame(2, $yesterday->shipments);
+        $this->assertSame(1, $yesterday->counts['delivered']);
+        $this->assertSame(1, $yesterday->counts['out']);
+        $this->assertSame(50, $yesterday->percent);
+        $page->assertSee('كل الكشوف')->assertSee('أحمد الساعدي')->assertSee('كرار حسين');
+
+        // البحث بالمندوب يقصرها عليه
+        $mine = collect($this->actingAs($this->staff)->get($this->host().'/courier-manifests?q='.urlencode('كرار'))
+            ->assertOk()->viewData('manifests')->items());
+        $this->assertSame([$other->id], $mine->pluck('courier_id')->unique()->values()->all());
+
+        // والمدّة
+        $range = collect($this->actingAs($this->staff)
+            ->get($this->host().'/courier-manifests?from='.today()->toDateString().'&courier_id='.$this->delivery->id)
+            ->assertOk()->viewData('manifests')->items());
+        $this->assertCount(1, $range);
+        $this->assertTrue($range->first()->day->isToday());
+
+        // كشف أمس ورقةً: شحناته بما صارت إليه
+        $this->actingAs($this->staff)
+            ->get($this->host().'/courier-manifests/'.$this->delivery->id.'/'.today()->subDay()->toDateString())
+            ->assertOk()->assertSee('كشف مندوب توصيل')->assertSee($old->number)->assertSee($delivered->number)
+            ->assertDontSee($today->number)->assertDontSee($his->number)->assertSee('واصل');
     }
 }

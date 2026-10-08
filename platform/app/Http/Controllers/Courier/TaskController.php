@@ -45,6 +45,13 @@ class TaskController extends Controller
 
         return view('courier.tasks', [
             'tasks'   => $tasks->groupBy(fn (Shipment $s) => $s->governorate->name_ar),
+            // ما يرجع معه إلى المخزن: «راجع مؤكد» بقرار المعالجة، وباقي الواصل الجزئي وقديم الاستبدال
+            'returns' => Shipment::query()
+                ->where('delivery_courier_id', $courier->id)
+                ->where(fn ($q) => \App\Actions\Returns\ReceiveReturns::withCourier($q))
+                ->with(['merchant:id,business_name', 'lastFailureReason:id,name_ar'])
+                ->orderBy('status_changed_at')
+                ->get(),
             // طلب تغيير المبلغ الذي ينتظر جواباً، أو واصلٌ جزئيّ اعتُمد: يُرى على البطاقة
             'tickets' => ShipmentTicket::query()->where('courier_id', $courier->id)
                 ->whereIn('shipment_id', $tasks->pluck('id'))

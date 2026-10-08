@@ -8,7 +8,7 @@
             <div class="text-lg font-bold">{{ $shipment->recipient_name }}</div>
             <div class="font-mono text-xs text-ink-400" dir="ltr">{{ $shipment->number }}</div>
         </div>
-        <x-status-badge :status="$shipment->status" />
+        <x-status-badge :status="$shipment->status" :shipment="$shipment" />
     </div>
 
     {{-- الاتصال أولاً: هذا أول ما يفعله المندوب عند الوصول.

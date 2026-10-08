@@ -238,6 +238,42 @@ class MerchantRequestsTest extends TestCase
             ->assertOk()->assertSee($batch->number)->assertSee($shelf->number)->assertSee('توقيع التاجر');
     }
 
+    /** إيصالات الراجع: البحث باسم التاجر، ثم كل رواجعه التي استلمها في المدّة شحنةً شحنة */
+    public function test_return_receipts_find_a_merchant_by_name_and_list_all_his_returns_in_a_period(): void
+    {
+        Tenancy::runFor($this->company, function () {
+            $this->alpha->forceFill(['business_name' => 'متجر النخيل'])->save();
+            $this->beta->forceFill(['business_name' => 'بيت العطور'])->save();
+        });
+
+        $first = $this->onShelf($this->alpha);
+        $second = $this->onShelf($this->alpha);
+        $theirs = $this->onShelf($this->beta);
+
+        $this->actingAs($this->staff)->post($this->host().'/returns/handover', ['merchant_id' => $this->alpha->id, 'shipment_ids' => [$first->id]])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($this->staff)->post($this->host().'/returns/handover', ['merchant_id' => $this->alpha->id, 'shipment_ids' => [$second->id]])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($this->staff)->post($this->host().'/returns/handover', ['merchant_id' => $this->beta->id, 'shipment_ids' => [$theirs->id]])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(ShipmentStatus::Returned, $second->fresh()->status);
+
+        // البحث بالاسم يختار التاجر: إيصالاه، وكل رواجعه — لا رواجع غيره (ورسالة التسليم الأخيرة تُقرأ أوّلاً)
+        $this->actingAs($this->staff)->get($this->host().'/return-batches')->assertOk();
+        $page = $this->actingAs($this->staff)->get($this->host().'/return-batches?q='.urlencode('النخيل'))->assertOk();
+        $page->assertSee('كل رواجع متجر النخيل')->assertSee($first->number)->assertSee($second->number)
+            ->assertDontSee($theirs->number);
+
+        // ومدّةٌ لم يستلم فيها شيئاً
+        $this->actingAs($this->staff)->get($this->host().'/return-batches?merchant_id='.$this->alpha->id.'&from=2000-01-01&to=2000-01-31')
+            ->assertOk()->assertSee('لا رواجع استلمها في هذه المدّة.');
+
+        // وكشفها مطبوعاً بتوقيعين
+        $this->actingAs($this->staff)->get($this->host().'/return-batches/merchant?merchant_id='.$this->alpha->id.'&from='.today()->toDateString())
+            ->assertOk()->assertSee('كشف رواجع تاجر')->assertSee($first->number)->assertSee($second->number)
+            ->assertDontSee($theirs->number)->assertSee('توقيع التاجر');
+    }
+
     public function test_a_returns_request_shows_its_details_without_a_stray_separator(): void
     {
         $this->onShelf($this->alpha);

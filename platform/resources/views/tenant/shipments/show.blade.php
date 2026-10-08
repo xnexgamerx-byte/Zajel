@@ -6,7 +6,7 @@
     <div>
         <div class="flex items-center gap-3">
             <h1 class="page-title font-mono" dir="ltr">{{ $shipment->number }}</h1>
-            <x-status-badge :status="$shipment->status" />
+            <x-status-badge :status="$shipment->status" :shipment="$shipment" />
         </div>
         <p class="mt-1 text-sm text-ink-500">
             أُنشئت {{ $shipment->created_at->format('Y-m-d H:i') }}

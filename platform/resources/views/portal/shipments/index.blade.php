@@ -112,7 +112,7 @@
                             <td class="px-4 py-3 font-bold text-[var(--brand)]" dir="ltr">
                                 {{ number_format($shipment->merchant_due) }}
                             </td>
-                            <td class="px-4 py-3"><x-status-badge :status="$shipment->status" /></td>
+                            <td class="px-4 py-3"><x-status-badge :status="$shipment->status" :shipment="$shipment" /></td>
                             <td class="px-4 py-3 text-xs text-ink-500" dir="ltr">
                                 {{ $shipment->created_at->format('Y-m-d') }}
                             </td>
