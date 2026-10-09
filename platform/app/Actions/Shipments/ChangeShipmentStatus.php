@@ -195,6 +195,18 @@ class ChangeShipmentStatus
                 $attributes['redelivery_at'] = null;
             }
 
+            /*
+            | راجعٌ يعود للتوصيل بطلب التاجر (retry — docs/plan/38): يُمحى عنه أثر رجوعه، فإن
+            | فشل ثانيةً ورجع لم يبدُ «مستلَماً على الرفّ» وهو بيد المندوب. ويظهر «إعادة توصيل».
+            */
+            if ($from === ShipmentStatus::Returning && $to === ShipmentStatus::AtHub) {
+                $attributes['return_received_at'] = null;
+                $attributes['return_received_by_user_id'] = null;
+                $attributes['return_confirmed_at'] = null;
+                $attributes['return_confirmed_by_user_id'] = null;
+                $attributes['redelivery_at'] = now();
+            }
+
             if (isset($options['failure_reason_id'])) {
                 $attributes['last_failure_reason_id'] = $options['failure_reason_id'];
             }

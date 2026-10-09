@@ -303,7 +303,24 @@ class BranchTransferTest extends TestCase
         $this->actingAs($owner)->post($this->host()."/shipments/{$return->id}/status",
             ['status' => 'at_hub', 'retry' => 1, 'note' => 'التاجر طلب إعادة المحاولة'])
             ->assertSessionHasNoErrors();
-        $this->assertSame(ShipmentStatus::AtHub, $return->refresh()->status);
+        $fresh = $return->refresh();
+        $this->assertSame(ShipmentStatus::AtHub, $fresh->status);
+
+        // يُمحى أثر رجوعه، ويظهر «إعادة توصيل»: إن فشل ثانيةً لم يبدُ مستلَماً على الرفّ
+        $this->assertNull($fresh->return_received_at);
+        $this->assertNull($fresh->return_confirmed_at);
+        $this->assertTrue($fresh->isRedelivery());
+
+        Tenancy::runFor($this->company, function () use ($fresh) {
+            $change = app(ChangeShipmentStatus::class);
+            $reason = FailureReason::where('code', 'no_answer')->firstOrFail();
+            $change->handle($fresh->refresh(), ShipmentStatus::OutForDelivery, $this->baghdadClerk, ['courier_id' => $this->courier->id]);
+            $change->handle($fresh->refresh(), ShipmentStatus::FailedAttempt, $this->baghdadClerk, ['failure_reason_id' => $reason->id]);
+            $change->handle($fresh->refresh(), ShipmentStatus::Returning, $this->baghdadClerk);
+        });
+
+        $this->assertNull($fresh->refresh()->return_received_at, 'الراجع الثاني بدا مستلَماً وهو بيد المندوب.');
+        $this->assertTrue($fresh->isConfirmedReturnWithCourier());
     }
 
     public function test_the_action_itself_refuses_turning_a_return_into_a_shipment(): void
