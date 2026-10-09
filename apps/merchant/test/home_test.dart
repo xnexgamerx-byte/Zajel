@@ -49,4 +49,36 @@ void main() {
     await tester.pump();
     expect(find.text('1,750,000'), findsNothing);
   });
+
+  testWidgets('شحناتي: الشرائح والبحث وفتح الشحنة', (tester) async {
+    tester.view.physicalSize = const Size(393 * 3, 849 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpAndSettle();
+
+    // عدّاد «مسلمة» في الرئيسية يفتح «شحناتي» على شريحته
+    await tester.tap(find.text('مسلمة').first);
+    await tester.pumpAndSettle();
+    expect(find.text('شحناتي'), findsWidgets);
+    expect(find.text('محمد علي'), findsOneWidget);
+    expect(find.text('نور خالد'), findsNothing);
+
+    // البحث في الكل
+    await tester.tap(find.textContaining('الكل').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'زهراء');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(find.text('زهراء كريم'), findsOneWidget);
+    expect(find.text('محمد علي'), findsNothing);
+
+    // الشحنة: مسارها وزبونها وحسابها
+    await tester.tap(find.text('زهراء كريم'));
+    await tester.pumpAndSettle();
+    for (final text in ['مسار الشحنة', 'الزبون والعنوان', 'حساب الشحنة', 'كود التسليم', 'أرسل التتبّع للزبون']) {
+      expect(find.text(text), findsOneWidget, reason: text);
+    }
+  });
 }

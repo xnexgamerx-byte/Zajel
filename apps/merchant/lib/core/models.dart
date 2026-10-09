@@ -71,8 +71,10 @@ class AdBanner {
   final String? link;
 }
 
+/// صفّ شحنةٍ في القوائم: آخر الشحنات في الرئيسية، و«شحناتي»
 class RecentShipment {
   RecentShipment({
+    this.id = 0,
     required this.number,
     required this.name,
     required this.area,
@@ -80,9 +82,11 @@ class RecentShipment {
     required this.at,
     required this.status,
     required this.urgent,
+    this.tone = 'slate',
   });
 
   factory RecentShipment.fromJson(Map<String, dynamic> j) => RecentShipment(
+    id: j['id'] as int? ?? 0,
     number: j['number'] as String,
     name: j['name'] as String? ?? '',
     area: j['area'] as String? ?? '',
@@ -90,8 +94,10 @@ class RecentShipment {
     at: DateTime.tryParse(j['at'] as String? ?? '')?.toLocal(),
     status: j['status'] as String,
     urgent: j['urgent'] as bool? ?? false,
+    tone: j['tone'] as String? ?? 'slate',
   );
 
+  final int id;
   final String number;
   final String name;
   final String area;
@@ -99,6 +105,108 @@ class RecentShipment {
   final DateTime? at;
   final String status;
   final bool urgent;
+
+  /// لون الحالة كما في النظام: green · blue · amber · red · gray · slate
+  final String tone;
+}
+
+/// شريحةٌ فوق القائمة: «مسلمة 86»
+class ShipmentFilter {
+  ShipmentFilter({required this.key, required this.label, required this.count});
+
+  factory ShipmentFilter.fromJson(Map<String, dynamic> j) =>
+      ShipmentFilter(key: j['key'] as String, label: j['label'] as String, count: j['count'] as int? ?? 0);
+
+  final String key;
+  final String label;
+  final int count;
+}
+
+/// صفحةٌ من «شحناتي»: GET /api/v1/merchant/shipments
+class ShipmentPage {
+  ShipmentPage({
+    required this.filters,
+    required this.items,
+    required this.page,
+    required this.lastPage,
+    required this.total,
+  });
+
+  factory ShipmentPage.fromJson(Map<String, dynamic> j) => ShipmentPage(
+    filters: [for (final f in j['filters'] as List) ShipmentFilter.fromJson((f as Map).cast())],
+    items: [for (final r in j['data'] as List) RecentShipment.fromJson((r as Map).cast())],
+    page: j['meta']['page'] as int,
+    lastPage: j['meta']['last_page'] as int,
+    total: j['meta']['total'] as int,
+  );
+
+  final List<ShipmentFilter> filters;
+  final List<RecentShipment> items;
+  final int page;
+  final int lastPage;
+  final int total;
+}
+
+/// سطرٌ في مسار الشحنة
+class TimelineStep {
+  TimelineStep({required this.title, this.note, this.at});
+
+  factory TimelineStep.fromJson(Map<String, dynamic> j) => TimelineStep(
+    title: j['title'] as String,
+    note: j['note'] as String?,
+    at: DateTime.tryParse(j['at'] as String? ?? '')?.toLocal(),
+  );
+
+  final String title;
+  final String? note;
+  final DateTime? at;
+}
+
+/// الشحنة كاملةً: GET /api/v1/merchant/shipments/{id}
+class ShipmentDetail {
+  ShipmentDetail({
+    required this.row,
+    this.createdAt,
+    this.reference,
+    this.deliveryCode,
+    this.failureReason,
+    this.attempts = 0,
+    required this.trackingUrl,
+    required this.timeline,
+    required this.recipient,
+    required this.money,
+  });
+
+  factory ShipmentDetail.fromJson(Map<String, dynamic> j) {
+    final failure = j['failure'] as Map?;
+    return ShipmentDetail(
+      row: RecentShipment.fromJson(j),
+      createdAt: DateTime.tryParse(j['created_at'] as String? ?? '')?.toLocal(),
+      reference: j['reference'] as String?,
+      deliveryCode: j['delivery_code'] as String?,
+      failureReason: failure?['reason'] as String?,
+      attempts: failure?['attempts'] as int? ?? 0,
+      trackingUrl: j['tracking_url'] as String? ?? '',
+      timeline: [for (final t in j['timeline'] as List) TimelineStep.fromJson((t as Map).cast())],
+      recipient: (j['recipient'] as Map).cast<String, dynamic>(),
+      money: (j['money'] as Map).cast<String, dynamic>(),
+    );
+  }
+
+  final RecentShipment row;
+  final DateTime? createdAt;
+  final String? reference;
+  final String? deliveryCode;
+  final String? failureReason;
+  final int attempts;
+  final String trackingUrl;
+  final List<TimelineStep> timeline;
+
+  /// name · phone · phone_alt · governorate · city · address · landmark · pieces · type · size · goods
+  final Map<String, dynamic> recipient;
+
+  /// cod · collected · delivery_fee · cod_fee · return_fee · due · owed
+  final Map<String, dynamic> money;
 }
 
 /// الحساب بعد الدخول: من هو، ولأيّ شركة — اسمها ولونها وشعارها

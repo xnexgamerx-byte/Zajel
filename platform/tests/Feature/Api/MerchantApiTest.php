@@ -211,4 +211,63 @@ class MerchantApiTest extends TestCase
 
         $this->withToken($token)->getJson($this->api('/merchant/home'))->assertForbidden();
     }
+
+    // ------------------------------------------------------------ شحناتي
+
+    public function test_the_shipment_list_filters_match_the_home_counters(): void
+    {
+        $this->shipment('محمد علي', ShipmentStatus::Delivered);
+        $this->shipment('نور خالد', ShipmentStatus::OutForDelivery);
+        $this->shipment('سارة أحمد', ShipmentStatus::FailedAttempt);
+        $this->shipment('زبون راجع', ShipmentStatus::Returned);
+
+        $token = $this->token();
+        $list = $this->withToken($token)->getJson($this->api('/merchant/shipments'))->assertOk()
+            ->assertJsonPath('meta.total', 4);
+        $chips = collect($list->json('filters'))->pluck('count', 'key');
+        $this->assertSame(['all' => 4, 'open' => 2, 'delivered' => 1, 'processing' => 1, 'attention' => 0, 'returns' => 1], $chips->all());
+
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=delivered'))->assertOk()
+            ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'محمد علي');
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=processing'))->assertOk()
+            ->assertJsonPath('data.0.status', 'للمعالجة')->assertJsonPath('data.0.tone', 'red');
+    }
+
+    public function test_the_shipment_list_searches_by_name_and_number(): void
+    {
+        $found = $this->shipment('زينب كاظم');
+        $this->shipment('علي حسين');
+
+        $token = $this->token();
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?q=زينب'))->assertOk()
+            ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.number', $found->number);
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?q='.$found->number))->assertOk()
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_the_shipment_detail_carries_its_path_customer_and_account(): void
+    {
+        $shipment = $this->shipment('زينب كاظم', ShipmentStatus::OutForDelivery);
+
+        $this->withToken($this->token())->getJson($this->api('/merchant/shipments/'.$shipment->id))->assertOk()
+            ->assertJsonPath('number', $shipment->number)
+            ->assertJsonPath('recipient.name', 'زينب كاظم')
+            ->assertJsonPath('recipient.city', 'المنصور')
+            ->assertJsonPath('money.cod', 45000)
+            ->assertJsonStructure(['timeline' => [['title', 'at']], 'tracking_url', 'money' => ['delivery_fee', 'due', 'owed']]);
+    }
+
+    public function test_a_merchant_cannot_open_another_merchants_shipment_in_the_app(): void
+    {
+        $beta = $this->makeMerchant($this->company, 'M0002');
+        $foreign = Tenancy::runFor($this->company, fn () => app(CreateShipment::class)->handle([
+            'merchant_id' => $beta->id, 'recipient_name' => 'زبون غريب', 'recipient_phone' => '07801234567',
+            'governorate_id' => $this->baghdad()->id, 'city_id' => $this->area('المنصور'),
+            'address' => 'بغداد', 'cod_amount' => 1000,
+        ], $this->staff));
+
+        $token = $this->token();
+        $this->withToken($token)->getJson($this->api('/merchant/shipments/'.$foreign->id))->assertNotFound();
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?q=غريب'))->assertOk()->assertJsonPath('meta.total', 0);
+    }
 }

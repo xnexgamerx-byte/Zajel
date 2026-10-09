@@ -4,6 +4,7 @@ import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import 'home_screen.dart';
+import 'shipments_screen.dart';
 
 /// هيكل التطبيق: الصفحات الخمس والشريط السفلي العائم بزرّ «طلب جديد» في وسطه.
 class Shell extends StatefulWidget {
@@ -20,15 +21,35 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   int tab = 0;
 
+  /// شريحة «شحناتي» التي تفتحها الرئيسية (عدّادٌ أو بطاقةٌ أو «عرض الكل»)
+  final shipmentsFilter = ValueNotifier<String>('all');
+
   Brand get brand => widget.brand;
 
+  @override
+  void dispose() {
+    shipmentsFilter.dispose();
+    super.dispose();
+  }
+
   void _open(String screen) {
-    final target = switch (screen.split(':').first) {
+    final parts = screen.split(':');
+    final target = switch (parts.first) {
       'shipments' || 'processing' || 'attention' => 1,
       'create' => 2,
       'finance' => 3,
       _ => 4,
     };
+    if (target == 1) {
+      shipmentsFilter.value = switch (parts.length > 1 ? parts[1] : parts.first) {
+        'delivered' => 'delivered',
+        'open' => 'open',
+        'returns' => 'returns',
+        'processing' => 'processing',
+        'attention' => 'attention',
+        _ => 'all',
+      };
+    }
     setState(() => tab = target);
   }
 
@@ -36,7 +57,7 @@ class _ShellState extends State<Shell> {
   Widget build(BuildContext context) {
     final pages = [
       HomeScreen(brand: brand, companyName: widget.session?.companyName ?? AppConfig.companyName, onOpen: _open),
-      const _Soon(title: 'شحناتي', text: 'قائمة شحناتك وتتبّعها — المرحلة التالية من التطبيق.'),
+      ShipmentsScreen(brand: brand, filter: shipmentsFilter),
       const _Soon(title: 'طلب جديد', text: 'إنشاء شحنة يدوياً أو بالذكاء الاصطناعي أو بالصوت — المرحلة التالية.'),
       const _Soon(title: 'المالية', text: 'كشف حسابك وطلب المحاسبة — المرحلة التالية.'),
       _More(brand: brand, session: widget.session, onLogout: widget.onLogout),

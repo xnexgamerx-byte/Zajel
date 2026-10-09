@@ -69,6 +69,18 @@ class Api {
     return HomeData.fromJson(await _send(http.get(_uri('/merchant/home'), headers: _headers)));
   }
 
+  Future<ShipmentPage> shipments({String filter = 'all', String q = '', int page = 1}) async {
+    if (AppConfig.demo) return Demo.shipments(filter, q, page);
+    final uri = _uri('/merchant/shipments')
+        .replace(queryParameters: {'filter': filter, if (q.isNotEmpty) 'q': q, 'page': '$page'});
+    return ShipmentPage.fromJson(await _send(http.get(uri, headers: _headers)));
+  }
+
+  Future<ShipmentDetail> shipment(int id) async {
+    if (AppConfig.demo) return Demo.shipment(id);
+    return ShipmentDetail.fromJson(await _send(http.get(_uri('/merchant/shipments/$id'), headers: _headers)));
+  }
+
   /// صورة إعلانٍ محميّة برمز الدخول
   Map<String, String> get imageHeaders => {if (_token != null) 'Authorization': 'Bearer $_token'};
 

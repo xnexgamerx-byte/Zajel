@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/models.dart';
 import '../core/palette.dart';
 
 /// سهمٌ رفيع كما في التصميم: «›» يشير يميناً في كل البطاقات و«‹» في «عرض الكل»،
@@ -138,5 +139,39 @@ class Tap extends StatelessWidget {
   Widget build(BuildContext context) => Material(
     type: MaterialType.transparency,
     child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(radius), child: child),
+  );
+}
+
+/// شارة الحالة كما في التصميم: ما ينتظر قرارك بلون الشركة، والباقي رماديّة
+class StatusPill extends StatelessWidget {
+  const StatusPill({
+    super.key,
+    required this.brand,
+    required this.row,
+    this.width = 55,
+    this.height = 18,
+    this.size = 6.9,
+  });
+
+  final Brand brand;
+  final RecentShipment row;
+  final double width;
+  final double height;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: width,
+    height: height,
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: row.urgent ? brand.coral : Palette.pill,
+      borderRadius: BorderRadius.circular(height / 2),
+    ),
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(row.status, maxLines: 1, style: font(size, w8, Colors.white, height: 1)),
+    ),
   );
 }

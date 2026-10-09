@@ -83,3 +83,16 @@ String money(int value) {
   }
   return out.toString();
 }
+
+/// «اليوم 10:45 ص»، «أمس 04:15 م»، أو التاريخ
+String when(DateTime? at) {
+  if (at == null) return '';
+  final now = DateTime.now();
+  final day = DateTime(at.year, at.month, at.day);
+  final today = DateTime(now.year, now.month, now.day);
+  final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  final time = '${h.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'ص' : 'م'}';
+  if (day == today) return 'اليوم $time';
+  if (day == today.subtract(const Duration(days: 1))) return 'أمس $time';
+  return '${at.day}/${at.month} $time';
+}

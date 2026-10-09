@@ -27,23 +27,8 @@ class HomeController extends Controller
         $merchant = $request->attributes->get('merchant');
         $user = $request->user();
 
-        $rows = Shipment::query()
-            ->where('merchant_id', $merchant->id)
-            ->selectRaw('status, count(*) as c')
-            ->groupBy('status')
-            ->toBase()
-            ->get()
-            ->pluck('c', 'status')
-            ->map(fn ($c) => (int) $c);
-
-        $of = fn (ShipmentStatus ...$s) => (int) collect($s)->sum(fn ($x) => $rows[$x->value] ?? 0);
-
-        $total = (int) $rows->sum();
-        $open = (int) $rows->only(ShipmentStatus::openValues())->sum();
-        $delivered = $of(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered);
-        // «راجع مؤكدة»: ما تأكّد رجوعه لتاجره — وصله أو في طريقه إليه
-        $returns = $of(ShipmentStatus::Returned) + Shipment::where('merchant_id', $merchant->id)
-            ->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at')->count();
+        // عدّادات الرئيسية هي شرائح «شحناتي» نفسها: الرقم على البطاقة عددُ ما يُفتح منها
+        $counts = ShipmentController::counts($merchant->id);
 
         $hour = (int) now()->format('G');
 
@@ -59,16 +44,16 @@ class HomeController extends Controller
                     ->whereNotNull('delivered_at')->whereNull('merchant_settled_at')->count(),
             ],
             'stats' => [
-                'total'       => $total,
-                'delivered'   => $delivered,
-                'in_delivery' => $open,
-                'returns'     => $returns,
+                'total'       => $counts['all'],
+                'delivered'   => $counts['delivered'],
+                'in_delivery' => $counts['open'],
+                'returns'     => $counts['returns'],
             ],
             'processing' => [
-                'count'   => $of(ShipmentStatus::FailedAttempt),
+                'count'   => $counts['processing'],
                 'allowed' => (bool) $merchant->can_process,
             ],
-            'attention' => ['count' => $of(...self::ATTENTION)],
+            'attention' => ['count' => $counts['attention']],
             'tools'     => [
                 'import'   => FeatureGate::enabled('excel_import'),
                 'waybills' => FeatureGate::enabled('waybills'),
@@ -103,7 +88,7 @@ class HomeController extends Controller
      */
     private function recent(int $merchantId): array
     {
-        $needs = [ShipmentStatus::FailedAttempt->value, ...array_map(fn ($s) => $s->value, self::ATTENTION)];
+        $needs = array_map(fn ($s) => $s->value, [ShipmentStatus::FailedAttempt, ...self::ATTENTION]);
 
         return Shipment::where('merchant_id', $merchantId)
             ->with(['city:id,name_ar', 'governorate:id,name_ar'])
@@ -111,15 +96,7 @@ class HomeController extends Controller
             ->orderByDesc('status_changed_at')->orderByDesc('id')
             ->limit(5)
             ->get()
-            ->map(fn (Shipment $s) => [
-                'id'     => $s->id,
-                'number' => $s->number,
-                'name'   => $s->recipient_name ?: $s->recipient_phone,
-                'area'   => $s->city?->name_ar ?? $s->governorate?->name_ar,
-                'amount' => (int) $s->cod_amount,
-                'at'     => ($s->status_changed_at ?? $s->created_at)?->toIso8601String(),
-                'status' => $s->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $s->statusLabel(),
-                'urgent' => in_array($s->status->value, $needs, true),
-            ])->all();
+            ->map(fn (Shipment $s) => ShipmentController::row($s))
+            ->all();
     }
 }

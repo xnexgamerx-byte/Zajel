@@ -5,6 +5,7 @@ import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import 'shipment_screen.dart';
 
 /// رئيسية التاجر — كما في ملف التصميم قياساً بقياس (docs/plan/48 §التصميم):
 /// التحيّة، الإعلانات، الرصيد، العدّادات الأربعة، إنشاء شحنة بثلاث طرق، الأدوات
@@ -702,100 +703,90 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _row(RecentShipment s) {
-    return SizedBox(
-      height: 30,
-      child: Row(
-        children: [
-          const SizedBox(width: 11),
-          const Chev(size: 7.5),
-          const SizedBox(width: 22),
-          SizedBox(
-            width: 72,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  s.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: font(7.4, w7, Palette.ink, height: 1.1),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  s.area,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: font(7.6, w5, Palette.slate, height: 1.1),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 2),
-          SizedBox(
-            width: 47,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
+    return InkWell(
+      onTap: s.id == 0 ? null : () => openShipment(context, brand, s.id),
+      child: SizedBox(
+        height: 30,
+        child: Row(
+          children: [
+            const SizedBox(width: 11),
+            const Chev(size: 7.5),
+            const SizedBox(width: 22),
+            SizedBox(
+              width: 72,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(money(s.amount), style: font(10.6, w8, brand.main, height: 1)),
-                  const SizedBox(width: 3),
-                  Text('د.ع', style: font(9.5, w6, Palette.ink, height: 1)),
+                  Text(
+                    s.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: font(7.4, w7, Palette.ink, height: 1.1),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    s.area,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: font(7.6, w5, Palette.slate, height: 1.1),
+                  ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(width: 11),
-          SizedBox(width: 62, child: Text(_when(s.at), maxLines: 1, style: font(7.9, w5, Palette.slate, height: 1))),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              '#${s.number}',
-              maxLines: 1,
-              overflow: TextOverflow.fade,
-              softWrap: false,
-              textDirection: TextDirection.ltr,
-              textAlign: TextAlign.right,
-              style: font(7.9, w5, Palette.slate, height: 1),
+            const SizedBox(width: 2),
+            SizedBox(
+              width: 47,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(money(s.amount), style: font(10.6, w8, brand.main, height: 1)),
+                    const SizedBox(width: 3),
+                    Text('د.ع', style: font(9.5, w6, Palette.ink, height: 1)),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            width: 55,
-            height: 18,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: s.urgent ? brand.coral : Palette.pill,
-              borderRadius: BorderRadius.circular(9),
+            const SizedBox(width: 11),
+            SizedBox(width: 62, child: Text(when(s.at), maxLines: 1, style: font(7.9, w5, Palette.slate, height: 1))),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                '#${s.number}',
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+                textDirection: TextDirection.ltr,
+                textAlign: TextAlign.right,
+                style: font(7.9, w5, Palette.slate, height: 1),
+              ),
             ),
-            child: Text(
-              s.status,
-              maxLines: 1,
-              overflow: TextOverflow.fade,
-              softWrap: false,
-              style: font(6.9, w8, Colors.white, height: 1),
+            const SizedBox(width: 6),
+            Container(
+              width: 55,
+              height: 18,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: s.urgent ? brand.coral : Palette.pill,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Text(
+                s.status,
+                maxLines: 1,
+                overflow: TextOverflow.fade,
+                softWrap: false,
+                style: font(6.9, w8, Colors.white, height: 1),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-        ],
+            const SizedBox(width: 8),
+          ],
+        ),
       ),
     );
-  }
-
-  /// «اليوم 10:45 ص»، «أمس 04:15 م»، أو التاريخ
-  static String _when(DateTime? at) {
-    if (at == null) return '';
-    final now = DateTime.now();
-    final day = DateTime(at.year, at.month, at.day);
-    final today = DateTime(now.year, now.month, now.day);
-    final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
-    final time = '${h.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'ص' : 'م'}';
-    if (day == today) return 'اليوم $time';
-    if (day == today.subtract(const Duration(days: 1))) return 'أمس $time';
-    return '${at.day}/${at.month} $time';
   }
 }
 
