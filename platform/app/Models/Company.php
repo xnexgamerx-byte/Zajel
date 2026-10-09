@@ -134,6 +134,12 @@ class Company extends Model
     }
 
     /** حرف الشعار: أوّل حرفٍ من الاسم بعد «ال» — «ز» للزاجل، و«ب» للبرق. */
+    /** رابط اللوغو إن رُفع — ورقمه من اسم ملفه، فاللوغو الجديد لا يبقى خلف القديم في الذاكرة */
+    public function logoUrl(): ?string
+    {
+        return $this->logo_path ? route('company.logo', ['v' => substr(md5($this->logo_path), 0, 8)]) : null;
+    }
+
     public function initial(): string
     {
         return mb_substr((string) preg_replace('/^ال(?=\S)/u', '', trim((string) $this->name)), 0, 1);

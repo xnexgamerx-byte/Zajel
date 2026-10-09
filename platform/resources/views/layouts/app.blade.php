@@ -41,8 +41,8 @@
 --}}
 <nav id="main-nav" aria-label="القائمة الرئيسية" class="rail" data-drawer>
     <div class="rail-head">
-        <a href="{{ route('dashboard') }}" class="rail-brand" title="{{ $company->name }}">
-            <span class="brand-tile">{{ $company->initial() }}</span>
+        <a href="{{ ! $company->logo_path && auth()->user()->can('settings.company') ? route('settings.company').'#logo' : route('dashboard') }}" class="rail-brand" title="{{ $company->name }}">
+            <x-brand-tile :company="$company" />
             <span class="min-w-0 lg:hidden">
                 <span class="block truncate font-heading text-base leading-tight font-extrabold text-aeblack-950">{{ $company->name }}</span>
                 <span class="block text-xs text-ink-500">نظام إدارة الشحنات</span>
@@ -161,8 +161,8 @@
             </button>
         @endif
 
-        <a href="{{ route($staff ? 'dashboard' : 'shipments.index') }}" class="flex min-w-0 items-center gap-3 max-lg:flex-1 lg:max-w-56">
-            <span class="brand-tile size-10 text-base {{ $staff ? 'lg:hidden' : '' }}">{{ $company->initial() }}</span>
+        <a href="{{ ! $company->logo_path && auth()->user()->can('settings.company') ? route('settings.company').'#logo' : route($staff ? 'dashboard' : 'shipments.index') }}" class="flex min-w-0 items-center gap-3 max-lg:flex-1 lg:max-w-56">
+            <x-brand-tile :company="$company" :size="'size-10 text-base '.($staff ? 'lg:hidden' : '')" />
             <span class="min-w-0">
                 <span class="block truncate font-heading text-lg leading-tight font-extrabold text-aeblack-950">{{ $company->name }}</span>
                 <span class="block truncate text-xs text-ink-500">نظام إدارة الشحنات</span>

@@ -66,7 +66,7 @@
 <nav id="main-nav" aria-label="أقسام البوابة" class="rail" data-drawer>
     <div class="rail-head">
         <a href="{{ route('portal.dashboard') }}" class="rail-brand" title="{{ $company->name }}">
-            <span class="brand-tile">{{ $company->initial() }}</span>
+            <x-brand-tile :company="$company" />
             <span class="min-w-0 lg:hidden">
                 <span class="block truncate font-heading text-base leading-tight font-extrabold text-aeblack-950">{{ $company->name }}</span>
                 <span class="block text-xs text-ink-500">بوابة التاجر</span>
@@ -125,7 +125,7 @@
 <header class="app-bar">
     <div class="shell flex flex-wrap items-center gap-x-3 gap-y-3 py-3 lg:py-4">
         <a href="{{ route('portal.dashboard') }}" class="flex min-w-0 items-center gap-3 max-lg:flex-1 lg:max-w-56">
-            <span class="brand-tile size-10 text-base lg:hidden">{{ $company->initial() }}</span>
+            <x-brand-tile :company="$company" size="size-10 text-base lg:hidden" />
             <span class="min-w-0">
                 <span class="block truncate font-heading text-lg leading-tight font-extrabold text-aeblack-950">{{ $company->name }}</span>
                 <span class="block truncate text-xs text-ink-500">بوابة التاجر</span>

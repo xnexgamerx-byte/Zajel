@@ -561,6 +561,15 @@ summary:focus-visible,
         background: var(--company);
     }
 
+    /* اللوغو المرفوع على أرضيةٍ بيضاء، وخانةٌ تدعو إلى رفعه (docs/plan/45) */
+    .brand-tile-logo {
+        @apply overflow-hidden bg-white p-1 ring-1 ring-ink-200;
+    }
+
+    .brand-tile-empty {
+        @apply border-2 border-dashed border-[var(--company)] bg-white p-0.5 text-center font-sans text-[9px] leading-tight font-bold text-[var(--company)];
+    }
+
     /* ------------------------------------------------------- الشريط الجانبي
        من ١٠٢٤ بكسل عمودٌ ثابتٌ في جهة البداية على أرضية الصفحة (navigation
        rail): شعار الشركة، ثم زرّ «شحنة جديدة» العائم، ثم القوائم — أيقونة كلٍّ

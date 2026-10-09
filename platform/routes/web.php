@@ -34,6 +34,7 @@ use App\Http\Controllers\Tenant\BillingController;
 use App\Http\Controllers\Tenant\AnnouncementController;
 use App\Http\Controllers\Tenant\HomeLayoutController;
 use App\Http\Controllers\Tenant\BranchAccountController;
+use App\Http\Controllers\Tenant\CompanyLogoController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\OperationalAlertController;
@@ -114,6 +115,8 @@ Route::middleware('tenant')->group(function () {
      | واحد. فالحدّ الضيّق على البحث وحده — هو ما يُخمَّن فيه —، وأمّا الرابط
      | فبصمته ٦٤ بتّاً لا تُحزَر، وحدّه للحِمل لا للتخمين.
      */
+    // لوغو الشركة: يُرى في صفحة الدخول والتتبّع قبل الدخول أيضاً (docs/plan/45)
+    Route::get('/logo', [CompanyLogoController::class, 'show'])->name('company.logo');
     Route::get('/track', [TrackingController::class, 'form'])->middleware('throttle:30,1,track')->name('track');
     Route::get('/t/{number}/{token}', [TrackingController::class, 'show'])
         ->middleware('throttle:240,1,track-link')
@@ -374,6 +377,8 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:settings.company')->group(function () {
                 Route::get('/settings/company', [CompanySettingsController::class, 'edit'])->name('settings.company');
                 Route::put('/settings/company', [CompanySettingsController::class, 'update'])->name('settings.company.update');
+                Route::post('/settings/company/logo', [CompanyLogoController::class, 'store'])->middleware('throttle:20,1')->name('settings.company.logo');
+                Route::delete('/settings/company/logo', [CompanyLogoController::class, 'destroy'])->name('settings.company.logo.destroy');
             });
 
             // «اشتراك الشركة وفواتيرها»: ما عليها للمنصّة وكيف تدفع (docs/plan/36). وحين يوقفها

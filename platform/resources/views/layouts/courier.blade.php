@@ -16,7 +16,7 @@
 
 <header class="ds-header sticky top-0 z-30 bg-canvas/90 backdrop-blur-md">
     <div class="flex h-16 items-center gap-3 px-4">
-        <span class="brand-tile size-10 text-base">{{ $company->initial() }}</span>
+        <x-brand-tile :company="$company" size="size-10 text-base" />
         <div class="min-w-0 flex-1">
             <div class="truncate font-heading text-base leading-tight font-extrabold text-aeblack-950">{{ $courier->name }}</div>
             <div class="truncate text-xs text-ink-500">{{ $company->name }}</div>

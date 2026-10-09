@@ -7,6 +7,32 @@
     <p class="mt-1 text-sm text-ink-500">ما يراه تجّارك ومناديبك: كيف يصلونك، ولون واجهتك.</p>
 </div>
 
+{{-- لوغو الشركة (docs/plan/45): صورةٌ من معرض الهاتف أو كاميرته أو من الحاسوب، تحلّ محلّ الحرف في كل رأس --}}
+<section id="logo" class="card mb-5 flex flex-wrap items-center gap-5 p-5">
+    <x-brand-tile :company="$company" size="size-24 text-3xl" />
+    <div class="min-w-64 flex-1">
+        <h2 class="card-title">لوغو الشركة</h2>
+        <p class="card-hint">
+            يظهر في رأس كل شاشة: نظام الموظّفين، وبوابة التاجر، وتطبيق المندوب، وصفحة تتبّع الزبون.
+            اختر صورةً من معرض الهاتف أو صوّرها بالكاميرا، أو من الحاسوب — مربّعةٌ بخلفيةٍ شفّافة أجمل.
+        </p>
+        <form method="POST" action="{{ route('settings.company.logo') }}" enctype="multipart/form-data" class="mt-3 flex flex-wrap items-center gap-2">
+            @csrf
+            <input type="file" name="logo" accept="image/*" required aria-label="صورة اللوغو"
+                   class="field-input max-w-80 py-1.5 file:me-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1 file:text-sm">
+            <button type="submit" class="btn-primary">{{ $company->logo_path ? 'غيّر اللوغو' : 'ارفع اللوغو' }}</button>
+        </form>
+        @error('logo') <p class="field-error">{{ $message }}</p> @enderror
+        @if ($company->logo_path)
+            <form method="POST" action="{{ route('settings.company.logo.destroy') }}" class="mt-2" data-confirm="يُزال اللوغو ويعود الحرف الأوّل من اسم الشركة؟">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="text-xs text-bad-700 underline">أزِل اللوغو</button>
+            </form>
+        @endif
+    </div>
+</section>
+
 <form method="POST" action="{{ route('settings.company.update') }}" class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     @csrf
     @method('PUT')

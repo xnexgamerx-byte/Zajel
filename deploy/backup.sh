@@ -4,7 +4,7 @@
 # يشغّلها cron كل ليلة (يضبطه setup.sh)، ويشغّلها update.sh قبل كل تحديث.
 #
 # كل ما يستحقّ الحفظ في قاعدة البيانات (الجلسات والذاكرة المؤقّتة فيها أيضاً)،
-# إلّا ما يرفعه الناس: صور إعلانات التطبيق ومرفقات المحادثات، في حجم storage.
+# إلّا ما يرفعه الناس: صور إعلانات التطبيق ومرفقات المحادثات ولوغو الشركات، في حجم storage.
 # وتلك لا تتغيّر بعد رفعها، فمرآةٌ واحدة في files/ تُزاد كل ليلة — لا أرشيفٌ
 # كاملٌ كل ليلة يتضاعف مع كل نسخة. وباقي storage مؤقّت (سجلّات، واستيرادٌ قيد المعاينة).
 #
@@ -56,7 +56,7 @@ find "$dir" -name 'zajel-*.sql.gz' -mtime +"$keep" -delete
 uploads=/var/www/html/storage/app/private
 if present=$(docker compose exec -T app sh -c \
         'cd /var/www/html/storage/app/private 2> /dev/null || exit 0
-         for d in ads attachments; do [ -d "$d" ] && printf "%s " "$d"; done; exit 0'); then
+         for d in ads attachments logos; do [ -d "$d" ] && printf "%s " "$d"; done; exit 0'); then
     if [ -n "$present" ]; then
         mkdir -p "$dir/files"
         # tar يحفظ أوقات الملفّات، فالرفع الخارجي أدناه لا يعيد ما رُفع
