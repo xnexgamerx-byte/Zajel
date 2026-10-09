@@ -287,7 +287,9 @@ class ProcessingTest extends TestCase
         Tenancy::runFor($this->company, fn () => $this->merchant->update(['phone' => '07711112222']));
 
         $page = $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()
-            ->assertSee('رسالتي الثابتة للتاجر')->assertSee('نسخ رسالة التاجر');
+            ->assertDontSee('رسالتي الثابتة للتاجر</summary>', false)->assertSee('نسخ رسالة التاجر');
+        $this->actingAs($this->owner)->get($this->host().'/merchant-message')->assertOk()
+            ->assertSee('رسالتي الثابتة للتاجر')->assertSee('{السبب}');
         $text = \App\Support\MerchantMessage::for($shipment->load('merchant', 'governorate'), $this->owner);
         $this->assertStringContainsString($shipment->number, $text);
         $this->assertStringContainsString($this->merchant->business_name, $text);
@@ -297,14 +299,14 @@ class ProcessingTest extends TestCase
             ->assertSee(e(\App\Support\Phone::whatsappUrl('07711112222', $text)), false);
 
         // نصّ الموظّف نفسه، وغيره يبقى على القالب
-        $this->actingAs($this->owner)->put($this->host().'/processing/message', ['merchant_message' => 'هلا {التاجر}، الوصل {الوصل} راجع.'])
+        $this->actingAs($this->owner)->put($this->host().'/merchant-message', ['merchant_message' => 'هلا {التاجر}، الوصل {الوصل} راجع.'])
             ->assertSessionHas('success', 'حُفظت رسالتك للتاجر.');
         $this->actingAs($this->owner)->get($this->host().'/processing')
             ->assertSee(e('هلا '.$this->merchant->business_name.'، الوصل '.$shipment->number.' راجع.'), false);
         $other = $this->makeUser($this->company, UserRole::CustomerService);
         $this->assertSame(\App\Support\MerchantMessage::TEMPLATE, \App\Support\MerchantMessage::templateOf($other));
 
-        $this->actingAs($this->owner)->put($this->host().'/processing/message', ['merchant_message' => 'x', 'reset' => 1])
+        $this->actingAs($this->owner)->put($this->host().'/merchant-message', ['merchant_message' => 'x', 'reset' => 1])
             ->assertSessionHas('success', 'عادت رسالتك إلى القالب.');
         $this->assertNull($this->owner->refresh()->merchant_message);
     }

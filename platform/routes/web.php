@@ -270,7 +270,8 @@ Route::middleware('tenant')->group(function () {
             // شحنات للمعالجة: قرار المتابعة في كل محاولةٍ فاشلة
             Route::middleware('can:shipments.status')->group(function () {
                 Route::get('/processing', [ProcessingController::class, 'index'])->name('processing.index');
-                Route::put('/processing/message', [ProcessingController::class, 'message'])->name('processing.message');
+                Route::get('/merchant-message', [ProcessingController::class, 'editMessage'])->name('merchant-message.edit');
+                Route::put('/merchant-message', [ProcessingController::class, 'message'])->name('merchant-message.update');
                 Route::post('/processing/{shipment}', [ProcessingController::class, 'store'])->name('processing.store');
             });
 

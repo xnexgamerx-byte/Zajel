@@ -118,6 +118,8 @@ final class StaffNavigation
             'followup' => ['المتابعة', 'review', [
                 // ما مرّ عليه آخر موعدٍ للتوصيل: المتأخرة، والمتوقّفة عند نقطة انتقال، والمبالغ (docs/plan/39)
                 ['operations.alerts', 'التنبيهات التشغيلية', ['operations.alerts'], 'shipments.view'],
+                // نصٌّ جاهز يُرسَل للتاجر من شاشة المعالجة، لكل موظّفٍ نصّه (docs/plan/41)
+                ['merchant-message.edit', 'رسالتي الثابتة للتاجر', ['merchant-message.*'], 'shipments.status'],
                 // موظّفٌ لموظّف أو لقسم، بلا واتساب (docs/plan/41)
                 ['staff-chat.index', 'مراسلة الموظفين', ['staff-chat.*'], null],
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],

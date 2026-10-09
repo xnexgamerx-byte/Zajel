@@ -93,6 +93,12 @@ class ProcessingController extends Controller
             .($data['action'] === 'postpone' ? ' إلى '.$data['until'] : '').'.');
     }
 
+    /** «رسالتي الثابتة للتاجر» في قائمة المتابعة (docs/plan/41) */
+    public function editMessage(): View
+    {
+        return view('tenant.processing.message');
+    }
+
     /** الرسالة الثابتة للتاجر: نصّ الموظّف نفسه، وفارغاً يعود القالب (docs/plan/41) */
     public function message(Request $request): RedirectResponse
     {
