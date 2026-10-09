@@ -89,6 +89,30 @@ final class OrderReader
     }
 
     /**
+     * المحافظة والمنطقة من قوائم الشركة لعنوانٍ مكتوبٍ نظيف — لما يقرؤه الذكاء الاصطناعي
+     * (AiOrderReader): يقول المنطقة كما وردت، وتُطابق هنا بالقواعد نفسها.
+     *
+     * @return array{governorate: ?Governorate, city: ?object, landmark: string, warning: ?string}
+     */
+    public function place(string $address): array
+    {
+        $found = $this->address([trim($address)]);
+
+        return array_intersect_key($found, array_flip(['governorate', 'city', 'landmark', 'warning']));
+    }
+
+    /**
+     * الطلب بصوت التاجر (docs/plan/40): ما سمعه المتصفّح نصّاً متّصلاً، يُعاد أسطراً
+     * وأرقاماً (SpokenOrder) ثم يُقرأ كأيّ رسالة.
+     *
+     * @return Reading
+     */
+    public function fromSpeech(string $speech): array
+    {
+        return $this->fromText(SpokenOrder::normalise($speech));
+    }
+
+    /**
      * @param bool $titled لقطة شاشة: في رأسها اسم المحادثة، وهو غالباً اسم الزبون
      * @return Reading
      */

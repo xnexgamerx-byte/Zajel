@@ -19,7 +19,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // قراءة الطلب بالذكاء الاصطناعي (docs/plan/40): بلا مفتاحٍ لا نموذج، فيقرأ القارئ المحلّي
+        $this->app->bind(\App\Services\Orders\Ai\OrderModel::class, fn () => new \App\Services\Orders\Ai\ClaudeOrderModel(
+            (string) config('zajel.ai.key'), (string) config('zajel.ai.model'), (float) config('zajel.ai.timeout'),
+        ));
+        $this->app->bind(\App\Services\Orders\AiOrderReader::class, fn ($app) => new \App\Services\Orders\AiOrderReader(
+            $app->make(\App\Services\Orders\OrderReader::class),
+            filled(config('zajel.ai.key')) ? $app->make(\App\Services\Orders\Ai\OrderModel::class) : null,
+        ));
     }
 
     /**

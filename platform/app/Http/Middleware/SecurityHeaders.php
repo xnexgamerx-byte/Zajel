@@ -38,8 +38,8 @@ class SecurityHeaders
         $headers->set('X-Content-Type-Options', 'nosniff');
         $headers->set('X-Frame-Options', 'DENY');
         $headers->set('Referrer-Policy', 'same-origin');
-        // الكاميرا والموقع للنظام نفسه (مسح الباركود وموقع التسليم)، ولا غير
-        $headers->set('Permissions-Policy', 'camera=(self), geolocation=(self), microphone=(), payment=(), usb=()');
+        // الكاميرا والموقع والمايك للنظام نفسه (مسح الباركود، وموقع التسليم، والطلب بالصوت)، ولا غير
+        $headers->set('Permissions-Policy', 'camera=(self), geolocation=(self), microphone=(self), payment=(), usb=()');
 
         // على https وحده: الأوّل على http المحلّي يقفل المتصفّح عليه،
         // والثاني يتجاهله المتصفّح هناك ويكتب خطأً في كل صفحة

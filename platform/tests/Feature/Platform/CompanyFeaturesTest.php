@@ -108,7 +108,7 @@ class CompanyFeaturesTest extends TestCase
 
         $this->decide(Feature::OrderReading, true, '25 000')
             ->assertRedirect()
-            ->assertSessionHas('success', 'فُتحت «قراءة الطلب من صورة أو رسالة» لشركة الزاجل بـ 25,000 د.ع شهرياً تُضاف إلى فاتورتها.');
+            ->assertSessionHas('success', 'فُتحت «قراءة الطلب بالذكاء الاصطناعي» لشركة الزاجل بـ 25,000 د.ع شهرياً تُضاف إلى فاتورتها.');
 
         $this->actingAs($this->owner)->get($this->host().'/shipments/create')->assertOk()->assertSee('data-order-reader', false);
         $this->actingAs($this->owner)->postJson($this->host().'/shipments/read', $read)->assertOk()
@@ -200,14 +200,14 @@ class CompanyFeaturesTest extends TestCase
     public function test_the_platform_opens_prices_and_closes_a_feature_and_audits_each_change(): void
     {
         $this->actingAs($this->admin)->get('/admin/companies/'.$this->company->id.'/system')->assertOk()
-            ->assertSee('قراءة الطلب من صورة أو رسالة')
+            ->assertSee('قراءة الطلب بالذكاء الاصطناعي')
             ->assertSee('مطفأةٌ حتى تفتحها لهذه الشركة.')
             ->assertSee('إضافة');
 
         $this->decide(Feature::OrderReading, true, 25_000);
         $this->decide(Feature::OrderReading, true, 25_000)->assertSessionHas('success', 'لم يتغيّر شيء.');
         $this->decide(Feature::OrderReading, true, 30_000)
-            ->assertSessionHas('success', 'صار رسم «قراءة الطلب من صورة أو رسالة» لشركة الزاجل: بـ 30,000 د.ع شهرياً تُضاف إلى فاتورتها.');
+            ->assertSessionHas('success', 'صار رسم «قراءة الطلب بالذكاء الاصطناعي» لشركة الزاجل: بـ 30,000 د.ع شهرياً تُضاف إلى فاتورتها.');
         $this->decide(Feature::OrderReading, false, 30_000);
 
         $rows = Tenancy::runAsPlatform(fn () => CompanyFeature::orderBy('id')->get());
@@ -225,7 +225,7 @@ class CompanyFeaturesTest extends TestCase
         // وصفحة الشركة تسمّي الميزة في سجلّها
         $this->actingAs($this->admin)->get('/admin/companies/'.$this->company->id)->assertOk()
             ->assertSee('أُغلقت ميزة')
-            ->assertSee('«قراءة الطلب من صورة أو رسالة»', false);
+            ->assertSee('«قراءة الطلب بالذكاء الاصطناعي»', false);
     }
 
     public function test_a_fee_is_in_whole_250s_and_a_feature_must_be_known(): void
@@ -257,7 +257,7 @@ class CompanyFeaturesTest extends TestCase
             ->assertSee($this->host().'/billing', false);
         $this->actingAs($this->owner)->get($this->host().'/billing')->assertOk()
             ->assertSee('ميزات نظامك')
-            ->assertSeeInOrder(['قراءة الطلب من صورة أو رسالة', '25,000 د.ع شهرياً', 'إعلانات التطبيق', 'غير مفعّلة']);
+            ->assertSeeInOrder(['قراءة الطلب بالذكاء الاصطناعي', '25,000 د.ع شهرياً', 'إعلانات التطبيق', 'غير مفعّلة']);
     }
 
     public function test_the_features_pages_show_where_each_runs_and_what_it_brings(): void
@@ -297,7 +297,7 @@ class CompanyFeaturesTest extends TestCase
         $this->assertSame(22_000, (int) $march->features_amount);
         $this->assertSame(22_000, (int) $march->total);
         $this->assertSame(16_500, (int) $april->features_amount);
-        $this->assertSame('ميزة «قراءة الطلب من صورة أو رسالة» — 22 يوماً من 31 في 2026-03', $march->items->sole()->description);
+        $this->assertSame('ميزة «قراءة الطلب بالذكاء الاصطناعي» — 22 يوماً من 31 في 2026-03', $march->items->sole()->description);
         $this->assertSame('addon', $march->items->sole()->type);
 
         // أيار: لا اشتراك ولا ميزة — لا فاتورة
@@ -321,7 +321,7 @@ class CompanyFeaturesTest extends TestCase
         // ١٥ يوماً بثلاثين ألفاً و١٦ بستّين من ٣١: ٤٥٤٨٣٫٨ ← ٤٥٥٠٠. وحزيران كاملٌ بالسعر الجديد
         $this->assertSame(45_500, (int) $may->features_amount);
         $this->assertSame(60_000, (int) $june->features_amount);
-        $this->assertSame('ميزة «قراءة الطلب من صورة أو رسالة» — 2026-06', $june->items->sole()->description);
+        $this->assertSame('ميزة «قراءة الطلب بالذكاء الاصطناعي» — 2026-06', $june->items->sole()->description);
     }
 
     public function test_a_free_or_closed_feature_adds_nothing_beside_the_subscription(): void
@@ -360,7 +360,7 @@ class CompanyFeaturesTest extends TestCase
         $this->assertSame(20_000, (int) $invoice->features_amount);
         $this->actingAs($this->admin)->get('/admin/invoices/'.$invoice->id)->assertOk()
             ->assertSee('الميزات الإضافية')
-            ->assertSee('ميزة «قراءة الطلب من صورة أو رسالة»');
+            ->assertSee('ميزة «قراءة الطلب بالذكاء الاصطناعي»');
     }
 
     // ------------------------------------------------------------ المظهر

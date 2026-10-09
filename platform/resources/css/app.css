@@ -1034,6 +1034,13 @@ summary:focus-visible,
         @apply grid size-11 shrink-0 place-items-center rounded-full;
     }
 
+    /* «تكلّم» وهو يسمع: أحمر بنبضٍ خفيف، فلا يُنسى المايك مفتوحاً */
+    .btn-listening,
+    .btn-listening:hover {
+        @apply bg-bad-700 text-white;
+        animation: listening 1.4s ease-in-out infinite;
+    }
+
     /* بطاقةٌ تدعو إلى فعل: حاويةٌ هادئة بزاويةٍ صغيرة، وفيها زرٌّ عائم */
     .dash-card {
         @apply grid place-content-center justify-items-center gap-3 bg-primary-100 p-6 text-center text-sm font-semibold
@@ -1060,7 +1067,8 @@ summary:focus-visible,
     @media (prefers-reduced-motion: reduce) {
         .rise,
         .rail[data-open],
-        .submenu {
+        .submenu,
+        .btn-listening {
             animation: none;
         }
     }
@@ -1101,6 +1109,15 @@ summary:focus-visible,
 
     .has-rail .dock {
         inset-inline-start: var(--rail);
+    }
+}
+
+@keyframes listening {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgb(185 28 28 / 0.45);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgb(185 28 28 / 0);
     }
 }
 

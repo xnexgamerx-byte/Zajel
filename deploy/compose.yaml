@@ -29,6 +29,9 @@ x-app-env: &app-env
   LOG_STACK: daily,stderr
   LOG_LEVEL: warning
   MAIL_MAILER: log
+  # قراءة الطلب بالذكاء الاصطناعي (docs/plan/40): يُكتب المفتاح في .env وحده. فارغٌ = القارئ المحلّي
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  ZAJEL_AI_MODEL: ${ZAJEL_AI_MODEL:-claude-opus-5-5}
 
 x-app-build: &app-build
   context: ../platform

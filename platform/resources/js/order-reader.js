@@ -4,7 +4,22 @@
  * لقطة شاشةٍ تُختار أو تُلصق (Ctrl+V) أو تُسحب إلى البطاقة، أو نصّ رسالةٍ يُلصق: يُرسل إلى
  * الخادم فيُقرأ هناك، ويعود بما يملأ النموذج. المحافظة أوّلاً لتُبنى قائمة مناطقها ثم المنطقة،
  * والمبلغ يُجمَّع كما يُكتب. وما مُلئ يُضاء لحظةً ليُراجَع، وما لم يُعثر عليه يُقال.
+ *
+ * وبالصوت (docs/plan/40): «تكلّم» يُسمِع المتصفّحَ الطلبَ بالعربية العراقية، والكلام يُكتب في
+ * الخانة وهو يُقال، ثم يُرسل نصّاً «مسموعاً» (spoken) فيُعاد أسطراً وأرقاماً على الخادم.
+ * ومتصفّحٌ لا يسمع يُدلّ على مايك لوحة المفاتيح داخل الخانة نفسها.
  */
+
+/** صفحةٌ تُترك تسمع دقيقةً ونصفاً على الأكثر — ولا تبقى تسمع إن نُسيت */
+const LISTEN_LIMIT = 90_000;
+
+const HEARING_ERRORS = {
+    'not-allowed': 'اسمح للمتصفّح باستعمال المايك (من القفل بجانب العنوان) ثم اضغط «تكلّم».',
+    'service-not-allowed': 'متصفّحك لا يسمح بالسماع هنا — اضغط مايك لوحة المفاتيح داخل الخانة وتكلّم.',
+    'audio-capture': 'لا مايك يعمل في هذا الجهاز.',
+    network: 'السماع يحتاج إنترنت — تأكّد من الاتصال ثم أعد.',
+    'language-not-supported': 'متصفّحك لا يسمع العربية — اضغط مايك لوحة المفاتيح داخل الخانة وتكلّم.',
+};
 
 const NAMES = {
     recipient_name: 'الاسم',
@@ -90,7 +105,8 @@ export function initOrderReader(section) {
         } else {
             // بترتيب النموذج لا بترتيب الملء
             const read = Object.keys(NAMES).filter((name) => filled.includes(name));
-            parts.push(`قُرئ: ${read.map((name) => (found[name] ? `${NAMES[name]} ${found[name]}` : NAMES[name])).join('، ')}.`);
+            const by = data.engine === 'ai' ? 'قرأ الذكاء الاصطناعي' : 'قُرئ';
+            parts.push(`${by}: ${read.map((name) => (found[name] ? `${NAMES[name]} ${found[name]}` : NAMES[name])).join('، ')}.`);
             if (missing.length) parts.push(`لم يُعثر على: ${missing.join('، ')} — اكتبها.`);
             parts.push(...(data.warnings ?? []));
 
@@ -151,10 +167,14 @@ export function initOrderReader(section) {
     });
 
     pasteOpen.addEventListener('click', () => {
+        section.querySelector('[data-order-talk-hint]')?.setAttribute('hidden', '');
         paste.hidden = !paste.hidden;
         pasteOpen.setAttribute('aria-expanded', String(!paste.hidden));
         if (!paste.hidden) text.focus();
     });
+
+    // النصّ في الخانة كلامٌ مسموع لا رسالةٌ ملصوقة: يُقرأ بقواعد الكلام
+    let spoken = false;
 
     read.addEventListener('click', () => {
         if (text.value.trim() === '') {
@@ -163,7 +183,114 @@ export function initOrderReader(section) {
         }
         const body = new FormData();
         body.append('text', text.value);
-        send(body, 'تُقرأ الرسالة…');
+        if (spoken) body.append('spoken', '1');
+        send(body, spoken ? 'يُقرأ كلامك…' : 'تُقرأ الرسالة…');
+    });
+
+    text.addEventListener('paste', () => {
+        spoken = false;
+    });
+
+    const talk = section.querySelector('[data-order-talk]');
+    const talkLabel = section.querySelector('[data-order-talk-label]');
+    const hint = section.querySelector('[data-order-talk-hint]');
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let listening = false;
+    let stopAsked = false;
+    let failed = false;
+    let heard = '';
+    let startedAt = 0;
+
+    const setListening = (on) => {
+        listening = on;
+        talk.setAttribute('aria-pressed', String(on));
+        talk.classList.toggle('btn-listening', on);
+        talkLabel.textContent = on ? 'أوقف' : 'تكلّم';
+    };
+
+    const finish = () => {
+        setListening(false);
+        if (failed) return;
+        if (text.value.trim() === '') {
+            show('لم يُسمع كلام — اضغط «تكلّم» وأعد.', 'bad');
+            return;
+        }
+        read.click();
+    };
+
+    // متصفّح الهاتف يكفّ عن السماع عند أوّل سكتة: يُعاد حتى يضغط التاجر «أوقف»
+    const listen = () => {
+        recognition = new Recognition();
+        recognition.lang = 'ar-IQ';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onresult = (event) => {
+            let interim = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const result = event.results[i];
+                if (result.isFinal) heard = `${heard} ${result[0].transcript}`.trim();
+                else interim += result[0].transcript;
+            }
+            text.value = `${heard} ${interim}`.trim();
+        };
+
+        recognition.onerror = (event) => {
+            if (event.error === 'no-speech' || event.error === 'aborted') return;
+            failed = true;
+            show(HEARING_ERRORS[event.error] ?? 'تعذّر السماع — اضغط «تكلّم» وأعد.', 'bad');
+        };
+
+        recognition.onend = () => {
+            if (!stopAsked && !failed && Date.now() - startedAt < LISTEN_LIMIT) {
+                try {
+                    listen();
+                    return;
+                } catch {
+                    // لا يُعاد: يُقرأ ما سُمع
+                }
+            }
+            finish();
+        };
+
+        recognition.start();
+    };
+
+    talk?.addEventListener('click', () => {
+        paste.hidden = false;
+        pasteOpen.setAttribute('aria-expanded', 'true');
+        hint.hidden = false;
+        spoken = true;
+
+        if (!Recognition) {
+            hint.textContent = 'اضغط زرّ المايك في لوحة مفاتيح هاتفك وتكلّم داخل الخانة: الاسم، ثم الرقم، ثم المحافظة والمنطقة وأقرب نقطة، ثم المبلغ. وبعدها «اقرأ الرسالة».';
+            text.focus();
+            return;
+        }
+
+        if (listening) {
+            stopAsked = true;
+            recognition?.stop();
+            return;
+        }
+
+        heard = '';
+        text.value = '';
+        failed = false;
+        stopAsked = false;
+        startedAt = Date.now();
+        hint.textContent = 'قل مثلاً: «الاسم علي حسين، الرقم صفر سبعة سبعة صفر…، بغداد الكرادة قرب الجامع، المبلغ خمسة وعشرين ألف». ثم اضغط «أوقف» فيُقرأ.';
+        setListening(true);
+        show('أسمعك… تكلّم بالطلب.', 'info');
+
+        try {
+            listen();
+        } catch {
+            failed = true;
+            setListening(false);
+            show('تعذّر السماع — اضغط «تكلّم» وأعد.', 'bad');
+        }
     });
 
     if (!image) return;

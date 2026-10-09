@@ -33,5 +33,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- لا قراءة بالذكاء الاصطناعي في الاختبارات ولو كان للجهاز مفتاح: تُبدَّل بنموذجٍ ثابت -->
+        <env name="ANTHROPIC_API_KEY" value="" force="true"/>
     </php>
 </phpunit>

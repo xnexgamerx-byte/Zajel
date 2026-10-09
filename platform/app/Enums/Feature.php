@@ -30,7 +30,7 @@ enum Feature: string
     public function label(): string
     {
         return match ($this) {
-            self::OrderReading  => 'قراءة الطلب من صورة أو رسالة',
+            self::OrderReading  => 'قراءة الطلب بالذكاء الاصطناعي',
             self::QuickEntry    => 'الإدخال السريع',
             self::ExcelImport   => 'رفع الشحنات من ملف Excel',
             self::Waybills      => 'الوصولات المطبوعة مسبقاً',
@@ -44,7 +44,7 @@ enum Feature: string
     public function description(): string
     {
         return match ($this) {
-            self::OrderReading  => 'يرفع الموظّف أو التاجر لقطة شاشةٍ لمحادثة الزبون أو يلصق رسالته، فتمتلئ الشحنة: الاسم والهاتف والعنوان والسعر.',
+            self::OrderReading  => 'لقطة شاشةٍ لمحادثة الزبون، أو رسالته ملصوقة، أو كلام التاجر بصوته: يقرؤها الذكاء الاصطناعي فتمتلئ الشحنة — الاسم والهاتف والعنوان والسعر.',
             self::QuickEntry    => 'إدخال حتى ٣٠ شحنةً في جدولٍ واحد من لوحة المفاتيح.',
             self::ExcelImport   => 'رفع الشحنات من ملف Excel، من النظام ومن بوّابة التاجر.',
             self::Waybills      => 'دفاتر وصولاتٍ بأرقامٍ مطبوعة يكتب عليها التاجر بيده، وتُدخَل الشحنة بمسح الوصل.',
