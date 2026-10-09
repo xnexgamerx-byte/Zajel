@@ -63,7 +63,6 @@ final class StaffNavigation
                 ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
                 ['shipments.scan', 'استلام وتوزيع بالمسح', ['shipments.scan'], 'shipments.status'],
                 ['courier-manifests.index', 'كشوف المناديب', ['courier-manifests.*'], 'transport.manage'],
-                ['processing.index', 'شحنات لم تُسلَّم (للمعالجة)', ['processing.*'], 'shipments.status'],
                 // إرسالٌ واستلامٌ بضغطة، والأكياس والكشوف اليدوية من داخلها (docs/plan/38)
                 ['transfers.index', 'النقل بين الفروع (إرسال واستلام)', ['transfers.*', 'bags.*', 'manifests.index', 'manifests.show', 'manifests.inbound'], 'transport.manage'],
                 ['manifests.archive', 'أرشيف الكشوف', ['manifests.archive', 'manifests.print'], 'transport.manage'],
@@ -118,8 +117,8 @@ final class StaffNavigation
             'followup' => ['المتابعة', 'review', [
                 // ما مرّ عليه آخر موعدٍ للتوصيل: المتأخرة، والمتوقّفة عند نقطة انتقال، والمبالغ (docs/plan/39)
                 ['operations.alerts', 'التنبيهات التشغيلية', ['operations.alerts'], 'shipments.view'],
-                // نصٌّ جاهز يُرسَل للتاجر من شاشة المعالجة، لكل موظّفٍ نصّه (docs/plan/41)
-                ['merchant-message.edit', 'رسالتي الثابتة للتاجر', ['merchant-message.*'], 'shipments.status'],
+                // المحاولات الفاشلة تنتظر قراراً: إعادة توصيل أو تأجيل أو تأكيد الراجع (docs/plan/41)
+                ['processing.index', 'شحنات لم تُسلَّم (للمعالجة)', ['processing.*'], 'shipments.status'],
                 // موظّفٌ لموظّف أو لقسم، بلا واتساب (docs/plan/41)
                 ['staff-chat.index', 'مراسلة الموظفين', ['staff-chat.*'], null],
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
@@ -134,6 +133,8 @@ final class StaffNavigation
                 ['control.review', 'تحت المراجعة', ['control.review*'], 'control.review'],
                 ['control.duplicates', 'شحنات مكرّرة', ['control.duplicates'], 'control.duplicates'],
                 ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
+                // نصٌّ جاهز يُرسَل للتاجر من شاشة المعالجة، لكل موظّفٍ نصّه (docs/plan/41)
+                ['merchant-message.edit', 'رسالتي الثابتة للتاجر', ['merchant-message.*'], 'shipments.status'],
             ]],
             // الناس والأسعار والشركة: ما يُضبط مرّةً ويُعدَّل أحياناً
             'settings' => ['الإعدادات', 'building', [
