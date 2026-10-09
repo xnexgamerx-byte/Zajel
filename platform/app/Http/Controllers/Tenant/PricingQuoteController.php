@@ -25,6 +25,7 @@ class PricingQuoteController extends Controller
             'fees_paid_by'   => ['nullable', 'in:merchant,customer'],
             'extra_fee'      => ['nullable', 'integer', 'min:0'],
             'discount'       => ['nullable', 'integer', 'min:0'],
+            'size'           => ['nullable', 'in:'.implode(',', array_keys(\App\Models\Shipment::SIZES))],
         ]);
 
         $merchant = Merchant::visibleTo($request->user())->find($data['merchant_id']);
@@ -42,6 +43,7 @@ class PricingQuoteController extends Controller
             feesPaidBy: $data['fees_paid_by'] ?? 'merchant',
             extraFee: (int) ($data['extra_fee'] ?? 0),
             discount: (int) ($data['discount'] ?? 0),
+            size: $data['size'] ?? null,
         ));
     }
 }

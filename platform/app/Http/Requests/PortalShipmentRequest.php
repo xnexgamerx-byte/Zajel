@@ -37,9 +37,8 @@ class PortalShipmentRequest extends StoreShipmentRequest
         // ليست في نموذجه: تبقى لموظّف الشركة من صفحة الشحنة
         unset($rules['merchant_reference'], $rules['weight_grams'], $rules['is_fragile'], $rules['allow_open']);
 
-        // الاسم من أساسيّات طلبه
-        $rules['recipient_name'] = ['required', 'string', 'max:160'];
-
+        // الاسم اختياريّ كما في نموذج الموظّف — يُطبع على الوصل إن كُتب — ما لم تُلزِم به
+        // الشركة (ShipmentFields — docs/plan/38)، والإلزام يأتي من القواعد الموروثة
         return $rules;
     }
 
@@ -60,7 +59,6 @@ class PortalShipmentRequest extends StoreShipmentRequest
     {
         return [
             ...parent::messages(),
-            'recipient_name.required'   => 'اكتب اسم الزبون.',
             'recipient_phone_alt.regex' => 'الهاتف الثانوي يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
             'cod_amount.required'       => 'اكتب السعر مع التوصيل — 0 إن كان الزبون دفع لك مسبقاً.',
         ];

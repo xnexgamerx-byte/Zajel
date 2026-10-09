@@ -48,6 +48,7 @@
 
 <form method="POST" action="{{ route('portal.shipments.store') }}" id="order-form" class="mx-auto max-w-3xl">
     @csrf
+    <x-required-fields-note :except="['recipient_name', 'merchant_reference']" class="mb-4" />
 
     <section class="card overflow-hidden">
         <div class="divide-y divide-ink-100">
@@ -60,9 +61,11 @@
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
-                        <label class="field-label" for="recipient_name">اسم الزبون {!! $required !!}</label>
-                        <input id="recipient_name" name="recipient_name" class="field-input" placeholder="مثلاً: طه محمد"
-                               autocomplete="off" required autofocus value="{{ old('recipient_name') }}">
+                        {{-- اختياريّ ما لم تُلزِم به الشركة، ويُطبع على الوصل إن كُتب (docs/plan/38) --}}
+                        @php $nameRequired = \App\Support\ShipmentFields::isRequired('recipient_name'); @endphp
+                        <label class="field-label" for="recipient_name">اسم الزبون {!! $nameRequired ? $required : '' !!}</label>
+                        <input id="recipient_name" name="recipient_name" class="field-input" placeholder="{{ $nameRequired ? 'مثلاً: طه محمد' : 'اختياري — يُطبع على الوصل' }}"
+                               autocomplete="off" @required($nameRequired) autofocus value="{{ old('recipient_name') }}">
                         @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
                     <div>

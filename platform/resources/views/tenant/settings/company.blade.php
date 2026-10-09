@@ -67,6 +67,26 @@
                       placeholder="{{ implode("\n", \App\Models\WaybillBook::DEFAULT_TERMS) }}">{{ old('waybill_terms', $company->setting('waybill.terms')) }}</textarea>
             @error('waybill_terms') <p class="field-error">{{ $message }}</p> @enderror
         </div>
+
+        {{-- ما تُلزِم به الشركة عند إدخال الشحنة (docs/plan/38): يسري على كل نموذج --}}
+        <fieldset class="rounded-xl border border-ink-200 p-4">
+            <legend class="card-title px-1">حقولٌ تُطلب عند إدخال الشحنة</legend>
+            <p class="card-hint mb-3">
+                الهاتف والمحافظة والمنطقة والمبلغ مطلوبةٌ دائماً. وما تختاره هنا يصير مطلوباً أيضاً: في نموذج الشحنة،
+                وبوابة التاجر، والإدخال السريع، وملفّ Excel. واسم المستلم اختياريّ ما لم تختره، ويُطبع على الوصل إن كُتب.
+            </p>
+            @php $chosen = old('shipment_required', \App\Support\ShipmentFields::required($company)); @endphp
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                @foreach (\App\Support\ShipmentFields::CHOOSABLE as $field => $label)
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="shipment_required[]" value="{{ $field }}" @checked(in_array($field, (array) $chosen, true))
+                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
+                        {{ $label }}
+                    </label>
+                @endforeach
+            </div>
+            @error('shipment_required.*') <p class="field-error">{{ $message }}</p> @enderror
+        </fieldset>
     </section>
 
     <section class="card space-y-4 p-5">

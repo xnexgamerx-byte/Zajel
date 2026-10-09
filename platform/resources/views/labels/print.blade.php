@@ -98,7 +98,10 @@
 
             <section>
                 <div class="small">المستلم</div>
-                <div class="text-[12pt] font-bold">{{ $shipment->recipient_name }}</div>
+                {{-- الاسم اختياريّ: يُطبع إن كُتب، ولا يُطبع «الزبون» مكانه (docs/plan/38) --}}
+                @if ($shipment->recipient_name !== \App\Models\Shipment::UNNAMED_RECIPIENT)
+                    <div class="text-[12pt] font-bold">{{ $shipment->recipient_name }}</div>
+                @endif
                 <div class="text-[14pt] font-bold"><span class="num">{{ $shipment->recipient_phone }}</span></div>
                 @if ($shipment->recipient_phone_alt)
                     <div class="small">بديل: <span class="num">{{ $shipment->recipient_phone_alt }}</span></div>
@@ -129,7 +132,7 @@
                         <span>· الوزن <span class="num">{{ rtrim(rtrim(number_format($shipment->weight_grams / 1000, 2), '0'), '.') }}</span> كغم</span>
                     @endif
                     @if ($shipment->type === 'exchange') <span class="tag">استبدال</span> @endif
-                    @if ($shipment->size === 'large') <span class="tag">حجم كبير</span> @endif
+                    @if ($shipment->size && $shipment->size !== 'normal') <span class="tag">حجم {{ \App\Models\Shipment::SIZES[$shipment->size] ?? $shipment->size }}</span> @endif
                     @if ($shipment->is_fragile) <span class="tag">قابل للكسر</span> @endif
                     @if ($shipment->allow_open) <span class="tag">يُسمح بالفتح</span> @endif
                 </div>

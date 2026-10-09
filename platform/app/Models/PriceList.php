@@ -14,7 +14,13 @@ class PriceList extends Model
 
     protected function casts(): array
     {
-        return ['is_default' => 'boolean', 'is_active' => 'boolean'];
+        return ['is_default' => 'boolean', 'is_active' => 'boolean', 'size_fees' => 'array'];
+    }
+
+    /** زيادة أجرة التوصيل لحجمٍ غير العادي في هذه التسعيرة (docs/plan/38) */
+    public function sizeFee(?string $size): int
+    {
+        return $size === null || $size === 'normal' ? 0 : max(0, (int) ($this->size_fees[$size] ?? 0));
     }
 
     public function rules(): HasMany

@@ -178,8 +178,12 @@ class ShipmentSheet
         $errors = [];
         $data = [];
 
-        // المنطقة تُفحص بعد معرفة المحافظة: هل لها مناطق؟
-        foreach (array_diff(self::REQUIRED, ['city']) as $field) {
+        // المنطقة تُفحص بعد معرفة المحافظة: هل لها مناطق؟ وما ألزمته الشركة من أعمدة الملف
+        // يُطلب كذلك (ShipmentFields — docs/plan/38)
+        $required = [...array_diff(self::REQUIRED, ['city']),
+            ...array_intersect(\App\Support\ShipmentFields::required(), array_keys(self::COLUMNS))];
+
+        foreach ($required as $field) {
             if ($value($field) === '') {
                 $errors[] = self::COLUMNS[$field].' مطلوب';
             }

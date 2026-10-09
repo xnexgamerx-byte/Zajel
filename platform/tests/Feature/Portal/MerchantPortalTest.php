@@ -216,21 +216,26 @@ class MerchantPortalTest extends TestCase
             ->assertSessionHasErrors(['city_id' => 'اختر المنطقة.']);
     }
 
-    public function test_the_portal_needs_a_name_but_no_landmark(): void
+    public function test_the_name_is_optional_unless_the_company_requires_it(): void
     {
-        // الأساسي من التاجر: الاسم والرقم والعنوان والسعر والعدد
+        // الاسم اختياريّ كما في نموذج الموظّف، ويُطبع على الوصل إن كُتب (docs/plan/38)
         $this->actingAs($this->alphaUser)
-            ->post($this->host().'/portal/shipments', $this->payload(['recipient_name' => '']))
-            ->assertSessionHasErrors(['recipient_name' => 'اكتب اسم الزبون.']);
-
-        $this->actingAs($this->alphaUser)
-            ->post($this->host().'/portal/shipments', $this->payload(['landmark' => '']))
+            ->post($this->host().'/portal/shipments', $this->payload(['recipient_name' => '', 'landmark' => '']))
             ->assertSessionHas('created');
 
         $shipment = Tenancy::runFor($this->company, fn () => Shipment::firstOrFail());
-
-        $this->assertSame('زينب كاظم', $shipment->recipient_name);
+        $this->assertSame(Shipment::UNNAMED_RECIPIENT, $shipment->recipient_name);
         $this->assertSame('', $shipment->landmark);
+
+        // وتُلزِم به الشركة إن شاءت، ومعه ما تختار
+        $this->company->forceFill(['settings' => ['shipment' => ['required' => ['recipient_name', 'landmark']]]])->save();
+
+        $this->actingAs($this->alphaUser)
+            ->post($this->host().'/portal/shipments', $this->payload(['recipient_name' => '', 'landmark' => '']))
+            ->assertSessionHasErrors([
+                'recipient_name' => 'اكتب اسم المستلم: الشركة تُلزِم به.',
+                'landmark'       => 'اكتب أقرب نقطة دالّة: الشركة تُلزِم به.',
+            ]);
     }
 
     public function test_a_merchant_requests_a_pickup(): void

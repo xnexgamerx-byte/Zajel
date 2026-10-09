@@ -88,6 +88,7 @@ class QuickEntryController extends Controller
 
         $shipments = [];
         $errors = [];
+        $required = \App\Support\ShipmentFields::required();
 
         foreach ($header['rows'] as $i => $row) {
             $row = array_map(fn ($v) => is_string($v) ? trim($v) : $v, (array) $row);
@@ -129,6 +130,13 @@ class QuickEntryController extends Controller
 
             // أقرب نقطة دالّة اختيارية: حرفٌ واحد أو لا شيء
             $landmark = (string) ($row['landmark'] ?? '');
+
+            // وما ألزمته الشركة من أعمدة الجدول (ShipmentFields — docs/plan/38)
+            foreach (array_intersect($required, ['recipient_name', 'landmark', 'merchant_reference', 'notes']) as $field) {
+                if (blank($row[$field] ?? null)) {
+                    $errors[$at($field)] = \App\Support\ShipmentFields::message($field);
+                }
+            }
 
             $shipments[$i] = [
                 'merchant_id'        => $merchantId,

@@ -43,6 +43,7 @@
       @endif
       class="mx-auto max-w-3xl">
     @csrf
+    <x-required-fields-note :except="['recipient_name']" class="mb-4" />
     @if ($editing) @method('PUT') @endif
     @if ($waybill) <input type="hidden" name="waybill" value="{{ $waybill->code }}"> @endif
 
@@ -83,8 +84,9 @@
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <label class="field-label" for="recipient_name">اسم المستلم</label>
-                        <input id="recipient_name" name="recipient_name" class="field-input" placeholder="اختياري" autocomplete="off"
+                        @php $nameRequired = \App\Support\ShipmentFields::isRequired('recipient_name'); @endphp
+                        <label class="field-label" for="recipient_name">اسم المستلم {!! $nameRequired ? $required : '' !!}</label>
+                        <input id="recipient_name" name="recipient_name" class="field-input" placeholder="{{ $nameRequired ? '' : 'اختياري — يُطبع على الوصل' }}" autocomplete="off" @required($nameRequired)
                                value="{{ old('recipient_name', $shipment?->recipient_name === \App\Models\Shipment::UNNAMED_RECIPIENT ? '' : $shipment?->recipient_name) }}"
                                @unless ($editing) autofocus @endunless>
                         @error('recipient_name') <p class="field-error">{{ $message }}</p> @enderror

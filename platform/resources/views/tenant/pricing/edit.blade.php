@@ -46,6 +46,23 @@
         </div>
     </section>
 
+    {{-- الحجم بتسعيرته: زيادةٌ على أجرة التوصيل، والعاديّ بلا زيادة (docs/plan/38) --}}
+    <section class="card mb-4 p-5">
+        <h2 class="card-title">زيادة الأجرة حسب حجم الشحنة</h2>
+        <p class="card-hint">تُضاف على أجرة التوصيل لكل محافظة. الحجم «عادي» بلا زيادة، وهو الافتراضيّ في كل نموذج.</p>
+        <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            @foreach (\App\Models\Shipment::SIZES as $size => $label)
+                @continue($size === 'normal')
+                <div>
+                    <label class="field-label" for="size_fee_{{ $size }}">حجم {{ $label }}</label>
+                    <input id="size_fee_{{ $size }}" name="size_fees[{{ $size }}]" type="number" min="0" step="1"
+                           class="field-input num" value="{{ old('size_fees.'.$size, $list->size_fees[$size] ?? 0) }}">
+                    @error('size_fees.'.$size) <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+            @endforeach
+        </div>
+    </section>
+
     <div class="card overflow-hidden">
         <div class="overflow-x-auto">
             <table class="tbl">

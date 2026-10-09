@@ -15,7 +15,7 @@ class StoreShipmentRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return $this->withCompanyRequired([
             // التاجر يُتحقَّق منه عبر Rule::exists غير كافٍ وحده — التحقّق الحقيقي
             // في withValidator أدناه، لأن exists لا يعرف بالشركة الحالية.
             'merchant_id'         => ['required', 'integer'],
@@ -56,7 +56,25 @@ class StoreShipmentRequest extends FormRequest
             // رقم الوصل المطبوع مسبقاً إن أُدخلت منه (CreateFromWaybill يتحقّق منه)
             'waybill'             => ['nullable', 'string', 'max:20'],
             'merchant_reference'  => ['nullable', 'string', 'max:60'],
-        ];
+        ]);
+    }
+
+    /**
+     * ما ألزمته الشركة من الحقول الاختياريّة (ShipmentFields — docs/plan/38): يصير
+     * مطلوباً في كل نموذج يرث هذه القواعد — نموذج الموظّف وتعديله وبوابة التاجر.
+     *
+     * @param  array<string, array<int, mixed>>  $rules
+     * @return array<string, array<int, mixed>>
+     */
+    protected function withCompanyRequired(array $rules): array
+    {
+        foreach (\App\Support\ShipmentFields::required() as $field) {
+            if (isset($rules[$field])) {
+                $rules[$field] = ['required', ...array_values(array_filter($rules[$field], fn ($rule) => $rule !== 'nullable'))];
+            }
+        }
+
+        return $rules;
     }
 
     /** محافظةٌ لها مناطق مفعّلة يُختار منها؛ وما لا مناطق له تكفي محافظته */
@@ -125,6 +143,8 @@ class StoreShipmentRequest extends FormRequest
             'recipient_phone_alt.regex' => 'الهاتف البديل يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
             'city_id.required'          => 'اختر المنطقة.',
             'cod_amount.required'       => 'اكتب المبلغ المطلوب من الزبون — 0 إن كان مدفوعاً مسبقاً.',
+            ...collect(\App\Support\ShipmentFields::CHOOSABLE)
+                ->mapWithKeys(fn ($label, $field) => ["{$field}.required" => \App\Support\ShipmentFields::message($field)])->all(),
         ];
     }
 }

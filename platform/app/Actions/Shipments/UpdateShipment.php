@@ -124,9 +124,13 @@ class UpdateShipment
             $extraFee = (int) ($data['extra_fee'] ?? 0);
             $discount = (int) ($data['discount'] ?? 0);
 
+            $size = $data['size'] ?? $shipment->size;
+
+            // والحجم يغيّر الأجرة كالوجهة والوزن (docs/plan/38)
             $rerouted = $governorateId !== (int) $shipment->governorate_id
                 || $cityId !== ($shipment->city_id === null ? null : (int) $shipment->city_id)
-                || $weight !== (int) $shipment->weight_grams;
+                || $weight !== (int) $shipment->weight_grams
+                || $size !== $shipment->size;
 
             $recharged = $rerouted
                 || $cod !== (int) $shipment->cod_amount
@@ -140,6 +144,7 @@ class UpdateShipment
                     weightGrams: $weight,
                     codAmount: $cod,
                     feesPaidBy: $feesPaidBy,
+                    size: $size,
                 )
                 : null;
 

@@ -112,6 +112,9 @@ class PriceListController extends Controller
             'rows.*.cod_fee_flat'      => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'rows.*.cod_fee_percent'   => ['nullable', 'numeric', 'min:0', 'max:100'],
             'weight_to_grams'          => ['required', 'integer', 'min:100', 'max:1000000'],
+            // زيادة أجرة التوصيل للحجم غير العاديّ (docs/plan/38)
+            'size_fees'                => ['nullable', 'array'],
+            'size_fees.*'              => ['nullable', 'integer', 'min:0', 'max:100000000'],
         ], [], [
             'name' => 'الاسم', 'weight_to_grams' => 'حد الوزن',
             'rows.*.delivery_fee' => 'أجرة التوصيل',
@@ -124,6 +127,8 @@ class PriceListController extends Controller
             $pricing->update([
                 'name'      => $data['name'],
                 'is_active' => $request->boolean('is_active', true),
+                'size_fees' => collect(\App\Models\Shipment::SIZES)->except('normal')
+                    ->map(fn ($label, $size) => (int) ($data['size_fees'][$size] ?? 0))->all(),
             ]);
 
             if ($request->boolean('is_default')) {

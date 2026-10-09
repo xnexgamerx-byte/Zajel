@@ -37,6 +37,7 @@ class PricingService
         string $feesPaidBy = 'merchant',
         int $extraFee = 0,
         int $discount = 0,
+        ?string $size = null,
     ): array {
         $priceList = $merchant->effectivePriceList();
 
@@ -61,6 +62,10 @@ class PricingService
             }
         }
 
+        // الحجم غير العاديّ يزيد أجرة التوصيل بما تكتبه التسعيرة له (docs/plan/38)
+        $sizeFee = $priceList?->sizeFee($size) ?? 0;
+        $deliveryFee += $sizeFee;
+
         // كل كغم فوق الحد الأعلى للقاعدة يُحتسب إضافياً
         if ($rule && $rule->extra_kg_fee > 0 && $weightGrams > $rule->weight_to_grams) {
             $extraKg = (int) ceil(($weightGrams - $rule->weight_to_grams) / 1000);
@@ -78,6 +83,7 @@ class PricingService
             'extra_fee'    => $extraFee,
             'cod_fee'      => $codFee,
             ...self::totals($codAmount, $feesPaidBy, $deliveryFee, $extraFee, $codFee, $discount),
+            'size_fee'     => $sizeFee,
             'rule_id'      => $rule?->id,
             'matched'      => $rule !== null,
             'zone'         => $zone,

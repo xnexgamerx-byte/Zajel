@@ -95,7 +95,7 @@
         </div>
         <div class="flex justify-between">
             <dt class="text-ink-500">الحجم</dt>
-            <dd @class(['font-medium', 'font-bold text-warn-700' => $shipment->size === 'large'])>{{ \App\Models\Shipment::SIZES[$shipment->size] ?? $shipment->size }}</dd>
+            <dd @class(['font-medium', 'font-bold text-warn-700' => ! in_array($shipment->size, ['normal', null], true)])>{{ \App\Models\Shipment::SIZES[$shipment->size] ?? $shipment->size }}</dd>
         </div>
         @if ($shipment->description)
             <div class="flex justify-between gap-3">

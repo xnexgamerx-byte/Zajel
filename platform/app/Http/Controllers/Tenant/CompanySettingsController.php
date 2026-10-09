@@ -42,6 +42,9 @@ class CompanySettingsController extends Controller
             'support_hours'    => ['nullable', 'string', 'max:120'],
             'waybill_terms'    => ['nullable', 'string', 'max:600'],
             'primary_color'    => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            // ما تُلزِم به الشركة من حقول الشحنة الاختياريّة (docs/plan/38)
+            'shipment_required'   => ['nullable', 'array'],
+            'shipment_required.*' => ['string', \Illuminate\Validation\Rule::in(array_keys(\App\Support\ShipmentFields::CHOOSABLE))],
         ], [
             'primary_color.regex' => 'اللون بصيغة #RRGGBB.',
         ], [
@@ -64,9 +67,11 @@ class CompanySettingsController extends Controller
             'support_complaints' => $company->setting('support.complaints'),
             'support_hours'    => $company->setting('support.hours'),
             'waybill_terms'    => $company->setting('waybill.terms'),
+            'shipment_required' => implode(',', \App\Support\ShipmentFields::required($company)),
         ];
 
         $settings = $company->settings ?? [];
+        data_set($settings, 'shipment.required', array_values(array_unique($data['shipment_required'] ?? [])));
         data_set($settings, 'support.whatsapp', $phones['support_whatsapp']);
         data_set($settings, 'support.complaints', $phones['support_complaints']);
         data_set($settings, 'support.hours', filled($data['support_hours'] ?? null) ? trim($data['support_hours']) : null);
@@ -89,6 +94,7 @@ class CompanySettingsController extends Controller
             'support_complaints' => $company->setting('support.complaints'),
             'support_hours'    => $company->setting('support.hours'),
             'waybill_terms'    => $company->setting('waybill.terms'),
+            'shipment_required' => implode(',', \App\Support\ShipmentFields::required($company)),
         ];
 
         // ما تغيّر وحده، وبمَن غيّره: رقمُ دعمٍ تبدّل يُسأل عنه يوم يشكو تاجر

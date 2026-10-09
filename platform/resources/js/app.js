@@ -103,7 +103,7 @@ function initLiveQuote() {
     const original = form.dataset.original ? JSON.parse(form.dataset.original) : null;
     const token = document.querySelector('meta[name="csrf-token"]')?.content;
     const extras = form.querySelector('[data-extras]');
-    const fields = ['merchant_id', 'governorate_id', 'city_id', 'weight_grams', 'cod_amount', 'delivery_fee'];
+    const fields = ['merchant_id', 'governorate_id', 'city_id', 'weight_grams', 'cod_amount', 'delivery_fee', 'size'];
 
     let timer;
 
@@ -139,6 +139,7 @@ function initLiveQuote() {
                     city_id: form.elements.city_id?.value ? Number(form.elements.city_id.value) : null,
                     weight_grams: numberValue(form.elements.weight_grams),
                     cod_amount: numberValue(form.elements.cod_amount),
+                    size: form.elements.size?.value || null,
                 }),
             });
 
