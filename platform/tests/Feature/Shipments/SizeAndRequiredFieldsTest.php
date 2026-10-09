@@ -97,7 +97,11 @@ class SizeAndRequiredFieldsTest extends TestCase
             'size_fees' => ['medium' => 1500, 'large' => 4000, 'special' => ''],
         ])->assertSessionHasNoErrors();
 
-        $this->assertSame(['medium' => 1500, 'large' => 4000, 'special' => 0], $list->refresh()->size_fees);
+        // MySQL يعيد مفاتيح JSON بترتيبه هو: المقارنة بالقيم لا بالترتيب
+        $fees = $list->refresh()->size_fees;
+        ksort($fees);
+        $this->assertSame(['large' => 4000, 'medium' => 1500, 'special' => 0], $fees);
+        $this->assertSame(4000, $list->sizeFee('large'));
     }
 
     public function test_the_name_is_printed_only_when_written_and_the_size_always(): void
