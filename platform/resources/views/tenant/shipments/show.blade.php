@@ -24,6 +24,13 @@
                 </a>
             @endcan
         @endif
+        {{-- راسل مندوبها من الكول سنتر عنها (docs/plan/38) --}}
+        @if ($shipment->delivery_courier_id && auth()->user()->can('support.reply') && \App\Support\FeatureGate::enabled(\App\Enums\Feature::Conversations))
+            <a href="{{ route('courier-chat.index', ['courier' => $shipment->delivery_courier_id, 'shipment' => $shipment->number]) }}" class="btn-ghost">
+                <x-icon name="chat" class="size-5"/>
+                راسل المندوب
+            </a>
+        @endif
         {{-- بصلاحيةٍ خاصّة: الأجور والطلبية ولو انتهت الشحنة (docs/plan/38) --}}
         @can('shipments.override')
             <a href="{{ route('shipments.override', $shipment) }}" class="btn-ghost">

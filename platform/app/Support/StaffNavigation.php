@@ -117,6 +117,8 @@ final class StaffNavigation
             // الكلام مع التجّار والمناديب، وما يُراجَع قبل أن يمضي
             'followup' => ['المتابعة', 'review', [
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
+                // الكول سنتر والمندوب في الطريق (docs/plan/38)
+                ['courier-chat.index', 'محادثة المناديب', ['courier-chat.*'], 'support.reply'],
                 // المندوب عند الباب والزبون يقول مبلغاً آخر: ينتظر جوابنا الآن
                 ['tickets.index', 'طلبات المناديب لتغيير المبلغ', ['tickets.*'], 'tickets.handle'],
                 ['announcements.index', 'إشعار لكل التجّار', ['announcements.*'], 'notify.send', ['audience' => 'merchants']],
@@ -161,6 +163,11 @@ final class StaffNavigation
             ? Conversation::visibleTo($user)->where('status', 'open')->where('last_author', 'merchant')->count()
             : 0;
 
+        // ومحادثات المناديب التي كتب فيها المندوب آخر سطر (docs/plan/38)
+        $couriersWaiting = $user->can('support.reply') && FeatureGate::enabled(Feature::Conversations)
+            ? \App\Models\CourierThread::visibleTo($user)->where('staff_unread', true)->count()
+            : 0;
+
         // وطلبات المناديب المفتوحة في محافظات اختصاصه (docs/plan/30)
         $tickets = $user->can('tickets.handle') ? ShipmentTicket::visibleTo($user)->open()->count() : 0;
 
@@ -192,6 +199,7 @@ final class StaffNavigation
                     'active' => $here && collect($params)->every(fn ($value, $key) => $request->query($key) === $value),
                     'badge'  => match ($route) {
                         'conversations.index' => $waiting,
+                        'courier-chat.index'  => $couriersWaiting,
                         'tickets.index'       => $tickets,
                         default               => 0,
                     },

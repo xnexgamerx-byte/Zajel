@@ -61,6 +61,8 @@ use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\PrepaidFeeController;
 use App\Http\Controllers\Tenant\ShipmentWaybillController;
 use App\Http\Controllers\Tenant\TransferController;
+use App\Http\Controllers\Tenant\CourierChatController;
+use App\Http\Controllers\Courier\ChatController as CourierChatAppController;
 use App\Http\Controllers\Tenant\ShipmentOverrideController;
 use App\Http\Controllers\Tenant\MerchantAdvanceController;
 use App\Http\Controllers\Tenant\WaybillBookController;
@@ -336,6 +338,10 @@ Route::middleware('tenant')->group(function () {
 
             // المحادثات مع التجّار: للشركة لا لموظّفٍ بعينه
             Route::middleware(['feature:conversations', 'can:support.reply'])->group(function () {
+                // محادثة الكول سنتر مع المناديب (docs/plan/38)
+                Route::get('/courier-chat', [CourierChatController::class, 'index'])->name('courier-chat.index');
+                Route::post('/courier-chat', [CourierChatController::class, 'send'])->name('courier-chat.send');
+
                 Route::get('/conversations', [ConversationController::class, 'index'])->name('conversations.index');
                 Route::post('/conversations', [ConversationController::class, 'store'])->name('conversations.store');
                 Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->name('conversations.show');
@@ -556,6 +562,11 @@ Route::middleware('tenant')->group(function () {
             Route::get('/today', [TaskController::class, 'today'])->name('today');
             Route::get('/cash', CourierCashController::class)->name('cash');
             Route::get('/inbox', [InboxController::class, 'courier'])->name('inbox');
+            // المحادثة مع المكتب (docs/plan/38)
+            Route::middleware('feature:conversations')->group(function () {
+                Route::get('/chat', [CourierChatAppController::class, 'index'])->name('chat');
+                Route::post('/chat', [CourierChatAppController::class, 'send'])->name('chat.send');
+            });
             Route::get('/pickups', [CourierPickupController::class, 'index'])->name('pickups');
             Route::post('/pickups/{pickup}/complete', [CourierPickupController::class, 'complete'])->name('pickups.complete');
             Route::get('/shipments/{shipment}', [TaskController::class, 'show'])->name('shipments.show');

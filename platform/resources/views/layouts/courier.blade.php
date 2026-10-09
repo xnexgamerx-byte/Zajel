@@ -21,6 +21,17 @@
             <div class="truncate font-heading text-[15px] leading-tight font-bold text-aeblack-900">{{ $courier->name }}</div>
             <div class="truncate text-xs text-ink-500">{{ $company->name }}</div>
         </div>
+        {{-- المحادثة مع المكتب: نقطةٌ إن كتب المكتب ولم يُقرأ (docs/plan/38) --}}
+        @if (\App\Support\FeatureGate::enabled(\App\Enums\Feature::Conversations))
+            @php $chatUnread = \App\Models\CourierThread::where('courier_id', $courier->id)->where('courier_unread', true)->exists(); @endphp
+            <a href="{{ route('courier.chat') }}" class="icon-btn relative"
+               aria-label="المحادثة مع المكتب{{ $chatUnread ? '، رسالة جديدة' : '' }}">
+                <x-icon name="chat" class="size-5"/>
+                @if ($chatUnread)
+                    <span class="nav-badge absolute -end-1 -top-1">١</span>
+                @endif
+            </a>
+        @endif
         @php $unread = \App\Models\Announcement::for(auth()->user())->unreadBy(auth()->user())->count(); @endphp
         <a href="{{ route('courier.inbox') }}" class="icon-btn"
            aria-label="الإشعارات{{ $unread ? '، غير المقروء '.$unread : '' }}">

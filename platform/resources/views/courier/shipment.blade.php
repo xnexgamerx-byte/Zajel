@@ -46,6 +46,14 @@
             </a>
         @endif
     </div>
+
+    {{-- الزبون لا يردّ أو العنوان غلط: يُكتب للمكتب عن هذه الشحنة بعينها (docs/plan/38) --}}
+    @if (\App\Support\FeatureGate::enabled(\App\Enums\Feature::Conversations))
+        <a href="{{ route('courier.chat', ['shipment' => $shipment->id]) }}"
+           class="mt-2 flex items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold">
+            <x-icon name="chat" class="size-5"/> راسل المكتب عن هذه الشحنة
+        </a>
+    @endif
 </div>
 
 <div class="mb-3 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
