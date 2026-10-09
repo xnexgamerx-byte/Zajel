@@ -357,4 +357,23 @@ class BranchTransferTest extends TestCase
         $this->assertSame(ShipmentStatus::AtHub, $shipment->refresh()->status);
         $this->assertNull($shipment->current_bag_id);
     }
+
+    /** بلا ضغطة اختيار: الفرع الذي ينتظره شيءٌ يُفتح وحده، ومن حمل آخر كشفٍ يُقترح */
+    public function test_the_screen_opens_on_the_waiting_branch_with_the_last_driver(): void
+    {
+        // لا شيء ينتظر: لا فرع يُختار وحده
+        $this->actingAs($this->baghdadClerk)->get($this->host().'/transfers')->assertOk()->assertViewHas('to', null);
+
+        $first = $this->atBaghdadHub($this->baghdadMerchant, $this->basra());
+        $this->send($this->baghdadClerk, [$first->id], ['driver_name' => 'أبو علي', 'driver_phone' => '07801112233', 'vehicle_number' => 'ب 123']);
+
+        $waiting = $this->atBaghdadHub($this->baghdadMerchant, $this->basra());
+        $page = $this->actingAs($this->baghdadClerk)->get($this->host().'/transfers')->assertOk()
+            ->assertViewHas('to', fn ($to) => $to?->id === $this->basraHub->id)
+            ->assertSee($waiting->number)
+            ->assertSee('value="أبو علي"', false)->assertSee('value="07801112233"', false);
+
+        // واختيار «إلى» باليد يبقى كما هو
+        $this->actingAs($this->baghdadClerk)->get($this->host().'/transfers?to=')->assertOk()->assertViewHas('to', null);
+    }
 }

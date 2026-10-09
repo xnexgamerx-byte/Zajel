@@ -44,15 +44,42 @@ class TransferController extends Controller
         $here = $this->here($request, $hubs);
 
         $destinations = $here ? $hubs->reject(fn (Hub $hub) => $hub->id === $here->id)->values() : collect();
+        $counts = $here ? $this->counts($here, $destinations, $user) : collect();
         $to = $destinations->firstWhere('id', $request->integer('to'));
 
+        /*
+        | بلا ضغطة اختيار (docs/plan/42): الفرع الذي ينتظره أكثر يُفتح وحده، فتظهر شحناته ورواجعه
+        | جاهزةً للإرسال. وفرعٌ بلا شيءٍ ينتظره يُختار باليد كما كان.
+        */
+        if (! $to && ! $request->has('to')) {
+            // وفرعٌ بمخزنين يُفتح على مخزنه الأوّل (Hub::forBranch) لا على الثاني بالعدد نفسه
+            $primary = $destinations->map(fn (Hub $hub) => Hub::forBranch($hub->branch_id)?->id)->filter()->unique();
+            $busiest = $counts->map(fn (array $c) => $c['shipments'] + $c['returns'])->filter()
+                ->sortByDesc(fn (int $n, int $hubId) => [$n, $primary->contains($hubId) ? 1 : 0])->keys()->first();
+            $to = $busiest ? $destinations->firstWhere('id', $busiest) : null;
+        }
+
+        // الفروع بما ينتظرها أوّلاً، والمخزن الأوّل لكل فرعٍ قبل مخزنه الثاني
+        $primaryHubs = $destinations->map(fn (Hub $hub) => Hub::forBranch($hub->branch_id)?->id)->filter()->unique();
+        $destinations = $destinations->sortBy(fn (Hub $hub) => [
+            -(($counts[$hub->id]['shipments'] ?? 0) + ($counts[$hub->id]['returns'] ?? 0)),
+            $primaryHubs->contains($hub->id) ? 0 : 1,
+            $hub->name,
+        ])->values();
+
+        // من حمل آخر كشفٍ من هنا يُقترح لهذا: السائق نفسه يأخذ خطّه كل يوم
+        $lastTrip = $here ? Manifest::query()->where('from_hub_id', $here->id)
+            ->when($to, fn (Builder $q) => $q->orderByRaw('to_hub_id = ? desc', [$to->id]))
+            ->latest('id')->first(['id', 'courier_id', 'driver_name', 'driver_phone', 'vehicle_number']) : null;
+
         return view('tenant.transfers.index', [
+            'lastTrip'     => $lastTrip,
             'hubs'         => $hubs,
             'here'         => $here,
             'canChooseHub' => ! $user->isBranchLimited(),
             'destinations' => $destinations,
             'to'           => $to,
-            'counts'       => $here ? $this->counts($here, $destinations, $user) : collect(),
+            'counts'       => $counts,
             'shipments'    => $here && $to ? $this->candidates($here, $to, $user, returns: false) : collect(),
             'returns'      => $here && $to ? $this->candidates($here, $to, $user, returns: true) : collect(),
             // الواصل إليك: في الطريق، أو استُلم بالطريقة القديمة ولم تُفتح أكياسه

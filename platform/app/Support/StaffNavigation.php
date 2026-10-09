@@ -126,13 +126,15 @@ final class StaffNavigation
                 ['courier-chat.index', 'محادثة المناديب', ['courier-chat.*'], 'support.reply'],
                 // المندوب عند الباب والزبون يقول مبلغاً آخر: ينتظر جوابنا الآن
                 ['tickets.index', 'طلبات المناديب لتغيير المبلغ', ['tickets.*'], 'tickets.handle'],
+                // ما يُراجَع قبل أن يمضي
+                ['control.review', 'تحت المراجعة', ['control.review*'], 'control.review'],
+                ['control.duplicates', 'شحنات مكرّرة', ['control.duplicates'], 'control.duplicates'],
+                ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
+                // ما يُرسَل للجميع
                 ['announcements.index', 'إشعار لكل التجّار', ['announcements.*'], 'notify.send', ['audience' => 'merchants']],
                 ['announcements.index', 'إشعار لمندوبي التوصيل', ['announcements.*'], 'notify.send', ['audience' => 'delivery_couriers']],
                 ['announcements.index', 'إشعار لمندوبي الاستلام', ['announcements.*'], 'notify.send', ['audience' => 'pickup_couriers']],
                 ['app-ads.index', 'إعلانات التطبيق', ['app-ads.*'], 'notify.send'],
-                ['control.review', 'تحت المراجعة', ['control.review*'], 'control.review'],
-                ['control.duplicates', 'شحنات مكرّرة', ['control.duplicates'], 'control.duplicates'],
-                ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
                 // نصٌّ جاهز يُرسَل للتاجر من شاشة المعالجة، لكل موظّفٍ نصّه (docs/plan/41)
                 ['merchant-message.edit', 'رسالتي الثابتة للتاجر', ['merchant-message.*'], 'shipments.status'],
             ]],

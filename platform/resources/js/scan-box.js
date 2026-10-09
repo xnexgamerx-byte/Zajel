@@ -30,13 +30,17 @@ export function initScanBox(root) {
         if (total) total.textContent = String(boxes().length);
     };
 
-    const mark = (box) => {
-        // أوّل مسحة: يبقى الممسوح وحده مختاراً، ومعه «الكل» يُلغى
-        if (root.hasAttribute('data-only') && scanned.size === 0) {
-            boxes().forEach((other) => { other.checked = false; });
-            document.querySelectorAll('[data-check-all], [data-check-all-in]').forEach((all) => { all.checked = false; });
-        }
+    // أوّل مسحة: يبقى الممسوح وحده مختاراً، ومعه «الكل» يُلغى — ولو كان الممسوح من خارج القائمة
+    let narrowed = scanned.size > 0;
+    const narrow = () => {
+        if (!root.hasAttribute('data-only') || narrowed) return;
+        narrowed = true;
+        boxes().forEach((other) => { other.checked = false; });
+        document.querySelectorAll('[data-check-all], [data-check-all-in]').forEach((all) => { all.checked = false; });
+    };
 
+    const mark = (box) => {
+        narrow();
         box.checked = true;
         scanned.add(box.value);
 
@@ -89,6 +93,7 @@ export function initScanBox(root) {
                 if (listed.includes(data.number)) {
                     say(`${data.number} ممسوحٌ سلفاً.`, true);
                 } else {
+                    narrow();
                     extra.value = [...listed, data.number].join('\n');
                     say(`✓ ${data.number} — ليس في القائمة، أُضيف إلى «أرقام أخرى».`);
                 }

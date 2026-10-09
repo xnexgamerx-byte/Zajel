@@ -155,10 +155,35 @@ export function initOrderReader(section) {
         }
     };
 
-    const upload = (file) => {
+    /*
+    | صورة كاميرا الهاتف (٥–١٥ ميغابايت) تُصغَّر هنا قبل رفعها: أسرع على إنترنت الهاتف، ولا تتجاوز
+    | حدّ الخادم (٦ ميغابايت). ٢٤٠٠ نقطة على الضلع الأطول تُبقي الأرقام مقروءة. ولقطة الشاشة
+    | الصغيرة تُرسل كما هي.
+    */
+    const shrink = async (file) => {
+        if (file.size <= 2_000_000 || !window.createImageBitmap) return file;
+
+        try {
+            const bitmap = await createImageBitmap(file);
+            const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(bitmap.width * scale);
+            canvas.height = Math.round(bitmap.height * scale);
+            canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            bitmap.close?.();
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+
+            return blob && blob.size < file.size ? new File([blob], 'order.jpg', { type: 'image/jpeg' }) : file;
+        } catch {
+            return file;
+        }
+    };
+
+    const upload = async (file) => {
         if (!file) return;
+        show('تُجهَّز الصورة…', 'info');
         const body = new FormData();
-        body.append('image', file);
+        body.append('image', await shrink(file));
         send(body, 'تُقرأ الصورة… ثوانٍ قليلة.');
     };
 
@@ -295,6 +320,8 @@ export function initOrderReader(section) {
         const Context = window.AudioContext || window.webkitAudioContext;
         if (!Context) return;
         level = new Context();
+        // سفاري يبدأ السياق موقوفاً إن لم يُنشأ في الضغطة نفسها: يُستأنف فيتحرّك المؤشّر
+        level.resume?.().catch(() => {});
         const analyser = level.createAnalyser();
         analyser.fftSize = 512;
         level.createMediaStreamSource(source).connect(analyser);

@@ -77,7 +77,8 @@
     <section class="card mb-5 overflow-hidden">
         <div class="border-b border-ink-200 px-5 py-4">
             <h2 class="card-title">أرسل إلى فرع</h2>
-            <p class="card-hint">اختر الفرع: تظهر شحنات محافظته التي على رفّك، ورواجع تجّاره المستلَمة من المناديب.</p>
+            <p class="card-hint">يُفتح الفرع الذي ينتظره أكثر، وفيه شحنات محافظته التي على رفّك ورواجع تجّاره — مختارةً كلّها.
+                امسح ما تُرسله إن أردت بعضه، واختر من يحمله (يُقترح من حمل آخر كشف)، ثم «أرسل الآن».</p>
         </div>
 
         @if ($destinations->isEmpty())
@@ -182,7 +183,7 @@
                                 <select id="courier_id" name="courier_id" class="field-input">
                                     <option value="">سائقٌ من خارج الشركة (أدناه)</option>
                                     @foreach ($carriers as $carrier)
-                                        <option value="{{ $carrier->id }}" @selected((int) old('courier_id') === $carrier->id)>
+                                        <option value="{{ $carrier->id }}" @selected((int) old('courier_id', $lastTrip?->courier_id) === $carrier->id)>
                                             {{ $carrier->name }} — {{ $carrier->phone }}
                                         </option>
                                     @endforeach
@@ -193,17 +194,17 @@
                                 <div>
                                     <label class="field-label" for="driver_name">أو اسم السائق</label>
                                     <input id="driver_name" name="driver_name" type="text" maxlength="160" class="field-input"
-                                           value="{{ old('driver_name') }}">
+                                           value="{{ old('driver_name', $lastTrip?->courier_id ? null : $lastTrip?->driver_name) }}">
                                 </div>
                                 <div>
                                     <label class="field-label" for="driver_phone">هاتفه</label>
                                     <input id="driver_phone" name="driver_phone" type="text" maxlength="20" class="field-input num"
-                                           value="{{ old('driver_phone') }}">
+                                           value="{{ old('driver_phone', $lastTrip?->courier_id ? null : $lastTrip?->driver_phone) }}">
                                 </div>
                                 <div>
                                     <label class="field-label" for="vehicle_number">رقم المركبة</label>
                                     <input id="vehicle_number" name="vehicle_number" type="text" maxlength="40" class="field-input"
-                                           value="{{ old('vehicle_number') }}">
+                                           value="{{ old('vehicle_number', $lastTrip?->courier_id ? null : $lastTrip?->vehicle_number) }}">
                                 </div>
                             </div>
                             @error('driver_name') <p class="field-error">{{ $message }}</p> @enderror
