@@ -21,8 +21,11 @@
         <x-thread :messages="$conversation->messages" mine="merchant" file-route="portal.support.attachment" />
     </section>
 
+    @php $open = \App\Support\MerchantHours::isOpen(); @endphp
     <form method="POST" action="{{ route('portal.support.reply', $conversation) }}" enctype="multipart/form-data" class="card p-4">
         @csrf
+        @include('portal.support._closed', ['open' => $open, 'class' => 'mb-3'])
+        <fieldset @disabled(! $open)>
         <label class="field-label" for="body">رسالتك</label>
         <textarea id="body" name="body" rows="3" class="field-input" maxlength="2000">{{ old('body') }}</textarea>
         <div class="mt-3">
@@ -33,6 +36,10 @@
         <div class="mt-3 flex justify-end">
             <button type="submit" class="btn-primary">أرسل</button>
         </div>
+        </fieldset>
+        @if ($open)
+            <p class="mt-2 text-xs text-ink-500">تُستقبل الرسائل {{ \App\Support\MerchantHours::window() }}.</p>
+        @endif
     </form>
 </div>
 @endsection

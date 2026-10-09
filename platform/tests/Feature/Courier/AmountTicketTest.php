@@ -408,6 +408,9 @@ class AmountTicketTest extends TestCase
 
     public function test_a_merchants_message_about_a_shipment_reaches_that_governorates_agent(): void
     {
+        // التاجر يراسل في ساعات الشركة وحدها (docs/plan/39)
+        $this->travelTo(now()->setTime(12, 0));
+
         $basraShipment = $this->withCourier(60_000, $this->basra());
 
         [$aboutBasra, $general] = Tenancy::runFor($this->company, function () use ($basraShipment) {

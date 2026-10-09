@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Support\DeliveryDeadline;
+use App\Support\MerchantHours;
 use App\Support\Phone;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -45,12 +48,25 @@ class CompanySettingsController extends Controller
             // ما تُلزِم به الشركة من حقول الشحنة الاختياريّة (docs/plan/38)
             'shipment_required'   => ['nullable', 'array'],
             'shipment_required.*' => ['string', \Illuminate\Validation\Rule::in(array_keys(\App\Support\ShipmentFields::CHOOSABLE))],
+            // ساعات مراسلة التاجر وآخر موعدٍ للتوصيل (docs/plan/39)
+            'merchant_from'    => ['nullable', 'integer', 'between:0,23'],
+            'merchant_to'      => ['nullable', 'integer', 'between:1,24'],
+            'deadline_hours'   => ['nullable', 'integer', 'between:1,240'],
         ], [
             'primary_color.regex' => 'اللون بصيغة #RRGGBB.',
         ], [
             'phone' => 'الهاتف', 'email' => 'البريد', 'support_whatsapp' => 'واتساب الدعم', 'support_complaints' => 'هاتف الشكاوى',
             'support_hours' => 'ساعات الدعم', 'waybill_terms' => 'شروط الوصل المطبوع', 'primary_color' => 'اللون',
+            'merchant_from' => 'بداية ساعات المراسلة', 'merchant_to' => 'نهاية ساعات المراسلة', 'deadline_hours' => 'آخر موعد للتوصيل',
         ]);
+
+        // النموذج يرسل الساعتين معاً؛ وما لم يُرسَل منهما يبقى كما كان
+        $from = $data['merchant_from'] ?? MerchantHours::from($company);
+        $to = $data['merchant_to'] ?? MerchantHours::to($company);
+
+        if ($to <= $from) {
+            throw ValidationException::withMessages(['merchant_to' => 'نهاية ساعات المراسلة بعد بدايتها.']);
+        }
 
         // والرقم يُحفظ بصيغةٍ واحدة أيّاً كان شكل إدخاله
         $phones = [
@@ -68,6 +84,8 @@ class CompanySettingsController extends Controller
             'support_hours'    => $company->setting('support.hours'),
             'waybill_terms'    => $company->setting('waybill.terms'),
             'shipment_required' => implode(',', \App\Support\ShipmentFields::required($company)),
+            'merchant_hours'   => MerchantHours::window($company),
+            'deadline_hours'   => DeliveryDeadline::hours($company),
         ];
 
         $settings = $company->settings ?? [];
@@ -75,6 +93,11 @@ class CompanySettingsController extends Controller
         data_set($settings, 'support.whatsapp', $phones['support_whatsapp']);
         data_set($settings, 'support.complaints', $phones['support_complaints']);
         data_set($settings, 'support.hours', filled($data['support_hours'] ?? null) ? trim($data['support_hours']) : null);
+        data_set($settings, 'support.merchant_from', (int) $from);
+        data_set($settings, 'support.merchant_to', (int) $to);
+        if (isset($data['deadline_hours'])) {
+            data_set($settings, 'delivery.deadline_hours', (int) $data['deadline_hours']);
+        }
         // شروط الوصل المطبوع: سطرٌ لكلّ شرط، بلا أسطرٍ فارغة (WaybillBook::terms)
         $terms = collect(preg_split('/\R/u', (string) ($data['waybill_terms'] ?? '')))->map(fn ($line) => trim($line))->filter()->implode("\n");
         data_set($settings, 'waybill.terms', $terms === '' ? null : $terms);
@@ -95,6 +118,8 @@ class CompanySettingsController extends Controller
             'support_hours'    => $company->setting('support.hours'),
             'waybill_terms'    => $company->setting('waybill.terms'),
             'shipment_required' => implode(',', \App\Support\ShipmentFields::required($company)),
+            'merchant_hours'   => MerchantHours::window($company),
+            'deadline_hours'   => DeliveryDeadline::hours($company),
         ];
 
         // ما تغيّر وحده، وبمَن غيّره: رقمُ دعمٍ تبدّل يُسأل عنه يوم يشكو تاجر

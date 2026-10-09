@@ -143,7 +143,7 @@ class StaffNavigationTest extends TestCase
         $this->assertSame(['كل مراحل النقل', 'استلام وتوزيع بالمسح', 'شحنات لم تُسلَّم (للمعالجة)'],
             array_column($delivery['links'], 'label'));
         $review = $menus[array_search('المتابعة', $labels, true)];
-        $this->assertSame(['المحادثات', 'محادثة المناديب', 'طلبات المناديب لتغيير المبلغ'], array_column($review['links'], 'label'));
+        $this->assertSame(['التنبيهات التشغيلية', 'المحادثات', 'محادثة المناديب', 'طلبات المناديب لتغيير المبلغ'], array_column($review['links'], 'label'));
 
         // والقائمة التي بقي فيها رابطٌ واحد رابطٌ مباشر: لا قائمة تنسدل بسطرٍ واحد —
         // المحاسب يرى من التوصيل «كل مراحل النقل» وحدها: عدّاداتٌ للقراءة

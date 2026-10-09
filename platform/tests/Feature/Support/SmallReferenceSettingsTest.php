@@ -55,6 +55,9 @@ class SmallReferenceSettingsTest extends TestCase
     {
         parent::setUp();
 
+        // التاجر يراسل في ساعات الشركة وحدها (docs/plan/39): الاختبار في وسط النهار
+        $this->travelTo(now()->setTime(12, 0));
+
         Storage::fake('local');
 
         $this->seedReference();

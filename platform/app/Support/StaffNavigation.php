@@ -116,6 +116,8 @@ final class StaffNavigation
             ]],
             // الكلام مع التجّار والمناديب، وما يُراجَع قبل أن يمضي
             'followup' => ['المتابعة', 'review', [
+                // ما مرّ عليه آخر موعدٍ للتوصيل: المتأخرة، والمتوقّفة عند نقطة انتقال، والمبالغ (docs/plan/39)
+                ['operations.alerts', 'التنبيهات التشغيلية', ['operations.alerts'], 'shipments.view'],
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
                 // الكول سنتر والمندوب في الطريق (docs/plan/38)
                 ['courier-chat.index', 'محادثة المناديب', ['courier-chat.*'], 'support.reply'],

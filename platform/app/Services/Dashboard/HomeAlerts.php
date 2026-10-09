@@ -18,6 +18,8 @@ use Illuminate\Support\Collection;
  * ٤ مبالغُ لم تُسدَّد بأيام تأخيرها · ٥ بين فرعين منذ أكثر من ٢٤ ساعة ·
  * ٦ رواجع أُرسلت إلى فرعٍ ولم تُستلم · ٧ كشوف النقل المرسلة خلال ٢٤ ساعة.
  *
+ * وفوقها «التنبيهات التشغيلية» (docs/plan/39): ما مرّ عليه آخر موعدٍ للتوصيل ولم يُحسم.
+ *
  * كل بطاقةٍ لمن يفتح ما خلفها وحده، وبصفوفٍ قليلة وعددها الكلّيّ — الرئيسية
  * تنبّه، والشاشة خلفها تُعالج.
  */
@@ -39,6 +41,11 @@ final class HomeAlerts
         // المندوب عند الباب ينتظر جوابنا: أوّل ما يُرى (docs/plan/30)
         if ($want('tickets') && $user->can('tickets.handle')) {
             $cards[] = $this->courierTickets($user);
+        }
+
+        // ما مرّ عليه آخر موعدٍ للتوصيل ولم يُحسم (docs/plan/39)
+        if ($want('operations') && $user->can('shipments.view')) {
+            $cards[] = $this->operations($user);
         }
 
         if ($want('duplicates') && $user->can('control.duplicates')) {
@@ -94,6 +101,34 @@ final class HomeAlerts
                     $t->created_at->lt(now()->subMinutes(15)),
                 )),
             'link'  => route('tickets.index'),
+        ];
+    }
+
+    /** التنبيهات التشغيلية: المتأخرة عن الموعد · المتوقّفة عند نقطة انتقال · المبالغ التي لم تُسلَّم */
+    private function operations(User $user): array
+    {
+        $alerts = app(\App\Services\Operations\OperationalAlerts::class);
+        $overdue = $alerts->overdue($user)->count();
+        $unscanned = array_sum($alerts->unscannedCounts($user));
+        $link = fn (string $tab) => route('operations.alerts', ['tab' => $tab]);
+
+        $rows = collect([
+            $this->row(['تجاوزت موعد التوصيل', \App\Support\Arabic::shipments($overdue)], $link('overdue'), $overdue > 0),
+            $this->row(['لم تُمسح عند نقطة انتقال', \App\Support\Arabic::shipments($unscanned)], $link('unscanned'), $unscanned > 0),
+        ]);
+
+        if ($user->can('money.view')) {
+            $amount = (int) $alerts->unsettled($user)->sum('amount');
+            $rows->push($this->row(['تحصيلات لم تُسوَّ', number_format($amount).' د.ع'], $link('unsettled'), $amount > 0));
+        }
+
+        return [
+            'key'   => 'operations',
+            'title' => 'التنبيهات التشغيلية',
+            'hint'  => 'مرّ عليها آخر موعدٍ للتوصيل ('.\App\Support\Arabic::hours($alerts->hours()).') ولم تُحسم',
+            'total' => $overdue + $unscanned,
+            'rows'  => $rows,
+            'link'  => $link('overdue'),
         ];
     }
 

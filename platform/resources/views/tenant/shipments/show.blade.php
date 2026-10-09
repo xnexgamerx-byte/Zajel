@@ -14,6 +14,17 @@
                 · رقم التاجر: <span dir="ltr">{{ $shipment->merchant_reference }}</span>
             @endif
         </p>
+        {{-- آخر موعدٍ للتوصيل (docs/plan/39): من استلامها من التاجر، ما دامت في طريقها إلى المستلم --}}
+        @if (in_array($shipment->status, \App\Support\DeliveryDeadline::ON_THE_WAY, true) && ($due = \App\Support\DeliveryDeadline::dueAt($shipment)))
+            <p class="mt-1 text-sm">
+                @if ($late = \App\Support\DeliveryDeadline::lateHours($shipment))
+                    <span class="chip chip-bad">متأخرة {{ \App\Support\Arabic::duration($late * 60) }}</span>
+                    <span class="text-ink-500">كان آخر موعدٍ للتوصيل <span class="num">{{ $due->format('Y-m-d H:i') }}</span></span>
+                @else
+                    <span class="text-ink-500">آخر موعدٍ للتوصيل <span class="num font-semibold text-ink-700">{{ $due->format('Y-m-d H:i') }}</span></span>
+                @endif
+            </p>
+        @endif
     </div>
     <div class="flex flex-wrap items-center gap-2">
         @if (\App\Actions\Shipments\UpdateShipment::editable($shipment))

@@ -35,6 +35,7 @@ use App\Http\Controllers\Tenant\HomeLayoutController;
 use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ConversationController;
+use App\Http\Controllers\Tenant\OperationalAlertController;
 use App\Http\Controllers\Tenant\ReconcileController;
 use App\Http\Controllers\Tenant\PassedThroughController;
 use App\Http\Controllers\Tenant\ShipmentArchiveController;
@@ -274,6 +275,10 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/tickets/{ticket}/approve', [ShipmentTicketController::class, 'approve'])->whereNumber('ticket')->name('tickets.approve');
                 Route::post('/tickets/{ticket}/reject', [ShipmentTicketController::class, 'reject'])->whereNumber('ticket')->name('tickets.reject');
             });
+
+            // «التنبيهات التشغيلية» (docs/plan/39): ما مرّ عليه آخر موعدٍ للتوصيل ولم يُحسم
+            Route::get('/operational-alerts', [OperationalAlertController::class, 'index'])
+                ->middleware('can:shipments.view')->name('operations.alerts');
 
             Route::middleware('can:control.review')->group(function () {
                 Route::get('/control/review', [ReviewHoldController::class, 'index'])->name('control.review');

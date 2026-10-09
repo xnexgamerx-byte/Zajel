@@ -64,9 +64,18 @@
         @endif
     </section>
 
+    {{-- خارج ساعات المراسلة لا تُرسَل الرسالة (MerchantHours): النموذج مقفول ويقول متى يُفتح --}}
+    @php $open = \App\Support\MerchantHours::isOpen(); @endphp
     <form method="POST" action="{{ route('portal.support.store') }}" enctype="multipart/form-data" class="card h-fit space-y-4 p-5" id="new-conversation">
         @csrf
-        <h2 class="card-title">سؤالٌ جديد</h2>
+        <div>
+            <h2 class="card-title">سؤالٌ جديد</h2>
+            @if ($open)
+                <p class="mt-1 text-xs text-ink-500">تُستقبل الرسائل {{ \App\Support\MerchantHours::window() }}.</p>
+            @endif
+        </div>
+        @include('portal.support._closed', ['open' => $open])
+        <fieldset class="space-y-4" @disabled(! $open)>
         <div>
             <label class="field-label" for="subject">الموضوع</label>
             <input id="subject" name="subject" class="field-input" maxlength="160" required value="{{ old('subject') }}"
@@ -86,6 +95,7 @@
             <p class="mt-1 text-xs text-ink-500">صورة أو PDF حتى 5 MB.</p>
         </div>
         <button type="submit" class="btn-primary w-full">أرسل</button>
+        </fieldset>
     </form>
 </div>
 @endsection

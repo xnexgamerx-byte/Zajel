@@ -41,6 +41,9 @@ class ConversationTest extends TestCase
     {
         parent::setUp();
 
+        // التاجر يراسل في ساعات الشركة وحدها (docs/plan/39): الاختبار في وسط النهار
+        $this->travelTo(now()->setTime(12, 0));
+
         $this->seedReference();
         $this->company = $this->makeCompany('zajel', 'الزاجل');
         $this->alpha = $this->makeMerchant($this->company, 'M0001');

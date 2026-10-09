@@ -57,6 +57,55 @@
             @endif
         </div>
 
+        {{-- ساعات مراسلة التاجر وآخر موعدٍ للتوصيل (docs/plan/39) --}}
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="rounded-xl border border-ink-200 p-4">
+                <h2 class="card-title">ساعات مراسلة التجّار</h2>
+                <p class="card-hint mb-3">
+                    يراسل التاجر الشركة من البوابة في هذه الساعات وحدها، بتوقيت بغداد. وخارجها لا تُرسَل رسالته ويرى متى تُفتح.
+                    وموظّفوك يردّون متى شاؤوا.
+                </p>
+                @php
+                    $from = (int) old('merchant_from', \App\Support\MerchantHours::from($company));
+                    $to = (int) old('merchant_to', \App\Support\MerchantHours::to($company));
+                @endphp
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="field-label" for="merchant_from">من الساعة</label>
+                        <select id="merchant_from" name="merchant_from" class="field-input">
+                            @for ($h = 0; $h <= 23; $h++)
+                                <option value="{{ $h }}" @selected($from === $h)>{{ \App\Support\MerchantHours::label($h) }}</option>
+                            @endfor
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="merchant_to">إلى الساعة</label>
+                        <select id="merchant_to" name="merchant_to" class="field-input">
+                            @for ($h = 1; $h <= 24; $h++)
+                                <option value="{{ $h }}" @selected($to === $h)>{{ \App\Support\MerchantHours::label($h) }}{{ $h === 24 ? ' (آخر اليوم)' : '' }}</option>
+                            @endfor
+                        </select>
+                    </div>
+                </div>
+                @error('merchant_to') <p class="field-error">{{ $message }}</p> @enderror
+                <p class="mt-2 text-xs text-ink-500">من 12 ليلاً إلى 12 ليلاً (آخر اليوم) = على مدار اليوم.</p>
+            </div>
+
+            <div class="rounded-xl border border-ink-200 p-4">
+                <label class="card-title block" for="deadline_hours">آخر موعد للتوصيل</label>
+                <p class="card-hint mb-3">
+                    ساعاتٌ من استلام الشحنة من التاجر. ما تجاوزها ولم يُسلَّم يظهر في «التنبيهات التشغيلية» مرتّباً بأولويته،
+                    وبها تُقاس الشحنات المتوقّفة عند نقطة انتقال والمبالغ التي لم تُسلَّم.
+                </p>
+                <div class="flex items-center gap-2">
+                    <input id="deadline_hours" name="deadline_hours" type="number" min="1" max="240" class="field-input num w-28"
+                           value="{{ old('deadline_hours', \App\Support\DeliveryDeadline::hours($company)) }}">
+                    <span class="text-sm text-ink-600">ساعة</span>
+                </div>
+                @error('deadline_hours') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+        </div>
+
         <div class="rounded-xl border border-ink-200 p-4">
             <label class="card-title block" for="waybill_terms">شروط الوصل المطبوع</label>
             <p class="card-hint mb-3">

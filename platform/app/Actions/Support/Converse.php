@@ -7,6 +7,7 @@ use App\Models\ConversationMessage;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Support\MerchantHours;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,6 +22,9 @@ use Illuminate\Validation\ValidationException;
  *
  * وللرسالة ملفٌّ واحد إن شاء كاتبها — صورة تلفٍ أو وصلٍ أو كشف — في
  * التخزين الخاصّ، يُقدَّم لطرفي المحادثة وحدهما. ورسالةٌ هي ملفٌّ بلا نصّ مقبولة.
+ *
+ * والتاجر يراسل في ساعات الشركة وحدها (MerchantHours، docs/plan/39): يُفحص هنا
+ * لا في النموذج، فلا بابَ آخر يُرسل منه خارجها.
  */
 class Converse
 {
@@ -36,6 +40,7 @@ class Converse
 
     public function start(Merchant $merchant, string $subject, string $body, User $actor, string $author, ?string $shipmentNumber = null, ?UploadedFile $file = null): Conversation
     {
+        $this->withinHours($author);
         $shipment = $this->resolveShipment($merchant, $shipmentNumber);
 
         return DB::transaction(function () use ($merchant, $subject, $body, $actor, $author, $shipment, $file) {
@@ -58,6 +63,8 @@ class Converse
 
     public function reply(Conversation $conversation, string $body, User $actor, string $author, ?UploadedFile $file = null): ConversationMessage
     {
+        $this->withinHours($author);
+
         return DB::transaction(function () use ($conversation, $body, $actor, $author, $file) {
             $fresh = Conversation::query()->lockForUpdate()->findOrFail($conversation->id);
 
@@ -100,6 +107,14 @@ class Converse
                 ->update([$column => false]);
 
             $conversation->setAttribute($column, false);
+        }
+    }
+
+    /** رسالة التاجر خارج ساعات الشركة تُرَدّ بموعد فتحها */
+    protected function withinHours(string $author): void
+    {
+        if ($author === self::MERCHANT && ! MerchantHours::isOpen()) {
+            throw ValidationException::withMessages(['body' => MerchantHours::closedMessage()]);
         }
     }
 
