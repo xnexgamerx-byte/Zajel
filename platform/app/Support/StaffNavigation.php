@@ -136,7 +136,7 @@ final class StaffNavigation
                 ['zones.index', 'مناطق المندوبين', ['zones.*'], 'settings.zones'],
                 ['users.index', 'المستخدمون', ['users.*'], 'settings.users'],
                 ['permissions.index', 'الصلاحيات والمراتب', ['permissions.index', 'permissions.ranks.*'], 'settings.permissions'],
-                ['permissions.grants.index', 'صلاحيات استثنائية', ['permissions.grants.*'], 'settings.permissions'],
+                ['permissions.grants.index', 'صلاحية إضافية لموظّف', ['permissions.grants.*'], 'settings.permissions'],
                 ['branches.index', 'الفروع', ['branches.*'], 'settings.branches'],
                 ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit'], 'settings.pricing'],
                 // لمن يُضيف التجّار: عليه تسري تسعيرة الفرع (صاحب الفرع يحملها)
