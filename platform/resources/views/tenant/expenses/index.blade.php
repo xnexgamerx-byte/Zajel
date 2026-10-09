@@ -150,6 +150,20 @@
                                     @elseif ($expense->status === 'cancelled')
                                         <span class="text-xs text-ink-400">{{ $expense->cancel_reason }}</span>
                                     @endif
+                                    {{-- المسجَّل يُلغى متى شاء؛ والمدفوع في يومه وحده (docs/plan/38). النموذج خارج الجدول: لا نموذج داخل نموذج --}}
+                                    @if ($expense->status === 'recorded' || ($expense->status === 'paid' && \App\Actions\Money\UndoWithinDay::open($expense->paid_at)))
+                                        <details class="relative mt-1 inline-block text-start">
+                                            <summary class="cursor-pointer text-xs text-bad-700 underline">إلغاء</summary>
+                                            <div class="absolute end-0 z-20 mt-1 w-60 space-y-2 rounded-2xl border border-ink-200 bg-white p-3 shadow-lg">
+                                                <input form="cancel-expense-{{ $expense->id }}" name="cancel_reason" type="text" required maxlength="255"
+                                                       class="field-input text-sm" placeholder="سبب الإلغاء" aria-label="سبب الإلغاء">
+                                                <button type="submit" form="cancel-expense-{{ $expense->id }}" class="btn-danger w-full text-sm">ألغِ المصروف</button>
+                                                @if ($expense->status === 'paid')
+                                                    <p class="text-xs text-ink-500">يعود مبلغه إلى {{ $expense->cashBox?->name }}.</p>
+                                                @endif
+                                            </div>
+                                        </details>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
@@ -178,6 +192,13 @@
                 <div class="border-t border-ink-100 px-5 py-4">{{ $expenses->links() }}</div>
             @endif
         </form>
+
+        {{-- نماذج الإلغاء خارج نموذج الأرشفة: حقولها في الجدول تنتمي إليها بـ form= --}}
+        @foreach ($expenses as $expense)
+            @if ($expense->status === 'recorded' || ($expense->status === 'paid' && \App\Actions\Money\UndoWithinDay::open($expense->paid_at)))
+                <form method="POST" action="{{ route('expenses.cancel', $expense) }}" id="cancel-expense-{{ $expense->id }}" hidden>@csrf</form>
+            @endif
+        @endforeach
 
         @if ($boxes->isNotEmpty())
             <dialog id="pay-expense" class="modal">

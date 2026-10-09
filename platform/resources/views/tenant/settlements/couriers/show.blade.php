@@ -229,6 +229,11 @@
                     @endif
                 </dl>
             </section>
+
+            @include('tenant.settlements._cancel', [
+                'route' => route('settlements.couriers.cancel', $settlement), 'ability' => 'money.settle',
+                'effect' => 'يعود النقد إلى المندوب والعمولة إلى حسابه ويخرج المبلغ من الصندوق.',
+            ])
         @endif
     </div>
 </div>

@@ -123,6 +123,7 @@
                                 <th>خارج</th>
                                 <th>الرصيد بعدها</th>
                                 <th>بواسطة</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -145,9 +146,28 @@
                                     </td>
                                     <td class="num font-semibold">{{ number_format($movement->balance_after) }}</td>
                                     <td class="text-sm text-ink-500">{{ $movement->user?->name ?? 'النظام' }}</td>
+                                    <td class="text-end">
+                                        {{-- مناقلةٌ أو جردٌ خطأ: يُلغى في يومه وحده بحركةٍ معاكسة (docs/plan/38) --}}
+                                        @if (in_array($movement->category, \App\Actions\Money\UndoWithinDay::CASH_CATEGORIES, true)
+                                            && $movement->reference_type !== 'reversal' && ! $undone->has($movement->id)
+                                            && \App\Actions\Money\UndoWithinDay::open($movement->created_at))
+                                            <details class="relative inline-block text-start">
+                                                <summary class="btn-ghost cursor-pointer px-2 py-1 text-xs">إلغاء</summary>
+                                                <form method="POST" action="{{ route('cash.undo', $movement) }}"
+                                                      class="absolute end-0 z-20 mt-1 w-64 space-y-2 rounded-2xl border border-ink-200 bg-white p-3 shadow-lg">
+                                                    @csrf
+                                                    <input name="reason" type="text" required maxlength="255" class="field-input text-sm" placeholder="سبب الإلغاء">
+                                                    <button type="submit" class="btn-danger w-full text-sm">ألغِ الحركة</button>
+                                                    <p class="text-xs text-ink-500">تُلغى في يومها وحده، حتى {{ \App\Actions\Money\UndoWithinDay::until($movement->created_at)->format('Y-m-d H:i') }}.</p>
+                                                </form>
+                                            </details>
+                                        @elseif ($undone->has($movement->id))
+                                            <span class="chip chip-mute text-xs">أُلغيت</span>
+                                        @endif
+                                    </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="7" class="py-10 text-center text-ink-500">{{ array_filter($filters) ? 'لا حركة بهذه الفلترة.' : 'لا حركة في هذا الصندوق بعد.' }}</td></tr>
+                                <tr><td colspan="8" class="py-10 text-center text-ink-500">{{ array_filter($filters) ? 'لا حركة بهذه الفلترة.' : 'لا حركة في هذا الصندوق بعد.' }}</td></tr>
                             @endforelse
                         </tbody>
                     </table>

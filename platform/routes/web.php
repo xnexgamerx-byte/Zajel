@@ -406,11 +406,13 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/merchant-advances', [MerchantAdvanceController::class, 'index'])->name('merchant-advances.index');
                 Route::post('/merchant-advances', [MerchantAdvanceController::class, 'store'])->name('merchant-advances.store');
                 Route::post('/merchant-advances/repay', [MerchantAdvanceController::class, 'repay'])->name('merchant-advances.repay');
+                Route::post('/merchant-advances/{advance}/cancel', [MerchantAdvanceController::class, 'cancel'])->name('merchant-advances.cancel');
                 Route::get('/cash', [CashBoxController::class, 'index'])->name('cash.index');
                 Route::post('/cash', [CashBoxController::class, 'store'])->name('cash.store');
                 Route::post('/cash/transfer', [CashBoxController::class, 'transfer'])->name('cash.transfer');
                 Route::post('/cash/{box}/adjust', [CashBoxController::class, 'adjust'])->name('cash.adjust');
                 Route::post('/cash/{box}/owner', [CashBoxController::class, 'owner'])->name('cash.owner');
+                Route::post('/cash/movements/{movement}/undo', [CashBoxController::class, 'undo'])->name('cash.undo');
                 // أجورٌ يدفعها التاجر حين يُرسل («يُحاسَب مقدّماً»): تُقبض في صندوقٍ بإيصال
                 Route::get('/prepaid-fees', [PrepaidFeeController::class, 'index'])->name('prepaid-fees.index');
                 Route::post('/prepaid-fees', [PrepaidFeeController::class, 'store'])->name('prepaid-fees.store');
@@ -516,6 +518,8 @@ Route::middleware('tenant')->group(function () {
                 Route::middleware('can:money.settle')->group(function () {
                     Route::delete('couriers/{settlement}', [CourierSettlementController::class, 'destroy'])->name('couriers.destroy');
                     Route::post('couriers/{settlement}/add', [CourierSettlementController::class, 'addLines'])->name('couriers.lines.add');
+                    // المُقفَل يُحذف في يومه وحده، بحركاتٍ معاكسة (docs/plan/38)
+                    Route::post('couriers/{settlement}/cancel', [CourierSettlementController::class, 'cancel'])->name('couriers.cancel');
                 });
 
                 // كشف التاجر: بناؤه وإقفاله تسوية، ودفعه صلاحية أخرى
@@ -528,6 +532,7 @@ Route::middleware('tenant')->group(function () {
                     Route::post('merchants/{settlement}/confirm', [MerchantSettlementController::class, 'confirm'])->name('merchants.confirm');
                     Route::delete('merchants/{settlement}', [MerchantSettlementController::class, 'destroy'])->name('merchants.destroy');
                     Route::post('merchants/{settlement}/add', [MerchantSettlementController::class, 'addLines'])->name('merchants.lines.add');
+                    Route::post('merchants/{settlement}/cancel', [MerchantSettlementController::class, 'cancel'])->name('merchants.cancel');
                 });
                 Route::post('merchants/{settlement}/pay', [MerchantSettlementController::class, 'pay'])
                     ->middleware('can:money.pay')->name('merchants.pay');

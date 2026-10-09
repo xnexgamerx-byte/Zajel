@@ -146,6 +146,17 @@ class CourierSettlementController extends Controller
         ]);
     }
 
+    /** «حذف الكشف» في يومه: كل ما قيّده يُعكس، وتعود شحناته لكشفٍ جديد (docs/plan/38). */
+    public function cancel(Request $request, CourierSettlement $settlement, \App\Actions\Money\UndoWithinDay $undo): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], [], ['reason' => 'سبب الحذف']);
+
+        $undo->courierSettlement($settlement, $request->user(), $data['reason']);
+
+        return redirect()->route('settlements.couriers.show', $settlement)
+            ->with('success', "حُذف الكشف {$settlement->code}: عاد النقد والعمولة كما كانا، وعادت شحناته لكشفٍ جديد.");
+    }
+
     public function confirm(Request $request, CourierSettlement $settlement, ConfirmCourierSettlement $confirm): RedirectResponse
     {
         $data = $request->validate([

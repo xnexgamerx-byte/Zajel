@@ -90,6 +90,16 @@ class MerchantAdvanceController extends Controller
             .'. بقي عليه '.number_format(MerchantAdvances::outstanding($merchant)).' د.ع.');
     }
 
+    /** سلفةٌ أُعطيت خطأً، في يومها ولم يُستردّ منها شيء (docs/plan/38). */
+    public function cancel(Request $request, MerchantAdvance $advance, \App\Actions\Money\UndoWithinDay $undo): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], [], ['reason' => 'سبب الإلغاء']);
+
+        $undo->advance($advance, $request->user(), $data['reason']);
+
+        return back()->with('success', "أُلغيت السلفة {$advance->number}، وعاد مبلغها إلى صندوقها.");
+    }
+
     /** @return array{0: Merchant, 1: CashBox} */
     protected function resolve(Request $request, array $data): array
     {

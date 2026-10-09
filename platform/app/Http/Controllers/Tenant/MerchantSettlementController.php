@@ -95,6 +95,17 @@ class MerchantSettlementController extends Controller
         ]);
     }
 
+    /** «حذف الكشف» في يومه: الدفعة والمقتطع للسلف يُعكسان، وتعود شحناته لكشفٍ جديد (docs/plan/38). */
+    public function cancel(Request $request, MerchantSettlement $settlement, \App\Actions\Money\UndoWithinDay $undo): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], [], ['reason' => 'سبب الحذف']);
+
+        $undo->merchantSettlement($settlement, $request->user(), $data['reason']);
+
+        return redirect()->route('settlements.merchants.show', $settlement)
+            ->with('success', "حُذف الكشف {$settlement->code}: عاد ما دُفع منه، وعادت شحناته لكشفٍ جديد.");
+    }
+
     public function confirm(Request $request, MerchantSettlement $settlement, PayMerchantSettlement $action): RedirectResponse
     {
         $data = $request->validate([

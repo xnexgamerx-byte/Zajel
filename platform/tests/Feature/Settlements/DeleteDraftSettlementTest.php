@@ -129,13 +129,19 @@ class DeleteDraftSettlementTest extends TestCase
         $draft = $this->courierDraft();
         Tenancy::runFor($this->company, fn () => app(ConfirmCourierSettlement::class)->handle($draft, $this->owner));
 
+        // المُقفَل لا يُمحى بحذف المسودّة: يُحذف في يومه وحده بحركاتٍ معاكسة (docs/plan/38)
         $this->actingAs($this->owner)->get($this->host().'/settlements/couriers/'.$draft->id)
-            ->assertOk()->assertDontSee('حذف الكشف');
+            ->assertOk()->assertSee('سبب الحذف');
 
         $this->actingAs($this->owner)->delete($this->host().'/settlements/couriers/'.$draft->id)
             ->assertSessionHasErrors(['settlement' => "كشف {$draft->code} مُقفَل فلا يُحذف — تصحيحه حركةٌ في الدفتر."]);
 
         $this->assertNotNull(Tenancy::runFor($this->company, fn () => CourierSettlement::find($draft->id)));
+
+        // وبعد يومٍ لا يُحذف ولا يُعدَّل
+        $this->travel(25)->hours();
+        $this->actingAs($this->owner)->get($this->host().'/settlements/couriers/'.$draft->id)
+            ->assertOk()->assertDontSee('سبب الحذف')->assertSee('لا يُحذف ولا يُعدَّل');
     }
 
     public function test_only_who_may_settle_deletes(): void

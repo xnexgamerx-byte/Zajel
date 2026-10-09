@@ -57,8 +57,8 @@
                             <tr>
                                 <td class="whitespace-nowrap">
                                     <span class="num font-semibold">{{ $advance->number }}</span>
-                                    <span class="chip {{ $advance->status === 'open' ? 'chip-warn' : 'chip-ok' }} mt-0.5 block w-fit">
-                                        {{ $advance->status === 'open' ? 'لم تُسدَّد' : 'سُدِّدت' }}
+                                    <span class="chip {{ ['open' => 'chip-warn', 'repaid' => 'chip-ok'][$advance->status] ?? 'chip-mute' }} mt-0.5 block w-fit">
+                                        {{ ['open' => 'لم تُسدَّد', 'repaid' => 'سُدِّدت', 'cancelled' => 'ملغاة'][$advance->status] ?? $advance->status }}
                                     </span>
                                 </td>
                                 <td>
@@ -88,6 +88,20 @@
                                 <td class="whitespace-nowrap text-xs text-ink-500">
                                     <span class="num">{{ $advance->created_at?->format('Y-m-d') }}</span>
                                     <span class="block">{{ $advance->user?->name }} · {{ $advance->cashBox?->name }}</span>
+                                    {{-- أُعطيت خطأً: تُلغى في يومها ما لم يُستردّ منها شيء (docs/plan/38) --}}
+                                    @if ($advance->status === 'open' && ! $advance->recovered && \App\Actions\Money\UndoWithinDay::open($advance->created_at))
+                                        <details class="relative mt-1">
+                                            <summary class="cursor-pointer text-bad-700 underline">إلغاء</summary>
+                                            <form method="POST" action="{{ route('merchant-advances.cancel', $advance) }}"
+                                                  class="absolute end-0 z-20 mt-1 w-60 space-y-2 rounded-2xl border border-ink-200 bg-white p-3 shadow-lg">
+                                                @csrf
+                                                <input name="reason" type="text" required maxlength="255" class="field-input text-sm" placeholder="سبب الإلغاء">
+                                                <button type="submit" class="btn-danger w-full text-sm">ألغِ السلفة</button>
+                                            </form>
+                                        </details>
+                                    @elseif ($advance->status === 'cancelled')
+                                        <span class="block text-bad-700">أُلغيت: {{ $advance->cancel_reason }}</span>
+                                    @endif
                                 </td>
                             </tr>
                         @empty

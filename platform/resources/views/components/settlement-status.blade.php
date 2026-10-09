@@ -5,6 +5,7 @@
         'draft'     => ['مسوّدة', 'chip-warn'],
         'confirmed' => ['مُقفَل', 'chip-info'],
         'paid'      => ['مدفوع', 'chip-ok'],
+        'cancelled' => ['ملغى', 'chip-bad'],
         default     => [$status, 'chip-mute'],
     };
 @endphp

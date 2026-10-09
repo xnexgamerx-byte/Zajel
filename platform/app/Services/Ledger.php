@@ -380,6 +380,29 @@ class Ledger
     }
 
     /**
+     * حركةٌ معاكسة لقيدٍ بعينه (docs/plan/38): الاتّجاه المقابل، بالفئة والحساب والشحنة
+     * أنفسها، فيعود العمود الذي حرّكه كما كان — ويبقى القيد الأوّل وسببه مقروءين.
+     */
+    public function reverse(Transaction $entry, ?User $actor = null, ?string $why = null): ?Transaction
+    {
+        $merchant = $entry->account_type === 'merchant' ? Merchant::withTrashed()->find($entry->account_id) : null;
+        $courier = $entry->account_type === 'courier' ? Courier::withTrashed()->find($entry->account_id) : null;
+
+        return $this->post(
+            direction: $entry->direction === 'credit' ? 'debit' : 'credit',
+            category: $entry->category,
+            amount: (int) $entry->amount,
+            merchant: $merchant,
+            courier: $courier,
+            shipment: $entry->shipment_id ? Shipment::withTrashed()->find($entry->shipment_id) : null,
+            description: 'إلغاء: '.$entry->description.($why ? " — {$why}" : ''),
+            actor: $actor,
+            referenceType: 'reversal',
+            referenceId: $entry->id,
+        );
+    }
+
+    /**
      * يكتب الحركة ويُحدّث الرصيد المشتقّ معاً.
      * القفل على صفّ الحساب يمنع تضارب رصيدين عند تسليمين متزامنين.
      */

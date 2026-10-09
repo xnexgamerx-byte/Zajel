@@ -90,6 +90,7 @@ class ShipmentEvent extends Model
     public const MARKERS = [
         'settled_with_courier'  => 'سُوّيت مع المندوب',
         'settled_with_merchant' => 'سُوّيت مع التاجر',
+        'settlement_cancelled'  => 'أُلغي كشفها',
     ];
 
     public function typeLabel(): string

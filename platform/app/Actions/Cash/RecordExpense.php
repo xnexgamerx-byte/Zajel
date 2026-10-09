@@ -100,6 +100,13 @@ class RecordExpense
                 throw ValidationException::withMessages(['status' => "المصروف {$expense->number} ملغى سلفاً."]);
             }
 
+            // المدفوع حركةٌ ماليّة: يُلغى في يومه وحده، وبعده يُصحَّح بحركةٍ جديدة (docs/plan/38)
+            if ($expense->status === 'paid' && ! \App\Actions\Money\UndoWithinDay::open($expense->paid_at)) {
+                throw ValidationException::withMessages([
+                    'status' => "مضت أربعٌ وعشرون ساعة على دفع المصروف {$expense->number}: لا يُلغى ولا يُعدَّل.",
+                ]);
+            }
+
             if ($expense->status === 'paid' && $expense->cashBox) {
                 $this->cash->in(
                     box: $expense->cashBox,

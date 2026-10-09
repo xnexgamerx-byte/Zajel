@@ -21,6 +21,7 @@ class CourierSettlement extends Model
             'to_date'      => 'date',
             'confirmed_at' => 'datetime',
             'paid_at'      => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 
@@ -40,8 +41,9 @@ class CourierSettlement extends Model
         return $this->hasMany(CourierSettlementShipment::class);
     }
 
+    /** ما ليس مسودّةً لا يُعدَّل ولا يُقفَل ثانيةً: المُقفَل والمدفوع والملغى (docs/plan/38) */
     public function isLocked(): bool
     {
-        return in_array($this->status, ['confirmed', 'paid'], true);
+        return $this->status !== 'draft';
     }
 }

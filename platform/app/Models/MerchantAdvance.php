@@ -18,7 +18,7 @@ class MerchantAdvance extends Model
 
     protected function casts(): array
     {
-        return ['repaid_at' => 'datetime'];
+        return ['repaid_at' => 'datetime', 'cancelled_at' => 'datetime'];
     }
 
     public function merchant(): BelongsTo

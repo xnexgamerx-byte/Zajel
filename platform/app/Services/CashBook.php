@@ -53,6 +53,25 @@ class CashBook
     }
 
     /**
+     * حركةٌ معاكسة لحركةٍ بعينها في صندوقها (docs/plan/38). وعكس الداخل خروجٌ لا يمرّ
+     * إن خرج المال من الصندوق بعده: لا يُلغى ما صُرف.
+     */
+    public function reverse(CashMovement $movement, ?User $actor = null, ?string $why = null): ?CashMovement
+    {
+        return $this->post(
+            CashBox::query()->findOrFail($movement->cash_box_id),
+            $movement->direction === 'in' ? 'out' : 'in',
+            $movement->category,
+            (int) $movement->amount,
+            'إلغاء: '.$movement->description.($why ? " — {$why}" : ''),
+            $actor,
+            'reversal',
+            $movement->id,
+            $movement->counterpart_box_id,
+        );
+    }
+
+    /**
      * مناقلة بين صندوقين: حركتان مرتبطتان لا حركة واحدة، فالجرد يُقرأ
      * من طرفَي المناقلة معاً ولا يبدو المال وكأنه ظهر من العدم.
      */

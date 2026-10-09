@@ -259,7 +259,7 @@
 
                 <button type="submit" class="btn-primary w-full">سجّل الدفع</button>
             </form>
-        @else
+        @elseif ($settlement->status === 'paid')
             <section class="card p-5">
                 <h2 class="mb-3 text-sm font-bold">الدفع</h2>
                 <dl class="space-y-2 text-sm">
@@ -283,6 +283,13 @@
                     </div>
                 </dl>
             </section>
+        @endif
+
+        @if ($settlement->status !== 'draft')
+            @include('tenant.settlements._cancel', [
+                'route' => route('settlements.merchants.cancel', $settlement), 'ability' => 'money.settle',
+                'effect' => 'يعود ما دُفع منه إلى الصندوق وحساب التاجر، وما اقتُطع لسلفه يعود عليه.',
+            ])
         @endif
     </div>
 </div>

@@ -60,6 +60,9 @@ class CashBoxController extends Controller
             'boxes'     => $boxes,
             'box'       => $box,
             'movements' => $movements,
+            // ما أُلغي من هذه الصفحة: لا يُعرض له «إلغاء» ثانٍ (docs/plan/38)
+            'undone'    => $movements ? CashMovement::where('reference_type', 'reversal')
+                ->whereIn('reference_id', $movements->pluck('id')->all() ?: [0])->pluck('reference_id')->flip() : collect(),
             'filters'   => $filters,
             // من حرّك هذا الصندوق، وبأيّ نوع: خيارات الفلترة
             'movers'    => $box ? User::query()->whereIn('id', CashMovement::where('cash_box_id', $box->id)
@@ -223,6 +226,18 @@ class CashBoxController extends Controller
 
         return back()->with('success', 'قُيّد فرق الجرد '.number_format(abs($drift))
             .' دينار '.($drift > 0 ? 'زيادة' : 'نقصاً').'.');
+    }
+
+    /** مناقلةٌ أو تسوية جرد خطأ، في يومها: حركةٌ معاكسة بسببها (docs/plan/38). */
+    public function undo(Request $request, \App\Models\CashMovement $movement, \App\Actions\Money\UndoWithinDay $undo): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], [], ['reason' => 'سبب الإلغاء']);
+
+        abort_unless(CashBox::visibleTo($request->user())->whereKey($movement->cash_box_id)->exists(), 404);
+
+        $undo->cashMovement($movement, $request->user(), $data['reason']);
+
+        return back()->with('success', 'أُلغيت الحركة بحركةٍ معاكسة، وعاد الرصيد كما كان.');
     }
 
     /** حركة اليوم داخلاً وخارجاً — أكثر رقمين يُسألان آخر الدوام. */
