@@ -25,7 +25,8 @@ final class MerchantMessage
 
     /** الخانات وما تُملأ به — تُعرض للموظّف كما هي */
     public const FIELDS = [
-        '{التاجر}'  => 'اسم التاجر',
+        '{التاجر}'  => 'اسم التاجر نفسه (صاحب المتجر)',
+        '{المتجر}'  => 'اسم المتجر',
         '{الوصل}'   => 'رقم الوصل',
         '{الزبون}'  => 'اسم الزبون',
         '{الهاتف}'  => 'هاتف الزبون',
@@ -50,7 +51,9 @@ final class MerchantMessage
         $address = trim(($shipment->governorate?->name_ar ?? '').' · '.($shipment->city?->name_ar ?? ''), ' ·');
 
         return strtr(self::templateOf($user), [
-            '{التاجر}'  => (string) $shipment->merchant?->business_name,
+            // الرسالة لصاحب المتجر باسمه، والمتجر باسمه إن لم يُكتب اسم صاحبه
+            '{التاجر}'  => (string) ($shipment->merchant?->owner_name ?: $shipment->merchant?->business_name),
+            '{المتجر}'  => (string) $shipment->merchant?->business_name,
             '{الوصل}'   => (string) $shipment->number,
             '{الزبون}'  => (string) ($shipment->recipient_name ?: 'الزبون'),
             '{الهاتف}'  => (string) $shipment->recipient_phone,

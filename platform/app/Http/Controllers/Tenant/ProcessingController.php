@@ -50,7 +50,7 @@ class ProcessingController extends Controller
         $mine = $request->user()->handledGovernorateIds();
 
         $page = $tab === 'pending'
-            ? $found->select('shipments.*')->with(['merchant:id,business_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
+            ? $found->select('shipments.*')->with(['merchant:id,business_name,owner_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
                     'deliveryCourier:id,name,phone', 'lastFailureReason:id,name_ar'])
                 ->withMax(['events as asked_at' => fn ($q) => $q->where('event_type', 'merchant_asked')
                     ->whereColumn('shipment_events.created_at', '>=', 'shipments.status_changed_at')], 'created_at')

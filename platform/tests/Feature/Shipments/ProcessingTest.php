@@ -284,7 +284,7 @@ class ProcessingTest extends TestCase
     public function test_each_employee_has_a_pinned_message_for_the_merchant(): void
     {
         $shipment = $this->failed();
-        Tenancy::runFor($this->company, fn () => $this->merchant->update(['phone' => '07711112222']));
+        Tenancy::runFor($this->company, fn () => $this->merchant->update(['phone' => '07711112222', 'owner_name' => 'أبو حسن']));
 
         $page = $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()
             ->assertDontSee('رسالتي الثابتة للتاجر</summary>', false)->assertSee('نسخ رسالة التاجر');
@@ -292,17 +292,18 @@ class ProcessingTest extends TestCase
             ->assertSee('رسالتي الثابتة للتاجر')->assertSee('{السبب}');
         $text = \App\Support\MerchantMessage::for($shipment->load('merchant', 'governorate'), $this->owner);
         $this->assertStringContainsString($shipment->number, $text);
-        $this->assertStringContainsString($this->merchant->business_name, $text);
+        // «السلام عليكم {التاجر}» باسم صاحب المتجر لا اسم المتجر
+        $this->assertStringContainsString('السلام عليكم أبو حسن،', $text);
         $this->assertStringContainsString('علي', $text);
         $this->assertStringNotContainsString('{', $text);
         $page->assertSee('data-copy-text="'.e($text).'"', false)
             ->assertSee(e(\App\Support\Phone::whatsappUrl('07711112222', $text)), false);
 
         // نصّ الموظّف نفسه، وغيره يبقى على القالب
-        $this->actingAs($this->owner)->put($this->host().'/merchant-message', ['merchant_message' => 'هلا {التاجر}، الوصل {الوصل} راجع.'])
+        $this->actingAs($this->owner)->put($this->host().'/merchant-message', ['merchant_message' => 'هلا {التاجر} ({المتجر})، الوصل {الوصل} راجع.'])
             ->assertSessionHas('success', 'حُفظت رسالتك للتاجر.');
         $this->actingAs($this->owner)->get($this->host().'/processing')
-            ->assertSee(e('هلا '.$this->merchant->business_name.'، الوصل '.$shipment->number.' راجع.'), false);
+            ->assertSee(e('هلا أبو حسن ('.$this->merchant->business_name.')، الوصل '.$shipment->number.' راجع.'), false);
         $other = $this->makeUser($this->company, UserRole::CustomerService);
         $this->assertSame(\App\Support\MerchantMessage::TEMPLATE, \App\Support\MerchantMessage::templateOf($other));
 
