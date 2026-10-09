@@ -10,6 +10,7 @@
         "anthropic-ai/sdk": "^0.56",
         "chillerlan/php-qrcode": "^6.0",
         "laravel/framework": "^13.17",
+        "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
         "phpoffice/phpspreadsheet": "^5.10"
     },

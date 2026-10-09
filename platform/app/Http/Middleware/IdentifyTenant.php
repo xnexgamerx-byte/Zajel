@@ -96,6 +96,13 @@ class IdentifyTenant
             return null;
         }
 
+        // واجهة التطبيقات بلا جلسة: ترويسةٌ تحمل الشركة — في التطوير أيضاً وحده
+        if (! $request->hasSession()) {
+            $slug = $request->header('X-Company');
+
+            return $slug ? $this->lookup($slug) : null;
+        }
+
         if ($slug = $request->query('company')) {
             $request->session()->put('dev_company', $slug);
         }

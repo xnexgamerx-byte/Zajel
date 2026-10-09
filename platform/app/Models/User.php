@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -26,7 +27,7 @@ use Illuminate\Support\Str;
  */
 class User extends Authenticatable
 {
-    use BelongsToCompany, HasFactory, Notifiable, SeenByBranch, SoftDeletes;
+    use BelongsToCompany, HasApiTokens, HasFactory, Notifiable, SeenByBranch, SoftDeletes;
 
     protected $guarded = ['id'];
 

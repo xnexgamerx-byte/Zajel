@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureApiUser;
 use App\Http\Middleware\EnsurePlatformUser;
 use App\Http\Middleware\EnsureMainBranch;
 use App\Http\Middleware\EnsureCourier;
@@ -23,6 +24,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        // واجهة التطبيقات (docs/plan/48): الشركة من النطاق كالموقع، والدخول برمزٍ لا بجلسة
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -78,6 +81,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'main-branch'   => EnsureMainBranch::class,
             // ميزةٌ تفتحها المنصّة لكل شركةٍ وحدها: feature:order_reading (docs/plan/35)
             'feature'       => EnsureFeature::class,
+            // رمز تطبيقٍ لحسابٍ ما زال قائماً في هذه الشركة (docs/plan/48)
+            'api-user'      => EnsureApiUser::class,
+            'abilities'     => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
         ]);
 
         // زائر لوحة النواة يُعاد إلى دخولها لا إلى دخول شركة لا وجود لها. ومن أرسل نموذجاً

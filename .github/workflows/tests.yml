@@ -96,6 +96,38 @@ jobs:
           DB_PASSWORD: zajel
         run: php artisan test
 
+  # تطبيق التاجر (docs/plan/48): تحليلٌ واختبارٌ ببيانات العرض، ثم بناء الويب للتأكّد أنه يُبنى
+  merchant-app:
+    name: merchant app (flutter)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: apps/merchant
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test --dart-define-from-file=config/demo.json
+
+      - name: Web build
+        run: flutter build web --release --dart-define-from-file=config/demo.json --no-web-resources-cdn
+
   # صورة الإنتاج كما يبنيها الخادم (deploy/compose.yaml): تُبنى وتُشغَّل
   # وتُسأل. فالخادم يوم التحديث لا يكتشف Dockerfile مكسوراً.
   deploy:
