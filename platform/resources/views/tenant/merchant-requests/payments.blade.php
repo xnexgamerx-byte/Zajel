@@ -108,7 +108,13 @@
                         </td>
                         <td>{{ $m?->pickupCourier?->name ?? '—' }}</td>
                         <td>@if ($req->via_pickup_courier)<span class="chip chip-info">نعم</span>@else<span class="text-ink-400">لا</span>@endif</td>
-                        <td>{{ \App\Models\Merchant::PAYOUT_METHODS[$req->payout_method] ?? '—' }}</td>
+                        <td class="text-sm">
+                            {{-- ما طلبه التاجر بتفاصيله (docs/plan/44): الطريقة، ورقم البطاقة أو المحفظة، أو النقد بيد مَن --}}
+                            <span class="font-semibold">{{ \App\Models\Merchant::PAYOUT_METHODS[$req->payout_method] ?? '—' }}</span>
+                            @if ($req->payout_details)<div class="text-xs text-ink-700" dir="auto">{{ $req->payout_details }}</div>@endif
+                            @if ($req->payout_method === 'cash')<div class="text-xs text-ink-500">{{ $req->via_pickup_courier ? 'بيد مندوب الاستلام' : 'يستلمه من الشركة' }}</div>@endif
+                            @if ($req->amount !== null)<div class="num text-xs text-ink-500">طلب {{ number_format($req->amount) }} د.ع</div>@endif
+                        </td>
                         <td class="num {{ ($m?->balance ?? 0) > 0 ? 'text-ok-700' : 'text-bad-700' }}">{{ number_format($m?->balance ?? 0) }}</td>
                         <td class="text-xs">
                             @if ($req->status === 'handled')

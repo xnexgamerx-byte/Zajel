@@ -134,7 +134,7 @@ class BuildMerchantSettlement
         ])->save();
     }
 
-    /** المسلَّم والراجع الذي لم يدخل كشفاً بعد — والواصل الجزئي منذ تسليمه، وباقيه في طريقه. */
+    /** المسلَّم الذي لم يدخل كشفاً بعد — والواصل الجزئي منذ تسليمه، وباقيه في طريقه — والراجع بأجرته. */
     public function eligible(Merchant $merchant, array $options = [])
     {
         return $this->eligibleQuery($merchant, $options)->get();
@@ -146,11 +146,15 @@ class BuildMerchantSettlement
         return Shipment::query()
             ->where('merchant_id', $merchant->id)
             ->whereNull('merchant_settlement_id')
+            /*
+            | الحساب للواصل (docs/plan/44): المسلَّم كلّه أو بعضه. والراجع لا يدخل الكشف إلّا بأجرة رجوعٍ
+            | تُقتطع من التاجر — وراجعٌ بلا أجرةٍ مكانه «كشف الراجع» (إيصال الراجع) لا كشف الحساب.
+            */
             ->where(fn ($q) => $q->whereIn('status', [
                 ShipmentStatus::Delivered->value,
                 ShipmentStatus::PartiallyDelivered->value,
-                ShipmentStatus::Returned->value,
-            ])->orWhereNotNull('delivered_at'))
+            ])->orWhereNotNull('delivered_at')
+                ->orWhere(fn ($r) => $r->where('status', ShipmentStatus::Returned->value)->where('merchant_due', '!=', 0)))
             ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
             ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
             ->orderBy('id');

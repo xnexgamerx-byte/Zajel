@@ -45,13 +45,21 @@ class SubmitMerchantRequest
                 throw ValidationException::withMessages(['type' => 'لا راجع لك عندنا الآن.']);
             }
 
+            $method = $type === 'payment' ? ($data['payout_method'] ?? $merchant->payout_method) : null;
+
             return MerchantRequest::create([
                 'merchant_id'        => $merchant->id,
                 'type'               => $type,
                 // REQ-يوم-رقم: يُقرأ على الهاتف ويُعرف يومه من رقمه
                 'number'             => 'REQ-'.now()->format('ymd').'-'.$this->sequences->next('merchant_request'),
-                'payout_method'      => $type === 'payment' ? ($data['payout_method'] ?? $merchant->payout_method) : null,
-                'via_pickup_courier' => (bool) ($data['via_pickup_courier'] ?? false),
+                'payout_method'      => $method,
+                // تفاصيل البطاقة أو المحفظة كما كتبها، ومبلغ رصيده ساعةَ طلب (docs/plan/44)
+                'payout_details'     => \App\Support\PayoutMethods::needsDetails($method)
+                    ? (trim((string) ($data['payout_details'] ?? '')) ?: $merchant->payout_account) : null,
+                'amount'             => $type === 'payment' ? (int) $merchant->balance : null,
+                // النقد بيد مندوب الاستلام أو من الشركة؛ وما سواه لا يحمله مندوب
+                'via_pickup_courier' => $type === 'returns' || $method === 'cash'
+                    ? (bool) ($data['via_pickup_courier'] ?? false) : false,
                 'note'               => $data['note'] ?? null,
                 'status'             => 'open',
                 'created_by_user_id' => $actor?->id,

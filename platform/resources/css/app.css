@@ -1212,3 +1212,14 @@ summary:focus-visible,
         box-shadow: none !important;
     }
 }
+
+/* طلب المحاسبة (docs/plan/44): خيارا النقد للنقد وحده، وخانة التفاصيل وتلميحها لغيره */
+[data-payout]:has(input[name='payout_method'][value='cash']:checked) [data-payout-card],
+[data-payout]:not(:has(input[name='payout_method'][value='cash']:checked)) [data-payout-cash],
+[data-payout-hint] { display: none; }
+[data-payout]:has(input[name='payout_method'][value='zaincash']:checked) [data-payout-hint='zaincash'] { display: inline; }
+[data-payout]:has(input[name='payout_method'][value='asiahawala']:checked) [data-payout-hint='asiahawala'] { display: inline; }
+[data-payout]:has(input[name='payout_method'][value='fastpay']:checked) [data-payout-hint='fastpay'] { display: inline; }
+[data-payout]:has(input[name='payout_method'][value='qi']:checked) [data-payout-hint='qi'] { display: inline; }
+[data-payout]:has(input[name='payout_method'][value='fib']:checked) [data-payout-hint='fib'] { display: inline; }
+[data-payout]:has(input[name='payout_method'][value='bank_transfer']:checked) [data-payout-hint='bank_transfer'] { display: inline; }

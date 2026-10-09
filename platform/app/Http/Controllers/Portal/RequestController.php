@@ -37,6 +37,9 @@ class RequestController extends Controller
             'returning' => Shipment::where('merchant_id', $merchant->id)
                 ->where('status', ShipmentStatus::Returning->value)->count(),
             'methods'  => Merchant::PAYOUT_METHODS,
+            // ما تعرضه الشركة للطلب الجديد، وما يُكتب لكلٍّ منها (docs/plan/44)
+            'offered'  => \App\Support\PayoutMethods::offered(),
+            'hints'    => \App\Support\PayoutMethods::DETAILS_HINT,
         ]);
     }
 
@@ -44,12 +47,38 @@ class RequestController extends Controller
     {
         $data = $request->validate([
             'type'               => ['required', Rule::in(array_keys(MerchantRequest::TYPES))],
-            'payout_method'      => ['nullable', Rule::in(array_keys(Merchant::PAYOUT_METHODS))],
+            // طلب الدفع بطريقةٍ تعرضها الشركة، وتفاصيلها لكلّ ما سوى النقد (docs/plan/44)
+            'payout_method'      => ['nullable', Rule::in(array_keys(\App\Support\PayoutMethods::offered()))],
+            'payout_details'     => ['nullable', 'string', 'max:255'],
             'via_pickup_courier' => ['sometimes', 'boolean'],
             'note'               => ['nullable', 'string', 'max:500'],
-        ], [], ['payout_method' => 'طريقة الدفع', 'note' => 'الملاحظة']);
+        ], [
+            'payout_method.in'          => 'طريقة الدفع هذه لا تتعامل بها الشركة — اختر غيرها.',
+            'payout_details.required'   => 'اكتب رقم البطاقة أو المحفظة واسم صاحبها.',
+        ], ['payout_method' => 'طريقة الدفع', 'payout_details' => 'تفاصيل الدفع', 'note' => 'الملاحظة']);
 
-        $made = $submit->handle($request->attributes->get('merchant'), $data['type'], $data, $request->user());
+        $merchant = $request->attributes->get('merchant');
+
+        // بطاقةٌ أو محفظة بلا رقمٍ مكتوب ولا محفوظٍ للتاجر: لا تصل الشركةَ إلّا ناقصة
+        if ($data['type'] === 'payment') {
+            $method = $data['payout_method'] ?? $merchant->payout_method;
+
+            if (\App\Support\PayoutMethods::needsDetails($method) && blank($data['payout_details'] ?? null) && blank($merchant->payout_account)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['payout_details' => 'اكتب رقم البطاقة أو المحفظة واسم صاحبها.']);
+            }
+        }
+
+        $made = $submit->handle($merchant, $data['type'], $data, $request->user());
+
+        if ($made->type === 'payment') {
+            // «تمّ الطلب»: رقمه ومبلغه وتاريخه أمام التاجر
+            return back()->with('payment_request', [
+                'number' => $made->number,
+                'amount' => (int) $made->amount,
+                'date'   => $made->created_at->timezone('Asia/Baghdad')->format('Y-m-d H:i'),
+                'method' => Merchant::PAYOUT_METHODS[$made->payout_method] ?? $made->payout_method,
+            ]);
+        }
 
         return back()->with('success', "أُرسل {$made->typeLabel()} برقم {$made->number}.");
     }
@@ -83,7 +112,7 @@ class RequestController extends Controller
         $batch->load([
             'merchant:id,business_name,code,phone,address,city_id', 'merchant.city:id,name_ar',
             'courier:id,name,phone', 'handedBy:id,name',
-            'shipments' => fn ($q) => $q->with(['governorate:id,name_ar', 'lastFailureReason:id,name_ar'])->orderBy('id'),
+            'shipments' => fn ($q) => $q->with(['governorate:id,name_ar', 'city:id,name_ar', 'lastFailureReason:id,name_ar'])->orderBy('id'),
         ]);
 
         return view('tenant.returns.receipt', ['batches' => collect([$batch]), 'back' => route('portal.requests.index')]);

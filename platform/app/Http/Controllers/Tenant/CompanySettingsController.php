@@ -52,13 +52,22 @@ class CompanySettingsController extends Controller
             'merchant_from'    => ['nullable', 'integer', 'between:0,23'],
             'merchant_to'      => ['nullable', 'integer', 'between:1,24'],
             'deadline_hours'   => ['nullable', 'integer', 'between:1,240'],
+            // طرق دفع مستحقّات التجّار المعروضة في «طلب محاسبة» (docs/plan/44)
+            'payout_offered'   => ['sometimes', 'array', 'min:1'],
+            'payout_offered.*' => ['string', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Merchant::PAYOUT_METHODS))],
         ], [
+            'payout_offered.min' => 'اترك طريقة دفعٍ واحدةً على الأقل للتجّار.',
             'primary_color.regex' => 'اللون بصيغة #RRGGBB.',
         ], [
             'phone' => 'الهاتف', 'email' => 'البريد', 'support_whatsapp' => 'واتساب الدعم', 'support_complaints' => 'هاتف الشكاوى',
             'support_hours' => 'ساعات الدعم', 'waybill_terms' => 'شروط الوصل المطبوع', 'primary_color' => 'اللون',
             'merchant_from' => 'بداية ساعات المراسلة', 'merchant_to' => 'نهاية ساعات المراسلة', 'deadline_hours' => 'آخر موعد للتوصيل',
         ]);
+
+        // لا طريقة دفعٍ للتجّار تُترك فارغة: التاجر لا يطلب حسابه بلا طريقة
+        if ($request->boolean('payout_form') && empty($data['payout_offered'])) {
+            throw ValidationException::withMessages(['payout_offered' => 'اترك طريقة دفعٍ واحدةً على الأقل للتجّار.']);
+        }
 
         // النموذج يرسل الساعتين معاً؛ وما لم يُرسَل منهما يبقى كما كان
         $from = $data['merchant_from'] ?? MerchantHours::from($company);
@@ -86,6 +95,7 @@ class CompanySettingsController extends Controller
             'shipment_required' => implode(',', \App\Support\ShipmentFields::required($company)),
             'merchant_hours'   => MerchantHours::window($company),
             'deadline_hours'   => DeliveryDeadline::hours($company),
+            'payout_offered'   => implode(',', array_keys(\App\Support\PayoutMethods::offered($company))),
         ];
 
         $settings = $company->settings ?? [];
@@ -95,6 +105,9 @@ class CompanySettingsController extends Controller
         data_set($settings, 'support.hours', filled($data['support_hours'] ?? null) ? trim($data['support_hours']) : null);
         data_set($settings, 'support.merchant_from', (int) $from);
         data_set($settings, 'support.merchant_to', (int) $to);
+        if (isset($data['payout_offered'])) {
+            data_set($settings, 'payout.disabled', array_values(array_diff(array_keys(\App\Models\Merchant::PAYOUT_METHODS), $data['payout_offered'])));
+        }
         if (isset($data['deadline_hours'])) {
             data_set($settings, 'delivery.deadline_hours', (int) $data['deadline_hours']);
         }
@@ -120,6 +133,7 @@ class CompanySettingsController extends Controller
             'shipment_required' => implode(',', \App\Support\ShipmentFields::required($company)),
             'merchant_hours'   => MerchantHours::window($company),
             'deadline_hours'   => DeliveryDeadline::hours($company),
+            'payout_offered'   => implode(',', array_keys(\App\Support\PayoutMethods::offered($company))),
         ];
 
         // ما تغيّر وحده، وبمَن غيّره: رقمُ دعمٍ تبدّل يُسأل عنه يوم يشكو تاجر

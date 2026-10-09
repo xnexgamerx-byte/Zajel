@@ -117,6 +117,27 @@
             @error('waybill_terms') <p class="field-error">{{ $message }}</p> @enderror
         </div>
 
+        {{-- طرق دفع مستحقّات التجّار في «طلب محاسبة» من بوابتهم (docs/plan/44) --}}
+        <fieldset class="rounded-xl border border-ink-200 p-4">
+            <legend class="card-title px-1">طرق الدفع للتجّار</legend>
+            <input type="hidden" name="payout_form" value="1">
+            <p class="card-hint mb-3">
+                ما يختار منه التاجر حين يطلب حسابه: النقد (بيد مندوب الاستلام أو يستلمه من الشركة)، والبطاقات والمحافظ
+                بتفاصيلها. أزِل العلامة عمّا لا تتعامل به شركتك فلا يظهر للتاجر.
+            </p>
+            @php $offered = old('payout_offered', array_keys(\App\Support\PayoutMethods::offered($company))); @endphp
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                @foreach (\App\Models\Merchant::PAYOUT_METHODS as $method => $label)
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="payout_offered[]" value="{{ $method }}" @checked(in_array($method, (array) $offered, true))
+                               class="rounded border-ink-300 text-[var(--brand)] focus:ring-brand-500">
+                        {{ $label }}
+                    </label>
+                @endforeach
+            </div>
+            @error('payout_offered') <p class="field-error">{{ $message }}</p> @enderror
+        </fieldset>
+
         {{-- ما تُلزِم به الشركة عند إدخال الشحنة (docs/plan/38): يسري على كل نموذج --}}
         <fieldset class="rounded-xl border border-ink-200 p-4">
             <legend class="card-title px-1">حقولٌ تُطلب عند إدخال الشحنة</legend>

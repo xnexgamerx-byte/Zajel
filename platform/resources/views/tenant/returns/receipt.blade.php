@@ -26,7 +26,9 @@
                     <th class="w-8">#</th>
                     <th>رقم الوصل</th>
                     <th>المستلم</th>
+                    <th>هاتفه</th>
                     <th>الوجهة</th>
+                    <th>المبلغ</th>
                     <th>سبب الرجوع</th>
                     <th>أجرة الراجع</th>
                     {{-- يُعلَّم باليد عند الاستلام --}}
@@ -39,7 +41,9 @@
                         <td class="num text-ink-500">{{ $i + 1 }}</td>
                         <td class="num font-semibold">{{ $shipment->number }}</td>
                         <td>{{ $shipment->recipient_name }}</td>
-                        <td>{{ $shipment->governorate?->name_ar }}</td>
+                        <td class="num" dir="ltr">{{ $shipment->recipient_phone }}</td>
+                        <td>{{ $shipment->governorate?->name_ar }}@if ($shipment->city) · {{ $shipment->city->name_ar }}@endif</td>
+                        <td class="num">{{ number_format($shipment->cod_amount) }}</td>
                         <td>{{ $shipment->returnReason() ?? '—' }}</td>
                         <td class="num">{{ number_format($shipment->return_fee) }}</td>
                         <td></td>
@@ -49,7 +53,7 @@
             <tfoot>
                 <tr class="border-t-2 border-ink-900">
                     <td colspan="2" class="font-bold">{{ \App\Support\Arabic::shipments($batch->shipments_count) }}</td>
-                    <td colspan="3" class="text-end font-bold">مجموع أجرة الراجع</td>
+                    <td colspan="5" class="text-end font-bold">مجموع أجرة الراجع</td>
                     <td class="num font-black">{{ number_format($batch->return_fees_total) }}</td>
                     <td></td>
                 </tr>

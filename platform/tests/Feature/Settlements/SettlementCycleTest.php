@@ -286,6 +286,23 @@ class SettlementCycleTest extends TestCase
         });
     }
 
+    /** الحساب للواصل (docs/plan/44): راجعٌ بلا أجرةٍ على التاجر مكانه كشف الراجع، لا كشف الحساب */
+    public function test_a_return_without_a_fee_stays_out_of_the_merchant_statement(): void
+    {
+        $this->deliver(50_000);
+        $free = $this->returned(30_000);
+        Tenancy::runFor($this->company, fn () => $free->forceFill(['return_fee' => 0, 'merchant_due' => 0])->save());
+
+        Tenancy::runFor($this->company, function () use ($free) {
+            $settlement = app(BuildMerchantSettlement::class)->handle($this->merchant, $this->actor);
+
+            $this->assertSame(1, $settlement->shipments_count);
+            $this->assertSame(0, $settlement->returned_count);
+            $this->assertSame(45_000, $settlement->net_amount);
+            $this->assertNull($free->refresh()->merchant_settlement_id);
+        });
+    }
+
     public function test_paying_requires_confirming_first(): void
     {
         $this->deliver();

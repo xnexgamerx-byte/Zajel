@@ -118,14 +118,19 @@ class MerchantRequestsTest extends TestCase
 
         $this->actingAs($this->alphaUser)
             ->post($this->host().'/portal/requests', [
-                'type' => 'payment', 'payout_method' => 'zaincash', 'via_pickup_courier' => '1', 'note' => 'على المحفظة الجديدة',
+                'type' => 'payment', 'payout_method' => 'zaincash', 'payout_details' => '07801234567 — علي حسين',
+                'via_pickup_courier' => '1', 'note' => 'على المحفظة الجديدة',
             ])
-            ->assertSessionHasNoErrors();
+            ->assertSessionHasNoErrors()
+            // «تمّ الطلب» برقمه ومبلغه وتاريخه (docs/plan/44)
+            ->assertSessionHas('payment_request', fn ($done) => $done['method'] === 'زين كاش' && $done['amount'] > 0);
 
         $request = $this->requests()->sole();
         $this->assertMatchesRegularExpression('/^REQ-\d{6}-\d+$/', $request->number);
         $this->assertSame('zaincash', $request->payout_method);
-        $this->assertTrue($request->via_pickup_courier);
+        $this->assertSame('07801234567 — علي حسين', $request->payout_details);
+        // المحفظة لا يحملها مندوب: «بيد المندوب» للنقد وحده
+        $this->assertFalse($request->via_pickup_courier);
         $this->assertTrue($request->isOpen());
 
         // الشركة تراه ببطاقتيه
@@ -135,6 +140,7 @@ class MerchantRequestsTest extends TestCase
             ->assertSee($request->number)
             ->assertSee('على المحفظة الجديدة')
             ->assertSee('زين كاش')
+            ->assertSee('07801234567 — علي حسين')
             ->assertSee('50,000')
             ->assertSee(number_format($balance));
 
@@ -339,5 +345,30 @@ class MerchantRequestsTest extends TestCase
             ->assertSessionHasErrors('courier_id');
 
         $this->assertSame(ShipmentStatus::Returning, $shelf->fresh()->status);
+    }
+
+    /** النقد بيد المندوب أو من الشركة، والبطاقة بلا رقمٍ تُرَدّ، وما أخفته الشركة لا يُطلب */
+    public function test_payment_methods_come_with_their_details(): void
+    {
+        $this->delivered($this->alpha);
+
+        $this->actingAs($this->alphaUser)->post($this->host().'/portal/requests', ['type' => 'payment', 'payout_method' => 'qi'])
+            ->assertSessionHasErrors(['payout_details' => 'اكتب رقم البطاقة أو المحفظة واسم صاحبها.']);
+
+        // الشركة لا تتعامل بـ Qi: يختفي من البوابة ولا يُقبل
+        $this->actingAs($this->staff)->put($this->host().'/settings/company', [
+            'primary_color' => '#0D9488', 'payout_form' => 1, 'payout_offered' => ['cash', 'zaincash'],
+        ]);
+        $this->actingAs($this->alphaUser)->get($this->host().'/portal/requests')->assertOk()
+            ->assertSee('value="cash"', false)->assertDontSee('value="qi"', false);
+        $this->actingAs($this->alphaUser)->post($this->host().'/portal/requests', ['type' => 'payment', 'payout_method' => 'qi', 'payout_details' => '123'])
+            ->assertSessionHasErrors('payout_method');
+
+        $this->actingAs($this->alphaUser)->post($this->host().'/portal/requests', ['type' => 'payment', 'payout_method' => 'cash', 'via_pickup_courier' => '0'])
+            ->assertSessionHasNoErrors();
+        $request = $this->requests()->sole();
+        $this->assertNull($request->payout_details);
+        $this->assertFalse($request->via_pickup_courier);
+        $this->actingAs($this->staff)->get($this->host().'/merchant-requests/payments')->assertSee('يستلمه من الشركة');
     }
 }
