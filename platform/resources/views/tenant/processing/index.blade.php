@@ -105,7 +105,7 @@
                                             @php $ours = $message->author === 'staff'; @endphp
                                             <li class="flex {{ $ours ? 'justify-end' : 'justify-start' }}">
                                                 <div class="max-w-[85%] rounded-2xl px-3 py-2 {{ $ours ? 'bg-[var(--brand)] text-white' : 'bg-ink-50' }}">
-                                                    <p class="whitespace-pre-line">{{ $message->body }}</p>
+                                                    <p class="whitespace-pre-line">{{ \App\Support\ShipmentLinks::text($message->body) }}</p>
                                                     <p class="mt-0.5 text-[11px] {{ $ours ? 'text-white/75' : 'text-ink-400' }}">{{ $message->author_name }} · <span class="num">{{ $message->created_at->format('m-d H:i') }}</span></p>
                                                 </div>
                                             </li>
@@ -134,8 +134,8 @@
                                             @php $ours = $message->author === 'staff'; $here = $message->shipment_id === $shipment->id; @endphp
                                             <li @class(['flex', 'justify-end' => $ours, 'justify-start' => ! $ours, 'opacity-60' => ! $here])>
                                                 <div class="max-w-[85%] rounded-2xl px-3 py-2 {{ $ours ? 'bg-[var(--brand)] text-white' : 'bg-ink-50' }}">
-                                                    @if ($message->shipment)<span class="text-[11px] {{ $ours ? 'text-white/80' : 'text-ink-500' }}">الشحنة <span class="num">{{ $message->shipment->number }}</span></span>@endif
-                                                    <p class="whitespace-pre-line">{{ $message->body }}</p>
+                                                    @if ($message->shipment)<a href="{{ route('shipments.show', $message->shipment) }}" class="text-[11px] underline {{ $ours ? 'text-white/80' : 'text-ink-500' }}">الشحنة <span class="num">{{ $message->shipment->number }}</span></a>@endif
+                                                    <p class="whitespace-pre-line">{{ \App\Support\ShipmentLinks::text($message->body) }}</p>
                                                     <p class="mt-0.5 text-[11px] {{ $ours ? 'text-white/75' : 'text-ink-400' }}">{{ $message->author_name }} · <span class="num">{{ $message->created_at->format('m-d H:i') }}</span></p>
                                                 </div>
                                             </li>

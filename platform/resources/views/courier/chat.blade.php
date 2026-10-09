@@ -26,7 +26,7 @@
                         </span>
                     @endif
                 @endif
-                <p class="whitespace-pre-line text-[15px] leading-relaxed">{{ $message->body }}</p>
+                <p class="whitespace-pre-line text-[15px] leading-relaxed">{{ \App\Support\ShipmentLinks::text($message->body) }}</p>
                 <p class="mt-1 text-[11px] {{ $mine ? 'text-white/75' : 'text-ink-400' }}">
                     {{ $mine ? 'أنت' : $message->author_name }} · <span class="num">{{ $message->created_at->format('m-d H:i') }}</span>
                 </p>

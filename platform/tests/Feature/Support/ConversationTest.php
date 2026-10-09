@@ -244,4 +244,32 @@ class ConversationTest extends TestCase
 
         $this->actingAs($cs)->get($this->host().'/settings/company')->assertForbidden();
     }
+
+    /** رقم الوصل في الرسالة يفتح طلبه — للتاجر في بوابته وللموظّف في النظام — وطلب غيره لا يُربط (docs/plan/47) */
+    public function test_receipt_numbers_in_messages_open_their_shipment(): void
+    {
+        $mine = $this->makeShipment($this->alpha);
+        $theirs = $this->makeShipment($this->beta);
+
+        $conversation = $this->ask($this->alphaUser, 'طلبان', []);
+        Tenancy::runFor($this->company, fn () => app(\App\Actions\Support\Converse::class)->reply(
+            $conversation, "الوصل {$mine->number} وصل، والوصل {$theirs->number} ليس لك. المبلغ 250,000", $this->owner, \App\Actions\Support\Converse::STAFF));
+
+        $this->actingAs($this->alphaUser)->get($this->host().'/portal/support/'.$conversation->id)->assertOk()
+            ->assertSee('href="'.route('portal.shipments.show', $mine).'"', false)
+            ->assertDontSee('href="'.route('portal.shipments.show', $theirs).'"', false)
+            ->assertSee('250,000');
+
+        $this->actingAs($this->owner)->get($this->host().'/conversations/'.$conversation->id)->assertOk()
+            ->assertSee('href="'.route('shipments.show', $mine).'"', false)
+            ->assertSee('href="'.route('shipments.show', $theirs).'"', false);
+    }
+
+    private function makeShipment(Merchant $merchant): \App\Models\Shipment
+    {
+        return Tenancy::runFor($this->company, fn () => app(\App\Actions\Shipments\CreateShipment::class)->handle([
+            'merchant_id' => $merchant->id, 'recipient_name' => 'زبون', 'recipient_phone' => '07801234567',
+            'governorate_id' => $this->baghdad()->id, 'address' => 'بغداد', 'cod_amount' => 25_000,
+        ], $this->owner));
+    }
 }
