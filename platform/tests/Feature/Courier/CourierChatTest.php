@@ -139,4 +139,24 @@ class CourierChatTest extends TestCase
 
         $this->assertSame(0, Tenancy::runFor($this->company, fn () => CourierMessage::count()));
     }
+
+    /** رسائل طلبين في المحادثة نفسها: رقم كلٍّ يفتح طلبه، ومنها يُردّ عنه (docs/plan/46) */
+    public function test_each_message_links_to_its_own_shipment(): void
+    {
+        $first = $this->shipmentWithCourier();
+        $second = $this->shipmentWithCourier();
+
+        Tenancy::runFor($this->company, function () use ($first, $second) {
+            $chat = app(\App\Actions\Support\CourierChat::class);
+            $chat->send($this->courier, 'الزبون الأول يريد بعد العصر', $this->agent, \App\Actions\Support\CourierChat::STAFF, $first);
+            $chat->send($this->courier, 'الثاني غيّر العنوان', $this->agent, \App\Actions\Support\CourierChat::STAFF, $second);
+        });
+
+        $this->actingAs($this->courierUser)->get($this->host().'/courier/chat')->assertOk()
+            ->assertSee('href="'.route('courier.shipments.show', $first).'"', false)
+            ->assertSee('href="'.route('courier.shipments.show', $second).'"', false)
+            ->assertSee(route('courier.chat', ['shipment' => $second->id]), false);
+
+        $this->actingAs($this->courierUser)->get(route('courier.shipments.show', $second))->assertOk()->assertSee($second->number);
+    }
 }

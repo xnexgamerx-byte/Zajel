@@ -24,7 +24,10 @@ class ChatController extends Controller
             : null;
 
         return view('courier.chat', [
-            'messages' => $thread->messages()->with('shipment:id,number')->latest('id')->limit(100)->get()->reverse()->values(),
+            // ورقم الشحنة في السطر يفتحها (docs/plan/46): المندوب لا يبحث عن الوصل بيده
+            'messages' => $thread->messages()->with('shipment:id,number,recipient_name,delivery_courier_id,pickup_courier_id')
+                ->latest('id')->limit(100)->get()->reverse()->values(),
+            'courier'  => $courier,
             'shipment' => $shipment,
         ]);
     }
