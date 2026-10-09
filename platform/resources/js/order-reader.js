@@ -10,8 +10,8 @@
  * ومتصفّحٌ لا يسمع يُدلّ على مايك لوحة المفاتيح داخل الخانة نفسها.
  */
 
-/** صفحةٌ تُترك تسمع دقيقةً ونصفاً على الأكثر — ولا تبقى تسمع إن نُسيت */
-const LISTEN_LIMIT = 90_000;
+/** دقيقتان على الأكثر: لا يبقى المايك مفتوحاً إن نُسي */
+const LISTEN_LIMIT = 120_000;
 
 const HEARING_ERRORS = {
     'not-allowed': 'اسمح للمتصفّح باستعمال المايك (من القفل بجانب العنوان) ثم اضغط «تكلّم».',
@@ -121,12 +121,12 @@ export function initOrderReader(section) {
         lines.hidden = !(data.lines ?? []).length;
     };
 
-    const send = async (body, busy) => {
+    const send = async (body, busy, url = section.dataset.url, onRead = null) => {
         show(busy, 'info');
         section.setAttribute('aria-busy', 'true');
 
         try {
-            const response = await fetch(section.dataset.url, {
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'X-CSRF-TOKEN': token, Accept: 'application/json' },
                 credentials: 'same-origin',
@@ -135,6 +135,7 @@ export function initOrderReader(section) {
             const data = await response.json().catch(() => ({}));
 
             if (response.ok) {
+                onRead?.(data);
                 report(data);
             } else if (response.status === 429) {
                 show('قراءاتٌ كثيرة في دقيقة — انتظر قليلاً ثم أعد.', 'bad');
@@ -257,11 +258,124 @@ export function initOrderReader(section) {
         recognition.start();
     };
 
+    /*
+    | التسجيل حتى «أوقف» (docs/plan/40): حين يكون للخادم محرّك سماع، يُفتح المايك مرّةً ويبقى مفتوحاً —
+    | لا ينقطع عند السكتة ولا يُصدر صوتاً كسماع المتصفّح في أندرويد — ثم يُرسَل التسجيل كلّه فيُقرأ.
+    | ومؤشّر الصوت على الزرّ يقول إنه يسمع.
+    */
+    const listenUrl = section.dataset.listenUrl;
+    const canRecord = Boolean(listenUrl && navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+    let recorder = null;
+    let starting = false;
+    let stream = null;
+    let chunks = [];
+    let clock = null;
+    let level = null;
+
+    const recordingType = () => ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
+        .find((type) => window.MediaRecorder.isTypeSupported?.(type)) ?? '';
+
+    const elapsed = () => {
+        const seconds = Math.floor((Date.now() - startedAt) / 1000);
+        return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    };
+
+    const stopRecording = () => {
+        window.clearInterval(clock);
+        level?.close?.();
+        level = null;
+        talk.style.removeProperty('--level');
+        if (recorder?.state === 'recording') recorder.stop();
+        stream?.getTracks().forEach((track) => track.stop());
+        setListening(false);
+    };
+
+    // مستوى الصوت يكبّر حلقة الزرّ: يرى التاجر أنّ المايك يسمعه
+    const meter = (source) => {
+        const Context = window.AudioContext || window.webkitAudioContext;
+        if (!Context) return;
+        level = new Context();
+        const analyser = level.createAnalyser();
+        analyser.fftSize = 512;
+        level.createMediaStreamSource(source).connect(analyser);
+        const samples = new Uint8Array(analyser.fftSize);
+        const draw = () => {
+            if (!level) return;
+            analyser.getByteTimeDomainData(samples);
+            const peak = samples.reduce((max, sample) => Math.max(max, Math.abs(sample - 128)), 0) / 128;
+            talk.style.setProperty('--level', Math.min(1, peak * 2.5).toFixed(2));
+            window.requestAnimationFrame(draw);
+        };
+        draw();
+    };
+
+    const sendRecording = () => {
+        const type = recorder?.mimeType || chunks[0]?.type || 'audio/webm';
+        const blob = new Blob(chunks, { type });
+        chunks = [];
+        if (blob.size < 2000) {
+            show('لم يُسمع كلام — اضغط «تكلّم» وأعد.', 'bad');
+            return;
+        }
+        const extension = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+        const body = new FormData();
+        body.append('audio', blob, `order.${extension}`);
+        send(body, 'يُقرأ كلامك… ثوانٍ قليلة.', listenUrl, (data) => {
+            text.value = data.transcript ?? '';
+            spoken = true;
+        });
+    };
+
+    const startRecording = async () => {
+        // ضغطةٌ ثانية والمتصفّح يسأل عن المايك لا تفتح تسجيلاً ثانياً
+        if (starting) return;
+        starting = true;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            });
+        } catch (error) {
+            show(error?.name === 'NotAllowedError'
+                ? 'اسمح للمتصفّح باستعمال المايك (من القفل بجانب العنوان) ثم اضغط «تكلّم».'
+                : 'لا مايك يعمل في هذا الجهاز.', 'bad');
+            return;
+        } finally {
+            starting = false;
+        }
+
+        const type = recordingType();
+        recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+        chunks = [];
+        recorder.ondataavailable = (event) => {
+            if (event.data.size) chunks.push(event.data);
+        };
+        recorder.onstop = sendRecording;
+        recorder.start(1000);
+
+        startedAt = Date.now();
+        text.value = '';
+        setListening(true);
+        meter(stream);
+        hint.textContent = 'تكلّم براحتك وبالترتيب الذي تريد: الاسم، والرقم، والمحافظة والمنطقة وأقرب نقطة، والمبلغ. المايك يبقى مفتوحاً حتى تضغط «أوقف».';
+        const tick = () => {
+            show(`أسمعك… ${elapsed()} — اضغط «أوقف» حين تنتهي.`, 'info');
+            if (Date.now() - startedAt >= LISTEN_LIMIT) stopRecording();
+        };
+        tick();
+        clock = window.setInterval(tick, 500);
+    };
+
     talk?.addEventListener('click', () => {
         paste.hidden = false;
         pasteOpen.setAttribute('aria-expanded', 'true');
         hint.hidden = false;
         spoken = true;
+
+        if (canRecord) {
+            if (listening) stopRecording();
+            else startRecording();
+            return;
+        }
 
         if (!Recognition) {
             hint.textContent = 'اضغط زرّ المايك في لوحة مفاتيح هاتفك وتكلّم داخل الخانة: الاسم، ثم الرقم، ثم المحافظة والمنطقة وأقرب نقطة، ثم المبلغ. وبعدها «اقرأ الرسالة».';

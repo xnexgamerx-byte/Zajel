@@ -1,6 +1,7 @@
 @props([
     'url',            // مسار القراءة: shipments.read أو portal.shipments.read
     'form',           // id النموذج الذي تُملأ حقوله
+    'listen' => null, // مسار السماع على الخادم: shipments.listen أو portal.shipments.listen (docs/plan/40)
 ])
 
 @php
@@ -8,6 +9,8 @@
     // وبلا برنامج قراءة الصور على الخادم تبقى الرسالة الملصوقة وحدها
     $ai = app(\App\Services\Orders\AiOrderReader::class)->available();
     $images = $ai || app(\App\Services\Orders\ScreenshotText::class)->available();
+    // «تكلّم» يسجّل حتى «أوقف» ويسمعه الخادم إن كان له محرّك سماع؛ وإلّا يسمع المتصفّح
+    $listen = $listen && app(\App\Services\Orders\Speech\SpeechToText::class)->available() ? $listen : null;
 @endphp
 
 {{--
@@ -15,6 +18,7 @@
   فتُملأ الحقول وتُراجَع قبل الحفظ — لا يُحفظ شيءٌ هنا. order-reader.js
 --}}
 <section class="card mx-auto mb-4 max-w-3xl px-5 py-4 sm:px-7" data-order-reader data-url="{{ $url }}" data-form="{{ $form }}"
+         @if ($listen) data-listen-url="{{ $listen }}" @endif
          aria-labelledby="order-reader-title">
     <div class="flex flex-wrap items-center gap-3">
         <span class="panel-head-icon"><x-icon name="chat" class="size-5"/></span>

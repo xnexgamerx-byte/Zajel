@@ -40,7 +40,7 @@
 @endif
 
 @feature('order_reading')
-    <x-order-reader :url="route('shipments.read')" form="shipment-form" />
+    <x-order-reader :url="route('shipments.read')" :listen="route('shipments.listen')" form="shipment-form" />
 @endfeature
 
 @include('tenant.shipments._form', ['shipment' => null, 'reroutable' => true])

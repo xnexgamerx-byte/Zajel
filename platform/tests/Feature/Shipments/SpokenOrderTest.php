@@ -121,6 +121,10 @@ class SpokenOrderTest extends TestCase
             'رقمٌ مكتوب يبقى'      => ['المبلغ 25 الف', 'المبلغ 25 الف'],
             'ست زينب اسمٌ لا رقم'  => ['ست زينب', 'ست زينب'],
             'سبع قطع'              => ['سبع قطع', '7 قطع'],
+            'هاتفٌ بمقاطع'          => ['صفر سبعه سبعه اربعمية و عشرة سبعه سبعه ثلاث تساعات', '07741077999'],
+            'سبعمية وسبعين'        => ['صفر سبعمية وسبعين مية وعشرين ثلاثة اربعة خمسة ستة', '07701203456'],
+            'اربع اصفار'           => ['صفر سبعة سبعة صفر واحد اربع اصفار ثمانية ثمانية', '07701000088'],
+            'مبلغٌ في آخر الكلام'  => ['بغداد الكرادة خمسة وعشرين', "بغداد الكرادة\n25"],
         ];
     }
 
@@ -128,6 +132,30 @@ class SpokenOrderTest extends TestCase
     public function test_numbers_are_heard_as_they_are_said(string $speech, string $expected): void
     {
         $this->assertSame($expected, SpokenOrder::normalise($speech));
+    }
+
+    public function test_fields_are_told_apart_without_their_words(): void
+    {
+        // كما قاله التاجر: الاسم ثم الرقم بمقاطع ثم العنوان ثم المبلغ — بلا «الاسم» ولا «الرقم» ولا «المبلغ»
+        $reading = $this->hear('مصطفى عادل صفر سبعه سبعه اربعمية و عشرة سبعه سبعه ثلاث تساعات بغداد الكرادة قرب الجامع خمسة وعشرين الف');
+
+        $this->assertSame('مصطفى عادل', $reading['fields']['recipient_name']);
+        $this->assertSame('07741077999', $reading['fields']['recipient_phone']);
+        $this->assertSame($this->city('الكرادة', 'BGD'), $reading['fields']['city_id']);
+        $this->assertSame('قرب الجامع', $reading['fields']['landmark']);
+        $this->assertSame(25_000, $reading['fields']['cod_amount']);
+        $this->assertSame([], $reading['missing']);
+    }
+
+    public function test_a_name_outside_the_first_names_list_and_glued_to_the_address(): void
+    {
+        // اسمٌ ليس في قائمة الأسماء الأولى، والعنوان بعده في النفَس نفسه
+        $reading = $this->hear('رفل عبد الله البصرة الجزائر صفر سبعة ثمانية صفر واحد اثنين ثلاثة اربعة خمسة ستة سبعة السعر ثلاثين');
+
+        $this->assertSame('رفل عبد الله', $reading['fields']['recipient_name']);
+        $this->assertSame($this->city('الجزائر', 'BSR'), $reading['fields']['city_id']);
+        $this->assertSame('07801234567', $reading['fields']['recipient_phone']);
+        $this->assertSame(30_000, $reading['fields']['cod_amount']);
     }
 
     public function test_the_merchant_speaks_in_the_portal_and_nothing_is_saved(): void

@@ -27,6 +27,7 @@ use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Platform\SettingsController as PlatformSettingsController;
 use App\Http\Controllers\Platform\SubscriptionController as PlatformSubscriptionController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\OrderListeningController;
 use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Portal\SupportController as PortalSupportController;
 use App\Http\Controllers\Tenant\BillingController;
@@ -139,6 +140,8 @@ Route::middleware('tenant')->group(function () {
         Route::middleware(['staff', 'can:shipments.create'])->group(function () {
             // «اقرأ الطلب من صورة أو رسالة»: يملأ النموذج ولا يحفظ (docs/plan/34) — ميزةٌ تُفتح لكل شركة (docs/plan/35)
             Route::post('/shipments/read', OrderReadingController::class)->middleware(['feature:order_reading', 'throttle:30,1,order-reading'])->name('shipments.read');
+            // «تكلّم» بتسجيلٍ لا ينقطع حتى «أوقف» (docs/plan/40)
+            Route::post('/shipments/listen', OrderListeningController::class)->middleware(['feature:order_reading', 'throttle:30,1,order-reading'])->name('shipments.listen');
             Route::middleware('feature:quick_entry')->group(function () {
                 Route::get('/shipments/quick', [QuickEntryController::class, 'create'])->name('shipments.quick');
                 Route::post('/shipments/quick', [QuickEntryController::class, 'store'])->name('shipments.quick.store');
@@ -598,6 +601,7 @@ Route::middleware('tenant')->group(function () {
             });
             Route::post('/shipments', [PortalShipmentController::class, 'store'])->name('shipments.store');
             Route::post('/shipments/read', OrderReadingController::class)->middleware(['feature:order_reading', 'throttle:30,1,order-reading'])->name('shipments.read');
+            Route::post('/shipments/listen', OrderListeningController::class)->middleware(['feature:order_reading', 'throttle:30,1,order-reading'])->name('shipments.listen');
             Route::get('/shipments/labels', [ShipmentLabelController::class, 'portal'])->name('shipments.labels');
             // وصولاتٌ يطبعها التاجر ويكتب عليها بيده (بحدٍّ للدفاتر في الساعة)
             Route::middleware('feature:waybills')->group(function () {

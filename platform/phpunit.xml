@@ -35,5 +35,8 @@
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <!-- لا قراءة بالذكاء الاصطناعي في الاختبارات ولو كان للجهاز مفتاح: تُبدَّل بنموذجٍ ثابت -->
         <env name="ANTHROPIC_API_KEY" value="" force="true"/>
+        <env name="ELEVENLABS_API_KEY" value="" force="true"/>
+        <env name="OPENAI_API_KEY" value="" force="true"/>
+        <env name="ZAJEL_SPEECH_PROVIDER" value="" force="true"/>
     </php>
 </phpunit>

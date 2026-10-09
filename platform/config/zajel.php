@@ -59,6 +59,18 @@ return [
     ],
 
     /*
+    | السماع على الخادم (docs/plan/40): تسجيل التاجر حتى «أوقف» يصير نصّاً بأحد محرّكين، بحسب
+    | المفتاح الموجود — ElevenLabs أوّلاً، ثم OpenAI — أو بما يُسمّى في ZAJEL_SPEECH_PROVIDER.
+    | بلا مفتاحٍ يسمع المتصفّح كما كان.
+    */
+    'speech' => [
+        'provider'   => env('ZAJEL_SPEECH_PROVIDER'),
+        'elevenlabs' => ['key' => env('ELEVENLABS_API_KEY'), 'model' => env('ZAJEL_ELEVENLABS_MODEL', 'scribe_v1')],
+        'openai'     => ['key' => env('OPENAI_API_KEY'), 'model' => env('ZAJEL_OPENAI_SPEECH_MODEL', 'gpt-4o-transcribe')],
+        'timeout'    => (float) env('ZAJEL_SPEECH_TIMEOUT', 40),
+    ],
+
+    /*
     | قراءة الطلب من لقطة شاشة على الخادم نفسه (Tesseract، docs/plan/34): لا يخرج
     | منها شيء. وبلا البرنامج تبقى قراءة النصّ الملصوق وحدها.
     */

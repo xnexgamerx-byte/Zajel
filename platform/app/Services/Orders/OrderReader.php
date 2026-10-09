@@ -109,7 +109,102 @@ final class OrderReader
      */
     public function fromSpeech(string $speech): array
     {
-        return $this->fromText(SpokenOrder::normalise($speech));
+        // اسمٌ قيل بلا «الاسم» متّصلاً بعنوانه («علي حسين بغداد الكرادة…»): يُفصلان سطرين
+        $lines = [];
+        foreach (explode("\n", SpokenOrder::normalise($speech)) as $line) {
+            array_push($lines, ...$this->splitSpokenName($line));
+        }
+
+        // وفي الكلام أوّل ما قبل الرقم من غير المكان اسمُ الزبون، ولو لم يكن في قائمة الأسماء الأولى:
+        // يُعنوَن «الاسم:» فيُقرأ اسماً لا ملاحظة
+        $named = $this->spokenNameLine($lines);
+        if ($named !== null) {
+            $lines[$named] = 'الاسم: '.$lines[$named];
+        }
+
+        $reading = $this->fromText(implode("\n", $lines));
+
+        // اسمٌ من كلمةٍ واحدة («زينب») لا يُقرأ بعنوانه: يُكتب هنا
+        if ($named !== null && ! isset($reading['fields']['recipient_name'])) {
+            $name = $this->trimValue(mb_substr($lines[$named], mb_strlen('الاسم: ')));
+            $reading['fields']['recipient_name'] = $reading['found']['recipient_name'] = $name;
+            if (($reading['fields']['notes'] ?? null) === $name) {
+                unset($reading['fields']['notes'], $reading['found']['notes']);
+            }
+        }
+
+        return $reading;
+    }
+
+    /**
+     * سطرٌ أوّله اسمٌ وباقيه عنوان: أطول ما في أوّله من كلماتٍ لا مكان فيها وبعدها محافظةٌ أو منطقة.
+     *
+     * @return list<string>
+     */
+    private function splitSpokenName(string $line): array
+    {
+        if (str_contains($line, ':') || preg_match('/\d/', $line) || ! $this->isPlace($line)) {
+            return [$line];
+        }
+
+        $words = explode(' ', $line);
+        $split = null;
+        for ($k = 1; $k <= min(4, count($words) - 1); $k++) {
+            $name = implode(' ', array_slice($words, 0, $k));
+            $rest = implode(' ', array_slice($words, $k));
+            if ($this->couldBeName($name) && ! $this->isPlace($name) && $this->isPlace($rest)) {
+                $split = [$name, $rest];
+            }
+        }
+
+        return $split ?? [$line];
+    }
+
+    /** @param list<string> $lines */
+    private function spokenNameLine(array $lines): ?int
+    {
+        if (preg_grep(self::NAME_LABEL, $lines)) {
+            return null;
+        }
+
+        $phone = array_key_first(array_filter($lines, fn (string $line) => preg_match(self::PHONE, $line) === 1));
+        foreach ($lines as $i => $line) {
+            if ($phone !== null && $i >= $phone) {
+                break;
+            }
+            if (! str_contains($line, ':') && $this->couldBeName($line) && ! $this->isPlace($line)) {
+                return $i;
+            }
+        }
+
+        // «الرقم … واسمه علي» بلا كلمته: السطر بعد الرقم إن لم يكن قبله شيء
+        $after = $phone !== null ? ($lines[$phone + 1] ?? null) : null;
+
+        return $after !== null && $this->couldBeName($after) && ! $this->isPlace($after) && preg_match('/\d/', $after) === 0
+            ? $phone + 1 : null;
+    }
+
+    /** كلماتٌ عربيةٌ من واحدةٍ إلى أربع، لا تحيّة ولا مبلغ ولا نقطةٌ دالّة ولا كلام محادثة */
+    private function couldBeName(string $text): bool
+    {
+        $text = $this->trimValue($text);
+        $folded = $this->fold($text);
+        $words = preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return count($words) >= 1 && count($words) <= 4
+            && preg_match('/^[\p{Arabic}\s]+$/u', $text) === 1
+            && min(array_map('mb_strlen', $words)) >= 2
+            && preg_match(self::SMALL_TALK, $folded) === 0
+            // «الله» في «عبد الله» اسم، لا كلام محادثة
+            && array_intersect(explode(' ', $folded), array_diff(self::CHAT_WORDS, ['الله'])) === []
+            && preg_match('/(?:^| )(?:'.self::LANDMARK_WORDS.'|'.self::PRICE_WORDS.'|العدد|عدد|قطع|ملاحظه|اريد|اطلب|رقم|الرقم)(?: |$)/u', $folded) === 0;
+    }
+
+    private function isPlace(string $text): bool
+    {
+        $place = $this->place($text);
+
+        return $place['governorate'] !== null || $place['city'] !== null;
     }
 
     /**

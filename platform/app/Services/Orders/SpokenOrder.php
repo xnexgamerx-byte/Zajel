@@ -49,6 +49,12 @@ final class SpokenOrder
         'سبعميه' => 700, 'ثمنميه' => 800, 'ثمانميه' => 800, 'تسعميه' => 900,
     ];
 
+    /** «ثلاث تساعات» ثلاث تسعات (999)، و«اربع اصفار» 0000 — في الهاتف. مطويّة */
+    private const PLURALS = [
+        'اصفار' => 0, 'صفار' => 0, 'صفرات' => 0, 'واحدات' => 1, 'ثنينات' => 2, 'اثنينات' => 2, 'ثلاثات' => 3, 'تلاثات' => 3,
+        'اربعات' => 4, 'خمسات' => 5, 'ستات' => 6, 'سبعات' => 7, 'ثمانيات' => 8, 'ثمنات' => 8, 'تساعات' => 9, 'تسعات' => 9,
+    ];
+
     private const THOUSANDS = ['الف' => 1_000, 'الاف' => 1_000, 'الفين' => 2_000, 'الفان' => 2_000, 'مليون' => 1_000_000, 'ملايين' => 1_000_000];
 
     /** كلماتٌ تبدأ حقلاً: يُبدأ عندها سطرٌ جديد بعنوانه كما يُكتب. مكتوبةٌ مطويّة، ويوسّعها tolerant() */
@@ -97,6 +103,9 @@ final class SpokenOrder
         $text = (string) preg_replace('/(?<![\d:])((?:\+?964|0)?\s*7\d(?:\s?\d){8})(?!\d)/u', "\n$1\n", $text);
         $text = (string) preg_replace('/(?<=\s|^)(?<!المبلغ )(?<!العدد )(\d+(?:\.\d{1,2})? الف)(?=\s|$)/u', "\n$1", $text);
 
+        // عددٌ صغير في آخر الكلام بلا كلمة المبلغ مبلغٌ بالآلاف: «… قرب الجامع خمسة وعشرين»
+        $text = (string) preg_replace('/(?<!العدد)(?<!المبلغ)\s+(\d{1,3})\s*$/u', "\n$1", trim($text));
+
         return implode("\n", array_values(array_filter(array_map(
             fn (string $line) => trim((string) preg_replace('/\s+/u', ' ', $line), " \t:"),
             explode("\n", $text),
@@ -133,9 +142,14 @@ final class SpokenOrder
             }
         };
 
+        $join = false;
         foreach ($tokens as $i => $token) {
             $word = self::numberWord($token);
             $next = $tokens[$i + 1] ?? '';
+            if ($word !== null && $join) {
+                $word['joined'] = true;
+            }
+            $join = false;
 
             // «الف» بعد رقمٍ مكتوب («25 الف») يبقى كلمةً يقرؤها OrderReader
             if ($word !== null && $run === [] && $word['kind'] === 'thousand' && $out !== [] && preg_match('/\d$/', (string) end($out))) {
@@ -150,8 +164,10 @@ final class SpokenOrder
             }
 
             if ($word === null) {
-                // «و» وحدها بين كلمتي عدد وصلٌ لا كلمة
+                // «و» وحدها بين كلمتي عدد وصلٌ لا كلمة: «اربعمية و عشرة» كـ«اربعمية وعشرة»
                 if ($token === 'و' && $run !== [] && self::numberWord($next) !== null) {
+                    $join = true;
+
                     continue;
                 }
                 $flush();
@@ -180,6 +196,9 @@ final class SpokenOrder
                         'digit' => $kind === 'unit', 'kind' => $kind];
                 }
             }
+            if (isset(self::PLURALS[$candidate])) {
+                return ['word' => $candidate, 'value' => self::PLURALS[$candidate], 'joined' => $i === 1, 'digit' => false, 'kind' => 'plural'];
+            }
             if (in_array($candidate, ['نص', 'ونص', 'نصف'], true)) {
                 return ['word' => 'نص', 'value' => 0, 'joined' => true, 'digit' => false, 'kind' => 'half'];
             }
@@ -198,6 +217,12 @@ final class SpokenOrder
      */
     private static function spell(array $run): string
     {
+        // هاتفٌ يُقال مقاطع: «صفر سبعة سبعة اربعمية وعشرة سبعة سبعة ثلاث تساعات» 07741077999
+        $grouped = self::grouped($run);
+        if ($grouped !== null && preg_match('/^(?:0?7\d{9}|0\d{6,})$/', $grouped)) {
+            return $grouped;
+        }
+
         // أرقام هاتفٍ أو رمزٍ تُقرأ رقماً رقماً: آحادٌ بلا «و» بينها، و«دبل/تربل» تكرّر ما بعدها
         $digits = count(array_filter($run, fn (array $w) => $w['digit'] || $w['kind'] === 'repeat')) === count($run)
             && count(array_filter($run, fn (array $w) => $w['joined'])) === 0;
@@ -255,5 +280,79 @@ final class SpokenOrder
         }
 
         return (string) $value;
+    }
+
+    /**
+     * السلسلة مقاطع كما يُقال الهاتف: كلّ مقطعٍ عددٌ («اربعمية وعشرة» 410، «سبعة وسبعين» 77، «صفر» 0)،
+     * والمقاطع تُلصق. «ثلاث تساعات» 999، و«دبل سبعة» 77. وما فيه ألفٌ أو نصفٌ ليس هاتفاً (null).
+     *
+     * @param list<array{word: string, value: int, joined: bool, digit: bool, kind: string}> $run
+     */
+    private static function grouped(array $run): ?string
+    {
+        /** @var list<array{text?: string, words?: list<array>}> $groups */
+        $groups = [];
+        $repeat = null;
+
+        foreach ($run as $word) {
+            if (in_array($word['kind'], ['thousand', 'half'], true)) {
+                return null;
+            }
+            if ($word['kind'] === 'repeat') {
+                $repeat = $word['value'];
+
+                continue;
+            }
+            if ($word['kind'] === 'plural') {
+                // «ثلاث تساعات»: العدد قبلها مقطعٌ من رقمٍ واحد يصير مرّات
+                $last = end($groups);
+                $times = $last !== false && isset($last['words']) && count($last['words']) === 1
+                    && $last['words'][0]['kind'] === 'unit' && $last['words'][0]['value'] >= 2 ? $last['words'][0]['value'] : null;
+                if ($times !== null) {
+                    array_pop($groups);
+                }
+                $groups[] = ['text' => str_repeat((string) $word['value'], $times ?? 1)];
+
+                continue;
+            }
+            if ($repeat !== null && $word['kind'] === 'unit') {
+                $groups[] = ['text' => str_repeat((string) $word['value'], $repeat)];
+                $repeat = null;
+
+                continue;
+            }
+            $repeat = null;
+
+            $last = end($groups);
+            $continues = $last !== false && isset($last['words']) && ($word['joined']
+                // «ثلاث مية»: آحادٌ ثم «مية» مضاعفُها
+                || ($word['kind'] === 'hundred' && $word['value'] === 100 && count($last['words']) === 1 && $last['words'][0]['kind'] === 'unit'));
+
+            if ($continues) {
+                $groups[array_key_last($groups)]['words'][] = $word;
+            } else {
+                $groups[] = ['words' => [$word]];
+            }
+        }
+
+        $spelled = '';
+        foreach ($groups as $group) {
+            $spelled .= $group['text'] ?? (string) self::sum($group['words']);
+        }
+
+        return $spelled === '' ? null : $spelled;
+    }
+
+    /** @param list<array{word: string, value: int, joined: bool, digit: bool, kind: string}> $words */
+    private static function sum(array $words): int
+    {
+        $value = 0;
+        foreach ($words as $word) {
+            $value = $word['kind'] === 'hundred' && $word['value'] === 100 && $value > 0 && $value < 10
+                ? $value * 100
+                : $value + $word['value'];
+        }
+
+        return $value;
     }
 }

@@ -43,7 +43,7 @@
 @endif
 
 @feature('order_reading')
-    <x-order-reader :url="route('portal.shipments.read')" form="order-form" />
+    <x-order-reader :url="route('portal.shipments.read')" :listen="route('portal.shipments.listen')" form="order-form" />
 @endfeature
 
 <form method="POST" action="{{ route('portal.shipments.store') }}" id="order-form" class="mx-auto max-w-3xl">

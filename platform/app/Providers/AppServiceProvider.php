@@ -23,6 +23,23 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(\App\Services\Orders\Ai\OrderModel::class, fn () => new \App\Services\Orders\Ai\ClaudeOrderModel(
             (string) config('zajel.ai.key'), (string) config('zajel.ai.model'), (float) config('zajel.ai.timeout'),
         ));
+        // السماع على الخادم: المحرّك بحسب المفتاح، وبلا مفتاحٍ لا سماع فيسمع المتصفّح
+        $this->app->bind(\App\Services\Orders\Speech\SpeechToText::class, function ($app) {
+            if ($app->bound(\App\Services\Orders\Speech\Transcriber::class)) {
+                return new \App\Services\Orders\Speech\SpeechToText($app->make(\App\Services\Orders\Speech\Transcriber::class));
+            }
+
+            $speech = config('zajel.speech');
+            $provider = $speech['provider'] ?: (filled($speech['elevenlabs']['key']) ? 'elevenlabs' : (filled($speech['openai']['key']) ? 'openai' : null));
+
+            return new \App\Services\Orders\Speech\SpeechToText(match (true) {
+                $provider === 'elevenlabs' && filled($speech['elevenlabs']['key']) => new \App\Services\Orders\Speech\ElevenLabsTranscriber(
+                    $speech['elevenlabs']['key'], $speech['elevenlabs']['model'], $speech['timeout']),
+                $provider === 'openai' && filled($speech['openai']['key']) => new \App\Services\Orders\Speech\OpenAiTranscriber(
+                    $speech['openai']['key'], $speech['openai']['model'], $speech['timeout']),
+                default => null,
+            });
+        });
         $this->app->bind(\App\Services\Orders\AiOrderReader::class, fn ($app) => new \App\Services\Orders\AiOrderReader(
             $app->make(\App\Services\Orders\OrderReader::class),
             filled(config('zajel.ai.key')) ? $app->make(\App\Services\Orders\Ai\OrderModel::class) : null,

@@ -1041,6 +1041,13 @@ summary:focus-visible,
         animation: listening 1.4s ease-in-out infinite;
     }
 
+    /* وهو يسجّل: حلقته بقدر الصوت (--level من ٠ إلى ١) بدل النبض */
+    .btn-listening[style*='--level'] {
+        animation: none;
+        box-shadow: 0 0 0 calc(2px + var(--level) * 10px) rgb(185 28 28 / 0.3);
+        transition: box-shadow 80ms linear;
+    }
+
     /* بطاقةٌ تدعو إلى فعل: حاويةٌ هادئة بزاويةٍ صغيرة، وفيها زرٌّ عائم */
     .dash-card {
         @apply grid place-content-center justify-items-center gap-3 bg-primary-100 p-6 text-center text-sm font-semibold

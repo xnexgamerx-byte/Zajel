@@ -32,6 +32,10 @@ x-app-env: &app-env
   # قراءة الطلب بالذكاء الاصطناعي (docs/plan/40): يُكتب المفتاح في .env وحده. فارغٌ = القارئ المحلّي
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   ZAJEL_AI_MODEL: ${ZAJEL_AI_MODEL:-claude-opus-5-5}
+  # السماع على الخادم: التسجيل حتى «أوقف» يصير نصّاً — مفتاح أحدهما يكفي (ElevenLabs أدقّ بالعربية)
+  ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  ZAJEL_SPEECH_PROVIDER: ${ZAJEL_SPEECH_PROVIDER:-}
 
 x-app-build: &app-build
   context: ../platform
