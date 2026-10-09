@@ -277,3 +277,35 @@ if (pickedBars.length > 0) {
 
     refreshPicked();
 }
+
+/**
+ * «نسخ رسالة التاجر» (docs/plan/41): data-copy-text يُنسخ كما هو، والزرّ يقول «نُسخت»
+ * لحظةً. وفي صفحةٍ بلا حافظةٍ (غير آمنة) يُحدَّد النصّ في خانةٍ مؤقّتة فيُنسخ يدوياً.
+ */
+document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-copy-text]');
+    if (!button) return;
+
+    const text = button.dataset.copyText;
+    let copied = false;
+
+    try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+    } catch {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.append(area);
+        area.select();
+        copied = document.execCommand('copy');
+        area.remove();
+    }
+
+    const label = button.dataset.label ?? button.textContent;
+    button.dataset.label = label;
+    button.textContent = copied ? '✓ نُسخت — الصقها' : 'تعذّر النسخ';
+    window.setTimeout(() => { button.textContent = label; }, 2000);
+});

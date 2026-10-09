@@ -340,6 +340,25 @@ class ReturnSortingTest extends TestCase
         $response->assertRedirect(route('bags.show', $bagId));
     }
 
+    public function test_the_return_in_hand_is_scanned_on_the_sorting_screen(): void
+    {
+        $away = $this->returnReceivedInBaghdad($this->basraMerchant);
+        $home = $this->returnReceivedInBaghdad($this->baghdadMerchant);
+
+        $this->actingAs($this->baghdadClerk)->get($this->host().'/returns/sorting')
+            ->assertOk()->assertSee('data-scan-box', false)->assertSee('data-only', false);
+
+        $lookup = fn (Shipment $shipment) => $this->actingAs($this->baghdadClerk)
+            ->getJson($this->host().'/returns/lookup?stage=sorting&code='.$shipment->number);
+
+        // راجع البصرة على رفّ بغداد يُختار بمسحه
+        $lookup($away)->assertOk()->assertJsonPath('id', $away->id);
+
+        // وراجع تاجرٍ من بغداد لا يُفرَز: يُقال أين يذهب
+        $lookup($home)->assertStatus(422)
+            ->assertJsonPath('error', $home->number.': على رفّ فرع تاجره — لا يُفرَز: يُسلَّم لتاجره من «تسليم الراجع للتاجر».');
+    }
+
     public function test_a_merchant_login_cannot_reach_the_sorting_screen(): void
     {
         $user = Tenancy::runFor($this->company, fn () => User::create([

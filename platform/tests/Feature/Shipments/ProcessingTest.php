@@ -263,4 +263,49 @@ class ProcessingTest extends TestCase
         $this->assertSame(1, $count('return_on_shelf'));
         $this->actingAs($courierUser)->get($this->host().'/courier')->assertOk()->assertDontSee('رواجع بيدك');
     }
+
+    /** «تأكيد الراجع» في صفّ القرار، والقائمة تقول «راجع مؤكد» لا «راجع» */
+    public function test_the_return_is_confirmed_from_the_row_and_named_so_in_the_lists(): void
+    {
+        $shipment = $this->failed();
+
+        $this->actingAs($this->owner)->get($this->host().'/processing')
+            ->assertOk()->assertSee('تأكيد الراجع')->assertDontSee('إرجاع للتاجر');
+        $this->actingAs($this->owner)->get($this->host().'/shipments/'.$shipment->id)
+            ->assertOk()->assertSee('<option value="returning"', false)->assertSee('راجع مؤكد');
+        $this->assertSame('راجع مؤكد', \App\Actions\Shipments\ChangeStatusInBulk::targets()['returning']);
+
+        $this->actingAs($this->owner)->post($this->host()."/processing/{$shipment->id}", ['action' => 'return'])
+            ->assertSessionHas('success', "عولجت {$shipment->number}: راجع مؤكد.");
+        $this->assertSame('راجع مؤكد', $shipment->refresh()->statusLabel());
+    }
+
+    /** الرسالة الثابتة للتاجر: القالب مملوءاً من الشحنة، ولكل موظّفٍ نصّه */
+    public function test_each_employee_has_a_pinned_message_for_the_merchant(): void
+    {
+        $shipment = $this->failed();
+        Tenancy::runFor($this->company, fn () => $this->merchant->update(['phone' => '07711112222']));
+
+        $page = $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()
+            ->assertSee('رسالتي الثابتة للتاجر')->assertSee('نسخ رسالة التاجر');
+        $text = \App\Support\MerchantMessage::for($shipment->load('merchant', 'governorate'), $this->owner);
+        $this->assertStringContainsString($shipment->number, $text);
+        $this->assertStringContainsString($this->merchant->business_name, $text);
+        $this->assertStringContainsString('علي', $text);
+        $this->assertStringNotContainsString('{', $text);
+        $page->assertSee('data-copy-text="'.e($text).'"', false)
+            ->assertSee(e(\App\Support\Phone::whatsappUrl('07711112222', $text)), false);
+
+        // نصّ الموظّف نفسه، وغيره يبقى على القالب
+        $this->actingAs($this->owner)->put($this->host().'/processing/message', ['merchant_message' => 'هلا {التاجر}، الوصل {الوصل} راجع.'])
+            ->assertSessionHas('success', 'حُفظت رسالتك للتاجر.');
+        $this->actingAs($this->owner)->get($this->host().'/processing')
+            ->assertSee(e('هلا '.$this->merchant->business_name.'، الوصل '.$shipment->number.' راجع.'), false);
+        $other = $this->makeUser($this->company, UserRole::CustomerService);
+        $this->assertSame(\App\Support\MerchantMessage::TEMPLATE, \App\Support\MerchantMessage::templateOf($other));
+
+        $this->actingAs($this->owner)->put($this->host().'/processing/message', ['merchant_message' => 'x', 'reset' => 1])
+            ->assertSessionHas('success', 'عادت رسالتك إلى القالب.');
+        $this->assertNull($this->owner->refresh()->merchant_message);
+    }
 }

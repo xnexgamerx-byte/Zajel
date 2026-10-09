@@ -64,6 +64,7 @@ use App\Http\Controllers\Tenant\PrepaidFeeController;
 use App\Http\Controllers\Tenant\ShipmentWaybillController;
 use App\Http\Controllers\Tenant\TransferController;
 use App\Http\Controllers\Tenant\CourierChatController;
+use App\Http\Controllers\Tenant\StaffChatController;
 use App\Http\Controllers\Courier\ChatController as CourierChatAppController;
 use App\Http\Controllers\Tenant\ShipmentOverrideController;
 use App\Http\Controllers\Tenant\MerchantAdvanceController;
@@ -269,6 +270,7 @@ Route::middleware('tenant')->group(function () {
             // شحنات للمعالجة: قرار المتابعة في كل محاولةٍ فاشلة
             Route::middleware('can:shipments.status')->group(function () {
                 Route::get('/processing', [ProcessingController::class, 'index'])->name('processing.index');
+                Route::put('/processing/message', [ProcessingController::class, 'message'])->name('processing.message');
                 Route::post('/processing/{shipment}', [ProcessingController::class, 'store'])->name('processing.store');
             });
 
@@ -343,6 +345,10 @@ Route::middleware('tenant')->group(function () {
             Route::get('/reports/distribution', [FlowReportController::class, 'distribution'])->name('reports.distribution');
             Route::get('/reports/branch-traffic', [FlowReportController::class, 'branchTraffic'])->name('reports.branch-traffic');
             });
+
+            // مراسلة الموظّفين: موظّفٌ لموظّف أو لقسمٍ كلّه (docs/plan/41) — لكل موظّف
+            Route::get('/messages', [StaffChatController::class, 'index'])->name('staff-chat.index');
+            Route::post('/messages', [StaffChatController::class, 'send'])->middleware('throttle:60,1')->name('staff-chat.send');
 
             // المحادثات مع التجّار: للشركة لا لموظّفٍ بعينه
             Route::middleware(['feature:conversations', 'can:support.reply'])->group(function () {

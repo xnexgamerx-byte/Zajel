@@ -6,6 +6,9 @@ import { beep } from './beep';
  * قيل لماذا. والعدّاد «ممسوح كذا من كذا» يكشف ما لم يصل بعد.
  *
  * وبلا قائمةٍ تُعلَّم (data-open): تُفتح قائمة صاحب الطرد وهو معلَّمٌ فيها.
+ *
+ * وفي قائمةٍ مختارةٍ كلّها سلفاً (data-only — الفرز والإرسال لفرع): أوّل مسحةٍ تُلغي اختيار
+ * الباقي، فلا يُرسَل إلّا ما مُسح. وما ليس في القائمة يُضاف إلى خانة data-append إن وُجدت.
  */
 export function initScanBox(root) {
     const input = root.querySelector('[data-scan-box-input]');
@@ -28,6 +31,12 @@ export function initScanBox(root) {
     };
 
     const mark = (box) => {
+        // أوّل مسحة: يبقى الممسوح وحده مختاراً، ومعه «الكل» يُلغى
+        if (root.hasAttribute('data-only') && scanned.size === 0) {
+            boxes().forEach((other) => { other.checked = false; });
+            document.querySelectorAll('[data-check-all], [data-check-all-in]').forEach((all) => { all.checked = false; });
+        }
+
         box.checked = true;
         scanned.add(box.value);
 
@@ -53,7 +62,7 @@ export function initScanBox(root) {
 
         try {
             const url = new URL(root.dataset.lookup, location.href);
-            url.searchParams.set('code', code);
+            url.searchParams.set(root.dataset.param || 'code', code);
             const response = await fetch(url, { headers: { Accept: 'application/json' } });
             const data = await response.json();
 
@@ -72,7 +81,18 @@ export function initScanBox(root) {
 
             const box = boxes().find((el) => el.value === String(data.id));
 
-            if (!box) {
+            const extra = root.dataset.append ? document.querySelector(root.dataset.append) : null;
+
+            if (!box && extra) {
+                // ليس في القائمة المعروضة: يُرسَل معها بالرقم، والخادم يقول إن كان لا يصحّ
+                const listed = extra.value.split(/\s+/).filter(Boolean);
+                if (listed.includes(data.number)) {
+                    say(`${data.number} ممسوحٌ سلفاً.`, true);
+                } else {
+                    extra.value = [...listed, data.number].join('\n');
+                    say(`✓ ${data.number} — ليس في القائمة، أُضيف إلى «أرقام أخرى».`);
+                }
+            } else if (!box) {
                 say(`${data.number} ليس في هذه القائمة${data.courier ? ` — راجعٌ مع ${data.courier}` : ''}.`, true);
             } else if (scanned.has(box.value)) {
                 say(`${data.number} ممسوحٌ سلفاً.`, true);

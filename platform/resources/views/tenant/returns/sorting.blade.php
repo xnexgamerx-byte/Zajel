@@ -21,6 +21,12 @@
     </section>
 @endif
 
+{{-- بالمسح: أوّل وصلٍ يُمسح يُبقي الممسوح وحده مختاراً، ثم «كيّس المُختار» أو «أرسله الآن» --}}
+@if ($misplaced->isNotEmpty())
+    <x-scan-box :lookup="route('returns.lookup', ['stage' => 'sorting'])" only
+                hint="امسح الراجع الذي بيدك — الباركود أو رمز QR — فيُختار وحده في قائمة فرعه، ثم «كيّس المُختار»." />
+@endif
+
 @foreach ($misplaced as $branchId => $shipments)
     @php
         $branch = $branches->get($branchId);

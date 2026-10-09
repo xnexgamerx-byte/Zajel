@@ -2,9 +2,13 @@
     'lookup',          // يُسأل عن الوصل الممسوح: هل هو من القائمة، وإلّا فلماذا
     'open' => null,    // بلا قائمةٍ تُعلَّم (تسليم الراجع قبل اختيار التاجر): تُفتح قائمة صاحب الطرد
     'hint' => 'امسح الوصل — الباركود أو رمز QR — فيُعلَّم في القائمة.',
+    'only' => false,   // قائمةٌ مختارةٌ كلّها سلفاً: أوّل مسحةٍ تُبقي الممسوح وحده مختاراً
+    'append' => null,  // خانةٌ يُضاف إليها ما ليس في القائمة (الإرسال لفرع)
+    'param' => 'code', // اسم الرمز في سؤال الخادم
 ])
 
-<section class="card mb-4 p-5" data-scan-box data-lookup="{{ $lookup }}" @if ($open) data-open="{{ $open }}" @endif>
+<section {{ $attributes->merge(['class' => 'card mb-4 p-5']) }} data-scan-box data-lookup="{{ $lookup }}" data-param="{{ $param }}"
+         @if ($open) data-open="{{ $open }}" @endif @if ($only) data-only @endif @if ($append) data-append="{{ $append }}" @endif>
     <label class="field-label" for="scan-box-input">مسح الوصولات</label>
     <div class="flex gap-2">
         <input id="scan-box-input" class="field-input text-lg" autocomplete="off" autofocus inputmode="text"

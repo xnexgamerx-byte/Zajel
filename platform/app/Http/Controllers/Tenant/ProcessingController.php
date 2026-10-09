@@ -10,6 +10,7 @@ use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Services\Shipments\ShipmentFilters;
+use App\Support\MerchantMessage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -50,7 +51,7 @@ class ProcessingController extends Controller
             'filtered'  => $request->filled('q') || $request->filled('courier_id'),
             'couriers'  => $tab === 'pending' ? Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']) : collect(),
             'shipments' => $tab === 'pending'
-                ? $found->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar',
+                ? $found->with(['merchant:id,business_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
                         'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
                     ->orderBy('shipments.status_changed_at')
                     ->paginate(config('zajel.per_page'))
@@ -90,5 +91,20 @@ class ProcessingController extends Controller
 
         return back()->with('success', "عولجت {$shipment->number}: ".self::ACTIONS[$data['action']]
             .($data['action'] === 'postpone' ? ' إلى '.$data['until'] : '').'.');
+    }
+
+    /** الرسالة الثابتة للتاجر: نصّ الموظّف نفسه، وفارغاً يعود القالب (docs/plan/41) */
+    public function message(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'merchant_message' => ['nullable', 'string', 'max:'.MerchantMessage::MAX],
+        ], [], ['merchant_message' => 'الرسالة']);
+
+        $text = trim((string) ($data['merchant_message'] ?? ''));
+        // القالب نفسه لا يُحفظ نسخةً: يبقى يتبع ما يأتي مع النظام
+        $request->user()->update(['merchant_message' => $text === '' || $request->boolean('reset')
+            || $text === MerchantMessage::TEMPLATE ? null : $text]);
+
+        return back()->with('success', $request->boolean('reset') || $text === '' ? 'عادت رسالتك إلى القالب.' : 'حُفظت رسالتك للتاجر.');
     }
 }

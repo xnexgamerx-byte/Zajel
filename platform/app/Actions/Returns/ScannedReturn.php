@@ -15,7 +15,7 @@ use App\Models\Shipment;
  */
 class ScannedReturn
 {
-    public const STAGES = ['incoming', 'handover', 'pickup'];
+    public const STAGES = ['incoming', 'handover', 'pickup', 'sorting'];
 
     /** @return string|null سبب الرفض، أو null إن كان من قائمة هذه الخطوة */
     public function problem(Shipment $shipment, string $stage, ?int $merchantId = null, ?int $pickupCourierId = null): ?string
@@ -51,6 +51,11 @@ class ScannedReturn
         }
 
         $away = Shipment::query()->whereKey($shipment->id)->awayFromHomeBranch()->exists();
+
+        // الفرز عكس التسليم: يُقبل ما على رفٍّ غريب وحده (SortReturns::misplaced)
+        if ($stage === 'sorting') {
+            return $away ? null : 'على رفّ فرع تاجره — لا يُفرَز: يُسلَّم لتاجره من «تسليم الراجع للتاجر».';
+        }
 
         if ($away) {
             return 'على رفّ فرعٍ غير فرع تاجره — يُفرَز إليه أوّلاً من «فرز الراجع للفروع».';

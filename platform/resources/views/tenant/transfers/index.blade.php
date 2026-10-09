@@ -103,6 +103,12 @@
             @if ($to)
                 <form method="POST" action="{{ route('transfers.send') }}" class="border-t border-ink-200">
                     @csrf
+                    {{-- بالمسح: يُختار الممسوح وحده، وما ليس في القائمتين يُضاف إلى «أرقام أخرى» --}}
+                    @can('shipments.view')
+                        <x-scan-box :lookup="route('shipments.scan.lookup')" param="number" only append="#numbers"
+                                    class="!mb-0 rounded-none border-0 border-b border-ink-100 shadow-none"
+                                    hint="امسح ما تُرسله — الباركود أو رمز QR — فيُختار وحده، ثم «أرسل»." />
+                    @endcan
                     <input type="hidden" name="to_hub_id" value="{{ $to->id }}">
                     @if ($canChooseHub)
                         <input type="hidden" name="from_hub_id" value="{{ $here->id }}">

@@ -118,6 +118,8 @@ final class StaffNavigation
             'followup' => ['المتابعة', 'review', [
                 // ما مرّ عليه آخر موعدٍ للتوصيل: المتأخرة، والمتوقّفة عند نقطة انتقال، والمبالغ (docs/plan/39)
                 ['operations.alerts', 'التنبيهات التشغيلية', ['operations.alerts'], 'shipments.view'],
+                // موظّفٌ لموظّف أو لقسم، بلا واتساب (docs/plan/41)
+                ['staff-chat.index', 'مراسلة الموظفين', ['staff-chat.*'], null],
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
                 // الكول سنتر والمندوب في الطريق (docs/plan/38)
                 ['courier-chat.index', 'محادثة المناديب', ['courier-chat.*'], 'support.reply'],
@@ -170,6 +172,9 @@ final class StaffNavigation
             ? \App\Models\CourierThread::visibleTo($user)->where('staff_unread', true)->count()
             : 0;
 
+        // ورسائل الموظّفين التي لم يقرأها (docs/plan/41)
+        $staffUnread = app(\App\Actions\Support\StaffChat::class)->unreadCount($user);
+
         // وطلبات المناديب المفتوحة في محافظات اختصاصه (docs/plan/30)
         $tickets = $user->can('tickets.handle') ? ShipmentTicket::visibleTo($user)->open()->count() : 0;
 
@@ -202,6 +207,7 @@ final class StaffNavigation
                     'badge'  => match ($route) {
                         'conversations.index' => $waiting,
                         'courier-chat.index'  => $couriersWaiting,
+                        'staff-chat.index'    => $staffUnread,
                         'tickets.index'       => $tickets,
                         default               => 0,
                     },

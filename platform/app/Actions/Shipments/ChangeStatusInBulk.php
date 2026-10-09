@@ -46,7 +46,7 @@ class ChangeStatusInBulk
             ShipmentStatus::Delivered->value      => 'واصل (المبلغ كاملاً)',
             ShipmentStatus::FailedAttempt->value  => 'لم يُسلَّم',
             ShipmentStatus::Postponed->value      => 'مؤجل',
-            ShipmentStatus::Returning->value      => 'راجع',
+            ShipmentStatus::Returning->value      => 'راجع مؤكد',
             ShipmentStatus::Cancelled->value      => 'ملغي',
         ];
     }

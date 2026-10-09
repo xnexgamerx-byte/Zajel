@@ -35,6 +35,11 @@
                 </a>
             @endcan
         @endif
+        {{-- راسل موظّفاً أو قسماً عنها — موظّف الراجع، الحسابات (docs/plan/41) --}}
+        <a href="{{ route('staff-chat.index', ['shipment' => $shipment->number]) }}" class="btn-ghost">
+            <x-icon name="chat" class="size-5"/>
+            راسل موظّفاً عنها
+        </a>
         {{-- راسل مندوبها من الكول سنتر عنها (docs/plan/38) --}}
         @if ($shipment->delivery_courier_id && auth()->user()->can('support.reply') && \App\Support\FeatureGate::enabled(\App\Enums\Feature::Conversations))
             <a href="{{ route('courier-chat.index', ['courier' => $shipment->delivery_courier_id, 'shipment' => $shipment->number]) }}" class="btn-ghost">
@@ -252,8 +257,12 @@
                             @foreach ($nextStatuses as $next)
                                 <option value="{{ $next->value }}" @selected(old('status') === $next->value)>
                                     {{-- الراجع لا يعود «بالمخزن» إلّا إعادةَ توصيلٍ يطلبها التاجر (docs/plan/38) --}}
-                                    {{ $shipment->status === \App\Enums\ShipmentStatus::Returning && $next === \App\Enums\ShipmentStatus::AtHub
-                                        ? 'إعادة للتوصيل بطلب التاجر' : $next->label() }}
+                                    {{-- وقرار الإرجاع بعد محاولةٍ أو من المخزن «راجع مؤكد» كما يُعرض بعده --}}
+                                    {{ match (true) {
+                                        $shipment->status === \App\Enums\ShipmentStatus::Returning && $next === \App\Enums\ShipmentStatus::AtHub => 'إعادة للتوصيل بطلب التاجر',
+                                        $next === \App\Enums\ShipmentStatus::Returning && $shipment->status !== \App\Enums\ShipmentStatus::PartiallyDelivered => 'راجع مؤكد',
+                                        default => $next->label(),
+                                    } }}
                                 </option>
                             @endforeach
                         </select>

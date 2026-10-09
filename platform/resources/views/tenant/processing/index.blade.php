@@ -5,7 +5,7 @@
 <div class="mb-4">
     <h1 class="page-title">شحنات لم تُسلَّم (للمعالجة)</h1>
     <p class="mt-1 text-sm text-ink-500">
-        محاولاتٌ فاشلة تنتظر قراراً، الأقدم أوّلاً: اتّصل بالزبون، ثم إعادة توصيل، أو تأجيل إلى موعده، أو إرجاع للتاجر.
+        محاولاتٌ فاشلة تنتظر قراراً، الأقدم أوّلاً: اتّصل بالزبون، ثم إعادة توصيل، أو تأجيل إلى موعده، أو تأكيد الراجع.
     </p>
     @if ($governorates->isNotEmpty())
         <p class="mt-2 text-sm">
@@ -26,6 +26,32 @@
 @error('until') <div class="card mb-4 border-bad-200 bg-bad-50 p-4 text-sm text-bad-700">{{ $message }}</div> @enderror
 
 @if ($tab === 'pending')
+    {{-- الرسالة الثابتة للتاجر (docs/plan/41): لكل موظّفٍ نصّه، والخانات تُملأ من كل شحنة --}}
+    @php $myMessage = \App\Support\MerchantMessage::templateOf(auth()->user()); @endphp
+    <details class="card mb-4 p-4" @if ($errors->has('merchant_message')) open @endif>
+        <summary class="cursor-pointer font-semibold">رسالتي الثابتة للتاجر
+            <span class="ms-1 text-sm font-normal text-ink-500">— تُنسخ أو تُرسَل بواتساب من كل شحنة بضغطة</span></summary>
+        <form method="POST" action="{{ route('processing.message') }}" class="mt-3 space-y-3">
+            @csrf
+            @method('PUT')
+            <textarea name="merchant_message" rows="6" maxlength="{{ \App\Support\MerchantMessage::MAX }}" class="field-input"
+                      aria-label="نصّ رسالتي للتاجر">{{ old('merchant_message', $myMessage) }}</textarea>
+            @error('merchant_message') <p class="field-error">{{ $message }}</p> @enderror
+            <p class="text-xs text-ink-500">
+                الخانات بين القوسين تُملأ وحدها:
+                @foreach (\App\Support\MerchantMessage::FIELDS as $field => $meaning)
+                    <span class="chip chip-mute ms-1" title="{{ $meaning }}">{{ $field }}</span>
+                @endforeach
+            </p>
+            <div class="flex flex-wrap gap-2">
+                <button type="submit" class="btn-primary">احفظ رسالتي</button>
+                @if (filled(auth()->user()->merchant_message))
+                    <button type="submit" name="reset" value="1" class="btn-ghost">أرجعها للقالب</button>
+                @endif
+            </div>
+        </form>
+    </details>
+
     @if ($pendingCount)
         <form method="GET" action="{{ route('processing.index') }}" class="card mb-4 flex flex-wrap items-end gap-3 p-4">
             <div class="min-w-56 flex-1">
@@ -70,6 +96,16 @@
                             · {{ $shipment->deliveryCourier?->name ?? 'بلا مندوب' }}
                         </span>
                     </div>
+                    @php
+                        $text = \App\Support\MerchantMessage::for($shipment, auth()->user());
+                        $whatsapp = \App\Support\Phone::whatsappUrl($shipment->merchant?->phone, $text);
+                    @endphp
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                        <button type="button" class="btn-ghost py-1" data-copy-text="{{ $text }}">نسخ رسالة التاجر</button>
+                        @if ($whatsapp)
+                            <a href="{{ $whatsapp }}" target="_blank" rel="noopener" class="btn-ghost py-1">واتساب التاجر</a>
+                        @endif
+                    </div>
                     <form method="POST" action="{{ route('processing.store', $shipment) }}" class="mt-3 flex flex-wrap items-end gap-2">
                         @csrf
                         <input name="note" class="field-input min-w-56 flex-1 py-1.5" maxlength="255" placeholder="ما قاله الزبون"
@@ -80,7 +116,8 @@
                                    value="{{ today()->addDay()->toDateString() }}" aria-label="موعد التأجيل">
                             <button name="action" value="postpone" class="btn-ghost py-1">تأجيل</button>
                         </span>
-                        <button name="action" value="return" class="btn-danger py-1">إرجاع للتاجر</button>
+                        {{-- «تأكيد الراجع»: يصير «راجع مؤكد» ويرجع لتاجره (docs/plan/38) --}}
+                        <button name="action" value="return" class="btn-danger py-1">تأكيد الراجع</button>
                     </form>
                 </section>
             @endforeach

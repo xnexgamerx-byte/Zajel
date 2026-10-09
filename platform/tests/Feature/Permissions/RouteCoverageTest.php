@@ -28,6 +28,8 @@ class RouteCoverageTest extends TestCase
         'impersonation.stop',
         // رئيسيّته هو؛ ورئيسية مرتبةٍ لمن يدير الصلاحيات — يُفحص في HomeLayoutController
         'home.customize.update',
+        // كل موظّفٍ يراسل زملاءه (docs/plan/41): ومن يُراسَل يُفحص في StaffChatController
+        'staff-chat.send',
     ];
 
     public function test_every_staff_route_that_writes_is_guarded_by_an_ability(): void
