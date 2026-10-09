@@ -347,4 +347,51 @@ class ProcessingTest extends TestCase
         $this->actingAs($this->owner)->post($this->host()."/processing/{$shipment->id}/ask")
             ->assertSessionHasErrors('action');
     }
+
+    /** محادثتا التاجر والمندوب في صفّ الشحنة: يُردّ منهما ويُعاد إلى الصفّ نفسه، ومن كتب يُقدَّم */
+    public function test_merchant_and_courier_chats_live_in_the_row_and_who_wrote_comes_first(): void
+    {
+        $this->setFeature($this->company, \App\Enums\Feature::Conversations);
+        $older = $this->failed();
+        $newer = $this->failed(['status_changed_at' => now()->subHour()]);
+
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()
+            ->assertSee('محادثة التاجر')->assertSee('محادثة المندوب')
+            ->assertSeeInOrder([$older->number, $newer->number]);
+
+        // المندوب كتب عن الأحدث: تتقدّم، وعليها «ينتظر ردّك»
+        Tenancy::runFor($this->company, fn () => app(\App\Actions\Support\CourierChat::class)
+            ->send($this->courier, 'الزبون يقول بعد العصر', $this->courierUser(), \App\Actions\Support\CourierChat::COURIER, $newer));
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()
+            ->assertSeeInOrder([$newer->number, $older->number])
+            ->assertSee('ينتظر ردّك')->assertSee('الزبون يقول بعد العصر');
+
+        // الردّ من الصفّ نفسه: يعود إليه والمحادثة مفتوحة، ولا تبقى «ينتظر ردّك»
+        $this->actingAs($this->owner)->from($this->host().'/processing')
+            ->post($this->host()."/processing/{$newer->id}/courier-chat", ['body' => 'تمام، أعده بعد العصر'])
+            ->assertRedirect($this->host().'/processing#row-'.$newer->id)->assertSessionHas('open_chat', 'courier-'.$newer->id);
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertSeeInOrder([$older->number, $newer->number]);
+
+        // والتاجر: محادثةٌ عن الشحنة تبدأ من الصفّ، وردّه يقدّمها (ظهراً: التاجر يراسل في ساعات الشركة)
+        $this->travelTo(now('Asia/Baghdad')->setTime(12, 0));
+        $this->actingAs($this->owner)->from($this->host().'/processing')
+            ->post($this->host()."/processing/{$older->id}/merchant-chat", ['body' => 'الزبون لا يرد، نعيد التوصيل؟'])
+            ->assertSessionHas('open_chat', 'merchant-'.$older->id);
+        Tenancy::runFor($this->company, function () use ($older) {
+            $conversation = \App\Models\Conversation::where('shipment_id', $older->id)->sole();
+            $this->assertTrue((bool) $conversation->merchant_unread);
+            $merchantUser = User::create(['name' => 'التاجر', 'phone' => '07790000077', 'password' => 'password',
+                'role' => UserRole::Merchant, 'merchant_id' => $this->merchant->id, 'is_active' => true]);
+            app(\App\Actions\Support\Converse::class)->reply($conversation, 'نعم أعيدوه', $merchantUser, \App\Actions\Support\Converse::MERCHANT);
+        });
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertSeeInOrder([$older->number, $newer->number])
+            ->assertSee('نعم أعيدوه');
+    }
+
+    private function courierUser(): User
+    {
+        return Tenancy::runFor($this->company, fn () => User::firstOrCreate(['phone' => '07720000099'], [
+            'name' => 'مندوب', 'password' => 'password', 'role' => UserRole::Courier, 'courier_id' => $this->courier->id, 'is_active' => true,
+        ]));
+    }
 }

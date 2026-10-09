@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Shipments\ProcessFailedAttempt;
 use App\Actions\Support\Converse;
+use App\Actions\Support\CourierChat;
 use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
@@ -48,7 +49,23 @@ class ProcessingController extends Controller
 
         $mine = $request->user()->handledGovernorateIds();
 
+        $page = $tab === 'pending'
+            ? $found->select('shipments.*')->with(['merchant:id,business_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
+                    'deliveryCourier:id,name,phone', 'lastFailureReason:id,name_ar'])
+                ->withMax(['events as asked_at' => fn ($q) => $q->where('event_type', 'merchant_asked')
+                    ->whereColumn('shipment_events.created_at', '>=', 'shipments.status_changed_at')], 'created_at')
+                // من كتب أوّلاً (docs/plan/43): تاجرٌ ردّ عن الشحنة، أو مندوبٌ كتب عنها، أو تذكرةٌ مفتوحة لها
+                ->selectRaw(self::WAITING_ON_US.' as waiting_on_us')
+                ->orderByDesc('waiting_on_us')
+                ->orderBy('shipments.status_changed_at')
+                ->paginate(config('zajel.per_page'))
+                ->withQueryString()
+            : null;
+        $canChat = FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply');
+
         return view('tenant.processing.index', [
+            'canChat'   => $canChat,
+            'chats'     => $page && $canChat ? $this->chats($page->getCollection()) : ['merchant' => collect(), 'courier' => collect()],
             'tab'       => $tab,
             'canAsk'    => FeatureGate::enabled(Feature::Conversations),
             'governorates' => $mine === [] ? collect()
@@ -56,16 +73,7 @@ class ProcessingController extends Controller
             'pendingCount' => (clone $pending)->count(),
             'filtered'  => $request->filled('q') || $request->filled('courier_id'),
             'couriers'  => $tab === 'pending' ? Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']) : collect(),
-            'shipments' => $tab === 'pending'
-                ? $found->with(['merchant:id,business_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
-                        'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
-                    // آخر رسالةٍ أُرسلت لتاجرها عنها: تنتظر ردّه قبل القرار
-                    ->withMax(['events as asked_at' => fn ($q) => $q->where('event_type', 'merchant_asked')
-                        ->whereColumn('shipment_events.created_at', '>=', 'shipments.status_changed_at')], 'created_at')
-                    ->orderBy('shipments.status_changed_at')
-                    ->paginate(config('zajel.per_page'))
-                    ->withQueryString()
-                : null,
+            'shipments' => $page,
             // ما عولج في الأيام السبعة الأخيرة: القرار ومن اتّخذه وبعد كم
             'done'      => $tab === 'done'
                 ? ShipmentEvent::query()
@@ -79,6 +87,77 @@ class ProcessingController extends Controller
                     ->withQueryString()
                 : null,
         ]);
+    }
+
+    /**
+     * شحنةٌ كتب عنها أحدٌ ينتظر ردّنا — تُقدَّم في القائمة: محادثة التاجر عنها وآخر سطرٍ منه، أو
+     * سطرٌ من المندوب عنها في محادثته ولم نقرأها، أو تذكرة تغيير مبلغٍ مفتوحة.
+     */
+    private const WAITING_ON_US = "(exists (select 1 from conversations c where c.shipment_id = shipments.id and c.staff_unread = 1)
+        or exists (select 1 from courier_messages m join courier_threads t on t.id = m.courier_thread_id
+            where m.shipment_id = shipments.id and m.author = 'courier' and t.staff_unread = 1)
+        or exists (select 1 from shipment_tickets k where k.shipment_id = shipments.id and k.status = 'open'))";
+
+    /**
+     * محادثتا الشحنة في صفّها (docs/plan/43): محادثة التاجر عنها، ومحادثة مندوبها — تُقرأ ويُردّ
+     * عليها من شاشة المعالجة نفسها، لا من شاشةٍ أخرى.
+     *
+     * @param  \Illuminate\Support\Collection<int, Shipment>  $shipments
+     * @return array{merchant: \Illuminate\Support\Collection, courier: \Illuminate\Support\Collection}
+     */
+    private function chats($shipments): array
+    {
+        $merchant = Conversation::query()
+            ->whereIn('shipment_id', $shipments->pluck('id'))
+            ->with(['messages' => fn ($q) => $q->latest('id')->limit(30)])
+            ->latest('id')->get()->unique('shipment_id')->keyBy('shipment_id');
+
+        $courier = \App\Models\CourierThread::query()
+            ->whereIn('courier_id', $shipments->pluck('delivery_courier_id')->filter()->unique())
+            ->with(['messages' => fn ($q) => $q->with('shipment:id,number')->latest('id')->limit(30)])
+            ->get()->keyBy('courier_id');
+
+        return ['merchant' => $merchant, 'courier' => $courier];
+    }
+
+    /** ردٌّ على التاجر من صفّ الشحنة: في محادثتها، أو محادثةٌ جديدة عنها */
+    public function merchantChat(Request $request, Shipment $shipment, Converse $converse): RedirectResponse
+    {
+        abort_unless($shipment->inGovernoratesOf($request->user()) && $shipment->merchant, 404);
+        abort_unless(FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply'), 403);
+
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الرسالة']);
+
+        $open = Conversation::query()->where('shipment_id', $shipment->id)->latest('id')->first();
+
+        if ($open) {
+            $converse->reply($open, $data['body'], $request->user(), Converse::STAFF);
+            $converse->markRead($open->refresh(), Converse::STAFF);
+        } else {
+            $converse->start($shipment->merchant, "بخصوص الوصل {$shipment->number}", $data['body'], $request->user(), Converse::STAFF, $shipment->number);
+        }
+
+        return $this->backToRow($shipment, 'merchant');
+    }
+
+    /** ردٌّ على المندوب من صفّ الشحنة: في محادثته، والسطر يحمل رقم الشحنة */
+    public function courierChat(Request $request, Shipment $shipment, CourierChat $chat): RedirectResponse
+    {
+        abort_unless($shipment->inGovernoratesOf($request->user()) && $shipment->deliveryCourier, 404);
+        abort_unless(FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply'), 403);
+
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الرسالة']);
+
+        $chat->send($shipment->deliveryCourier, $data['body'], $request->user(), CourierChat::STAFF, $shipment);
+        $chat->markRead($chat->thread($shipment->deliveryCourier)->refresh(), CourierChat::STAFF);
+
+        return $this->backToRow($shipment, 'courier');
+    }
+
+    /** إلى الشاشة نفسها والصفّ نفسه، والمحادثة مفتوحة */
+    private function backToRow(Shipment $shipment, string $chat): RedirectResponse
+    {
+        return redirect()->to(url()->previous().'#row-'.$shipment->id)->with('open_chat', "{$chat}-{$shipment->id}");
     }
 
     public function store(Request $request, Shipment $shipment, ProcessFailedAttempt $process): RedirectResponse

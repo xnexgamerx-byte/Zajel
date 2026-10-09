@@ -56,7 +56,10 @@
         <div class="space-y-3">
             @foreach ($shipments as $shipment)
                 @php $hours = (int) $shipment->status_changed_at?->diffInHours(now()); @endphp
-                <section class="card p-4">
+                <section id="row-{{ $shipment->id }}" @class(['card p-4', 'ring-2 ring-warn-500' => $shipment->waiting_on_us])>
+                    @if ($shipment->waiting_on_us)
+                        <p class="mb-2 text-xs font-semibold text-warn-700">ينتظر ردّك — كتب التاجر أو المندوب عنها، أو لها طلب تغيير مبلغ</p>
+                    @endif
                     <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
                         <a href="{{ route('shipments.show', $shipment) }}" class="num font-semibold text-[var(--brand)] hover:underline" dir="ltr">{{ $shipment->number }}</a>
                         <span class="font-medium">{{ $shipment->recipient_name }}</span>
@@ -74,7 +77,13 @@
                         $text = \App\Support\MerchantMessage::for($shipment, auth()->user());
                         $whatsapp = \App\Support\Phone::whatsappUrl($shipment->merchant?->phone, $text);
                     @endphp
-                    <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                    @php
+                        $merchantChat = $chats['merchant'][$shipment->id] ?? null;
+                        $courierThread = $shipment->delivery_courier_id ? ($chats['courier'][$shipment->delivery_courier_id] ?? null) : null;
+                        $courierNew = $courierThread?->staff_unread && $courierThread->messages->contains(fn ($m) => $m->author === 'courier' && $m->shipment_id === $shipment->id);
+                        $opened = session('open_chat');
+                    @endphp
+                    <div class="mt-2 flex flex-wrap items-start gap-2 text-sm">
                         {{-- «أرسل للتاجر» بلا قرار: الرسالة تصله في «المحادثات»، والشحنة تبقى هنا حتى يردّ (docs/plan/41) --}}
                         @if ($canAsk && $shipment->merchant)
                             <form method="POST" action="{{ route('processing.ask', $shipment) }}">
@@ -82,12 +91,75 @@
                                 <button type="submit" class="btn-primary py-1">أرسل للتاجر</button>
                             </form>
                         @endif
-                        <button type="button" class="btn-ghost py-1" data-copy-text="{{ $text }}">نسخ رسالة التاجر</button>
-                        @if ($whatsapp)
-                            <a href="{{ $whatsapp }}" target="_blank" rel="noopener" class="btn-ghost py-1">واتساب التاجر</a>
+
+                        {{-- محادثتا الشحنة هنا في صفّها: تُقرأ ويُردّ عليها بلا انتقال (docs/plan/43) --}}
+                        @if ($canChat && $shipment->merchant)
+                            <details class="group open:order-last open:basis-full" @if ($opened === 'merchant-'.$shipment->id) open @endif>
+                                <summary class="btn-ghost inline-flex cursor-pointer list-none py-1 group-open:bg-primary-100">
+                                    محادثة التاجر
+                                    @if ($merchantChat?->staff_unread)<span class="nav-badge">جديد</span>@endif
+                                </summary>
+                                <div class="mt-2 rounded-2xl border border-ink-200 bg-white p-3">
+                                    <ol class="max-h-64 space-y-2 overflow-y-auto" aria-label="محادثة التاجر عن {{ $shipment->number }}">
+                                        @forelse ($merchantChat?->messages->reverse() ?? [] as $message)
+                                            @php $ours = $message->author === 'staff'; @endphp
+                                            <li class="flex {{ $ours ? 'justify-end' : 'justify-start' }}">
+                                                <div class="max-w-[85%] rounded-2xl px-3 py-2 {{ $ours ? 'bg-[var(--brand)] text-white' : 'bg-ink-50' }}">
+                                                    <p class="whitespace-pre-line">{{ $message->body }}</p>
+                                                    <p class="mt-0.5 text-[11px] {{ $ours ? 'text-white/75' : 'text-ink-400' }}">{{ $message->author_name }} · <span class="num">{{ $message->created_at->format('m-d H:i') }}</span></p>
+                                                </div>
+                                            </li>
+                                        @empty
+                                            <li class="py-3 text-center text-ink-500">لا رسالة مع التاجر عن هذه الشحنة بعد.</li>
+                                        @endforelse
+                                    </ol>
+                                    <form method="POST" action="{{ route('processing.merchant-chat', $shipment) }}" class="mt-2 flex gap-2">
+                                        @csrf
+                                        <textarea name="body" rows="1" maxlength="2000" required class="field-input flex-1 py-1.5"
+                                                  placeholder="اكتب للتاجر {{ $shipment->merchant->business_name }}…" aria-label="رسالة للتاجر"></textarea>
+                                        <button type="submit" class="btn-primary py-1">أرسل</button>
+                                    </form>
+                                </div>
+                            </details>
                         @endif
+                        @if ($canChat && $shipment->deliveryCourier)
+                            <details class="group open:order-last open:basis-full" @if ($opened === 'courier-'.$shipment->id) open @endif>
+                                <summary class="btn-ghost inline-flex cursor-pointer list-none py-1 group-open:bg-primary-100">
+                                    محادثة المندوب
+                                    @if ($courierNew)<span class="nav-badge">جديد</span>@endif
+                                </summary>
+                                <div class="mt-2 rounded-2xl border border-ink-200 bg-white p-3">
+                                    <ol class="max-h-64 space-y-2 overflow-y-auto" aria-label="محادثة {{ $shipment->deliveryCourier->name }}">
+                                        @forelse ($courierThread?->messages->reverse() ?? [] as $message)
+                                            @php $ours = $message->author === 'staff'; $here = $message->shipment_id === $shipment->id; @endphp
+                                            <li @class(['flex', 'justify-end' => $ours, 'justify-start' => ! $ours, 'opacity-60' => ! $here])>
+                                                <div class="max-w-[85%] rounded-2xl px-3 py-2 {{ $ours ? 'bg-[var(--brand)] text-white' : 'bg-ink-50' }}">
+                                                    @if ($message->shipment)<span class="text-[11px] {{ $ours ? 'text-white/80' : 'text-ink-500' }}">الشحنة <span class="num">{{ $message->shipment->number }}</span></span>@endif
+                                                    <p class="whitespace-pre-line">{{ $message->body }}</p>
+                                                    <p class="mt-0.5 text-[11px] {{ $ours ? 'text-white/75' : 'text-ink-400' }}">{{ $message->author_name }} · <span class="num">{{ $message->created_at->format('m-d H:i') }}</span></p>
+                                                </div>
+                                            </li>
+                                        @empty
+                                            <li class="py-3 text-center text-ink-500">لا رسالة مع {{ $shipment->deliveryCourier->name }} بعد.</li>
+                                        @endforelse
+                                    </ol>
+                                    <form method="POST" action="{{ route('processing.courier-chat', $shipment) }}" class="mt-2 flex gap-2">
+                                        @csrf
+                                        <textarea name="body" rows="1" maxlength="2000" required class="field-input flex-1 py-1.5"
+                                                  placeholder="اكتب للمندوب {{ $shipment->deliveryCourier->name }} عن {{ $shipment->number }}…" aria-label="رسالة للمندوب"></textarea>
+                                        <button type="submit" class="btn-primary py-1">أرسل</button>
+                                    </form>
+                                </div>
+                            </details>
+                        @endif
+
+                        <button type="button" class="btn-ghost py-1" data-copy-text="{{ $text }}">نسخ رسالة التاجر</button>
                         @if ($shipment->asked_at)
-                            <span class="chip chip-info">أُرسل للتاجر {{ \Illuminate\Support\Carbon::parse($shipment->asked_at)->diffForHumans() }} — ينتظر ردّه</span>
+                            <span class="chip chip-info self-center">أُرسل للتاجر {{ \Illuminate\Support\Carbon::parse($shipment->asked_at)->diffForHumans() }} — ينتظر ردّه</span>
+                        @endif
+                        {{-- واتساب التاجر جانباً: المحادثة داخل النظام أوّلاً --}}
+                        @if ($whatsapp)
+                            <a href="{{ $whatsapp }}" target="_blank" rel="noopener" class="ms-auto self-center text-xs text-ink-500 underline hover:text-[var(--brand)]">واتساب التاجر</a>
                         @endif
                     </div>
                     <form method="POST" action="{{ route('processing.store', $shipment) }}" class="mt-3 flex flex-wrap items-end gap-2">

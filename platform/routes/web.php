@@ -274,6 +274,9 @@ Route::middleware('tenant')->group(function () {
                 Route::put('/merchant-message', [ProcessingController::class, 'message'])->name('merchant-message.update');
                 Route::post('/processing/{shipment}', [ProcessingController::class, 'store'])->name('processing.store');
                 Route::post('/processing/{shipment}/ask', [ProcessingController::class, 'ask'])->middleware('throttle:60,1')->name('processing.ask');
+                // محادثتا الشحنة في صفّها: التاجر والمندوب، بلا انتقالٍ لشاشةٍ أخرى (docs/plan/43)
+                Route::post('/processing/{shipment}/merchant-chat', [ProcessingController::class, 'merchantChat'])->middleware('throttle:60,1')->name('processing.merchant-chat');
+                Route::post('/processing/{shipment}/courier-chat', [ProcessingController::class, 'courierChat'])->middleware('throttle:60,1')->name('processing.courier-chat');
             });
 
             // طلبات المناديب لتغيير المبلغ: للكول سنتر المختصّة بمحافظة الشحنة (docs/plan/30)
