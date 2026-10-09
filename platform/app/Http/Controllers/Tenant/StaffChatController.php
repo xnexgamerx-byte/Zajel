@@ -38,8 +38,19 @@ class StaffChatController extends Controller
         }
 
         $teams = $chat->teams();
+        $q = trim((string) $request->query('q', ''));
+        $to = (string) $request->query('to', '');
+
+        // الموظّفون أوّلاً، وجنب كلٍّ واتساب؛ والمراسلة داخل النظام تبويبٌ ثانٍ — يُفتح بمحادثةٍ أو بـ«إلى»
+        $tab = $thread || $to !== '' || $request->query('tab') === 'chat' || $request->old('body') !== null ? 'chat' : 'people';
 
         return view('tenant.staff_chat.index', [
+            'tab'      => $tab,
+            'q'        => $q,
+            'directory' => $chat->staff($user)->whereKeyNot($user->id)
+                ->when($q !== '', fn ($w) => $w->where(fn ($m) => $m->where('name', 'like', "%{$q}%")->orWhere('phone', 'like', "%{$q}%")))
+                ->with(['rank:id,name', 'branch:id,name'])->orderBy('name')
+                ->get(['id', 'name', 'phone', 'role', 'rank_id', 'branch_id']),
             'threads'  => $threads,
             'unread'   => $unread,
             'thread'   => $thread,
@@ -48,7 +59,7 @@ class StaffChatController extends Controller
             'teams'    => $teams,
             'myTeam'   => StaffChat::teamOf($user),
             'people'   => $chat->staff($user)->whereKeyNot($user->id)->with('rank:id,name')->orderBy('name')->get(['id', 'name', 'role', 'rank_id']),
-            'to'       => (string) $request->query('to', ''),
+            'to'       => $to,
             'shipment' => (string) $request->query('shipment', ''),
         ]);
     }

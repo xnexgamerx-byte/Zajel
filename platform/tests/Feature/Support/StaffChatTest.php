@@ -64,7 +64,7 @@ class StaffChatTest extends TestCase
 
     public function test_a_message_to_a_department_reaches_everyone_in_it(): void
     {
-        $page = $this->actingAs($this->owner)->get($this->host().'/messages')->assertOk()
+        $this->actingAs($this->owner)->get($this->host().'/messages?tab=chat')->assertOk()
             ->assertSee('قسم موظّف الراجع')->assertSee('قسم محاسب')->assertSee('سعد المحاسب');
 
         $this->actingAs($this->owner)->post($this->host().'/messages', [
@@ -110,7 +110,7 @@ class StaffChatTest extends TestCase
 
         // والعدّاد على القائمة
         $this->actingAs($this->returnsOne)->get($this->host().'/')->assertOk()->assertSee($this->host().'/messages', false);
-        $this->actingAs($this->returnsOne)->get($this->host().'/messages')->assertOk()
+        $this->actingAs($this->returnsOne)->get($this->host().'/messages?tab=chat')->assertOk()
             ->assertSee('سعد المحاسب')->assertSee('جديد');
     }
 
@@ -141,5 +141,21 @@ class StaffChatTest extends TestCase
             'role' => UserRole::Merchant, 'merchant_id' => $merchant->id, 'is_active' => true,
         ]));
         $this->actingAs($merchantUser)->get($this->host().'/messages')->assertForbidden();
+    }
+
+    /** واتساب بالأساس: الموظّفون وجنب كلٍّ زرّ محادثته، ومن صفحة الشحنة برقمها */
+    public function test_the_employees_are_listed_with_a_whatsapp_button(): void
+    {
+        $this->actingAs($this->owner)->get($this->host().'/messages')->assertOk()
+            ->assertSee('الموظفون — واتساب')
+            ->assertSee('سعد المحاسب')->assertSee('زينب الراجع')
+            ->assertSee('https://wa.me/9647700000103', false)
+            ->assertSee(route('staff-chat.index', ['to' => 'user:'.$this->accountant->id]), false);
+
+        $this->actingAs($this->owner)->get($this->host().'/messages?q=سعد')->assertOk()
+            ->assertSee('سعد المحاسب')->assertDontSee('زينب الراجع');
+
+        $this->actingAs($this->owner)->get($this->host().'/messages?shipment=000118')->assertOk()
+            ->assertSee(e(\App\Support\Phone::whatsappUrl('07700000103', 'بخصوص الشحنة 000118: ')), false);
     }
 }

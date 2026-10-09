@@ -5,11 +5,58 @@
 <div class="mb-5">
     <h1 class="page-title">مراسلة الموظفين</h1>
     <p class="mt-1 text-sm text-ink-500">
-        راسل موظّفاً بعينه، أو قسماً كلّه — موظّف الراجع، الحسابات، الكول سنتر — من داخل النظام، بلا واتساب.
-        ورسالة القسم يراها كل من فيه ويردّ عليها أيّهم.
+        الموظّفون وجنب كلٍّ منهم زرّ واتساب. وللمراسلة من داخل النظام — لموظّفٍ أو لقسمٍ كلّه — تبويب «داخل النظام».
     </p>
 </div>
 
+@php $unreadCount = count($unread); @endphp
+<nav class="tab-nav mb-4" aria-label="مراسلة الموظفين">
+    <a href="{{ route('staff-chat.index', array_filter(['shipment' => $shipment])) }}" @class(['tab-link', 'tab-link-active' => $tab === 'people'])>الموظفون — واتساب</a>
+    <a href="{{ route('staff-chat.index', array_filter(['tab' => 'chat', 'shipment' => $shipment])) }}" @class(['tab-link', 'tab-link-active' => $tab === 'chat'])>
+        داخل النظام @if ($unreadCount)<span class="nav-badge">{{ $unreadCount }}</span>@endif
+    </a>
+</nav>
+
+@if ($tab === 'people')
+    {{-- واتساب بالأساس (docs/plan/41): كل موظّفٍ برقمه، وزرٌّ يفتح محادثته — ومع رقم الشحنة إن جاء منها --}}
+    <section class="card overflow-hidden">
+        <form method="GET" action="{{ route('staff-chat.index') }}" role="search" class="flex flex-wrap gap-2 border-b border-ink-100 p-4">
+            @if ($shipment)<input type="hidden" name="shipment" value="{{ $shipment }}">@endif
+            <input name="q" type="search" value="{{ $q }}" class="field-input min-w-56 flex-1 py-1.5" placeholder="ابحث باسم الموظّف أو رقمه">
+            <button type="submit" class="btn-ghost px-4">ابحث</button>
+            @if ($q !== '')<a href="{{ route('staff-chat.index', array_filter(['shipment' => $shipment])) }}" class="btn-ghost px-4">الكل</a>@endif
+        </form>
+        @if ($shipment)
+            <p class="border-b border-ink-100 bg-primary-50/50 px-4 py-2 text-sm">رسالة واتساب تُفتح وفيها: «بخصوص الشحنة <span class="num">{{ $shipment }}</span>».</p>
+        @endif
+        <ul class="divide-y divide-ink-100">
+            @forelse ($directory as $person)
+                @php $whatsapp = \App\Support\Phone::whatsappUrl($person->phone, $shipment !== '' ? "بخصوص الشحنة {$shipment}: " : null); @endphp
+                <li class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <span class="min-w-0">
+                        <span class="block font-semibold">{{ $person->name }}</span>
+                        <span class="text-xs text-ink-500">
+                            {{ $person->rank?->name ?? $person->role->label() }}@if ($person->branch) · {{ $person->branch->name }}@endif
+                            · <span class="num" dir="ltr">{{ $person->phone }}</span>
+                        </span>
+                    </span>
+                    <span class="flex flex-wrap gap-2">
+                        @if ($whatsapp)
+                            <a href="{{ $whatsapp }}" target="_blank" rel="noopener" class="btn-primary py-1.5">
+                                <x-icon name="chat" class="size-4"/> واتساب
+                            </a>
+                        @else
+                            <span class="chip chip-mute">لا رقم واتساب صحيح</span>
+                        @endif
+                        <a href="{{ route('staff-chat.index', array_filter(['to' => 'user:'.$person->id, 'shipment' => $shipment])) }}" class="btn-ghost py-1.5">داخل النظام</a>
+                    </span>
+                </li>
+            @empty
+                <li class="px-4 py-10 text-center text-sm text-ink-500">{{ $q !== '' ? 'لا موظّف بهذا الاسم أو الرقم.' : 'لا موظّف آخر بعد.' }}</li>
+            @endforelse
+        </ul>
+    </section>
+@else
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <section class="card h-fit overflow-hidden">
         <div class="flex items-center justify-between border-b border-ink-100 px-4 py-3">
@@ -116,4 +163,5 @@
         </form>
     </section>
 </div>
+@endif
 @endsection
