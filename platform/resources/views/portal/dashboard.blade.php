@@ -2,101 +2,130 @@
 @section('title', 'الرئيسية')
 
 @section('content')
-<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-    <div>
-        <h1 class="page-title">أهلاً {{ $merchant->owner_name ?: $merchant->business_name }}</h1>
-        <p class="mt-1 text-sm text-ink-500">وضع شحناتك وحسابك مع {{ $company->name }}.</p>
-    </div>
-    <a href="{{ route('portal.shipments.create') }}" class="btn-primary">+ شحنة جديدة</a>
+@php
+    $owed = $merchant->balance >= 0;
+    $hour = (int) now()->format('G');
+    $greeting = $hour < 12 ? 'صباح الخير' : 'مساء الخير';
+@endphp
+<div class="mb-5">
+    <h1 class="page-title">{{ $greeting }}، {{ $merchant->owner_name ?: $merchant->business_name }}</h1>
+    <p class="page-sub">وضع شحناتك وحسابك مع {{ $company->name }}.</p>
 </div>
 
-<x-app-ads audience="merchants" class="mb-5" />
-
-<div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-    <div class="card p-4">
-        <div class="text-xs font-medium text-ink-500">
-            {{ $merchant->balance >= 0 ? 'لك عند الشركة' : 'عليك للشركة' }}
+{{-- «نبض»: رصيده أوّل ما يراه — بطاقةٌ بلون الشركة، ومنها يطلب المحاسبة أو يفتح كشفه --}}
+<section class="glow-card rise mb-4 flex flex-wrap items-end justify-between gap-5" style="--i: 0">
+    <div class="min-w-0">
+        <div class="text-base font-bold text-white/90">{{ $owed ? 'لك عند الشركة' : 'عليك للشركة' }}</div>
+        <div class="mt-2 flex items-baseline gap-2" dir="ltr">
+            <span class="display-num num text-[clamp(2.5rem,11vw,4rem)]">{{ number_format(abs($merchant->balance)) }}</span>
+            <span class="text-base font-bold text-white/80">د.ع</span>
         </div>
-        <div class="mt-1 text-2xl font-bold {{ $merchant->balance >= 0 ? 'text-[var(--brand)]' : 'text-bad-700' }}"
-             dir="ltr">
-            {{ number_format(abs($merchant->balance)) }}
-            <span class="text-sm font-medium text-ink-500">د.ع</span>
-        </div>
-        <a href="{{ route('portal.statement') }}" class="mt-1 inline-block text-xs text-[var(--brand)] hover:underline">
-            كشف الحساب
-        </a>
+        @if ($unsettled)
+            <p class="mt-1 text-sm font-semibold text-white/85">عن {{ \App\Support\Arabic::shipments($unsettled) }} واصلة لم تُحاسَب بعد</p>
+        @endif
     </div>
+    <div class="flex flex-wrap gap-2">
+        @if (\App\Support\FeatureGate::allowsRoute('portal.requests.index'))
+            <a href="{{ route('portal.requests.index') }}" class="btn-on-brand">اطلب محاسبة</a>
+        @endif
+        <a href="{{ route('portal.statement') }}" class="btn-on-brand-ghost">كشف الحساب</a>
+    </div>
+</section>
 
+<x-app-ads audience="merchants" class="mb-4" />
+
+{{-- الأعداد بحاوياتٍ ملوّنة بمعناها: في الطريق أزرق، والواصل أخضر، وما يحتاجه كهرمانيّ --}}
+<div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
     @foreach ([
-        ['قيد التوصيل', $counts['open'], 'text-info-700'],
-        ['مسلَّمة', $counts['delivered'], 'text-ok-700'],
-        ['راجعة', $counts['returned'], 'text-ink-600'],
-    ] as [$label, $value, $tone])
-        <div class="card p-4">
-            <div class="text-xs font-medium text-ink-500">{{ $label }}</div>
-            <div class="mt-1 text-2xl font-bold {{ $tone }}">{{ number_format($value) }}</div>
-        </div>
+        ['قيد التوصيل', $counts['open'], 'bg-info-soft text-info-deep', 'truck', route('portal.shipments.index')],
+        ['مسلَّمة', $counts['delivered'], 'bg-ok-soft text-ok-deep', 'check', route('portal.shipments.index', ['status' => 'delivered'])],
+        ['تحتاج انتباهك', $attention->count(), 'bg-warn-soft text-warn-deep', 'alert', $merchant->can_process ? route('portal.processing.index') : null],
+        ['راجعة', $counts['returned'], 'bg-aeblack-100 text-aeblack-800', 'undo', route('portal.shipments.index', ['status' => 'returned'])],
+    ] as $i => [$label, $value, $tone, $icon, $href])
+        @php $tag = $href ? 'a' : 'div'; @endphp
+        <{{ $tag }} @if ($href) href="{{ $href }}" @endif
+            class="kpi kpi-tonal rise {{ $tone }} {{ ['tile-shape-1', 'tile-shape-2', 'tile-shape-3', 'tile-shape-4'][$i] }}" style="--i: {{ 1 + $i }}">
+            <span class="kpi-icon max-sm:hidden"><x-icon :name="$icon" class="size-6"/></span>
+            <div class="min-w-0">
+                <div class="kpi-value num">{{ number_format($value) }}</div>
+                <div class="kpi-label">{{ $label }}</div>
+            </div>
+        </{{ $tag }}>
     @endforeach
 </div>
+@if ($deliveredToday)
+    <p class="-mt-2 mb-5 text-sm font-semibold text-ok-700">وصل اليوم {{ \App\Support\Arabic::shipments($deliveredToday) }}.</p>
+@endif
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <div class="space-y-5 lg:col-span-2">
         @if ($attention->isNotEmpty())
-            <section class="card border-r-4 border-warn-700 p-5">
-                <h2 class="mb-1 text-sm font-bold">تحتاج انتباهك</h2>
-                <p class="mb-4 text-xs text-ink-500">
-                    شحنات تعثّرت. أحياناً مكالمة منك للزبون تحلّ ما لا تحلّه محاولة ثانية.
-                </p>
-
-                <div class="divide-y divide-ink-100">
-                    @foreach ($attention as $shipment)
-                        <a href="{{ route('portal.shipments.show', $shipment) }}"
-                           class="flex flex-wrap items-center gap-3 py-2.5 hover:bg-ink-50">
-                            <span class="font-mono text-sm font-semibold text-[var(--brand)]" dir="ltr">
-                                {{ $shipment->number }}
-                            </span>
-                            <span class="flex-1 truncate text-sm">{{ $shipment->recipient_name }}</span>
-                            @if ($shipment->lastFailureReason)
-                                <span class="rounded-full bg-warn-50 px-2 py-0.5 text-xs font-medium text-warn-700">
-                                    {{ $shipment->lastFailureReason->name_ar }}
-                                </span>
-                            @endif
-                            <x-status-badge :status="$shipment->status" :shipment="$shipment" />
-                        </a>
-                    @endforeach
+            <section>
+                <div class="mb-2 flex items-end justify-between gap-3 px-1">
+                    <div>
+                        <h2 class="card-title">تحتاج انتباهك</h2>
+                        <p class="card-hint">شحنات تعثّرت. أحياناً مكالمة منك للزبون تحلّ ما لا تحلّه محاولة ثانية.</p>
+                    </div>
+                    @if ($merchant->can_process)
+                        <a href="{{ route('portal.processing.index') }}" class="text-sm font-bold text-primary-800 hover:underline">عالجها</a>
+                    @endif
                 </div>
+                <ul class="list-2l">
+                    @foreach ($attention as $shipment)
+                        <li>
+                            <a href="{{ route('portal.shipments.show', $shipment) }}" class="list-2l-item">
+                                <span class="list-2l-icon bg-warn-soft text-warn-deep"><x-icon name="alert" class="size-5"/></span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate font-bold text-aeblack-950">
+                                        <span class="num" dir="ltr">{{ $shipment->number }}</span> · {{ $shipment->recipient_name }}
+                                    </span>
+                                    <span class="block truncate text-sm text-aeblack-600">
+                                        {{ $shipment->lastFailureReason?->name_ar ?? $shipment->status->label() }}
+                                    </span>
+                                </span>
+                                <x-status-badge :status="$shipment->status" :shipment="$shipment" />
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
             </section>
         @endif
 
-        <section class="card p-5">
-            <div class="mb-4 flex items-center justify-between">
-                <h2 class="text-sm font-bold">آخر شحناتك</h2>
-                <a href="{{ route('portal.shipments.index') }}"
-                   class="text-sm font-semibold text-[var(--brand)] hover:underline">الكل</a>
+        <section>
+            <div class="mb-2 flex items-center justify-between px-1">
+                <h2 class="card-title">آخر شحناتك</h2>
+                <a href="{{ route('portal.shipments.index') }}" class="text-sm font-bold text-primary-800 hover:underline">الكل</a>
             </div>
 
             @if ($recent->isEmpty())
-                <div class="py-10 text-center">
+                <div class="card py-10 text-center">
                     <p class="text-ink-500">لم ترسل شحنة بعد.</p>
                     <a href="{{ route('portal.shipments.create') }}" class="btn-primary mt-4">أنشئ أول شحنة</a>
                 </div>
             @else
-                <div class="divide-y divide-ink-100">
+                <ul class="list-2l">
                     @foreach ($recent as $shipment)
-                        <a href="{{ route('portal.shipments.show', $shipment) }}"
-                           class="flex flex-wrap items-center gap-3 py-2.5 hover:bg-ink-50">
-                            <span class="font-mono text-sm font-semibold text-[var(--brand)]" dir="ltr">
-                                {{ $shipment->number }}
-                            </span>
-                            <span class="min-w-32 flex-1 truncate text-sm">{{ $shipment->recipient_name }}</span>
-                            <span class="text-xs text-ink-500">{{ $shipment->governorate->name_ar }}</span>
-                            <span class="text-sm font-semibold" dir="ltr">
-                                {{ number_format($shipment->cod_amount) }}
-                            </span>
-                            <x-status-badge :status="$shipment->status" :shipment="$shipment" />
-                        </a>
+                        @php
+                            [$icon, $tone] = match (true) {
+                                $shipment->status === \App\Enums\ShipmentStatus::Delivered => ['check', 'bg-ok-soft text-ok-deep'],
+                                $shipment->status->isOpen() => ['truck', 'bg-info-soft text-info-deep'],
+                                default => ['undo', 'bg-aeblack-100 text-aeblack-700'],
+                            };
+                        @endphp
+                        <li>
+                            <a href="{{ route('portal.shipments.show', $shipment) }}" class="list-2l-item">
+                                <span class="list-2l-icon {{ $tone }}"><x-icon :name="$icon" class="size-5"/></span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate font-bold text-aeblack-950">{{ $shipment->recipient_name }}</span>
+                                    <span class="block truncate text-sm text-aeblack-600">
+                                        <span class="num" dir="ltr">{{ $shipment->number }}</span> · {{ $shipment->governorate->name_ar }} · {{ $shipment->status->label() }}
+                                    </span>
+                                </span>
+                                <span class="num shrink-0 font-extrabold text-aeblack-950" dir="ltr">{{ number_format($shipment->cod_amount) }}</span>
+                            </a>
+                        </li>
                     @endforeach
-                </div>
+                </ul>
             @endif
         </section>
     </div>

@@ -10,7 +10,7 @@
 --}}
 @if (auth()->user()->isStaff())
 <form method="POST" action="{{ route('shipments.bulk-status') }}" id="assign-form"
-      class="fixed inset-x-0 bottom-0 z-40 border-t border-ink-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur"
+      class="dock fixed inset-x-0 bottom-0 z-40 border-t border-ink-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur"
       hidden data-bulk-bar
       data-total="{{ $shipments->total() }}" data-max="{{ \App\Actions\Shipments\ChangeStatusInBulk::MAX }}"
       data-sources="{{ json_encode($bulkSources) }}" data-counts="{{ json_encode((object) $statusCounts) }}">

@@ -4,11 +4,11 @@
 {{-- مندوب النقل بين الفروع (المناورة): ما يحمله بين المحافظات، وما يُحمَّل له، وما سلّمه اليوم --}}
 @section('content')
 <div class="mb-4 grid grid-cols-2 gap-3">
-    <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+    <div class="card p-4">
         <div class="text-xs text-ink-500">كشوف بيدك</div>
         <div class="mt-0.5 text-3xl font-bold">{{ number_format($onTheRoad->count()) }}</div>
     </div>
-    <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+    <div class="card p-4">
         <div class="text-xs text-ink-500">شحنات معك</div>
         <div class="mt-0.5 text-3xl font-bold"><span class="num">{{ number_format($onTheRoad->sum('shipments_count')) }}</span></div>
     </div>
@@ -28,7 +28,7 @@
     @if ($hint)<p class="mb-2 px-1 text-xs text-ink-500">{{ $hint }}</p>@endif
 
     @foreach ($manifests as $manifest)
-        <div class="mb-2 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+        <div class="mb-2 card p-4">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                     <div class="font-bold">{{ $manifest->fromHub?->name }} ← {{ $manifest->toHub?->name }}</div>
@@ -50,7 +50,7 @@
 @endforeach
 
 @if ($onTheRoad->isEmpty() && $loading->isEmpty() && $arrived->isEmpty())
-    <div class="rounded-xl border border-ink-200 bg-white p-10 text-center shadow-xs">
+    <div class="card p-10 text-center">
         <p class="font-semibold text-ink-700">لا كشوف نقلٍ لك الآن.</p>
         <p class="mt-1 text-sm text-ink-500">حين يُنشأ كشفٌ باسمك بين فرعين يظهر هنا.</p>
     </div>

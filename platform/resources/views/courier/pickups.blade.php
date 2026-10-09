@@ -7,7 +7,7 @@
 </h1>
 
 @forelse ($pickups as $pickup)
-    <div class="mb-3 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+    <div class="mb-3 card p-4">
         <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
                 <div class="truncate text-base font-bold">{{ $pickup->merchant->business_name }}</div>
@@ -59,7 +59,7 @@
         </form>
     </div>
 @empty
-    <div class="rounded-xl border border-ink-200 bg-white p-10 text-center shadow-xs">
+    <div class="card p-10 text-center">
         <p class="font-semibold text-ink-700">ما عندك طلبات استلام.</p>
     </div>
 @endforelse

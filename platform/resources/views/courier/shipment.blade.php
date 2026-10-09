@@ -2,7 +2,7 @@
 @section('title', 'شحنة ' . $shipment->number)
 
 @section('content')
-<div class="mb-3 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+<div class="mb-3 card p-4">
     <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
             <div class="text-lg font-bold">{{ $shipment->recipient_name }}</div>
@@ -50,13 +50,13 @@
     {{-- الزبون لا يردّ أو العنوان غلط: يُكتب للمكتب عن هذه الشحنة بعينها (docs/plan/38) --}}
     @if (\App\Support\FeatureGate::enabled(\App\Enums\Feature::Conversations))
         <a href="{{ route('courier.chat', ['shipment' => $shipment->id]) }}"
-           class="mt-2 flex items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold">
+           class="mt-2 flex items-center justify-center gap-2 card px-4 py-2.5 text-sm font-semibold">
             <x-icon name="chat" class="size-5"/> راسل المكتب عن هذه الشحنة
         </a>
     @endif
 </div>
 
-<div class="mb-3 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+<div class="mb-3 card p-4">
     <div class="text-xs text-ink-500">المطلوب من الزبون</div>
     <div class="text-3xl font-bold text-warn-700">
                 <span class="num">{{ number_format($shipment->cod_amount) }}</span>
@@ -170,7 +170,7 @@
         <input type="hidden" name="lng" data-geo-lng>
 
         {{-- تسليم: الفعل الأكثر تكراراً، فهو الأكبر والأول. والمبلغ ثابت: لا يُكتب هنا --}}
-        <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+        <div class="card p-4">
             <p class="text-sm text-ink-600">
                 تستلم من الزبون <span class="num font-bold text-ink-900">{{ number_format($shipment->cod_amount) }}</span> د.ع كاملة@if ($exchange)،
                     وتأخذ منه <strong class="text-warn-700">القطعة القديمة</strong> وتسلّمها للمخزن مع الراجع@endif.
@@ -209,7 +209,7 @@
         </div>
 
         {{-- لم يُسلَّم --}}
-        <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+        <div class="card p-4">
             <label class="field-label" for="failure_reason_id">إن لم يُسلَّم — السبب</label>
             <select id="failure_reason_id" name="failure_reason_id" class="field-input text-base">
                 <option value="">اختر السبب</option>
@@ -239,7 +239,7 @@
 
     {{-- المبلغ لا يُغيَّر عند الباب: يُطلب من الكول سنتر، وجوابه يصل هنا --}}
     @unless ($waiting || $partial)
-        <details class="mt-3 rounded-xl border border-ink-200 bg-white p-4 shadow-xs"
+        <details class="mt-3 card p-4"
                  @if ($errors->hasAny(['kind', 'requested_amount', 'reason'])) open @endif>
             <summary class="cursor-pointer text-base font-bold">الزبون يريد يدفع مبلغاً آخر؟</summary>
             <form method="POST" action="{{ route('courier.shipments.ticket', $shipment) }}" class="mt-3 space-y-3">
@@ -286,14 +286,14 @@
         </details>
     @endunless
 @else
-    <div class="rounded-xl border border-ink-200 bg-white p-6 text-center shadow-xs">
+    <div class="card p-6 text-center">
         <p class="font-semibold text-ink-700">هذه الشحنة لم تعد بيدك.</p>
         <p class="mt-1 text-sm text-ink-500">حالتها الآن: {{ $shipment->status->label() }}</p>
     </div>
 @endif
 
 <a href="{{ route('courier.tasks') }}"
-   class="mt-4 block rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-600 shadow-xs">
+   class="mt-4 block card px-4 py-3 text-center text-sm font-semibold text-ink-600">
     رجوع لمهامي
 </a>
 @endsection

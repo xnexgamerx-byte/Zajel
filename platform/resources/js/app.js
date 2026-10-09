@@ -238,11 +238,12 @@ if (courierForm && navigator.geolocation) {
 }
 
 /**
- * قوائم الشريط العلوي: واحدة مفتوحة في كل مرة.
+ * قوائم الشريط الجانبي: واحدة مفتوحة في كل مرة.
  *
  * الزرّ يحمل حالته (aria-expanded) فيقرؤها قارئ الشاشة ويرسمها CSS. وعلى
- * الشاشة الواسعة تنسدل القائمة تحت عنوانها، فإن تجاوزت حافّة الشاشة
- * انفتحت نحو الداخل. وعلى الهاتف تنفتح في مكانها داخل الدرج.
+ * الشاشة الواسعة تنفتح القائمة بطاقةً ثابتة بجانب الشريط (position: fixed،
+ * فلا يقصّها تمرير الشريط)، وأعلاها بمحاذاة زرّها ما اتّسعت الشاشة تحتها.
+ * وعلى الهاتف تنفتح في مكانها داخل الدرج.
  */
 const menus = [...document.querySelectorAll('[data-menu]')].map((menu) => ({
     toggle: menu.querySelector('[data-menu-toggle]'),
@@ -253,9 +254,16 @@ const closeMenus = (except = null) => {
     for (const menu of menus) {
         if (menu === except) continue;
         menu.panel.hidden = true;
-        menu.panel.classList.remove('submenu-flip');
         menu.toggle.setAttribute('aria-expanded', 'false');
     }
+};
+
+const place = (menu) => {
+    if (getComputedStyle(menu.panel).position !== 'fixed') return;
+
+    const anchor = menu.toggle.getBoundingClientRect();
+    const room = window.innerHeight - menu.panel.offsetHeight - 8;
+    menu.panel.style.top = `${Math.max(8, Math.min(anchor.top - 8, room))}px`;
 };
 
 for (const menu of menus) {
@@ -267,14 +275,7 @@ for (const menu of menus) {
         menu.panel.hidden = !opening;
         menu.toggle.setAttribute('aria-expanded', String(opening));
 
-        if (opening) {
-            const box = menu.panel.getBoundingClientRect();
-            if (box.left < 8 || box.right > document.documentElement.clientWidth - 8) {
-                menu.panel.classList.add('submenu-flip');
-            }
-        } else {
-            menu.panel.classList.remove('submenu-flip');
-        }
+        if (opening) place(menu);
     });
 
     // نقرةٌ داخل القائمة المفتوحة لا تُغلقها؛ الرابط وحده ينقل
@@ -291,14 +292,20 @@ if (menus.length) {
         closeMenus();
         open?.toggle.focus();
     });
+
+    // البطاقة العائمة لا تتبع زرّها إن تحرّك: تُغلق ولا تبقى معلّقةً بعيداً عنه
+    window.addEventListener('resize', () => closeMenus());
+    document.querySelector('[data-drawer]')?.addEventListener('scroll', () => {
+        if (menus.some((menu) => !menu.panel.hidden && getComputedStyle(menu.panel).position === 'fixed')) closeMenus();
+    });
 }
 
 /**
  * درج القوائم على الشاشات الصغيرة.
  *
- * زرّ القائمة يقلب data-open، والظهور يقرّره CSS (max-lg:hidden
- * max-lg:data-open:block). على الشاشة الواسعة الشريط ظاهرٌ دائماً فلا شيء
- * ينتظر السكربت ليظهر.
+ * زرّ القائمة يقلب data-open، والظهور يقرّره CSS (.rail[data-open]). وما
+ * يحمل data-drawer-close — زرّ الإغلاق في الدرج والستار خلفه — يُغلقه. على
+ * الشاشة الواسعة الشريط ظاهرٌ دائماً فلا شيء ينتظر السكربت ليظهر.
  */
 const drawer = document.querySelector('[data-drawer]');
 
@@ -312,6 +319,13 @@ if (drawer) {
 
     for (const toggle of toggles) {
         toggle.addEventListener('click', () => setOpen(!drawer.hasAttribute('data-open')));
+    }
+
+    for (const closer of document.querySelectorAll('[data-drawer-close]')) {
+        closer.addEventListener('click', () => {
+            setOpen(false);
+            toggles[0]?.focus();
+        });
     }
 
     document.addEventListener('keydown', (event) => {

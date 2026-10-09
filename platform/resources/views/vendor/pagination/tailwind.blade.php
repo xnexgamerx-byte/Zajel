@@ -27,7 +27,7 @@
                 </span>
             @else
                 <a href="{{ $paginator->previousPageUrl() }}" rel="prev"
-                   class="inline-flex items-center gap-1.5 px-1 py-1 text-sm font-medium text-aeblack-800 transition-colors hover:text-primary-500">
+                   class="inline-flex items-center gap-1.5 px-1 py-1 text-sm font-semibold text-aeblack-800 transition-colors hover:text-primary-700">
                     <x-icon name="chevron" class="size-4 ltr:-scale-x-100"/>
                     السابق
                 </a>
@@ -42,10 +42,10 @@
                     @foreach ($element as $page => $url)
                         @if ($page == $paginator->currentPage())
                             <span aria-current="page"
-                                  class="num grid h-8 min-w-8 place-items-center rounded-full bg-primary-600 px-1.5 text-sm font-medium text-white">{{ $page }}</span>
+                                  class="num grid h-8 min-w-8 place-items-center rounded-full bg-primary-200 px-1.5 text-sm font-bold text-primary-900">{{ $page }}</span>
                         @else
                             <a href="{{ $url }}" aria-label="الصفحة {{ $page }}"
-                               class="num grid h-8 min-w-8 place-items-center rounded-full px-1.5 text-sm text-aeblack-800 transition-colors hover:bg-primary-50 hover:text-primary-800">{{ $page }}</a>
+                               class="num grid h-8 min-w-8 place-items-center rounded-full px-1.5 text-sm text-aeblack-800 transition-colors hover:bg-primary-100 hover:text-primary-900">{{ $page }}</a>
                         @endif
                     @endforeach
                 @endif
@@ -53,7 +53,7 @@
 
             @if ($paginator->hasMorePages())
                 <a href="{{ $paginator->nextPageUrl() }}" rel="next"
-                   class="inline-flex items-center gap-1.5 px-1 py-1 text-sm font-medium text-aeblack-800 transition-colors hover:text-primary-500">
+                   class="inline-flex items-center gap-1.5 px-1 py-1 text-sm font-semibold text-aeblack-800 transition-colors hover:text-primary-700">
                     التالي
                     <x-icon name="chevron" class="size-4 rtl:-scale-x-100"/>
                 </a>

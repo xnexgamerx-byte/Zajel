@@ -9,9 +9,8 @@
 @endphp
 <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
     <div>
-        <p class="mb-1 text-sm text-ink-500">{{ $greeting }}، {{ \Illuminate\Support\Str::before(auth()->user()->name, ' ') }}</p>
-        <h1 class="page-title">لوحة اليوم</h1>
-        <p class="page-sub">{{ now()->translatedFormat('l j F Y') }}</p>
+        <h1 class="page-title">{{ $greeting }}، {{ \Illuminate\Support\Str::before(auth()->user()->name, ' ') }}</h1>
+        <p class="page-sub">لوحة اليوم · {{ now()->translatedFormat('l j F Y') }}</p>
     </div>
     <div class="flex flex-wrap gap-2">
         <a href="{{ route('home.customize') }}" class="btn-ghost">
@@ -27,11 +26,11 @@
     <nav class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6" aria-label="اختصاراتي">
         @foreach ($shortcuts as $i => $shortcut)
             <a href="{{ $shortcut['url'] }}" class="kpi rise min-h-20 gap-3 px-4 py-3" style="--i: {{ $i }}">
-                <span class="grid size-10 shrink-0 place-items-center rounded-full bg-primary-50 text-primary-600">
+                <span class="grid size-10 shrink-0 place-items-center rounded-2xl bg-primary-100 text-primary-800">
                     <x-icon :name="$shortcut['icon']" class="size-5"/>
                 </span>
                 <span class="min-w-0">
-                    <span class="block text-sm font-semibold leading-snug text-aeblack-950">{{ $shortcut['label'] }}</span>
+                    <span class="block text-sm font-bold leading-snug text-aeblack-950">{{ $shortcut['label'] }}</span>
                     <span class="block truncate text-[11px] text-ink-500">{{ $shortcut['group'] }}</span>
                 </span>
             </a>
@@ -55,10 +54,10 @@
        class="glow-card rise flex flex-col gap-4 transition hover:-translate-y-0.5 lg:col-span-5" style="--i: 0">
         <div class="flex items-start justify-between gap-3">
             <div>
-                <div class="text-[15px] font-medium text-white/90">سُلّمت اليوم</div>
-                <div class="display-num num mt-3 text-[64px]">{{ number_format($cards['delivered_today']) }}</div>
+                <div class="text-base font-bold text-white/90">سُلّمت اليوم</div>
+                <div class="display-num num mt-2 text-[64px] lg:text-[76px]">{{ number_format($cards['delivered_today']) }}</div>
             </div>
-            <span class="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
+            <span class="rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
                 خلال ٧ أيام: <span class="num">{{ number_format($daily->sum('delivered')) }}</span>
             </span>
         </div>
@@ -101,7 +100,7 @@
                 <h2 class="card-title">شحنات جديدة</h2>
                 <p class="card-hint">خلال ٧ أيام: <span class="num">{{ number_format($daily->sum('created')) }}</span></p>
             </div>
-            <a href="{{ route('shipments.index') }}" class="icon-btn bg-primary-50 text-primary-700" aria-label="كل الشحنات" title="كل الشحنات">
+            <a href="{{ route('shipments.index') }}" class="icon-btn bg-primary-100 text-primary-900" aria-label="كل الشحنات" title="كل الشحنات">
                 <x-icon name="arrow" class="size-4 rtl:-scale-x-100"/>
             </a>
         </div>
@@ -142,10 +141,10 @@
         <div class="dash-card rise md:col-span-2 lg:col-span-3" style="--i: 2">
             <a href="{{ route('shipments.create') }}" class="grid justify-items-center gap-3">
                 <span class="dash-card-plus"><x-icon name="plus" class="size-6"/></span>
-                <span class="font-heading text-base">شحنة جديدة</span>
+                <span class="font-heading text-base font-extrabold">شحنة جديدة</span>
             </a>
             @feature('excel_import')
-                <a href="{{ route('shipments.import') }}" class="text-xs font-normal text-primary-700 hover:underline">
+                <a href="{{ route('shipments.import') }}" class="text-xs font-semibold text-primary-800 hover:underline">
                     أو ارفع دفعةً من ملف
                 </a>
             @endfeature
@@ -157,21 +156,23 @@
 {{-- ما بقي من أسئلة الصباح: أين الشحنات المفتوحة الآن --}}
 @if (isset($show['where']))
 <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {{-- كل بطاقةٍ بحاوية معناها: في الطريق أزرق، والمخزن محايد، والمتعثّرة كهرمانية، والمجموع بلون الشركة --}}
     @foreach ([
-        ['مع المندوبين', $cards['with_couriers'], ['status' => 'out_for_delivery'], 'truck'],
-        ['في المخزن والنقل', $cards['at_hub'], ['status' => 'at_hub'], 'building'],
-        ['متعثّرة', $cards['stuck'], ['status' => 'failed_attempt'], 'alert'],
-        ['قيد التنفيذ', $cards['open'], null, 'clock'],
-    ] as $i => [$label, $value, $filter, $icon])
+        ['مع المندوبين', $cards['with_couriers'], ['status' => 'out_for_delivery'], 'truck', 'bg-info-soft text-info-deep'],
+        ['في المخزن والنقل', $cards['at_hub'], ['status' => 'at_hub'], 'building', 'bg-aeblack-100 text-aeblack-800'],
+        ['متعثّرة', $cards['stuck'], ['status' => 'failed_attempt'], 'alert', 'bg-warn-soft text-warn-deep'],
+        ['قيد التنفيذ', $cards['open'], null, 'clock', 'bg-primary-100 text-primary-900'],
+    ] as $i => [$label, $value, $filter, $icon, $tone])
         @php $tag = $filter ? 'a' : 'div'; @endphp
-        <{{ $tag }} @if ($filter) href="{{ route('shipments.index', $filter) }}" @endif class="kpi rise" style="--i: {{ 3 + $i }}">
+        <{{ $tag }} @if ($filter) href="{{ route('shipments.index', $filter) }}" @endif
+            class="kpi kpi-tonal rise {{ $tone }} {{ ['tile-shape-1', 'tile-shape-2', 'tile-shape-3', 'tile-shape-4'][$i] }}" style="--i: {{ 3 + $i }}">
             <span class="kpi-icon"><x-icon :name="$icon" class="size-6"/></span>
             <div class="min-w-0">
                 <div class="kpi-value num">{{ number_format($value) }}</div>
                 <div class="kpi-label">{{ $label }}</div>
             </div>
             @if ($filter)
-                <x-icon name="arrow" class="ms-auto size-4 shrink-0 text-ink-400 rtl:-scale-x-100"/>
+                <x-icon name="arrow" class="ms-auto size-4 shrink-0 opacity-60 rtl:-scale-x-100"/>
             @endif
         </{{ $tag }}>
     @endforeach
@@ -201,13 +202,13 @@
         ['مستحقّ للتجّار', $cards['owed_merchants'], 'text-ink-900', 'لم يُدفَع بعد', $aging['merchant_oldest_days'], 'store'],
     ] as $i => [$label, $value, $tone, $hint, $days, $icon])
         @php [$ageLabel, $ageTone] = $age($days); @endphp
-        <div class="card rise flex flex-col gap-3 px-6 py-5" style="--i: {{ 7 + $i }}">
+        <div class="card rise {{ ['tile-shape-2', 'tile-shape-4', 'tile-shape-1'][$i] }} flex flex-col gap-3 px-6 py-5" style="--i: {{ 7 + $i }}">
             <div class="flex items-center justify-between gap-3">
-                <span class="text-[15px] font-medium">{{ $label }}</span>
-                <span class="grid size-10 place-items-center rounded-full bg-primary-50 text-primary-600"><x-icon :name="$icon" class="size-5"/></span>
+                <span class="text-[15px] font-bold">{{ $label }}</span>
+                <span class="shape-cookie grid size-12 place-items-center bg-primary-200 text-primary-900"><x-icon :name="$icon" class="size-6"/></span>
             </div>
             <div class="{{ $tone }}">
-                <span class="display-num num text-[34px]">{{ number_format($value) }}</span>
+                <span class="display-num num text-[32px]">{{ number_format($value) }}</span>
                 <span class="text-sm text-ink-500">د.ع</span>
             </div>
             <div class="flex flex-wrap items-center gap-2 text-xs">
@@ -224,19 +225,19 @@
 @if (isset($show['stale']) && $aging['stale_shipments'] > 0)
     {{-- تنبيهٌ تحذيريّ: جملة الفعل، ثم زرّ دائريّ مرجانيّ يفتحها --}}
     <a href="{{ route('shipments.index', ['status' => 'failed_attempt']) }}"
-       class="mb-5 flex items-center gap-4 rounded-3xl bg-camel-50 px-5 py-4 ring-1 ring-camel-200 transition hover:-translate-y-0.5 hover:bg-camel-100">
-        <span class="grid size-11 shrink-0 place-items-center rounded-full bg-camel-100 text-camel-700">
+       class="tile-shape-4 mb-5 flex items-center gap-4 bg-warn-soft px-5 py-4 text-warn-deep transition hover:shadow-[0_8px_20px_-10px_rgb(0_0_0/0.22)]">
+        <span class="shape-cookie grid size-12 shrink-0 place-items-center bg-white/60">
             <x-icon name="clock" class="size-6"/>
         </span>
         <div class="min-w-0 flex-1">
             {{-- الصيغة تحمل عددها: «شحنتان» و«٧ شحنات» و«١٢ شحنة» --}}
-            <div class="font-heading text-[20px] font-medium text-aeblack-950">{{ \App\Support\Arabic::shipments($aging['stale_shipments']) }}</div>
-            <div class="mt-0.5 text-[15px] text-aeblack-700">
+            <div class="font-heading text-[20px] font-extrabold">{{ \App\Support\Arabic::shipments($aging['stale_shipments']) }}</div>
+            <div class="mt-0.5 text-[15px] font-medium">
                 لم تتغيّر حالتها منذ أكثر من {{ \App\Support\Arabic::days($aging['stale_after']) }}
                 — كل يوم تأخير يزيد احتمال الراجع.
             </div>
         </div>
-        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-primary-600 text-white">
+        <span class="grid size-10 shrink-0 place-items-center rounded-full bg-warn-deep text-white">
             <x-icon name="arrow" class="size-4 rtl:-scale-x-100"/>
         </span>
     </a>
@@ -256,7 +257,7 @@
         <div class="mt-3 grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
             @foreach (collect($alerts)->sortByDesc(fn ($a) => $a['total'] > 0) as $alert)
                 @if ($alert['total'] === 0)
-                    <div class="flex items-center gap-2 rounded-2xl border border-aeblack-100/80 bg-white/60 px-4 py-3 text-sm text-ink-500">
+                    <div class="flex items-center gap-2 rounded-[1.25rem] bg-white/70 px-4 py-3 text-sm text-ink-500">
                         <x-icon name="check" class="size-4 shrink-0 text-ok-700"/>
                         <span class="min-w-0 flex-1 truncate">{{ $alert['title'] }}</span>
                         <span class="text-xs">لا شيء</span>
@@ -265,10 +266,10 @@
                     <section class="card flex flex-col p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <h3 class="font-medium text-aeblack-950">{{ $alert['title'] }}</h3>
+                                <h3 class="font-bold text-aeblack-950">{{ $alert['title'] }}</h3>
                                 <p class="text-xs text-ink-500">{{ $alert['hint'] }}</p>
                             </div>
-                            <span class="num grid h-7 min-w-7 shrink-0 place-items-center rounded-full bg-camel-50 px-2 text-sm font-semibold text-camel-700">
+                            <span class="num grid h-7 min-w-7 shrink-0 place-items-center rounded-lg bg-warn-soft px-2 text-sm font-bold text-warn-deep">
                                 {{ number_format($alert['total']) }}
                             </span>
                         </div>
@@ -290,7 +291,7 @@
                             @endforeach
                         </ul>
                         @if ($alert['link'])
-                            <a href="{{ $alert['link'] }}" class="mt-auto pt-2 text-xs font-semibold text-primary-600 hover:underline">
+                            <a href="{{ $alert['link'] }}" class="mt-auto pt-2 text-xs font-bold text-primary-700 hover:underline">
                                 {{ $alert['total'] > $alert['rows']->count() ? 'الكل ('.number_format($alert['total']).')' : 'افتح' }}
                             </a>
                         @endif
@@ -316,7 +317,7 @@
                 <span class="panel-head-icon"><x-icon name="alert" class="size-5"/></span>
                 <h2 class="panel-head-title">شحنات متعثّرة</h2>
                 <a href="{{ route('shipments.index', ['status' => 'failed_attempt']) }}"
-                   class="ms-auto text-sm font-medium text-primary-600 hover:text-primary-500 hover:underline">الكل</a>
+                   class="ms-auto text-sm font-bold text-primary-700 hover:underline">الكل</a>
             </div>
             <p class="card-hint mb-3 mt-2.5 px-1">
                 الأقدم أولاً — كل يوم تأخير يرفع احتمال أن تصير راجعة.
@@ -325,7 +326,7 @@
             @if ($stuck->isEmpty())
                 <p class="card py-8 text-center text-sm text-ink-500">لا شيء متعثّر. يوم جيد.</p>
             @else
-                <div class="space-y-1.5">
+                <div class="list-group">
                     @foreach ($stuck as $shipment)
                         <a href="{{ route('shipments.show', $shipment) }}" class="row-link flex-wrap">
                             <span class="font-mono text-sm font-semibold" dir="ltr">
@@ -369,12 +370,12 @@
                             <span class="w-24 shrink-0 truncate text-sm text-ink-700">{{ $row->name }}</span>
 
                             {{-- عمودٌ مرجانيّ على مسارٍ باهت: الطول وحده يحمل المقدار --}}
-                            <div class="h-2 flex-1 rounded-full bg-primary-50">
-                                <div class="h-full rounded-full bg-linear-to-l from-primary-600 to-primary-400 transition-opacity group-hover:opacity-80"
+                            <div class="h-2.5 flex-1 rounded-full bg-primary-100">
+                                <div class="h-full rounded-full bg-primary-600 transition-opacity group-hover:opacity-80"
                                      style="width: {{ max(2, round($row->c / $max * 100)) }}%"></div>
                             </div>
 
-                            <span class="num w-12 shrink-0 text-end text-sm font-semibold text-ink-900">
+                            <span class="num w-12 shrink-0 text-end text-sm font-bold text-ink-900">
                                 {{ number_format($row->c) }}
                             </span>
                         </div>
@@ -390,10 +391,10 @@
     <div class="space-y-5">
         @if (isset($show['pickups']) && $cards['pending_pickups'])
             <a href="{{ route('pickups.index') }}"
-               class="kpi kpi-accent items-start px-5 py-4">
+               class="kpi kpi-accent tile-shape-3 items-start px-5 py-4">
                 <span class="kpi-icon"><x-icon name="clipboard" class="size-6"/></span>
                 <div class="min-w-0">
-                    <div class="text-sm font-medium">طلبات استلام تنتظر</div>
+                    <div class="text-sm font-bold">طلبات استلام تنتظر</div>
                     <div class="kpi-value num mt-1.5">{{ $cards['pending_pickups'] }}</div>
                     <div class="mt-1.5 text-xs text-white/85">تجّار جهّزوا طرودهم ولم يُسنَد لهم مندوب.</div>
                 </div>
@@ -411,7 +412,7 @@
             @if ($overCashLimit->isEmpty())
                 <p class="card py-6 text-center text-sm text-ink-500">لا أحد تجاوز سقفه.</p>
             @else
-                <div class="space-y-1.5">
+                <div class="list-group">
                     @foreach ($overCashLimit as $courier)
                         <a href="{{ route('settlements.couriers.index') }}" class="row-link justify-between">
                             <span class="font-medium">{{ $courier->name }}</span>

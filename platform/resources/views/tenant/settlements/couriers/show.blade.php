@@ -240,7 +240,7 @@
 
 @if ($editable)
     {{-- ما حُدِّد: يُحاسَب عليه، أو يُضاف إلى الكشف. والشريطان في حاويةٍ واحدة فلا يتراكبان --}}
-    <div class="fixed inset-x-0 bottom-0 z-40">
+    <div class="dock fixed inset-x-0 bottom-0 z-40">
         <x-picked-bar form="settle" :total="(int) $settlement->shipments_count" all="كل شحنات الكشف"
                       net-label="الواجب تسليمه" add="deductions">
             <button type="submit" form="settle" class="btn-primary h-9 px-4 text-sm"

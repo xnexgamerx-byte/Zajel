@@ -2,15 +2,15 @@
 @section('title', 'مهامي')
 
 @section('content')
+{{-- «نبض»: حاويتان ملوّنتان بمعناهما — ما بيده أزرق، وما يحصّله كهرمانيّ --}}
 <div class="mb-4 grid grid-cols-2 gap-3">
-    <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
-        <div class="text-xs text-ink-500">شحنات بيدك</div>
-        <div class="mt-0.5 text-3xl font-bold">{{ number_format($count) }}</div>
+    <div class="tile-shape-1 bg-info-soft p-4 text-info-deep">
+        <div class="text-sm font-bold">شحنات بيدك</div>
+        <div class="display-num num mt-2 text-[clamp(1.75rem,9vw,2.25rem)]">{{ number_format($count) }}</div>
     </div>
-    <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
-        <div class="text-xs text-ink-500">المطلوب تحصيله</div>
-        <div class="mt-0.5 text-2xl font-bold text-warn-700"><span class="num">{{ number_format($toCollect) }}</span>
-        </div>
+    <div class="tile-shape-2 bg-warn-soft p-4 text-warn-deep">
+        <div class="text-sm font-bold">المطلوب تحصيله</div>
+        <div class="display-num num mt-2 text-[clamp(1.25rem,6.5vw,1.75rem)] [overflow-wrap:anywhere]">{{ number_format($toCollect) }}</div>
     </div>
 </div>
 
@@ -18,7 +18,7 @@
 
 @if ($team->isNotEmpty())
     {{-- المندوب الأب: فريقه في سطرٍ لكلٍّ — ويُسوّى معه كشوفهم --}}
-    <details class="mb-4 rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+    <details class="mb-4 card p-4">
         <summary class="cursor-pointer text-sm font-bold">
             فريقي
             <span class="font-normal text-ink-500">— بأيديهم {{ number_format($team->sum('open_count')) }}، ونقدهم {{ number_format($team->sum('cash_in_hand')) }} د.ع</span>
@@ -70,7 +70,7 @@
     <div class="space-y-2">
         @foreach ($group as $shipment)
             <a href="{{ route('courier.shipments.show', $shipment) }}"
-               class="block rounded-xl border border-ink-200 bg-white p-4 shadow-xs active:bg-ink-50">
+               class="block card p-4 active:bg-ink-50">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <div class="truncate text-base font-bold">{{ $shipment->recipient_name }}</div>
@@ -119,7 +119,7 @@
         @endforeach
     </div>
 @empty
-    <div class="rounded-xl border border-ink-200 bg-white p-10 text-center shadow-xs">
+    <div class="card p-10 text-center">
         <p class="font-semibold text-ink-700">ما عندك شحنات الآن.</p>
         <p class="mt-1 text-sm text-ink-500">راجع الشركة أو انتظر التوزيع.</p>
     </div>

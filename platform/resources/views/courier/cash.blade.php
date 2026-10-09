@@ -2,7 +2,7 @@
 @section('title', 'حسابي')
 
 @section('content')
-<div class="mb-4 rounded-xl border border-ink-200 bg-white p-5 shadow-xs">
+<div class="mb-4 card p-5">
     <div class="text-xs text-ink-500">الواجب تسليمه للشركة</div>
     <div class="mt-1 text-4xl font-bold text-[var(--brand)]" dir="ltr">
         {{ number_format($courier->netDue()) }} <span class="text-lg text-ink-500">د.ع</span>
@@ -34,7 +34,7 @@
     <h2 class="mb-2 px-1 text-sm font-bold text-ink-600">كشوفاتك</h2>
     <div class="mb-4 space-y-2">
         @foreach ($settlements as $settlement)
-            <div class="rounded-xl border border-ink-200 bg-white p-4 shadow-xs">
+            <div class="card p-4">
                 <div class="flex items-center justify-between">
                     <span class="font-mono text-xs font-semibold" dir="ltr">{{ $settlement->code }}</span>
                     <x-settlement-status :status="$settlement->status" />
@@ -54,7 +54,7 @@
 <h2 class="mb-2 px-1 text-sm font-bold text-ink-600">آخر الحركات</h2>
 
 @forelse ($transactions as $tx)
-    <div class="mb-2 flex items-center gap-3 rounded-xl border border-ink-200 bg-white p-3.5 shadow-xs">
+    <div class="mb-2 flex items-center gap-3 card p-3.5">
         <div class="min-w-0 flex-1">
             <div class="truncate text-sm font-medium">
                 {{ ['cod_collected' => 'تحصيل', 'commission' => 'عمولة', 'commission_paid' => 'قبض عمولة',
@@ -71,7 +71,7 @@
         </div>
     </div>
 @empty
-    <div class="rounded-xl border border-ink-200 bg-white p-8 text-center shadow-xs">
+    <div class="card p-8 text-center">
         <p class="text-sm text-ink-500">لا حركات بعد.</p>
     </div>
 @endforelse

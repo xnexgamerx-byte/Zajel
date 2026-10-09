@@ -13,24 +13,95 @@
     {{-- شعار المنصّة بمرجانيّ «وهج»، وشعارات الشركات بألوانها --}}
     <style>:root { --company: var(--color-primary-600); }</style>
 </head>
-<body class="min-h-screen antialiased">
+<body class="min-h-screen antialiased {{ auth()->check() ? 'has-rail' : '' }}">
 
 @auth
-<header class="ds-header">
-    <div class="shell flex items-center gap-3 py-3">
-        <a href="{{ route('admin.dashboard') }}" class="flex min-w-0 items-center gap-3">
+@php
+    $sections = [
+        ['admin.dashboard', 'نظرة عامة', 'admin.dashboard', 'grid'],
+        ['admin.companies.index', 'الشركات', 'admin.companies.*', 'building'],
+        ['admin.features.index', 'الميزات', 'admin.features.*', 'bolt'],
+        ['admin.subscriptions.index', 'الاشتراكات', 'admin.subscriptions.*', 'wallet'],
+        ['admin.invoices.index', 'الفواتير', 'admin.invoices.*', 'invoice'],
+        ['admin.plans.index', 'الباقات', 'admin.plans.*', 'tag'],
+        ['admin.settings', 'الإعدادات', 'admin.settings*', 'sliders'],
+    ];
+    // دفعاتٌ أبلغت عنها الشركات تنتظر التأكيد (docs/plan/36)
+    $pending = \App\Models\PaymentNotice::acrossCompanies()->where('status', 'pending')->count();
+@endphp
+
+{{-- «نبض» في لوحة المنصّة (docs/plan/40): سبعة أقسام في الشريط الجانبي، وزرّ «شركة جديدة» العائم --}}
+<nav id="main-nav" aria-label="أقسام المنصّة" class="rail" data-drawer>
+    <div class="rail-head">
+        <a href="{{ route('admin.dashboard') }}" class="rail-brand" title="وهج العراق">
             <span class="brand-tile">و</span>
+            <span class="min-w-0 lg:hidden">
+                <span class="block truncate font-heading text-base leading-tight font-extrabold text-aeblack-950">وهج العراق</span>
+                <span class="block text-xs text-ink-500">إدارة المنصّة</span>
+            </span>
+        </a>
+        <button type="button" class="icon-btn lg:hidden" data-drawer-close aria-label="أغلق القائمة">
+            <x-icon name="x" class="size-6"/>
+        </button>
+    </div>
+
+    <a href="{{ route('admin.companies.create') }}" class="rail-fab" aria-label="شركة جديدة" title="شركة جديدة">
+        <x-icon name="plus" class="size-7"/>
+    </a>
+
+    <ul class="rail-menu">
+        @foreach ($sections as [$route, $label, $pattern, $icon])
+            @php $active = request()->routeIs($pattern); @endphp
+            <li>
+                <a href="{{ route($route) }}" class="nav-item {{ $active ? 'nav-item-active' : '' }}"
+                   @if ($active) aria-current="page" @endif>
+                    <span class="nav-pill">
+                        <x-icon :name="$icon" class="size-6"/>
+                        @if ($route === 'admin.invoices.index' && $pending)
+                            <span class="nav-badge">{{ $pending }}</span>
+                        @endif
+                    </span>
+                    <span class="nav-label">{{ $label }}</span>
+                </a>
+            </li>
+        @endforeach
+    </ul>
+
+    <div class="rail-foot">
+        <span class="avatar" aria-hidden="true">{{ mb_substr(auth()->user()->name, 0, 1) }}</span>
+        <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-bold text-aeblack-900">{{ auth()->user()->name }}</span>
+            <span class="block truncate text-xs text-ink-500">{{ auth()->user()->role->label() }}</span>
+        </span>
+        <form method="POST" action="{{ route('admin.logout') }}">
+            @csrf
+            <button type="submit" class="icon-btn" aria-label="تسجيل الخروج" title="تسجيل الخروج">
+                <x-icon name="logout" class="size-5 rtl:-scale-x-100"/>
+            </button>
+        </form>
+    </div>
+</nav>
+<div class="drawer-scrim" data-drawer-close></div>
+
+<div class="app-frame">
+<header class="app-bar">
+    <div class="shell flex items-center gap-3 py-3 lg:py-4">
+        <button type="button" class="icon-btn lg:hidden" data-drawer-toggle aria-controls="main-nav" aria-expanded="false"
+                aria-label="القائمة">
+            <x-icon name="menu" class="size-6"/>
+        </button>
+        <a href="{{ route('admin.dashboard') }}" class="flex min-w-0 items-center gap-3">
+            <span class="brand-tile size-10 text-base lg:hidden">و</span>
             <span class="min-w-0">
-                <span class="block font-heading text-lg leading-tight font-bold text-aeblack-900">وهج العراق</span>
+                <span class="block font-heading text-lg leading-tight font-extrabold text-aeblack-950">وهج العراق</span>
                 <span class="block text-xs text-ink-500">إدارة المنصّة</span>
             </span>
         </a>
 
         <div class="ms-auto flex items-center gap-2.5">
-            <span class="grid size-10 shrink-0 place-items-center rounded-full bg-white font-heading text-sm font-bold text-primary-700"
-                  aria-hidden="true">{{ mb_substr(auth()->user()->name, 0, 1) }}</span>
+            <span class="avatar" aria-hidden="true">{{ mb_substr(auth()->user()->name, 0, 1) }}</span>
             <span class="hidden min-w-0 sm:block">
-                <span class="block max-w-40 truncate text-sm font-semibold text-aeblack-900">{{ auth()->user()->name }}</span>
+                <span class="block max-w-40 truncate text-sm font-bold text-aeblack-900">{{ auth()->user()->name }}</span>
                 <span class="block truncate text-xs text-ink-500">{{ auth()->user()->role->label() }}</span>
             </span>
             <form method="POST" action="{{ route('admin.logout') }}">
@@ -41,34 +112,9 @@
             </form>
         </div>
     </div>
-
-    <nav class="nav-strip" aria-label="أقسام المنصّة">
-        <div class="shell tab-nav">
-            @foreach ([
-                ['admin.dashboard', 'نظرة عامة', 'admin.dashboard', 'grid'],
-                ['admin.companies.index', 'الشركات', 'admin.companies.*', 'building'],
-                ['admin.features.index', 'الميزات', 'admin.features.*', 'bolt'],
-                ['admin.subscriptions.index', 'الاشتراكات', 'admin.subscriptions.*', 'wallet'],
-                ['admin.invoices.index', 'الفواتير', 'admin.invoices.*', 'invoice'],
-                ['admin.plans.index', 'الباقات', 'admin.plans.*', 'tag'],
-                ['admin.settings', 'الإعدادات', 'admin.settings*', 'sliders'],
-            ] as [$route, $label, $pattern, $icon])
-                @php $active = request()->routeIs($pattern); @endphp
-                <a href="{{ route($route) }}" class="tab-link {{ $active ? 'tab-link-active' : '' }}"
-                   @if ($active) aria-current="page" @endif>
-                    <x-icon :name="$icon" class="size-5"/>
-                    {{ $label }}
-                    {{-- دفعاتٌ أبلغت عنها الشركات تنتظر التأكيد (docs/plan/36) --}}
-                    @if ($route === 'admin.invoices.index' && ($pending = \App\Models\PaymentNotice::acrossCompanies()->where('status', 'pending')->count()))
-                        <span class="nav-badge">{{ $pending }}</span>
-                    @endif
-                </a>
-            @endforeach
-        </div>
-    </nav>
 </header>
 
-<main class="shell pt-6 pb-12">
+<main class="shell pt-2 pb-12 lg:pt-3">
     @if (session('success'))
         <div class="alert alert-ok mb-5" role="status">
             <x-icon name="check" class="size-5 shrink-0"/>
@@ -119,6 +165,7 @@
 
     @yield('content')
 </main>
+</div>
 @endauth
 
 @guest

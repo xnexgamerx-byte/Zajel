@@ -14,11 +14,11 @@
 </head>
 <body class="min-h-screen pb-24 antialiased">
 
-<header class="ds-header sticky top-0 z-30 border-b border-aeblack-100 bg-white/85 backdrop-blur-md">
+<header class="ds-header sticky top-0 z-30 bg-canvas/90 backdrop-blur-md">
     <div class="flex h-16 items-center gap-3 px-4">
         <span class="brand-tile size-10 text-base">{{ $company->initial() }}</span>
         <div class="min-w-0 flex-1">
-            <div class="truncate font-heading text-[15px] leading-tight font-bold text-aeblack-900">{{ $courier->name }}</div>
+            <div class="truncate font-heading text-base leading-tight font-extrabold text-aeblack-950">{{ $courier->name }}</div>
             <div class="truncate text-xs text-ink-500">{{ $company->name }}</div>
         </div>
         {{-- المحادثة مع المكتب: نقطةٌ إن كتب المكتب ولم يُقرأ (docs/plan/38) --}}
@@ -70,8 +70,8 @@
     @yield('content')
 </main>
 
-{{-- شريط سفلي: الإبهام يصله بلا مدّ اليد. والتبويب الحاليّ أيقونته في حبّةٍ مرجانية --}}
-<nav class="fixed inset-x-0 bottom-0 z-30 border-t border-aeblack-100 bg-white/90 backdrop-blur-md"
+{{-- شريط سفلي (navigation bar): الإبهام يصله بلا مدّ اليد. والتبويب الحاليّ أيقونته في حبّةٍ ممتلئة بدرجةٍ هادئة --}}
+<nav class="fixed inset-x-0 bottom-0 z-30 bg-white shadow-[0_-1px_12px_rgb(0_0_0/0.06)]"
      style="padding-bottom: env(safe-area-inset-bottom, 0px)">
     @php
         /*
@@ -93,10 +93,10 @@
         @foreach ($tabs as [$route, $label, $pattern, $shown, $icon])
             @php $active = request()->routeIs($pattern); @endphp
             <a href="{{ route($route) }}"
-               class="flex flex-col items-center gap-1 pt-2 pb-2.5 text-xs font-medium transition-colors
-                      {{ $active ? 'text-primary-700' : 'text-aeblack-600 hover:text-primary-700' }}"
+               class="flex flex-col items-center gap-1 pt-3 pb-3 text-xs transition-colors
+                      {{ $active ? 'font-extrabold text-aeblack-950' : 'font-semibold text-aeblack-700 hover:text-aeblack-950' }}"
                @if ($active) aria-current="page" @endif>
-                <span class="grid h-8 w-14 place-items-center rounded-full transition-colors {{ $active ? 'bg-primary-600 text-white' : '' }}">
+                <span class="grid h-8 w-14 place-items-center rounded-full transition-colors {{ $active ? 'bg-primary-200 text-primary-900' : '' }}">
                     <x-icon :name="$icon" class="size-5"/>
                 </span>
                 {{ $label }}
