@@ -75,9 +75,19 @@
                         $whatsapp = \App\Support\Phone::whatsappUrl($shipment->merchant?->phone, $text);
                     @endphp
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                        {{-- «أرسل للتاجر» بلا قرار: الرسالة تصله في «المحادثات»، والشحنة تبقى هنا حتى يردّ (docs/plan/41) --}}
+                        @if ($canAsk && $shipment->merchant)
+                            <form method="POST" action="{{ route('processing.ask', $shipment) }}">
+                                @csrf
+                                <button type="submit" class="btn-primary py-1">أرسل للتاجر</button>
+                            </form>
+                        @endif
                         <button type="button" class="btn-ghost py-1" data-copy-text="{{ $text }}">نسخ رسالة التاجر</button>
                         @if ($whatsapp)
                             <a href="{{ $whatsapp }}" target="_blank" rel="noopener" class="btn-ghost py-1">واتساب التاجر</a>
+                        @endif
+                        @if ($shipment->asked_at)
+                            <span class="chip chip-info">أُرسل للتاجر {{ \Illuminate\Support\Carbon::parse($shipment->asked_at)->diffForHumans() }} — ينتظر ردّه</span>
                         @endif
                     </div>
                     <form method="POST" action="{{ route('processing.store', $shipment) }}" class="mt-3 flex flex-wrap items-end gap-2">

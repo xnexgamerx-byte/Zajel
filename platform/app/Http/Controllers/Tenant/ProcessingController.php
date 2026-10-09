@@ -3,16 +3,21 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Shipments\ProcessFailedAttempt;
+use App\Actions\Support\Converse;
+use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Conversation;
 use App\Models\Courier;
 use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Services\Shipments\ShipmentFilters;
+use App\Support\FeatureGate;
 use App\Support\MerchantMessage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -45,6 +50,7 @@ class ProcessingController extends Controller
 
         return view('tenant.processing.index', [
             'tab'       => $tab,
+            'canAsk'    => FeatureGate::enabled(Feature::Conversations),
             'governorates' => $mine === [] ? collect()
                 : Governorate::query()->whereIn('id', $mine)->orderedForCompany()->pluck('name_ar'),
             'pendingCount' => (clone $pending)->count(),
@@ -53,6 +59,9 @@ class ProcessingController extends Controller
             'shipments' => $tab === 'pending'
                 ? $found->with(['merchant:id,business_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
                         'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
+                    // آخر رسالةٍ أُرسلت لتاجرها عنها: تنتظر ردّه قبل القرار
+                    ->withMax(['events as asked_at' => fn ($q) => $q->where('event_type', 'merchant_asked')
+                        ->whereColumn('shipment_events.created_at', '>=', 'shipments.status_changed_at')], 'created_at')
                     ->orderBy('shipments.status_changed_at')
                     ->paginate(config('zajel.per_page'))
                     ->withQueryString()
@@ -112,5 +121,52 @@ class ProcessingController extends Controller
             || $text === MerchantMessage::TEMPLATE ? null : $text]);
 
         return back()->with('success', $request->boolean('reset') || $text === '' ? 'عادت رسالتك إلى القالب.' : 'حُفظت رسالتك للتاجر.');
+    }
+
+    /**
+     * «أرسل للتاجر» بلا قرار (docs/plan/41): رسالة الموظّف الثابتة تصل التاجر في «المحادثات» عن
+     * هذه الشحنة، وتبقى الشحنة في المعالجة حتى يردّ ثم يُتّخذ القرار. ويُكتب في سجلّها متى سُئل.
+     */
+    public function ask(Request $request, Shipment $shipment, Converse $converse): RedirectResponse
+    {
+        abort_unless($shipment->inGovernoratesOf($request->user()), 404);
+
+        if (! FeatureGate::enabled(Feature::Conversations)) {
+            return back()->withErrors(['action' => 'المحادثات مع التجّار غير مفعّلة لشركتك — أرسلها بواتساب التاجر.']);
+        }
+
+        abort_unless($shipment->status === ShipmentStatus::FailedAttempt && $shipment->merchant, 404);
+
+        $user = $request->user();
+        $body = MerchantMessage::for($shipment->loadMissing(['merchant', 'governorate', 'city', 'lastFailureReason', 'deliveryCourier']), $user);
+
+        $conversation = DB::transaction(function () use ($shipment, $user, $body, $converse) {
+            $open = Conversation::query()->where('merchant_id', $shipment->merchant_id)
+                ->where('shipment_id', $shipment->id)->where('status', 'open')->latest('id')->first();
+
+            if ($open) {
+                $converse->reply($open, $body, $user, Converse::STAFF);
+            } else {
+                $open = $converse->start($shipment->merchant, "بخصوص الوصل {$shipment->number}", $body, $user, Converse::STAFF, $shipment->number);
+            }
+
+            ShipmentEvent::create([
+                'shipment_id' => $shipment->id,
+                'from_status' => $shipment->status->value,
+                'to_status'   => $shipment->status->value,
+                'event_type'  => 'merchant_asked',
+                'actor_type'  => 'user',
+                'actor_id'    => $user->id,
+                'actor_name'  => $user->name,
+                'courier_id'  => $shipment->delivery_courier_id,
+                'note'        => 'أُرسلت للتاجر رسالةٌ قبل المعالجة',
+                'meta'        => ['conversation_id' => $open->id],
+            ]);
+
+            return $open;
+        });
+
+        return back()->with('success', "أُرسلت الرسالة إلى {$shipment->merchant->business_name} عن {$shipment->number}. "
+            .'ردّه يصل «المحادثات»، والشحنة باقيةٌ هنا حتى تقرّر.');
     }
 }

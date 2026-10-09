@@ -310,4 +310,41 @@ class ProcessingTest extends TestCase
             ->assertSessionHas('success', 'عادت رسالتك إلى القالب.');
         $this->assertNull($this->owner->refresh()->merchant_message);
     }
+
+    /** «أرسل للتاجر» بلا قرار: الرسالة في محادثته عن الشحنة، والشحنة باقيةٌ للمعالجة */
+    public function test_the_merchant_is_asked_before_any_decision(): void
+    {
+        $this->setFeature($this->company, \App\Enums\Feature::Conversations);
+        $shipment = $this->failed();
+
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()->assertSee('أرسل للتاجر');
+
+        $this->actingAs($this->owner)->post($this->host()."/processing/{$shipment->id}/ask")
+            ->assertSessionHas('success');
+        $this->actingAs($this->owner)->post($this->host()."/processing/{$shipment->id}/ask");
+
+        // لم يتغيّر شيء من حالها، وهي في المعالجة تنتظر ردّه
+        $this->assertSame(ShipmentStatus::FailedAttempt, $shipment->refresh()->status);
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()
+            ->assertSee($shipment->number)->assertSee('ينتظر ردّه');
+
+        // محادثةٌ واحدة عن الشحنة، فيها الرسالتان، وجديدةٌ عند التاجر
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $conversation = \App\Models\Conversation::where('shipment_id', $shipment->id)->sole();
+            $this->assertTrue((bool) $conversation->merchant_unread);
+            $this->assertSame(2, $conversation->messages()->count());
+            $this->assertStringContainsString($shipment->number, (string) $conversation->messages()->first()->body);
+            $this->assertSame(2, ShipmentEvent::where('shipment_id', $shipment->id)->where('event_type', 'merchant_asked')->count());
+        });
+    }
+
+    public function test_without_conversations_the_merchant_is_reached_by_whatsapp(): void
+    {
+        $this->setFeature($this->company, \App\Enums\Feature::Conversations, false);
+        $shipment = $this->failed();
+
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()->assertDontSee('أرسل للتاجر');
+        $this->actingAs($this->owner)->post($this->host()."/processing/{$shipment->id}/ask")
+            ->assertSessionHasErrors('action');
+    }
 }

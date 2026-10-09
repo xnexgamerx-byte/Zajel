@@ -50,6 +50,7 @@ class ShipmentEvent extends Model
         'deleted'          => 'مسح',
         'restored'         => 'استرجاع من الممسوحة',
         'processed'        => 'معالجة',
+        'merchant_asked'   => 'رسالة للتاجر قبل المعالجة',
         'reviewed'         => 'إجازة بعد المراجعة',
         'prepaid_fee'      => 'قبض أجرة مقدّماً',
         'ticket'           => 'طلب تغيير المبلغ',

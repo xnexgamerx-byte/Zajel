@@ -273,6 +273,7 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/merchant-message', [ProcessingController::class, 'editMessage'])->name('merchant-message.edit');
                 Route::put('/merchant-message', [ProcessingController::class, 'message'])->name('merchant-message.update');
                 Route::post('/processing/{shipment}', [ProcessingController::class, 'store'])->name('processing.store');
+                Route::post('/processing/{shipment}/ask', [ProcessingController::class, 'ask'])->middleware('throttle:60,1')->name('processing.ask');
             });
 
             // طلبات المناديب لتغيير المبلغ: للكول سنتر المختصّة بمحافظة الشحنة (docs/plan/30)
