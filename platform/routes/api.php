@@ -61,6 +61,8 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
                 ->middleware('throttle:60,1')->name('processing.store');
             Route::get('/finance', [MerchantFinanceController::class, 'index'])->name('finance');
             Route::post('/finance/request', [MerchantFinanceController::class, 'request'])->middleware('throttle:20,1')->name('finance.request');
+            Route::get('/finance/statements/{settlement}', [MerchantFinanceController::class, 'statement'])
+                ->whereNumber('settlement')->name('finance.statement');
             Route::post('/finance/statements/{settlement}/confirm', [MerchantFinanceController::class, 'confirm'])
                 ->whereNumber('settlement')->name('finance.confirm');
             // الأدوات السريعة (docs/plan/56): طلبات الاستلام، وطلباتي، والدعم

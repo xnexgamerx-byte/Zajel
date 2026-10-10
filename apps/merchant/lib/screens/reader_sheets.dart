@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import '../core/api.dart';
 import '../core/config.dart';
@@ -433,7 +434,9 @@ class _VoiceSheetState extends State<_VoiceSheet> {
   }
 }
 
-/// بلا سماعٍ على الخادم: مايك لوحة المفاتيح يكتب الكلام، ويُقرأ نصّه كلاماً (spoken)
+/// بلا سماعٍ على الخادم (docs/plan/61): الهاتف نفسه يسمع — مايكٌ كبير، وتحته ما يُسمع يُكتب حيّاً ويُصحَّح
+/// باليد، ويبقى يسمع حتى «أوقف» (التعرّف يتوقّف عند السكتة فيُعاد وحده). وما لم يكن على الهاتف
+/// سامعٌ: مايك لوحة المفاتيح كما كان.
 class _DictationSheet extends StatefulWidget {
   const _DictationSheet({required this.brand});
 
@@ -444,21 +447,153 @@ class _DictationSheet extends StatefulWidget {
 }
 
 class _DictationSheetState extends State<_DictationSheet> {
+  /// كلماتٌ تُرجَّح عند السماع (أندرويد ١٣ فأحدث): المحافظات وما يُقال في كلّ طلب
+  static const _phrases = [
+    'بغداد',
+    'البصرة',
+    'نينوى',
+    'أربيل',
+    'السليمانية',
+    'دهوك',
+    'كركوك',
+    'النجف',
+    'كربلاء',
+    'بابل',
+    'الأنبار',
+    'ديالى',
+    'واسط',
+    'ميسان',
+    'ذي قار',
+    'المثنى',
+    'القادسية',
+    'صلاح الدين',
+    'صفر سبعة',
+    'ألف',
+    'قرب',
+    'مقابل',
+  ];
+
   final text = TextEditingController();
+  final speech = SpeechToText();
+  bool ready = false;
+  bool listening = false;
+  bool wanted = false;
   bool busy = false;
   String? error;
+  String? locale;
+
+  /// ما ثبت من الكلام، وما يُسمع الآن ولم يثبت بعد
+  String committed = '';
+  String partial = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb && !AppConfig.testing) _init();
+  }
 
   @override
   void dispose() {
+    wanted = false;
+    if (ready) unawaited(speech.cancel());
     text.dispose();
     super.dispose();
   }
 
-  Future<void> _read() async {
-    if (text.text.trim().isEmpty) {
-      setState(() => error = 'اضغط المايك في لوحة المفاتيح وقل الطلب، أو اكتبه.');
+  Future<void> _init() async {
+    try {
+      final ok = await speech.initialize(
+        onStatus: (status) {
+          if (!mounted) return;
+          final stopped = status == 'done' || status == 'notListening';
+          if (stopped) {
+            _commit();
+            setState(() => listening = false);
+            // السكتة أوقفت السامع: يُعاد ما دام لم يُضغط «أوقف»
+            if (wanted) Future.delayed(const Duration(milliseconds: 250), _listen);
+          }
+        },
+        onError: (e) {
+          if (!mounted) return;
+          // «لم يُسمع شيء» سكتةٌ لا خطأ: يُعاد السماع
+          if (e.errorMsg == 'error_no_match' || e.errorMsg == 'error_speech_timeout') return;
+          if (e.permanent) setState(() => (wanted = false, listening = false, error = 'تعذّر السماع — جرّب ثانيةً.'));
+        },
+      );
+      if (!mounted) return;
+      if (ok) {
+        final locales = await speech.locales();
+        final ids = locales.map((l) => l.localeId).toSet();
+        locale = ['ar_IQ', 'ar-IQ', 'ar_SA', 'ar-SA', 'ar'].firstWhere(ids.contains, orElse: () => 'ar_IQ');
+      }
+      setState(() => ready = ok);
+    } catch (_) {
+      if (mounted) setState(() => ready = false);
+    }
+  }
+
+  void _commit() {
+    if (partial.trim().isEmpty) return;
+    committed = '${committed.trim()} ${partial.trim()}'.trim();
+    partial = '';
+    _show();
+  }
+
+  void _show() {
+    final shown = '$committed ${partial.trim()}'.trim();
+    text.value = TextEditingValue(
+      text: shown,
+      selection: TextSelection.collapsed(offset: shown.length),
+    );
+  }
+
+  Future<void> _listen() async {
+    if (!wanted || !mounted || speech.isListening) return;
+    setState(() => (listening = true, error = null));
+    await speech.listen(
+      onResult: (r) {
+        if (!mounted) return;
+        partial = r.recognizedWords;
+        if (r.finalResult) _commit();
+        _show();
+        setState(() {});
+      },
+      listenOptions: SpeechListenOptions(
+        localeId: locale,
+        listenMode: ListenMode.dictation,
+        partialResults: true,
+        cancelOnError: false,
+        listenFor: const Duration(minutes: 2),
+        pauseFor: const Duration(seconds: 8),
+        contextualPhrases: _phrases,
+      ),
+    );
+  }
+
+  Future<void> _toggle() async {
+    if (wanted) {
+      wanted = false;
+      await speech.stop();
+      _commit();
+      setState(() => listening = false);
       return;
     }
+    // ما كُتب باليد بعد آخر سماعٍ يبقى، والكلام الجديد يُكمَل بعده
+    committed = text.text.trim();
+    partial = '';
+    wanted = true;
+    await _listen();
+  }
+
+  Future<void> _read() async {
+    if (wanted) await _toggle();
+    if (text.text.trim().isEmpty) {
+      setState(
+        () => error = ready ? 'اضغط المايك وقل الطلب، أو اكتبه.' : 'اضغط المايك في لوحة المفاتيح وقل الطلب، أو اكتبه.',
+      );
+      return;
+    }
+    if (!mounted) return;
     FocusScope.of(context).unfocus();
     setState(() => (busy = true, error = null));
     try {
@@ -470,14 +605,70 @@ class _DictationSheetState extends State<_DictationSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => _Frame(
-    title: 'إنشاء بالتسجيل الصوتي',
-    text: 'اضغط 🎤 في لوحة المفاتيح. $_say',
-    children: [
-      _box(text, 'ما تقوله يُكتب هنا…', lines: 4, autofocus: true),
-      if (error != null) _error(error!),
-      const SizedBox(height: 12),
-      _button(widget.brand, 'اقرأ الطلب', icon: Icons.auto_awesome_rounded, busy: busy, onTap: _read),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final brand = widget.brand;
+    if (!ready) {
+      return _Frame(
+        title: 'إنشاء بالتسجيل الصوتي',
+        text: 'اضغط 🎤 في لوحة المفاتيح. $_say',
+        children: [
+          _box(text, 'ما تقوله يُكتب هنا…', lines: 4, autofocus: true),
+          if (error != null) _error(error!),
+          const SizedBox(height: 12),
+          _button(brand, 'اقرأ الطلب', icon: Icons.auto_awesome_rounded, busy: busy, onTap: _read),
+        ],
+      );
+    }
+    final color = listening ? Palette.returnRed : brand.main;
+    return _Frame(
+      title: 'إنشاء بالتسجيل الصوتي',
+      text: _say,
+      children: [
+        const SizedBox(height: 6),
+        Center(
+          child: Tooltip(
+            message: wanted ? 'أوقف' : 'تكلّم',
+            child: Tap(
+              radius: 50,
+              onTap: busy ? null : _toggle,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: wanted ? .45 : .25),
+                      blurRadius: wanted ? 26 : 14,
+                      spreadRadius: wanted ? 4 : 0,
+                    ),
+                  ],
+                ),
+                child: Icon(wanted ? Icons.stop_rounded : Icons.mic_rounded, size: 44, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          wanted ? 'يسمعك… اضغط لتوقف' : (text.text.isEmpty ? 'اضغط المايك وتكلّم' : 'اضغط المايك لتكمل الكلام'),
+          textAlign: TextAlign.center,
+          style: font(13.5, w8, wanted ? Palette.returnRed : Palette.ink),
+        ),
+        const SizedBox(height: 10),
+        // ما يُسمع يُكتب هنا حيّاً — ويُصحَّح باليد قبل القراءة
+        _box(text, 'ما تقوله يظهر هنا…', lines: 4),
+        const SizedBox(height: 8),
+        Text(
+          'تكلّم قريباً من الهاتف في مكانٍ هادئ، وقل الأرقام رقماً رقماً.',
+          style: font(11.5, w6, Palette.slate, height: 1.5),
+        ),
+        if (error != null) _error(error!),
+        const SizedBox(height: 12),
+        _button(brand, 'اقرأ الطلب', icon: Icons.auto_awesome_rounded, busy: busy, onTap: _read),
+      ],
+    );
+  }
 }

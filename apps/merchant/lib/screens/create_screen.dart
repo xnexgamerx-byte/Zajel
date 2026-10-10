@@ -14,7 +14,15 @@ import 'shipment_screen.dart';
 /// والباقي اختياري. وتحت السعر «يصلك» من تسعيرته قبل أن يحفظ، وبعد الحفظ بطاقة الشحنة
 /// والنموذج فارغٌ للتالية على المحافظة نفسها.
 class CreateScreen extends StatefulWidget {
-  const CreateScreen({super.key, required this.brand, this.onCreated, this.scanned, this.onScan, this.reading});
+  const CreateScreen({
+    super.key,
+    required this.brand,
+    this.onCreated,
+    this.scanned,
+    this.onScan,
+    this.reading,
+    this.onRead,
+  });
 
   final Brand brand;
 
@@ -29,6 +37,9 @@ class CreateScreen extends StatefulWidget {
 
   /// حُفظت شحنة: تُحدَّث الرئيسية و«شحناتي»
   final VoidCallback? onCreated;
+
+  /// «من صورة أو رسالة» و«بالصوت» فوق النموذج (docs/plan/61): يُملأ بما قُرئ، والوصل الممسوح يبقى
+  final void Function({required bool voice})? onRead;
 
   @override
   State<CreateScreen> createState() => _CreateScreenState();
@@ -291,6 +302,7 @@ class _CreateScreenState extends State<CreateScreen> {
           const SizedBox(height: 12),
           if (created != null) ...[_done(created!), const SizedBox(height: 10)],
           if (_onWaybill) ...[_onWaybillBanner(), const SizedBox(height: 10)],
+          if (widget.onRead != null && created == null) ...[_quickFill(), const SizedBox(height: 10)],
           if (read != null) ...[_readBanner(read!), const SizedBox(height: 10)],
           if (error != null) ...[_alert(error!), const SizedBox(height: 10)],
           _section('الزبون', Icons.person_rounded, [
@@ -810,6 +822,56 @@ class _CreateScreenState extends State<CreateScreen> {
   }
 
   /// الطلب يُكتب على وصلٍ ممسوح: رقمه، وتغييره بمسحٍ آخر، أو تركه
+  /// اكتبه أسرع: صورة محادثة الزبون أو رسالته، أو قله بصوتك — فيُملأ النموذج للمراجعة
+  Widget _quickFill() {
+    Widget option(String label, String hint, IconData icon, bool voice) => Expanded(
+      child: Tap(
+        radius: 14,
+        onTap: () => widget.onRead!(voice: voice),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: brand.main.withValues(alpha: .25)),
+          ),
+          child: Row(
+            children: [
+              SoftIcon(
+                brand: brand,
+                size: 34,
+                radius: 10,
+                child: Icon(icon, size: 19, color: brand.main),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: font(12.5, w8, Palette.ink, height: 1.3)),
+                    Text(
+                      hint,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: font(10.5, w5, Palette.slate, height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return Row(
+      children: [
+        option('من صورة أو رسالة', 'بالذكاء الاصطناعي', Icons.auto_awesome_rounded, false),
+        const SizedBox(width: 8),
+        option('بالصوت', 'قل الطلب ويُكتب', Icons.mic_rounded, true),
+      ],
+    );
+  }
+
   Widget _onWaybillBanner() {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),

@@ -153,6 +153,14 @@ class MerchantAppMoneyTest extends TestCase
             ->assertJsonFragment(['value' => 'zaincash', 'label' => 'زين كاش', 'details' => true])
             ->assertJsonPath('movements.0.amount', 15_000);
 
+        // تفاصيل الكشف بشحناته (docs/plan/61)
+        $this->getJson($this->api('/merchant/finance/statements/'.$settlement->id), $headers)->assertOk()
+            ->assertJsonPath('code', $settlement->code)
+            ->assertJsonPath('totals.count', 2)
+            ->assertJsonPath('totals.net', 70_000)
+            ->assertJsonCount(2, 'lines')
+            ->assertJsonPath('lines.0.collected', 50_000);
+
         // «استلمتُها» مرّةً واحدة
         $this->postJson($this->api('/merchant/finance/statements/'.$settlement->id.'/confirm'), [], $headers)->assertOk();
         $this->postJson($this->api('/merchant/finance/statements/'.$settlement->id.'/confirm'), [], $headers)->assertStatus(422);

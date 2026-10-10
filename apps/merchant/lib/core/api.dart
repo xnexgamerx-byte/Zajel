@@ -167,6 +167,12 @@ class Api {
     );
   }
 
+  /// تفاصيل الكشف بشحناته (docs/plan/61)
+  Future<StatementDetail> statement(int id) async {
+    if (AppConfig.demo) return Demo.statement(id);
+    return StatementDetail.fromJson(await _send(http.get(_uri('/merchant/finance/statements/$id'), headers: _headers)));
+  }
+
   Future<String> confirmStatement(int id) async {
     if (AppConfig.demo) return Demo.confirmStatement(id);
     final body = await _send(http.post(_uri('/merchant/finance/statements/$id/confirm'), headers: _headers));

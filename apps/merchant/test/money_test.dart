@@ -79,6 +79,15 @@ void main() {
       expect(find.textContaining(text), findsWidgets, reason: text);
     }
 
+    // الكشف يُضغط فتُفتح تفاصيله بشحناته (docs/plan/61)
+    await tester.tap(find.text('MS000037'));
+    await tester.pumpAndSettle();
+    expect(find.text('شحنات الكشف'), findsOneWidget);
+    expect(find.text('لك'), findsOneWidget);
+    expect(find.textContaining('#ZA-'), findsWidgets);
+    await tester.tap(find.byTooltip('رجوع').last);
+    await tester.pumpAndSettle();
+
     // «استلمتُها» على الكشف المدفوع غير المؤكَّد
     await tester.tap(find.text('استلمتُها'));
     await tester.pumpAndSettle();

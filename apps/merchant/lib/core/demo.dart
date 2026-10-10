@@ -371,6 +371,36 @@ class Demo {
   static PaymentRequest requestPayment(String method) =>
       _request = PaymentRequest(number: 'REQ-261010-7', amount: finance.available, method: method, at: DateTime.now());
 
+  static StatementDetail statement(int id) {
+    final s = finance.statements.firstWhere((s) => s.id == id, orElse: () => finance.statements.first);
+    final rows = _all.where((r) => r.tone == 'green' || r.status == 'مسلمة').toList();
+    final lines = [
+      for (final r in rows)
+        StatementLine(
+          shipmentId: r.id,
+          number: r.number,
+          name: r.name,
+          returned: false,
+          collected: r.amount,
+          delivery: 5000,
+          returnFee: 0,
+          net: r.amount - 5000,
+        ),
+    ];
+    return StatementDetail(
+      statement: s,
+      totals: {
+        'count': s.count,
+        'collected': lines.fold(0, (a, l) => a + l.collected),
+        'delivery': lines.fold(0, (a, l) => a + l.delivery),
+        'returns': 0,
+        'advance': s.advance,
+        'net': s.net,
+      },
+      lines: lines,
+    );
+  }
+
   static String confirmStatement(int id) {
     _confirmed.add(id);
     return 'أكّدت استلام الدفعة.';

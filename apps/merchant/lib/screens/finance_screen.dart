@@ -5,6 +5,7 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import 'shipment_screen.dart';
 
 /// «المالية» (docs/plan/54): حساب التاجر بأرقام البوابة نفسها — الإجمالي والمتاح للسحب وما وراءهما —
 /// وطلب المحاسبة بطريقة دفعه، وكشوفه ودفعاتها و«استلمتُها»، وآخر حركات حسابه.
@@ -272,7 +273,20 @@ class _FinanceScreenState extends State<FinanceScreen> {
     child: Text(text, style: font(12.5, w5, Palette.slate)),
   );
 
-  Widget _statement(Statement s) => WhiteCard(
+  /// الكشف يُضغط فتُفتح تفاصيله بشحناته (docs/plan/61)
+  Widget _statement(Statement s) => Tap(
+    radius: 14,
+    onTap: () => Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) => StatementScreen(brand: brand, id: s.id),
+          ),
+        )
+        .then((_) => _load()),
+    child: _statementCard(s),
+  );
+
+  Widget _statementCard(Statement s) => WhiteCard(
     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
     child: Row(
       children: [
@@ -324,6 +338,14 @@ class _FinanceScreenState extends State<FinanceScreen> {
 
   Widget _movement(Movement m) {
     final plus = m.amount >= 0;
+    // حركةٌ عن شحنة: تُضغط فتُفتح الشحنة
+    return InkWell(
+      onTap: m.shipment == null ? null : () => openShipmentNumber(context, brand, m.shipment!),
+      child: _movementRow(m, plus),
+    );
+  }
+
+  Widget _movementRow(Movement m, bool plus) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Row(
@@ -492,6 +514,166 @@ class _RequestSheetState extends State<_RequestSheet> {
         hintStyle: font(12.5, w5, Palette.muted),
         border: InputBorder.none,
         contentPadding: const EdgeInsets.all(12),
+      ),
+    ),
+  );
+}
+
+/// تفاصيل الكشف (docs/plan/61): مجاميعه، وشحناته سطراً سطراً — والسطر يفتح شحنته
+class StatementScreen extends StatefulWidget {
+  const StatementScreen({super.key, required this.brand, required this.id});
+
+  final Brand brand;
+  final int id;
+
+  @override
+  State<StatementScreen> createState() => _StatementScreenState();
+}
+
+class _StatementScreenState extends State<StatementScreen> {
+  StatementDetail? data;
+  String? error;
+  bool confirming = false;
+
+  Brand get brand => widget.brand;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final d = await Api.instance.statement(widget.id);
+      if (mounted) setState(() => (data = d, error = null));
+    } on ApiError catch (e) {
+      if (mounted) setState(() => error = e.message);
+    }
+  }
+
+  Future<void> _confirm() async {
+    setState(() => confirming = true);
+    try {
+      final message = await Api.instance.confirmStatement(widget.id);
+      if (mounted) toast(context, message);
+      await _load();
+    } on ApiError catch (e) {
+      if (mounted) toast(context, e.message, bad: true);
+    } finally {
+      if (mounted) setState(() => confirming = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data;
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            PageBar(
+              title: d?.statement.code ?? 'الكشف',
+              subtitle: d == null
+                  ? null
+                  : '${d.statement.status} · ${d.statement.count} شحنة${d.statement.at == null ? '' : ' · ${when(d.statement.at)}'}',
+            ),
+            Expanded(
+              child: d == null
+                  ? Waiting(brand: brand, error: error, onRetry: _load)
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(14, 4, 14, 32),
+                      children: [
+                        _totals(d),
+                        const SizedBox(height: 10),
+                        if (d.statement.paid && !d.statement.confirmed) ...[
+                          SheetButton(
+                            brand: brand,
+                            label: 'استلمتُ هذه الدفعة',
+                            icon: Icons.check_circle_rounded,
+                            busy: confirming,
+                            onTap: _confirm,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        const SectionTitle('شحنات الكشف'),
+                        WhiteCard(
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: Column(
+                              children: [
+                                for (final (i, l) in d.lines.indexed) ...[
+                                  if (i > 0) const Divider(height: 1, color: Palette.line),
+                                  _line(l),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _totals(StatementDetail d) {
+    Widget row(String label, int value, {Color? color, bool strong = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: font(13, strong ? w8 : w6, Palette.slate))),
+          Text('${money(value)} د.ع', style: font(strong ? 16 : 13.5, w8, color ?? Palette.ink)),
+        ],
+      ),
+    );
+    return WhiteCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          row('المحصَّل', d.total('collected')),
+          row('أجور التوصيل', -d.total('delivery'), color: Palette.slate),
+          if (d.total('returns') > 0) row('أجور الراجع', -d.total('returns'), color: Palette.returnRed),
+          if (d.total('advance') > 0) row('مقتطعٌ للسلفة', -d.total('advance'), color: Palette.returnRed),
+          const Divider(color: Palette.line),
+          row('لك', d.total('net'), color: brand.main, strong: true),
+          if (d.statement.reference != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('مرجع الدفع: ${d.statement.reference}', style: font(11.5, w6, Palette.slate)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _line(StatementLine l) => InkWell(
+    onTap: l.shipmentId == 0 ? null : () => openShipment(context, brand, l.shipmentId),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('#${l.number}', textDirection: TextDirection.ltr, style: font(13, w8, brand.main)),
+                Text(l.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: font(12, w6, Palette.ink)),
+                Text(
+                  l.returned
+                      ? 'راجع · أجرة الراجع ${money(l.returnFee)}'
+                      : 'المحصَّل ${money(l.collected)} · التوصيل ${money(l.delivery)}',
+                  style: font(11, w5, Palette.slate),
+                ),
+              ],
+            ),
+          ),
+          Text('${money(l.net)} د.ع', style: font(13.5, w8, l.net < 0 ? Palette.returnRed : Palette.ink)),
+          const SizedBox(width: 6),
+          const Chev(size: 8),
+        ],
       ),
     ),
   );

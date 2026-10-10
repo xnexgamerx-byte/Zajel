@@ -1026,3 +1026,64 @@ class AttentionItem {
   final int attempts;
   final DateTime? until;
 }
+
+/// تفاصيل كشف التاجر (docs/plan/61): شحناته سطراً سطراً ومجاميعه
+class StatementDetail {
+  StatementDetail({required this.statement, required this.totals, required this.lines});
+
+  factory StatementDetail.fromJson(Map<String, dynamic> j) => StatementDetail(
+    statement: Statement(
+      id: j['id'] as int,
+      code: j['code'] as String,
+      status: j['status'] as String,
+      paid: j['paid'] as bool? ?? false,
+      net: (j['totals'] as Map)['net'] as int? ?? 0,
+      count: (j['totals'] as Map)['count'] as int? ?? 0,
+      advance: (j['totals'] as Map)['advance'] as int? ?? 0,
+      at: DateTime.tryParse(j['at'] as String? ?? '')?.toLocal(),
+      reference: j['reference'] as String?,
+      confirmed: j['confirmed'] as bool? ?? false,
+    ),
+    totals: (j['totals'] as Map).cast<String, dynamic>(),
+    lines: [for (final l in j['lines'] as List) StatementLine.fromJson((l as Map).cast())],
+  );
+
+  final Statement statement;
+  final Map<String, dynamic> totals;
+  final List<StatementLine> lines;
+
+  int total(String key) => totals[key] as int? ?? 0;
+}
+
+class StatementLine {
+  StatementLine({
+    required this.shipmentId,
+    required this.number,
+    required this.name,
+    required this.returned,
+    required this.collected,
+    required this.delivery,
+    required this.returnFee,
+    required this.net,
+  });
+
+  factory StatementLine.fromJson(Map<String, dynamic> j) => StatementLine(
+    shipmentId: j['shipment_id'] as int? ?? 0,
+    number: j['number'] as String? ?? '',
+    name: j['name'] as String? ?? '',
+    returned: j['returned'] as bool? ?? false,
+    collected: j['collected'] as int? ?? 0,
+    delivery: j['delivery'] as int? ?? 0,
+    returnFee: j['return_fee'] as int? ?? 0,
+    net: j['net'] as int? ?? 0,
+  );
+
+  final int shipmentId;
+  final String number;
+  final String name;
+  final bool returned;
+  final int collected;
+  final int delivery;
+  final int returnFee;
+  final int net;
+}

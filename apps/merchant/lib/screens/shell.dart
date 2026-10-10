@@ -161,7 +161,14 @@ class _ShellState extends State<Shell> {
         refresh: refresh,
       ),
       ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh),
-      CreateScreen(brand: brand, onCreated: () => refresh.value++, scanned: scanned, onScan: _scan, reading: reading),
+      CreateScreen(
+        brand: brand,
+        onCreated: () => refresh.value++,
+        scanned: scanned,
+        onScan: _scan,
+        reading: reading,
+        onRead: ({required bool voice}) => _read(voice: voice),
+      ),
       FinanceScreen(brand: brand, refresh: refresh),
       _More(brand: brand, session: widget.session, onLogout: widget.onLogout, onOpen: _open),
     ];
