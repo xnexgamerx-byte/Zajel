@@ -540,4 +540,77 @@ class Demo {
           at: DateTime.now(),
         ),
       );
+
+  // ---------------------------------------------------------------- الوصولات والرفع من ملف (docs/plan/57)
+
+  static const _print = {'80x120': 'https://example.invalid/print', '100x100': 'https://example.invalid/print'};
+
+  static final _books = <WaybillBookRow>[
+    WaybillBookRow(
+      id: 1,
+      range: '90000001–90000050',
+      size: 50,
+      label: '50 وصلاً',
+      used: 31,
+      at: _ago(200),
+      print: _print,
+    ),
+  ];
+
+  static WaybillsPage waybills() => WaybillsPage(
+    max: 200,
+    sizes: const [Choice('80x120', '80×120 مم'), Choice('100x100', '100×100 مم')],
+    books: List.of(_books),
+  );
+
+  static IssuedBook issueWaybills(int size, String printSize) {
+    final from = 90000051 + (_books.length - 1) * 1000;
+    final range = '$from–${from + size - 1}';
+    _books.insert(
+      0,
+      WaybillBookRow(
+        id: _books.length + 1,
+        range: range,
+        size: size,
+        label: '$size وصلاً',
+        used: 0,
+        at: DateTime.now(),
+        print: _print,
+      ),
+    );
+    return IssuedBook(range: range, print: _print[printSize]!, message: 'جاهزٌ دفترٌ من $size وصلاً: $range.');
+  }
+
+  static const importInfo = (
+    columns: [
+      (label: 'اسم المستلم', required: false),
+      (label: 'هاتف المستلم', required: true),
+      (label: 'المحافظة', required: true),
+      (label: 'المنطقة', required: true),
+      (label: 'أقرب نقطة دالّة', required: false),
+      (label: 'المبلغ المطلوب', required: true),
+    ],
+    template: 'https://example.invalid/template',
+  );
+
+  static Future<ImportPreview> previewImport() async {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    return ImportPreview(
+      path: 'imports/demo.xlsx',
+      total: 3,
+      good: 2,
+      bad: [
+        (row: 4, name: 'بلا هاتف', errors: ['هاتف المستلم مطلوب']),
+      ],
+      rows: [
+        (row: 2, name: 'زينب كاظم', phone: '07701112233', place: 'بغداد · الكرادة', amount: 75000),
+        (row: 3, name: 'علي حسين', phone: '07801234567', place: 'بغداد · المنصور', amount: 40000),
+      ],
+    );
+  }
+
+  static String confirmImport(bool skipErrors) {
+    if (!skipErrors) throw ApiError('في الملف صفوف بأخطاء، عددها 1. صحّحه أو استورد الصفوف الصحيحة وحدها.');
+    return 'أُنشئت شحناتك، عددها 2. اطلب استلاماً متى جهّزت الطرود. وتُخطّيت صفوف بأخطاء، عددها 1.';
+  }
 }

@@ -4,11 +4,13 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Merchant\CreateShipmentController as MerchantCreateShipmentController;
 use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceController;
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
+use App\Http\Controllers\Api\Merchant\ImportController as MerchantImportController;
 use App\Http\Controllers\Api\Merchant\PickupController as MerchantPickupController;
 use App\Http\Controllers\Api\Merchant\ProcessingController as MerchantProcessingController;
 use App\Http\Controllers\Api\Merchant\RequestController as MerchantRequestController;
 use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentController;
 use App\Http\Controllers\Api\Merchant\SupportController as MerchantSupportController;
+use App\Http\Controllers\Api\Merchant\WaybillController as MerchantWaybillController;
 use App\Http\Controllers\OrderListeningController;
 use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Tenant\AppAdController;
@@ -71,6 +73,16 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
                     ->middleware('throttle:60,1')->name('reply');
                 Route::get('/{conversation}/files/{message}', [MerchantSupportController::class, 'file'])
                     ->whereNumber(['conversation', 'message'])->name('file');
+            });
+            // وصولات للطباعة ورفع شحنات من ملف (docs/plan/57)
+            Route::middleware('feature:waybills')->group(function () {
+                Route::get('/waybills', [MerchantWaybillController::class, 'index'])->name('waybills.index');
+                Route::post('/waybills', [MerchantWaybillController::class, 'store'])->middleware('throttle:20,60')->name('waybills.store');
+            });
+            Route::middleware('feature:excel_import')->group(function () {
+                Route::get('/import', [MerchantImportController::class, 'index'])->name('import.index');
+                Route::post('/import', [MerchantImportController::class, 'store'])->middleware('throttle:20,1')->name('import.store');
+                Route::post('/import/confirm', [MerchantImportController::class, 'confirm'])->middleware('throttle:20,1')->name('import.confirm');
             });
             Route::post('/shipments', [MerchantCreateShipmentController::class, 'store'])->middleware('throttle:60,1')->name('shipments.store');
         });

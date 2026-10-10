@@ -61,7 +61,7 @@
 
 <div class="sticky top-0 z-10 border-b border-ink-200 bg-white print:hidden">
     <div class="mx-auto flex max-w-3xl flex-wrap items-center gap-3 px-4 py-3">
-        <a href="{{ $back }}" class="btn-ghost h-10">رجوع</a>
+        @if ($back)<a href="{{ $back }}" class="btn-ghost h-10">رجوع</a>@endif
         <span class="text-sm font-semibold">
             {{ \App\Support\Arabic::waybills(count($codes)) }}
             <span class="num font-normal text-ink-500">{{ $book->firstCode() }}–{{ $book->lastCode() }}</span>

@@ -5,10 +5,10 @@ import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
-import '../widgets/page.dart';
 import 'create_screen.dart';
 import 'finance_screen.dart';
 import 'home_screen.dart';
+import 'import_screen.dart';
 import 'pickups_screen.dart';
 import 'processing_screen.dart';
 import 'reader_sheets.dart';
@@ -16,6 +16,7 @@ import 'requests_screen.dart';
 import 'scan_screen.dart';
 import 'shipments_screen.dart';
 import 'support_screen.dart';
+import 'waybills_screen.dart';
 
 /// هيكل التطبيق: الصفحات الخمس والشريط السفلي العائم بزرّ «طلب جديد» في وسطه.
 class Shell extends StatefulWidget {
@@ -67,14 +68,12 @@ class _ShellState extends State<Shell> {
       'pickups' => openPickups,
       'requests' => openRequests,
       'support' => openSupport,
+      'waybills' => openWaybills,
+      'import' => openImport,
       _ => null,
     };
     if (tool != null) {
       tool(context, brand).then((_) => refresh.value++);
-      return;
-    }
-    if (screen == 'waybills' || screen == 'import') {
-      toast(context, 'من البوابة على الموقع الآن — وتصل التطبيق في التحديث القادم.');
       return;
     }
     if (screen == 'create:ai' || screen == 'create:voice') {

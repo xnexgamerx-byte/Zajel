@@ -289,6 +289,58 @@ class Api {
     await _send(request.send().then(http.Response.fromStream), timeout: _reading);
   }
 
+  // ---------------------------------------------------------------- الوصولات والرفع من ملف (docs/plan/57)
+
+  Future<WaybillsPage> waybills() async {
+    if (AppConfig.demo) return Demo.waybills();
+    return WaybillsPage.fromJson(await _send(http.get(_uri('/merchant/waybills'), headers: _headers)));
+  }
+
+  Future<IssuedBook> issueWaybills(int size, String printSize) async {
+    if (AppConfig.demo) return Demo.issueWaybills(size, printSize);
+    return IssuedBook.fromJson(
+      await _send(
+        http.post(
+          _uri('/merchant/waybills'),
+          headers: _headers,
+          body: jsonEncode({'size': size, 'print_size': printSize}),
+        ),
+      ),
+    );
+  }
+
+  /// الأعمدة ورابط القالب (موقَّعٌ لساعة)
+  Future<({List<({String label, bool required})> columns, String template})> importInfo() async {
+    if (AppConfig.demo) return Demo.importInfo;
+    final j = await _send(http.get(_uri('/merchant/import'), headers: _headers));
+    return (
+      columns: [
+        for (final c in j['columns'] as List)
+          (label: (c as Map)['label'] as String, required: c['required'] as bool? ?? false),
+      ],
+      template: j['template'] as String,
+    );
+  }
+
+  Future<ImportPreview> previewImport(Uint8List bytes, String filename) async {
+    if (AppConfig.demo) return Demo.previewImport();
+    return ImportPreview.fromJson(await _upload('/merchant/import', 'file', bytes, filename));
+  }
+
+  /// يُنشئ الشحنات — ويعود نصّ النظام بعددها
+  Future<String> confirmImport(String path, {bool skipErrors = false}) async {
+    if (AppConfig.demo) return Demo.confirmImport(skipErrors);
+    final body = await _send(
+      http.post(
+        _uri('/merchant/import/confirm'),
+        headers: _headers,
+        body: jsonEncode({'path': path, 'skip_errors': skipErrors}),
+      ),
+      timeout: _reading,
+    );
+    return body['message'] as String? ?? 'أُنشئت شحناتك.';
+  }
+
   // ---------------------------------------------------------------- بالذكاء الاصطناعي وبالصوت (docs/plan/55)
 
   /// قراءة الصورة والتسجيل قد تطول: الذكاء الاصطناعي يقرأ لقطة الشاشة كلّها

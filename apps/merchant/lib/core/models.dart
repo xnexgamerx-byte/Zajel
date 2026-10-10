@@ -829,3 +829,102 @@ class Thread {
   final bool closed;
   final List<Message> messages;
 }
+
+/// دفتر وصولاتٍ مطبوعة: GET /merchant/waybills
+class WaybillBookRow {
+  WaybillBookRow({
+    required this.id,
+    required this.range,
+    required this.size,
+    required this.label,
+    required this.used,
+    this.at,
+    this.print = const {},
+  });
+
+  factory WaybillBookRow.fromJson(Map<String, dynamic> j) => WaybillBookRow(
+    id: j['id'] as int,
+    range: j['range'] as String,
+    size: j['size'] as int? ?? 0,
+    label: j['label'] as String? ?? '',
+    used: j['used'] as int? ?? 0,
+    at: _at(j['at']),
+    print: {for (final e in (j['print'] as Map? ?? const {}).entries) '${e.key}': '${e.value}'},
+  );
+
+  final int id;
+
+  /// «90000001–90000050»
+  final String range;
+  final int size;
+  final String label;
+  final int used;
+  final DateTime? at;
+
+  /// رابط الطباعة لكلّ مقاس — موقَّعٌ لساعة؛ فارغٌ إن استُعمل الدفتر كلّه
+  final Map<String, String> print;
+}
+
+class WaybillsPage {
+  WaybillsPage({required this.max, required this.sizes, required this.books});
+
+  factory WaybillsPage.fromJson(Map<String, dynamic> j) => WaybillsPage(
+    max: j['max'] as int? ?? 200,
+    sizes: [for (final s in j['sizes'] as List) Choice.fromJson((s as Map).cast())],
+    books: [for (final b in j['books'] as List) WaybillBookRow.fromJson((b as Map).cast())],
+  );
+
+  final int max;
+  final List<Choice> sizes;
+  final List<WaybillBookRow> books;
+}
+
+/// دفترٌ جديد: رابط طباعته بالمقاس المختار
+class IssuedBook {
+  IssuedBook({required this.range, required this.print, required this.message});
+
+  factory IssuedBook.fromJson(Map<String, dynamic> j) =>
+      IssuedBook(range: j['range'] as String, print: j['print'] as String, message: j['message'] as String);
+
+  final String range;
+  final String print;
+  final String message;
+}
+
+/// معاينة ملف الشحنات قبل إنشائها: POST /merchant/import
+class ImportPreview {
+  ImportPreview({required this.path, required this.total, required this.good, required this.bad, required this.rows});
+
+  factory ImportPreview.fromJson(Map<String, dynamic> j) => ImportPreview(
+    path: j['path'] as String,
+    total: j['total'] as int? ?? 0,
+    good: j['good'] as int? ?? 0,
+    bad: [
+      for (final b in j['bad'] as List)
+        (
+          row: (b as Map)['row'] as int,
+          name: b['name'] as String?,
+          errors: [for (final e in b['errors'] as List) '$e'],
+        ),
+    ],
+    rows: [
+      for (final r in j['rows'] as List)
+        (
+          row: (r as Map)['row'] as int,
+          name: r['name'] as String?,
+          phone: r['phone'] as String? ?? '',
+          place: r['place'] as String? ?? '',
+          amount: r['amount'] as int? ?? 0,
+        ),
+    ],
+  );
+
+  /// الملف على الخادم حتى التأكيد — لرافعه وحده
+  final String path;
+  final int total;
+  final int good;
+  final List<({int row, String? name, List<String> errors})> bad;
+
+  /// أوّل عشرين صفّاً صحيحاً
+  final List<({int row, String? name, String phone, String place, int amount})> rows;
+}

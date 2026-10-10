@@ -13,6 +13,7 @@ use App\Http\Controllers\Courier\ShareController as CourierShareController;
 use App\Http\Controllers\Courier\TaskController;
 use App\Http\Controllers\Courier\TicketController as CourierTicketController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
+use App\Http\Controllers\AppLinkController;
 use App\Http\Controllers\Portal\PickupRequestController;
 use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
 use App\Http\Controllers\Portal\ShipmentImportController as PortalShipmentImportController;
@@ -119,6 +120,11 @@ Route::middleware('tenant')->group(function () {
      */
     // لوغو الشركة: يُرى في صفحة الدخول والتتبّع قبل الدخول أيضاً (docs/plan/45)
     Route::get('/logo', [CompanyLogoController::class, 'show'])->name('company.logo');
+    // ما يفتحه تطبيق التاجر في متصفّح الهاتف برابطٍ موقَّعٍ لساعة (docs/plan/57) — بلا دخول
+    Route::middleware(['signed', 'throttle:30,1'])->prefix('app')->name('app.')->group(function () {
+        Route::get('/waybills/{book}/print', [AppLinkController::class, 'waybills'])->whereNumber('book')->name('waybills.print');
+        Route::get('/import/template', [AppLinkController::class, 'template'])->name('import.template');
+    });
     Route::get('/track', [TrackingController::class, 'form'])->middleware('throttle:30,1,track')->name('track');
     Route::get('/t/{number}/{token}', [TrackingController::class, 'show'])
         ->middleware('throttle:240,1,track-link')

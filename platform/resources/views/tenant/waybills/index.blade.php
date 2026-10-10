@@ -117,7 +117,7 @@
                                 <span class="text-ink-500">من <span class="num">{{ number_format($book->size) }}</span></span>
                             </td>
                             <td class="text-sm">
-                                {{ $book->source === 'portal' ? 'التاجر من بوابته' : ($book->creator?->name ?? '—') }}
+                                {{ ['portal' => 'التاجر من بوابته', 'app' => 'التاجر من تطبيقه'][$book->source] ?? ($book->creator?->name ?? '—') }}
                                 <span class="num block text-xs whitespace-nowrap text-ink-500">{{ $book->created_at->format('Y-m-d') }}</span>
                                 @if ($book->note)
                                     <span class="block text-xs text-ink-500">{{ $book->note }}</span>

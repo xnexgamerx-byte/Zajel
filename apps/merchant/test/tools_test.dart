@@ -119,4 +119,42 @@ void main() {
     expect(find.text('تعديل عنوان'), findsOneWidget);
     expect(find.text('غيّروا عنوان الاستلام رجاءً'), findsOneWidget);
   });
+
+  testWidgets('وصلات للطباعة: دفترٌ جديد بعدده ومقاسه', (tester) async {
+    await _open(tester, 'وصلات للطباعة');
+    expect(find.text('90000001–90000050'), findsOneWidget);
+    expect(find.textContaining('استُعمل 31 من 50'), findsOneWidget);
+
+    await tester.tap(find.text('اطبع دفتراً جديداً'));
+    await tester.pumpAndSettle();
+    await tester.enterText(_hint('50'), '٣٠٠');
+    await tester.tap(find.text('جهّز واطبع'));
+    await tester.pump();
+    expect(find.text('الدفتر من وصلٍ واحد إلى 200 وصل.'), findsOneWidget);
+
+    await tester.tap(find.text('100'));
+    await tester.tap(find.text('100×100 مم'));
+    await tester.tap(find.text('جهّز واطبع'));
+    await tester.pumpAndSettle();
+    expect(find.text('جاهزٌ دفترٌ من 100 وصلاً: 90000051–90000150.'), findsOneWidget);
+    expect(find.text('90000051–90000150'), findsOneWidget);
+  });
+
+  testWidgets('رفع شحنات من ملف: معاينةٌ بالخاطئ ثم إنشاء الصحيح', (tester) async {
+    await _open(tester, 'رفع شحنات من ملف');
+    expect(find.text('هاتف المستلم *'), findsOneWidget);
+    expect(find.text('نزّل القالب'), findsOneWidget);
+
+    await tester.tap(find.text('اختر الملف'));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('الصفّ 4 (بلا هاتف): هاتف المستلم مطلوب'), findsOneWidget);
+    expect(find.text('زينب كاظم'), findsOneWidget);
+    expect(find.text('75,000 د.ع'), findsOneWidget);
+
+    await tester.tap(find.text('أنشئ الصحيحة وحدها (2)'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('أُنشئت شحناتك، عددها 2'), findsOneWidget);
+    expect(find.text('اختر الملف'), findsOneWidget);
+  });
 }
