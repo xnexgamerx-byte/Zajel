@@ -123,6 +123,55 @@ class Api {
     );
   }
 
+  // ---------------------------------------------------------------- للمعالجة والمالية (docs/plan/54)
+
+  Future<ProcessingPage> processing({int page = 1}) async {
+    if (AppConfig.demo) return Demo.processing();
+    final uri = _uri('/merchant/processing').replace(queryParameters: {'page': '$page'});
+    return ProcessingPage.fromJson(await _send(http.get(uri, headers: _headers)));
+  }
+
+  /// قرار التاجر: redeliver · postpone (مع until) · return — ويعود نصّ النظام
+  Future<String> process(int id, String action, {String? until, String? note}) async {
+    if (AppConfig.demo) return Demo.process(action);
+    final body = await _send(
+      http.post(
+        _uri('/merchant/processing/$id'),
+        headers: _headers,
+        body: jsonEncode({'action': action, 'until': ?until, if (note != null && note.isNotEmpty) 'note': note}),
+      ),
+    );
+    return body['message'] as String? ?? 'سُجّل قرارك.';
+  }
+
+  Future<Finance> finance() async {
+    if (AppConfig.demo) return Demo.finance;
+    return Finance.fromJson(await _send(http.get(_uri('/merchant/finance'), headers: _headers)));
+  }
+
+  Future<PaymentRequest> requestPayment({required String method, String? details, String? note}) async {
+    if (AppConfig.demo) return Demo.requestPayment(method);
+    return PaymentRequest.fromJson(
+      await _send(
+        http.post(
+          _uri('/merchant/finance/request'),
+          headers: _headers,
+          body: jsonEncode({
+            'payout_method': method,
+            if (details != null && details.isNotEmpty) 'payout_details': details,
+            if (note != null && note.isNotEmpty) 'note': note,
+          }),
+        ),
+      ),
+    );
+  }
+
+  Future<String> confirmStatement(int id) async {
+    if (AppConfig.demo) return Demo.confirmStatement(id);
+    final body = await _send(http.post(_uri('/merchant/finance/statements/$id/confirm'), headers: _headers));
+    return body['message'] as String? ?? 'أكّدت استلام الدفعة.';
+  }
+
   /// صورة إعلانٍ محميّة برمز الدخول
   Map<String, String> get imageHeaders => {if (_token != null) 'Authorization': 'Bearer $_token'};
 

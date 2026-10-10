@@ -314,3 +314,193 @@ class Created {
   final int due;
   final String? waybill;
 }
+
+// ------------------------------------------------------------------ للمعالجة والمالية (docs/plan/54)
+
+/// شحنةٌ لم تُسلَّم تنتظر قرار التاجر: صفّها، وسبب التعثّر، وكم انتظرت، وهاتف زبونه كاملاً
+class ProcessingItem {
+  ProcessingItem({required this.row, this.reason, this.attempts = 1, this.waiting = 0, this.phone = ''});
+
+  factory ProcessingItem.fromJson(Map<String, dynamic> j) => ProcessingItem(
+    row: RecentShipment.fromJson(j),
+    reason: j['reason'] as String?,
+    attempts: j['attempts'] as int? ?? 1,
+    waiting: j['waiting'] as int? ?? 0,
+    phone: j['phone'] as String? ?? '',
+  );
+
+  final RecentShipment row;
+  final String? reason;
+  final int attempts;
+
+  /// ساعات الانتظار منذ تعثّرت
+  final int waiting;
+  final String phone;
+}
+
+class ProcessingPage {
+  ProcessingPage({required this.allowed, required this.total, required this.items, this.page = 1, this.last = 1});
+
+  factory ProcessingPage.fromJson(Map<String, dynamic> j) => ProcessingPage(
+    allowed: j['allowed'] as bool? ?? false,
+    total: j['total'] as int? ?? 0,
+    page: j['page'] as int? ?? 1,
+    last: j['last'] as int? ?? 1,
+    items: [for (final i in j['data'] as List) ProcessingItem.fromJson((i as Map).cast())],
+  );
+
+  /// أفعّلت الشركة للتاجر المعالجة من التطبيق؟
+  final bool allowed;
+  final int total;
+  final int page;
+  final int last;
+  final List<ProcessingItem> items;
+}
+
+class PayoutMethod {
+  const PayoutMethod({required this.value, required this.label, this.details = false, this.hint});
+
+  factory PayoutMethod.fromJson(Map<String, dynamic> j) => PayoutMethod(
+    value: j['value'] as String,
+    label: j['label'] as String,
+    details: j['details'] as bool? ?? false,
+    hint: j['hint'] as String?,
+  );
+
+  final String value;
+  final String label;
+
+  /// بطاقةٌ أو محفظة: يُكتب رقمها واسم صاحبها
+  final bool details;
+  final String? hint;
+}
+
+class Statement {
+  const Statement({
+    required this.id,
+    required this.code,
+    required this.status,
+    required this.paid,
+    required this.net,
+    required this.count,
+    this.advance = 0,
+    this.at,
+    this.reference,
+    this.confirmed = false,
+  });
+
+  factory Statement.fromJson(Map<String, dynamic> j) => Statement(
+    id: j['id'] as int,
+    code: j['code'] as String,
+    status: j['status'] as String,
+    paid: j['paid'] as bool? ?? false,
+    net: j['net'] as int? ?? 0,
+    count: j['count'] as int? ?? 0,
+    advance: j['advance'] as int? ?? 0,
+    at: DateTime.tryParse(j['at'] as String? ?? '')?.toLocal(),
+    reference: j['reference'] as String?,
+    confirmed: j['confirmed'] as bool? ?? false,
+  );
+
+  final int id;
+  final String code;
+  final String status;
+  final bool paid;
+  final int net;
+  final int count;
+  final int advance;
+  final DateTime? at;
+  final String? reference;
+
+  /// أكّد التاجر أن الدفعة وصلته
+  final bool confirmed;
+}
+
+class Movement {
+  const Movement({required this.label, required this.amount, this.shipment, this.at});
+
+  factory Movement.fromJson(Map<String, dynamic> j) => Movement(
+    label: j['label'] as String? ?? '',
+    amount: j['amount'] as int? ?? 0,
+    shipment: j['shipment'] as String?,
+    at: DateTime.tryParse(j['at'] as String? ?? '')?.toLocal(),
+  );
+
+  final String label;
+
+  /// بإشارته: له موجب، وعليه سالب
+  final int amount;
+  final String? shipment;
+  final DateTime? at;
+}
+
+/// طلب محاسبةٍ مفتوح: رقمه ومبلغه وطريقته
+class PaymentRequest {
+  const PaymentRequest({required this.number, required this.amount, required this.method, this.at});
+
+  factory PaymentRequest.fromJson(Map<String, dynamic> j) => PaymentRequest(
+    number: j['number'] as String,
+    amount: j['amount'] as int? ?? 0,
+    method: j['method'] as String? ?? '',
+    at: DateTime.tryParse(j['at'] as String? ?? '')?.toLocal(),
+  );
+
+  final String number;
+  final int amount;
+  final String method;
+  final DateTime? at;
+}
+
+/// «المالية»: GET /merchant/finance
+class Finance {
+  Finance({
+    required this.total,
+    required this.owed,
+    required this.available,
+    required this.pending,
+    this.pendingReason,
+    this.awaitingPayment = 0,
+    this.advances = 0,
+    this.request,
+    required this.methods,
+    this.method,
+    this.account,
+    required this.statements,
+    required this.movements,
+  });
+
+  factory Finance.fromJson(Map<String, dynamic> j) {
+    final b = (j['balance'] as Map).cast<String, dynamic>();
+    return Finance(
+      total: b['total'] as int? ?? 0,
+      owed: b['owed'] as bool? ?? true,
+      available: b['available'] as int? ?? 0,
+      pending: b['pending'] as int? ?? 0,
+      pendingReason: b['reason'] as String?,
+      awaitingPayment: b['awaiting_payment'] as int? ?? 0,
+      advances: b['advances'] as int? ?? 0,
+      request: j['request'] == null ? null : PaymentRequest.fromJson((j['request'] as Map).cast()),
+      methods: [for (final m in j['methods'] as List) PayoutMethod.fromJson((m as Map).cast())],
+      method: j['method'] as String?,
+      account: j['account'] as String?,
+      statements: [for (final s in j['statements'] as List) Statement.fromJson((s as Map).cast())],
+      movements: [for (final m in j['movements'] as List) Movement.fromJson((m as Map).cast())],
+    );
+  }
+
+  final int total;
+  final bool owed;
+  final int available;
+  final int pending;
+  final String? pendingReason;
+  final int awaitingPayment;
+  final int advances;
+  final PaymentRequest? request;
+  final List<PayoutMethod> methods;
+
+  /// طريقة الدفع المحفوظة للتاجر، وآخر أرقام حسابه المحفوظ
+  final String? method;
+  final String? account;
+  final List<Statement> statements;
+  final List<Movement> movements;
+}

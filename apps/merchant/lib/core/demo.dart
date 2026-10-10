@@ -16,7 +16,7 @@ class Demo {
     pending: 500000,
     pendingReason: 'عن 12 شحنة واصلة، نقدها ما زال مع المندوب — يصير متاحاً حين تحاسبه الشركة.',
     stats: const Stats(total: 124, delivered: 86, inDelivery: 28, returns: 6),
-    processing: 5,
+    processing: 3,
     canProcess: true,
     attention: 3,
     recent: [
@@ -148,7 +148,7 @@ class Demo {
     int hours = 1,
   }) => RecentShipment(
     id: id,
-    number: 'ZA-2026012${id + 1}',
+    number: 'ZA-${20260121 + id}',
     name: name,
     area: area,
     amount: amount,
@@ -228,5 +228,101 @@ class Demo {
       throw ApiError('هذا ليس رقم وصلٍ مطبوع. امسح الباركود الذي على الوصل.');
     }
     return code;
+  }
+
+  // ---------------------------------------------------------------- للمعالجة والمالية
+
+  static ProcessingPage processing() => ProcessingPage(
+    allowed: true,
+    total: 3,
+    items: [
+      ProcessingItem(row: _all[2], reason: 'الزبون لا يرد', attempts: 1, waiting: 5, phone: '07801234567'),
+      ProcessingItem(
+        row: _row(9, 'حسين علي', 'الكرادة', 41000, 'للمعالجة', 'urgent', urgent: true, hours: 26),
+        reason: 'الهاتف مغلق',
+        attempts: 2,
+        waiting: 26,
+        phone: '07709876543',
+      ),
+      ProcessingItem(
+        row: _row(10, 'فاطمة محمد', 'زيونة', 33000, 'للمعالجة', 'urgent', urgent: true, hours: 8),
+        reason: 'الزبون رفض الاستلام',
+        attempts: 1,
+        waiting: 8,
+        phone: '07501112233',
+      ),
+    ],
+  );
+
+  static String process(String action) => switch (action) {
+    'redeliver' => 'سُجّل قرارك: إعادة توصيل.',
+    'postpone' => 'سُجّل قرارك: مؤجل.',
+    _ => 'سُجّل قرارك: راجع مؤكد.',
+  };
+
+  /// ما فعله التاجر في العرض: طلبه المفتوح والكشوف التي أكّد استلامها
+  static PaymentRequest? _request;
+  static final _confirmed = <int>{};
+
+  static Finance get finance => Finance(
+    total: 1750000,
+    owed: true,
+    available: 1250000,
+    pending: 500000,
+    pendingReason: 'عن 12 شحنة واصلة، نقدها ما زال مع المندوب — يصير متاحاً حين تحاسبه الشركة.',
+    methods: const [
+      PayoutMethod(value: 'cash', label: 'نقد'),
+      PayoutMethod(value: 'zaincash', label: 'زين كاش', details: true, hint: 'رقم محفظة زين كاش واسم صاحبها'),
+      PayoutMethod(value: 'qi', label: 'Qi كارد', details: true, hint: 'رقم بطاقة Qi (ماستر كارد) واسم صاحبها'),
+      PayoutMethod(value: 'fib', label: 'FIB', details: true, hint: 'رقم حساب FIB واسم صاحبه'),
+    ],
+    method: 'zaincash',
+    account: '…2222',
+    request: _request,
+    statements: [
+      Statement(
+        id: 1,
+        code: 'MS000041',
+        status: 'مدفوع',
+        paid: true,
+        net: 870000,
+        count: 23,
+        at: DateTime.now().subtract(const Duration(days: 2)),
+        reference: 'ZC-55120',
+        confirmed: _confirmed.contains(1),
+      ),
+      Statement(
+        id: 2,
+        code: 'MS000037',
+        status: 'مدفوع',
+        paid: true,
+        net: 640000,
+        count: 17,
+        at: DateTime.now().subtract(const Duration(days: 9)),
+        confirmed: true,
+      ),
+    ],
+    movements: [
+      Movement(label: 'مستحقّ الشحنة ZA-20260124', amount: 40000, shipment: 'ZA-20260124', at: _today(10, 45)),
+      Movement(
+        label: 'دفعة للتاجر — كشف MS000041',
+        amount: -870000,
+        at: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+      Movement(
+        label: 'أجرة راجع الشحنة ZA-20260119',
+        amount: -5000,
+        shipment: 'ZA-20260119',
+        at: DateTime.now().subtract(const Duration(days: 3)),
+      ),
+    ],
+  );
+
+  static PaymentRequest requestPayment(String method) =>
+      _request = PaymentRequest(number: 'REQ-261010-7', amount: finance.available, method: method, at: DateTime.now());
+
+  static String confirmStatement(int id) {
+    _confirmed.add(id);
+    return 'أكّدت استلام الدفعة.';
   }
 }

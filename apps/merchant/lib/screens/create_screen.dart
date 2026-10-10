@@ -648,7 +648,7 @@ class _CreateScreenState extends State<CreateScreen> {
                   TextSpan(
                     text: 'حُفظت الشحنة ',
                     style: font(13, w7, const Color(0xFF0F7B4A)),
-                    children: [TextSpan(text: '#${c.row.number}', style: font(13, w8, Palette.ink))],
+                    children: [TextSpan(text: tag(c.row.number), style: font(13, w8, Palette.ink))],
                   ),
                 ),
                 Text(

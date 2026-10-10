@@ -5,7 +5,9 @@ import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import 'create_screen.dart';
+import 'finance_screen.dart';
 import 'home_screen.dart';
+import 'processing_screen.dart';
 import 'scan_screen.dart';
 import 'shipments_screen.dart';
 
@@ -45,8 +47,13 @@ class _ShellState extends State<Shell> {
 
   void _open(String screen) {
     final parts = screen.split(':');
+    // «للمعالجة» شاشةٌ وحدها (docs/plan/54): يقرّر التاجر فيها، ثم تُعاد الأرقام
+    if (parts.first == 'processing') {
+      openProcessing(context, brand, onChanged: () => refresh.value++);
+      return;
+    }
     final target = switch (parts.first) {
-      'shipments' || 'processing' || 'attention' => 1,
+      'shipments' || 'attention' => 1,
       'create' => 2,
       'finance' => 3,
       _ => 4,
@@ -97,7 +104,7 @@ class _ShellState extends State<Shell> {
       ),
       ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh),
       CreateScreen(brand: brand, onCreated: () => refresh.value++, scanned: scanned, onScan: _scan),
-      const _Soon(title: 'المالية', text: 'كشف حسابك وطلب المحاسبة — المرحلة التالية.'),
+      FinanceScreen(brand: brand, refresh: refresh),
       _More(brand: brand, session: widget.session, onLogout: widget.onLogout),
     ];
 
@@ -262,28 +269,6 @@ class _BarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _Soon extends StatelessWidget {
-  const _Soon({required this.title, required this.text});
-
-  final String title;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: font(20, w8, Palette.ink)),
-          const SizedBox(height: 8),
-          Text(text, style: font(13, w5, Palette.slate, height: 1.6)),
-        ],
-      ),
-    ),
-  );
 }
 
 class _More extends StatelessWidget {

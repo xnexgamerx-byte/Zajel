@@ -74,6 +74,9 @@ const w8 = FontWeight.w800;
 /// ظلّ البطاقات البيضاء الناعم
 const cardShadow = [BoxShadow(color: Palette.shadow, blurRadius: 8, offset: Offset(0, 2))];
 
+/// «#ZA-20260124» وسط نصٍّ عربي: معزولٌ من اليسار لليمين، وإلّا قفزت «#» إلى آخر الرقم
+String tag(String number) => '\u2066#$number\u2069';
+
 /// ١٧٥٠٠٠٠ ← «1,750,000» كما في التصميم
 String money(int value) {
   final digits = value.abs().toString();

@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Merchant\CreateShipmentController as MerchantCreateShipmentController;
+use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceController;
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
+use App\Http\Controllers\Api\Merchant\ProcessingController as MerchantProcessingController;
 use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentController;
 use App\Http\Controllers\Tenant\AppAdController;
 use App\Http\Middleware\IdentifyTenant;
@@ -35,6 +37,14 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::get('/shipments/quote', [MerchantCreateShipmentController::class, 'quote'])->name('shipments.quote');
             Route::get('/waybills/check', [MerchantCreateShipmentController::class, 'waybill'])
                 ->middleware(['feature:waybills', 'throttle:60,1'])->name('waybills.check');
+            // «للمعالجة» و«المالية» (docs/plan/54)
+            Route::get('/processing', [MerchantProcessingController::class, 'index'])->name('processing.index');
+            Route::post('/processing/{shipment}', [MerchantProcessingController::class, 'store'])->whereNumber('shipment')
+                ->middleware('throttle:60,1')->name('processing.store');
+            Route::get('/finance', [MerchantFinanceController::class, 'index'])->name('finance');
+            Route::post('/finance/request', [MerchantFinanceController::class, 'request'])->middleware('throttle:20,1')->name('finance.request');
+            Route::post('/finance/statements/{settlement}/confirm', [MerchantFinanceController::class, 'confirm'])
+                ->whereNumber('settlement')->name('finance.confirm');
             Route::post('/shipments', [MerchantCreateShipmentController::class, 'store'])->middleware('throttle:60,1')->name('shipments.store');
         });
     });
