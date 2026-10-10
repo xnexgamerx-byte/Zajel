@@ -18,7 +18,9 @@ class AnnouncementController extends Controller
     public function index(Request $request): View
     {
         // موظّف الفرع يرى ما أرسله فرعه، ويرسل لتجّاره ومناديبه وحدهم (Announce)
+        // وإشعارات التاجر الواحد (تغيّر مبلغ وصله) لا تملأ قائمة الإعلانات
         $announcements = Announcement::visibleTo($request->user())
+            ->whereNull('merchant_id')
             ->with('author:id,name')
             ->withCount('reads')
             ->latest('id')
@@ -35,18 +37,18 @@ class AnnouncementController extends Controller
 
         return view('tenant.announcements.index', [
             'announcements' => $announcements,
-            'audiences'     => Announcement::AUDIENCES,
-            'reach'         => $reach,
-            'audience'      => is_string($chosen) && array_key_exists($chosen, Announcement::AUDIENCES) ? $chosen : 'delivery_couriers',
+            'audiences' => Announcement::AUDIENCES,
+            'reach' => $reach,
+            'audience' => is_string($chosen) && array_key_exists($chosen, Announcement::AUDIENCES) ? $chosen : 'delivery_couriers',
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'audience'   => ['required', 'in:'.implode(',', array_keys(Announcement::AUDIENCES))],
-            'title'      => ['required', 'string', 'min:3', 'max:160'],
-            'body'       => ['required', 'string', 'min:3', 'max:2000'],
+            'audience' => ['required', 'in:'.implode(',', array_keys(Announcement::AUDIENCES))],
+            'title' => ['required', 'string', 'min:3', 'max:160'],
+            'body' => ['required', 'string', 'min:3', 'max:2000'],
             'expires_on' => ['nullable', 'date', 'after_or_equal:today'],
         ], [], ['audience' => 'الجمهور', 'title' => 'العنوان', 'body' => 'النصّ', 'expires_on' => 'تاريخ الانتهاء']);
 
@@ -69,7 +71,7 @@ class AnnouncementController extends Controller
 
         return view('tenant.announcements.show', [
             'announcement' => $announcement,
-            'reach'        => $announcement->reach(),
+            'reach' => $announcement->reach(),
         ]);
     }
 }

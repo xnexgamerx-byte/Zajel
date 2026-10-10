@@ -53,6 +53,8 @@ class MerchantAppToolsTest extends TestCase
 
         $this->seedReference();
         $this->company = $this->makeCompany('zajel', 'الزاجل');
+        // المراسلة مفتوحة اليوم كلّه: الاختبار لا يتبع ساعة تشغيله (docs/plan/39)
+        $this->company->forceFill(['settings' => ['support' => ['merchant_from' => 0, 'merchant_to' => 24]]])->save();
         $this->merchant = $this->makeMerchant($this->company, 'M0001');
         $this->other = $this->makeMerchant($this->company, 'M0002');
         $this->staff = $this->makeUser($this->company);
@@ -178,7 +180,7 @@ class MerchantAppToolsTest extends TestCase
         Storage::fake('local');
         $this->setFeature($this->company, Feature::Conversations);
         Tenancy::runAsPlatform(fn () => $this->company->forceFill(['settings' => [
-            'support' => ['whatsapp' => '07701234567', 'complaints' => '07801112222'],
+            'support' => ['whatsapp' => '07701234567', 'complaints' => '07801112222', 'merchant_from' => 0, 'merchant_to' => 24],
         ]])->save());
         $headers = $this->headers();
 

@@ -45,6 +45,8 @@ class MerchantAppProfileTest extends TestCase
         Storage::fake('local');
         $this->seedReference();
         $this->company = $this->makeCompany('zajel', 'الزاجل');
+        // المراسلة مفتوحة اليوم كلّه: الاختبار لا يتبع ساعة تشغيله (docs/plan/39)
+        $this->company->forceFill(['settings' => ['support' => ['merchant_from' => 0, 'merchant_to' => 24]]])->save();
         $this->merchant = $this->makeMerchant($this->company);
         $this->owner = $this->makeUser($this->company);
         [$this->user, $this->courier] = Tenancy::runFor($this->company, fn () => [

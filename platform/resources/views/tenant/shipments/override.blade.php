@@ -83,13 +83,24 @@
             </div>
         </div>
         <p class="text-xs text-ink-500">
-            المحافظة والمبلغ لهما طريقاهما: المحافظة من «تعديل البيانات» قبل المخزن، والمبلغ بعد التسليم من «تأكيد مبلغ الوصل».
+            المحافظة من «تعديل البيانات» قبل المخزن. والمبلغ من «الأجور» هنا: يتحدّث على الوصل وكشف المندوب وحساب التاجر معاً.
         </p>
     </section>
 
     <div class="space-y-5">
         <section class="card space-y-4 p-5">
-            <h2 class="card-title">الأجور</h2>
+            <h2 class="card-title">المبلغ والأجور</h2>
+            {{-- كُتب خطأً (25 بدل 25,000): يُصحَّح هنا ويتبعه كل ما بُني عليه (docs/plan/61) --}}
+            <div>
+                <label class="field-label" for="cod_amount">مبلغ الوصل</label>
+                <input id="cod_amount" name="cod_amount" type="number" min="0" step="1" class="field-input num"
+                       value="{{ old('cod_amount', $shipment->cod_amount) }}" @disabled($shipment->merchant_settlement_id)>
+                @error('cod_amount') <p class="field-error">{{ $message }}</p> @enderror
+                <p class="field-hint">
+                    {{ $shipment->wasDelivered() ? 'سُلِّمت: يتبعه المحصَّل وحساب التاجر وعهدة المندوب بفرقه.' : 'يُعاد حساب الأجور ومستحقّ التاجر منه.' }}
+                    والتاجر يُشعَر بالمبلغ الجديد.
+                </p>
+            </div>
             <div>
                 <label class="field-label" for="delivery_fee">أجرة التوصيل على التاجر</label>
                 <input id="delivery_fee" name="delivery_fee" type="number" min="0" step="1" class="field-input num"

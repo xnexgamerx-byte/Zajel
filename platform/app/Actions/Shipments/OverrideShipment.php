@@ -12,6 +12,7 @@ use App\Models\ShipmentEvent;
 use App\Models\User;
 use App\Services\Ledger;
 use App\Services\PricingService;
+use App\Support\MerchantNotice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -35,12 +36,12 @@ class OverrideShipment
     ];
 
     public const FEES = [
-        'delivery_fee'       => 'أجرة التوصيل على التاجر',
-        'return_fee'         => 'أجرة الراجع',
+        'delivery_fee' => 'أجرة التوصيل على التاجر',
+        'return_fee' => 'أجرة الراجع',
         'courier_commission' => 'أجرة المندوب',
     ];
 
-    public function __construct(protected Ledger $ledger) {}
+    public function __construct(protected Ledger $ledger, protected UpdateShipment $update) {}
 
     /** هل قُيِّد مال التاجر عنها: سُلِّمت (ولو بعضها) أو رجعت إليه */
     public static function merchantPosted(Shipment $shipment): bool
@@ -63,24 +64,44 @@ class OverrideShipment
 
         return DB::transaction(function () use ($shipment, $data, $actor, $reason) {
             $shipment = Shipment::query()->with('merchant', 'deliveryCourier')->lockForUpdate()->findOrFail($shipment->id);
-            $before = $shipment->only([...self::DETAILS, ...array_keys(self::FEES), 'total_fees', 'merchant_due']);
+            $amountFrom = (int) $shipment->cod_amount;
+            $amount = $this->fee($data, 'cod_amount');
+
+            /*
+            | المبلغ (docs/plan/61): قبل التسليم بطريق التعديل العاديّ — تُعاد عمولة التحصيل ومستحقّ
+            | التاجر — ثم يُكمَل الباقي هنا على الشحنة بعد تعديلها.
+            */
+            if ($amount !== null && $amount !== $amountFrom && UpdateShipment::editable($shipment)) {
+                $this->update->handle($shipment, UpdateShipment::withAmount($shipment, $amount), $actor,
+                    'تعديل المبلغ بصلاحية خاصّة — '.$reason);
+                // والتاجر يُشعَر من التعديل نفسه
+                $shipment = Shipment::query()->with('merchant', 'deliveryCourier')->lockForUpdate()->findOrFail($shipment->id);
+                $amount = null;
+            }
+
+            $before = $shipment->only([...self::DETAILS, ...array_keys(self::FEES), 'cod_amount', 'collected_amount', 'total_fees', 'merchant_due']);
 
             foreach (self::DETAILS as $field) {
                 if (array_key_exists($field, $data)) {
                     $shipment->{$field} = match ($field) {
                         'recipient_name' => filled($data[$field]) ? $data[$field] : Shipment::UNNAMED_RECIPIENT,
-                        'pieces_count'   => max(1, (int) $data[$field]),
+                        'pieces_count' => max(1, (int) $data[$field]),
                         'address', 'landmark' => (string) ($data[$field] ?? ''),
-                        default          => $data[$field],
+                        default => $data[$field],
                     };
                 }
             }
 
+            $collectedDelta = $this->applyAmount($shipment, $amount);
             $merchantDelta = $this->applyMerchantFees($shipment, $data);
             $commissionDelta = $this->applyCourierFee($shipment, $data);
 
             if (! $shipment->isDirty()) {
                 return $shipment;
+            }
+
+            if ($collectedDelta !== 0 && $shipment->merchant_settlement_id) {
+                throw ValidationException::withMessages(['cod_amount' => 'دخلت الشحنة كشف تاجرٍ أُقفِل: دُفع له بمبلغها القديم. احذف الكشف في مهلته أوّلاً.']);
             }
 
             if ($merchantDelta !== 0 && $shipment->merchant_settlement_id) {
@@ -93,6 +114,11 @@ class OverrideShipment
 
             $shipment->save();
 
+            // ما حصّله المندوب زاد أو نقص: له في حساب التاجر، وعلى المندوب في عهدته
+            if ($collectedDelta !== 0) {
+                $this->ledger->recordAmountCorrection($shipment, $collectedDelta, $actor, $reason);
+            }
+
             if ($merchantDelta !== 0) {
                 $this->ledger->recordFeeCorrection($shipment, $merchantDelta, $actor, $reason);
             }
@@ -102,6 +128,10 @@ class OverrideShipment
             }
 
             $this->refreshDraftLines($shipment);
+
+            if ($amount !== null) {
+                MerchantNotice::amountChanged($shipment, $amountFrom, (int) $shipment->cod_amount, $actor);
+            }
 
             $changes = [];
             foreach ($before as $field => $from) {
@@ -114,18 +144,51 @@ class OverrideShipment
             ShipmentEvent::create([
                 'shipment_id' => $shipment->id,
                 'from_status' => $shipment->status->value,
-                'to_status'   => $shipment->status->value,
-                'event_type'  => 'edited',
-                'actor_type'  => 'user',
-                'actor_id'    => $actor->id,
-                'actor_name'  => $actor->name,
-                'note'        => 'تعديل بصلاحية خاصّة — '.$reason.$this->describe($changes),
-                'meta'        => ['changes' => $changes, 'override' => true],
-                'ip'          => request()->ip(),
+                'to_status' => $shipment->status->value,
+                'event_type' => 'edited',
+                'actor_type' => 'user',
+                'actor_id' => $actor->id,
+                'actor_name' => $actor->name,
+                'note' => 'تعديل بصلاحية خاصّة — '.$reason.$this->describe($changes),
+                'meta' => ['changes' => $changes, 'override' => true],
+                'ip' => request()->ip(),
             ]);
 
             return $shipment->refresh();
         });
+    }
+
+    /**
+     * مبلغ شحنةٍ بعد تسليمها أو رجوعها (docs/plan/61): كُتب خطأً — 25 بدل 25,000 — فيُصحَّح على
+     * الوصل وفي كل ما بُني عليه. الواصل كلّه: المحصَّل ومستحقّ التاجر يتبعانه بفرقه، والفرق قيدٌ
+     * (يعيده المستدعي). والراجع بلا تسليم: لا مال قُيِّد، فالمبلغ وحده. والواصل الجزئيّ محصَّله
+     * غير مبلغه: يُصحَّح من «تأكيد المبلغ».
+     */
+    protected function applyAmount(Shipment $shipment, ?int $amount): int
+    {
+        if ($amount === null || $amount === (int) $shipment->cod_amount) {
+            return 0;
+        }
+
+        $partial = $shipment->wasDelivered()
+            && ($shipment->status === ShipmentStatus::PartiallyDelivered || $shipment->status === ShipmentStatus::Returned);
+
+        if ($partial) {
+            throw ValidationException::withMessages(['cod_amount' => 'سُلِّم بعضها: صحّح ما حُصِّل منها من «تأكيد المبلغ».']);
+        }
+
+        $delta = $amount - (int) $shipment->cod_amount;
+        $shipment->cod_amount = $amount;
+        $shipment->payment_type = $amount > 0 ? 'cod' : 'prepaid';
+
+        if (! $shipment->wasDelivered()) {
+            return 0;
+        }
+
+        $shipment->collected_amount = (int) $shipment->collected_amount + $delta;
+        $shipment->merchant_due = (int) $shipment->merchant_due + $delta;
+
+        return $delta;
     }
 
     /**
@@ -218,7 +281,7 @@ class OverrideShipment
     /** @param  array<string, array{from: mixed, to: mixed}>  $changes */
     protected function describe(array $changes): string
     {
-        $labels = self::FEES + ['merchant_due' => 'مستحقّ التاجر'] + array_intersect_key(UpdateShipment::FIELDS, array_flip(self::DETAILS));
+        $labels = self::FEES + ['cod_amount' => 'المبلغ', 'collected_amount' => 'المحصَّل', 'merchant_due' => 'مستحقّ التاجر'] + array_intersect_key(UpdateShipment::FIELDS, array_flip(self::DETAILS));
         $parts = [];
 
         foreach ($changes as $field => ['from' => $from, 'to' => $to]) {

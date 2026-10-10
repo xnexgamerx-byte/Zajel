@@ -19,8 +19,8 @@ class Announcement extends Model
     /** @var array<string, string> */
     public const AUDIENCES = [
         'delivery_couriers' => 'مناديب التوصيل',
-        'pickup_couriers'   => 'مناديب الاستلام',
-        'merchants'         => 'التجّار',
+        'pickup_couriers' => 'مناديب الاستلام',
+        'merchants' => 'التجّار',
     ];
 
     protected function casts(): array
@@ -38,9 +38,14 @@ class Announcement extends Model
         return $this->hasMany(AnnouncementRead::class);
     }
 
+    public function merchant(): BelongsTo
+    {
+        return $this->belongsTo(Merchant::class);
+    }
+
     public function audienceLabel(): string
     {
-        return self::AUDIENCES[$this->audience] ?? $this->audience;
+        return $this->merchant_id ? 'التاجر '.($this->merchant?->business_name ?? '') : (self::AUDIENCES[$this->audience] ?? $this->audience);
     }
 
     public function isExpired(): bool
@@ -86,12 +91,16 @@ class Announcement extends Model
     {
         $branch = match ($user->role) {
             UserRole::Merchant => $user->merchant?->branch_id,
-            UserRole::Courier  => $user->courier?->branch_id,
-            default            => null,
+            UserRole::Courier => $user->courier?->branch_id,
+            default => null,
         };
+
+        // وما وُجِّه لتاجرٍ بعينه (docs/plan/61) لا يراه غيره
+        $merchant = $user->role === UserRole::Merchant ? $user->merchant_id : null;
 
         return $q->whereIn('audience', static::audiencesFor($user) ?: ['—'])
             ->where(fn (Builder $w) => $w->whereNull('branch_id')->when($branch, fn ($w) => $w->orWhere('branch_id', $branch)))
+            ->where(fn (Builder $w) => $w->whereNull('merchant_id')->when($merchant, fn ($w) => $w->orWhere('merchant_id', $merchant)))
             ->live();
     }
 
@@ -110,6 +119,10 @@ class Announcement extends Model
     {
         $users = User::query()->where('is_active', true);
         $branch = fn ($q) => $this->branch_id ? $q->where('branch_id', $this->branch_id) : $q;
+
+        if ($this->merchant_id) {
+            return $users->where('role', UserRole::Merchant)->where('merchant_id', $this->merchant_id)->count();
+        }
 
         return match ($this->audience) {
             'merchants' => $users->where('role', UserRole::Merchant)

@@ -18,8 +18,8 @@ class ShipmentOverrideController extends Controller
     public function edit(Shipment $shipment): View
     {
         return view('tenant.shipments.override', [
-            'shipment'         => $shipment->load('merchant:id,business_name', 'deliveryCourier:id,name'),
-            'merchantPosted'   => OverrideShipment::merchantPosted($shipment),
+            'shipment' => $shipment->load('merchant:id,business_name', 'deliveryCourier:id,name'),
+            'merchantPosted' => OverrideShipment::merchantPosted($shipment),
             'commissionPosted' => OverrideShipment::commissionPosted($shipment),
         ]);
     }
@@ -32,22 +32,23 @@ class ShipmentOverrideController extends Controller
         ));
 
         $data = $request->validate([
-            'recipient_name'      => ['nullable', 'string', 'max:160'],
-            'recipient_phone'     => ['required', 'string', 'regex:/^07[0-9]{9}$/'],
+            'recipient_name' => ['nullable', 'string', 'max:160'],
+            'recipient_phone' => ['required', 'string', 'regex:/^07[0-9]{9}$/'],
             'recipient_phone_alt' => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
-            'address'             => ['nullable', 'string', 'max:500'],
-            'landmark'            => ['nullable', 'string', 'max:255'],
-            'description'         => ['nullable', 'string', 'max:500'],
-            'pieces_count'        => ['nullable', 'integer', 'min:1', 'max:1000'],
-            'notes'               => ['nullable', 'string', 'max:500'],
-            'merchant_reference'  => ['nullable', 'string', 'max:100'],
-            'delivery_fee'        => ['nullable', 'integer', 'min:0', 'max:100000000'],
-            'return_fee'          => ['nullable', 'integer', 'min:0', 'max:100000000'],
-            'courier_commission'  => ['nullable', 'integer', 'min:0', 'max:100000000'],
-            'reason'              => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:500'],
+            'landmark' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:500'],
+            'pieces_count' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'merchant_reference' => ['nullable', 'string', 'max:100'],
+            'cod_amount' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'delivery_fee' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'return_fee' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'courier_commission' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'reason' => ['required', 'string', 'max:255'],
         ], ['reason.required' => 'اكتب سبب التعديل: يبقى في سجلّ الشحنة وفي الحساب.'], [
             'recipient_phone' => 'هاتف المستلم', 'recipient_phone_alt' => 'الهاتف البديل',
-            'delivery_fee' => 'أجرة التوصيل', 'return_fee' => 'أجرة الراجع', 'courier_commission' => 'أجرة المندوب',
+            'cod_amount' => 'مبلغ الوصل', 'delivery_fee' => 'أجرة التوصيل', 'return_fee' => 'أجرة الراجع', 'courier_commission' => 'أجرة المندوب',
         ]);
 
         $reason = $data['reason'];
@@ -56,6 +57,6 @@ class ShipmentOverrideController extends Controller
         $override->handle($shipment, $data, $request->user(), $reason);
 
         return redirect()->route('shipments.show', $shipment)
-            ->with('success', "حُفظ تعديل الشحنة {$shipment->number}، وقُيِّد فرق الأجور في الحساب إن كان.");
+            ->with('success', "حُفظ تعديل الشحنة {$shipment->number}، وقُيِّد فرق المبلغ والأجور في الحساب إن كان.");
     }
 }

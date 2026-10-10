@@ -10,6 +10,7 @@ use App\Models\ShipmentEvent;
 use App\Models\User;
 use App\Services\DuplicateDetector;
 use App\Services\PricingService;
+use App\Support\MerchantNotice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -30,32 +31,32 @@ class UpdateShipment
 {
     /** ما يُعدَّل، بأسمائه في السجلّ. */
     public const FIELDS = [
-        'recipient_name'      => 'اسم المستلم',
-        'recipient_phone'     => 'هاتف المستلم',
+        'recipient_name' => 'اسم المستلم',
+        'recipient_phone' => 'هاتف المستلم',
         'recipient_phone_alt' => 'الهاتف البديل',
-        'governorate_id'      => 'المحافظة',
-        'city_id'             => 'المنطقة',
-        'address'             => 'العنوان',
-        'landmark'            => 'أقرب نقطة دالّة',
-        'description'         => 'وصف المحتوى',
-        'pieces_count'        => 'عدد القطع',
-        'type'                => 'نوع الطلب',
-        'size'                => 'حجم الطلب',
-        'weight_grams'        => 'الوزن',
-        'is_fragile'          => 'قابل للكسر',
-        'allow_open'          => 'يُسمح بالفتح',
-        'notes'               => 'ملاحظات للمندوب',
-        'merchant_reference'  => 'رقم طلب التاجر',
-        'cod_amount'          => 'المبلغ المطلوب',
-        'fees_paid_by'        => 'من يدفع الأجرة',
-        'delivery_fee'        => 'أجرة التوصيل',
-        'extra_fee'           => 'رسوم إضافية',
-        'discount'            => 'الخصم',
-        'cod_fee'             => 'عمولة التحصيل',
-        'return_fee'          => 'أجرة الراجع',
-        'total_fees'          => 'مجموع الأجور',
-        'merchant_due'        => 'مستحقّ التاجر',
-        'fee_prepaid'         => 'مدفوع التوصيل مقدّماً',
+        'governorate_id' => 'المحافظة',
+        'city_id' => 'المنطقة',
+        'address' => 'العنوان',
+        'landmark' => 'أقرب نقطة دالّة',
+        'description' => 'وصف المحتوى',
+        'pieces_count' => 'عدد القطع',
+        'type' => 'نوع الطلب',
+        'size' => 'حجم الطلب',
+        'weight_grams' => 'الوزن',
+        'is_fragile' => 'قابل للكسر',
+        'allow_open' => 'يُسمح بالفتح',
+        'notes' => 'ملاحظات للمندوب',
+        'merchant_reference' => 'رقم طلب التاجر',
+        'cod_amount' => 'المبلغ المطلوب',
+        'fees_paid_by' => 'من يدفع الأجرة',
+        'delivery_fee' => 'أجرة التوصيل',
+        'extra_fee' => 'رسوم إضافية',
+        'discount' => 'الخصم',
+        'cod_fee' => 'عمولة التحصيل',
+        'return_fee' => 'أجرة الراجع',
+        'total_fees' => 'مجموع الأجور',
+        'merchant_due' => 'مستحقّ التاجر',
+        'fee_prepaid' => 'مدفوع التوصيل مقدّماً',
     ];
 
     public function __construct(
@@ -162,38 +163,38 @@ class UpdateShipment
             $totals['merchant_due'] += (int) $shipment->prepaid_amount;
 
             $feePrepaid = $shipment->prepaid_receipt_id !== null || ($feesPaidBy === 'merchant' && match (true) {
-                ! array_key_exists('fee_prepaid', $data)                 => (bool) $shipment->fee_prepaid,
+                ! array_key_exists('fee_prepaid', $data) => (bool) $shipment->fee_prepaid,
                 $data['fee_prepaid'] === null || $data['fee_prepaid'] === '' => (bool) $shipment->merchant->prepaid_billing,
-                default                                                  => (bool) $data['fee_prepaid'],
+                default => (bool) $data['fee_prepaid'],
             });
 
             $shipment->fill([
-                'recipient_name'      => filled($data['recipient_name'] ?? null) ? $data['recipient_name'] : Shipment::UNNAMED_RECIPIENT,
-                'recipient_phone'     => $data['recipient_phone'],
+                'recipient_name' => filled($data['recipient_name'] ?? null) ? $data['recipient_name'] : Shipment::UNNAMED_RECIPIENT,
+                'recipient_phone' => $data['recipient_phone'],
                 'recipient_phone_alt' => $data['recipient_phone_alt'] ?? null,
-                'governorate_id'      => $governorateId,
-                'city_id'             => $cityId,
+                'governorate_id' => $governorateId,
+                'city_id' => $cityId,
                 // العنوان المفصّل في النموذج لشحنةٍ كُتب لها من قبل وحدها: وإن غاب بقي كما هو
-                'address'             => array_key_exists('address', $data) ? (string) ($data['address'] ?? '') : $shipment->address,
-                'landmark'            => (string) ($data['landmark'] ?? ''),
-                'description'         => $data['description'] ?? null,
-                'pieces_count'        => (int) ($data['pieces_count'] ?? 1),
-                'type'                => $data['type'] ?? $shipment->type,
-                'size'                => $data['size'] ?? $shipment->size,
-                'weight_grams'        => $weight,
-                'is_fragile'          => (bool) ($data['is_fragile'] ?? false),
-                'allow_open'          => (bool) ($data['allow_open'] ?? false),
-                'notes'               => $data['notes'] ?? null,
-                'merchant_reference'  => $data['merchant_reference'] ?? null,
-                'cod_amount'          => $cod,
-                'fees_paid_by'        => $feesPaidBy,
-                'delivery_fee'        => $deliveryFee,
-                'extra_fee'           => $extraFee,
-                'discount'            => $discount,
-                'cod_fee'             => $codFee,
-                'return_fee'          => $returnFee,
+                'address' => array_key_exists('address', $data) ? (string) ($data['address'] ?? '') : $shipment->address,
+                'landmark' => (string) ($data['landmark'] ?? ''),
+                'description' => $data['description'] ?? null,
+                'pieces_count' => (int) ($data['pieces_count'] ?? 1),
+                'type' => $data['type'] ?? $shipment->type,
+                'size' => $data['size'] ?? $shipment->size,
+                'weight_grams' => $weight,
+                'is_fragile' => (bool) ($data['is_fragile'] ?? false),
+                'allow_open' => (bool) ($data['allow_open'] ?? false),
+                'notes' => $data['notes'] ?? null,
+                'merchant_reference' => $data['merchant_reference'] ?? null,
+                'cod_amount' => $cod,
+                'fees_paid_by' => $feesPaidBy,
+                'delivery_fee' => $deliveryFee,
+                'extra_fee' => $extraFee,
+                'discount' => $discount,
+                'cod_fee' => $codFee,
+                'return_fee' => $returnFee,
                 ...$totals,
-                'fee_prepaid'         => $feePrepaid,
+                'fee_prepaid' => $feePrepaid,
             ]);
 
             $changes = [];
@@ -219,15 +220,20 @@ class UpdateShipment
             ShipmentEvent::create([
                 'shipment_id' => $shipment->id,
                 'from_status' => $shipment->status->value,
-                'to_status'   => $shipment->status->value,
-                'event_type'  => 'edited',
-                'actor_type'  => $actor ? 'user' : 'system',
-                'actor_id'    => $actor?->id,
-                'actor_name'  => $actor?->name,
-                'note'        => $this->describe($changes, $why),
-                'meta'        => ['changes' => $changes],
-                'ip'          => request()->ip(),
+                'to_status' => $shipment->status->value,
+                'event_type' => 'edited',
+                'actor_type' => $actor ? 'user' : 'system',
+                'actor_id' => $actor?->id,
+                'actor_name' => $actor?->name,
+                'note' => $this->describe($changes, $why),
+                'meta' => ['changes' => $changes],
+                'ip' => request()->ip(),
             ]);
+
+            // تغيّر المبلغ: يصل التاجرَ في جرسه (docs/plan/61)
+            if (isset($changes['cod_amount'])) {
+                MerchantNotice::amountChanged($shipment, (int) $changes['cod_amount']['from'], (int) $changes['cod_amount']['to'], $actor);
+            }
 
             return $shipment->refresh();
         });
@@ -264,13 +270,12 @@ class UpdateShipment
         return match (true) {
             in_array($field, ['recipient_phone', 'recipient_phone_alt'], true) => '…'.substr((string) $value, -3),
             $field === 'governorate_id' => (string) Governorate::whereKey($value)->value('name_ar'),
-            $field === 'city_id'        => (string) City::whereKey($value)->value('name_ar'),
-            $field === 'fees_paid_by'   => $value === 'customer' ? 'الزبون' : 'التاجر',
-            $field === 'type'           => Shipment::TYPES[$value] ?? (string) $value,
-            $field === 'size'           => Shipment::SIZES[$value] ?? (string) $value,
+            $field === 'city_id' => (string) City::whereKey($value)->value('name_ar'),
+            $field === 'fees_paid_by' => $value === 'customer' ? 'الزبون' : 'التاجر',
+            $field === 'type' => Shipment::TYPES[$value] ?? (string) $value,
+            $field === 'size' => Shipment::SIZES[$value] ?? (string) $value,
             in_array($field, ['is_fragile', 'allow_open', 'fee_prepaid'], true) => $value ? 'نعم' : 'لا',
-            in_array($field, ['cod_amount', 'delivery_fee', 'extra_fee', 'discount', 'merchant_due'], true)
-                => number_format((int) $value),
+            in_array($field, ['cod_amount', 'delivery_fee', 'extra_fee', 'discount', 'merchant_due'], true) => number_format((int) $value),
             default => mb_strimwidth((string) $value, 0, 40, '…'),
         };
     }

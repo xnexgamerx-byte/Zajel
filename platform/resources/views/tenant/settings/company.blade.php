@@ -143,6 +143,19 @@
             @error('waybill_terms') <p class="field-error">{{ $message }}</p> @enderror
         </div>
 
+        {{-- إشعار التاجر بتغيّر مبلغ وصله (docs/plan/61): شغّالٌ ما لم يُطفأ --}}
+        <div class="rounded-xl border border-ink-200 p-4">
+            <input type="hidden" name="notify_amount_change" value="0">
+            <label class="flex items-start gap-3">
+                <input type="checkbox" name="notify_amount_change" value="1" class="mt-1 size-4"
+                       @checked(old('notify_amount_change', \App\Support\MerchantNotice::amountChangeEnabled($company)))>
+                <span>
+                    <span class="card-title block">إشعار التاجر حين يتغيّر مبلغ وصله</span>
+                    <span class="card-hint">يصل جرسه في التطبيق والبوابة: «تغيّر مبلغ الوصل … صار كذا بدل كذا».</span>
+                </span>
+            </label>
+        </div>
+
         {{-- طرق دفع مستحقّات التجّار في «طلب محاسبة» من بوابتهم (docs/plan/44) --}}
         <fieldset class="rounded-xl border border-ink-200 p-4">
             <legend class="card-title px-1">طرق الدفع للتجّار</legend>
