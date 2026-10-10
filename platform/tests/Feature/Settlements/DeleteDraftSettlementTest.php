@@ -165,6 +165,7 @@ class DeleteDraftSettlementTest extends TestCase
     public function test_deleting_a_merchant_draft_reopens_the_payment_request_it_answered(): void
     {
         $this->delivered(60_000);
+        $this->settleCourierCash($this->company);
 
         [$request, $draft] = Tenancy::runFor($this->company, function () {
             $request = app(SubmitMerchantRequest::class)->handle($this->merchant->refresh(), 'payment', []);

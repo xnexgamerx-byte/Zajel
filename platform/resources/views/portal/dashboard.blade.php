@@ -3,7 +3,6 @@
 
 @section('content')
 @php
-    $owed = $merchant->balance >= 0;
     $hour = (int) now()->format('G');
     $greeting = $hour < 12 ? 'صباح الخير' : 'مساء الخير';
 @endphp
@@ -12,25 +11,13 @@
     <p class="page-sub">وضع شحناتك وحسابك مع {{ $company->name }}.</p>
 </div>
 
-{{-- «نبض»: رصيده أوّل ما يراه — بطاقةٌ بلون الشركة، ومنها يطلب المحاسبة أو يفتح كشفه --}}
-<section class="glow-card rise mb-4 flex flex-wrap items-end justify-between gap-5" style="--i: 0">
-    <div class="min-w-0">
-        <div class="text-base font-bold text-white/90">{{ $owed ? 'لك عند الشركة' : 'عليك للشركة' }}</div>
-        <div class="mt-2 flex items-baseline gap-2" dir="ltr">
-            <span class="display-num num text-[clamp(2.5rem,11vw,4rem)]">{{ number_format(abs($merchant->balance)) }}</span>
-            <span class="text-base font-bold text-white/80">د.ع</span>
-        </div>
-        @if ($unsettled)
-            <p class="mt-1 text-sm font-semibold text-white/85">عن {{ \App\Support\Arabic::shipments($unsettled) }} واصلة لم تُحاسَب بعد</p>
-        @endif
-    </div>
-    <div class="flex flex-wrap gap-2">
-        @if (\App\Support\FeatureGate::allowsRoute('portal.requests.index'))
-            <a href="{{ route('portal.requests.index') }}" class="btn-on-brand">اطلب محاسبة</a>
-        @endif
-        <a href="{{ route('portal.statement') }}" class="btn-on-brand-ghost">كشف الحساب</a>
-    </div>
-</section>
+{{-- حسابه كما طلبه (docs/plan/49): الإجمالي والمتاح للسحب، وتحتهما ما قيد المطابقة بسببه --}}
+<x-merchant-balance :merchant="$merchant" class="rise mb-4" style="--i: 0">
+    @if (\App\Support\FeatureGate::allowsRoute('portal.requests.index'))
+        <a href="{{ route('portal.requests.index') }}" class="btn-primary">اطلب محاسبة</a>
+    @endif
+    <a href="{{ route('portal.statement') }}" class="btn-ghost">كشف الحساب</a>
+</x-merchant-balance>
 
 <x-app-ads audience="merchants" class="mb-4" />
 

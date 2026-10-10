@@ -270,4 +270,29 @@ class MerchantApiTest extends TestCase
         $this->withToken($token)->getJson($this->api('/merchant/shipments/'.$foreign->id))->assertNotFound();
         $this->withToken($token)->getJson($this->api('/merchant/shipments?q=غريب'))->assertOk()->assertJsonPath('meta.total', 0);
     }
+
+    // ------------------------------------------------------------ المتاح للسحب
+
+    public function test_money_with_the_courier_is_pending_not_available(): void
+    {
+        $paid = $this->shipment('واصلة محاسَبة', ShipmentStatus::Delivered);
+        $held = $this->shipment('واصلة مع المندوب', ShipmentStatus::Delivered);
+        $courier = Tenancy::runFor($this->company, fn () => \App\Models\Courier::create([
+            'code' => 'C1', 'name' => 'مندوب', 'phone' => '07720000001', 'type' => 'delivery', 'status' => 'active',
+        ]));
+
+        Tenancy::runFor($this->company, function () use ($paid, $held, $courier) {
+            foreach ([$paid, $held] as $s) {
+                $s->forceFill(['delivered_at' => now(), 'delivery_courier_id' => $courier->id, 'merchant_due' => 40000])->save();
+            }
+            $paid->forceFill(['courier_settled_at' => now()])->save();
+            $this->merchant->forceFill(['balance' => 80000])->save();
+        });
+
+        $this->withToken($this->token())->getJson($this->api('/merchant/home'))->assertOk()
+            ->assertJsonPath('balance.total', 80000)
+            ->assertJsonPath('balance.available', 40000)
+            ->assertJsonPath('balance.pending', 40000)
+            ->assertJsonPath('balance.pending_count', 1);
+    }
 }

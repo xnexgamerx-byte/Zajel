@@ -212,6 +212,7 @@ class PartialDeliveryTest extends TestCase
     {
         $shipment = $this->returnRest($this->partial(), toMerchant: false);
 
+        $this->settleCourierCash($this->company);   // كشف التاجر بعد محاسبة المندوب (docs/plan/49)
         [$courierSheet, $merchantSheet] = Tenancy::runFor($this->company, fn () => [
             app(BuildCourierSettlement::class)->handle($this->courier, $this->owner),
             app(BuildMerchantSettlement::class)->handle($this->merchant, $this->owner),

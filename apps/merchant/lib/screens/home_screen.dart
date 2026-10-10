@@ -218,103 +218,141 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _balance(HomeData d) {
     final amount = money(d.balance);
+    // الصفّ العلويّ كما في التصميم، وتحته «المتاح للسحب» و«قيد المطابقة» (docs/plan/49)
     return WhiteCard(
-      height: 48,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Row(
-          children: [
-            const SizedBox(width: 10),
-            SolidIcon(brand: brand, icon: Icons.account_balance_wallet_outlined, size: 34, iconSize: 20, radius: 9),
-            const SizedBox(width: 17),
-            Expanded(
+      child: Column(
+        children: [
+          SizedBox(height: 48, child: _balanceTop(d, amount)),
+          const Divider(height: 1, thickness: 1, indent: 10, endIndent: 10, color: Color(0xFFEEF1F5)),
+          _balanceSplit(d),
+        ],
+      ),
+    );
+  }
+
+  Widget _balanceSplit(HomeData d) {
+    String shown(int v) => hidden ? '••••' : money(v);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 7, 12, 8),
+      child: Row(
+        children: [
+          Text('المتاح للسحب ', style: font(10.5, w6, Palette.slate, height: 1.2)),
+          Text(shown(d.available), style: font(13, w8, const Color(0xFF15803D), height: 1.2)),
+          Text(' د.ع', style: font(9.5, w6, Palette.slate, height: 1.2)),
+          const Spacer(),
+          if (d.pending > 0)
+            Tooltip(
+              message: d.pendingReason ?? '',
+              triggerMode: TooltipTriggerMode.tap,
               child: Row(
                 children: [
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                d.owed ? 'لك عند الشركة' : 'عليك للشركة',
-                                style: font(9.6, w7, Palette.ink, height: 1.1),
-                              ),
-                              const SizedBox(width: 5),
-                              const Chev(size: 7),
-                            ],
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text('د.ع', style: font(11.5, w7, Palette.ink, height: 1.1)),
-                              const SizedBox(width: 11),
-                              Text(
-                                hidden ? '••••••' : amount,
-                                style: font(19, w8, d.owed ? brand.main : Palette.ink, height: 1.1),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  GestureDetector(
-                    onTap: () => setState(() => hidden = !hidden),
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: const BoxDecoration(color: Palette.eye, shape: BoxShape.circle),
-                      child: Icon(
-                        hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                        size: 15,
-                        color: Palette.ink,
-                      ),
-                    ),
-                  ),
+                  const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFFB45309)),
+                  const SizedBox(width: 3),
+                  Text(shown(d.pending), style: font(11.5, w8, const Color(0xFFB45309), height: 1.2)),
+                  Text(' قيد المطابقة', style: font(10, w6, const Color(0xFFB45309), height: 1.2)),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Tap(
-              radius: 15,
-              onTap: () => _open('finance'),
-              child: Container(
-                width: 91,
-                height: 26,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: brand.coral.withValues(alpha: .75), width: 1),
-                ),
-                child: Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Chev(size: 7.5, color: brand.main, stroke: 1.6),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text('عرض التفاصيل', style: font(10.2, w7, brand.main, height: 1)),
+        ],
+      ),
+    );
+  }
+
+  Widget _balanceTop(HomeData d, String amount) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Row(
+        children: [
+          const SizedBox(width: 10),
+          SolidIcon(brand: brand, icon: Icons.account_balance_wallet_outlined, size: 34, iconSize: 20, radius: 9),
+          const SizedBox(width: 17),
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              d.owed ? 'إجمالي المستحقات' : 'عليك للشركة',
+                              style: font(9.6, w7, Palette.ink, height: 1.1),
+                            ),
+                            const SizedBox(width: 5),
+                            const Chev(size: 7),
+                          ],
                         ),
-                      ),
-                    ],
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text('د.ع', style: font(11.5, w7, Palette.ink, height: 1.1)),
+                            const SizedBox(width: 11),
+                            Text(
+                              hidden ? '••••••' : amount,
+                              style: font(19, w8, d.owed ? brand.main : Palette.ink, height: 1.1),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+                const SizedBox(width: 9),
+                GestureDetector(
+                  onTap: () => setState(() => hidden = !hidden),
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: const BoxDecoration(color: Palette.eye, shape: BoxShape.circle),
+                    child: Icon(
+                      hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 15,
+                      color: Palette.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Tap(
+            radius: 15,
+            onTap: () => _open('finance'),
+            child: Container(
+              width: 91,
+              height: 26,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: brand.coral.withValues(alpha: .75), width: 1),
+              ),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Chev(size: 7.5, color: brand.main, stroke: 1.6),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('عرض التفاصيل', style: font(10.2, w7, brand.main, height: 1)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(width: 9),
-          ],
-        ),
+          ),
+          const SizedBox(width: 9),
+        ],
       ),
     );
   }

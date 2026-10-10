@@ -10,6 +10,7 @@ use App\Models\MerchantSettlementShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Services\SequenceGenerator;
+use App\Support\MerchantBalance;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -48,8 +49,13 @@ class BuildMerchantSettlement
             $shipments = $this->eligible($merchant, $options);
 
             if ($shipments->isEmpty()) {
+                $waiting = MerchantBalance::of($merchant)->pendingCount;
+
                 throw ValidationException::withMessages([
-                    'merchant_id' => "لا توجد شحنات غير مسوّاة للتاجر {$merchant->business_name}.",
+                    'merchant_id' => $waiting
+                        ? "لا شيء جاهز لكشف {$merchant->business_name}: ".\App\Support\Arabic::shipments($waiting)
+                            .' واصلة تنتظر محاسبة مندوبها أوّلاً — حاسِب المندوب ثم ابنِ كشف التاجر.'
+                        : "لا توجد شحنات غير مسوّاة للتاجر {$merchant->business_name}.",
                 ]);
             }
 
@@ -155,6 +161,11 @@ class BuildMerchantSettlement
                 ShipmentStatus::PartiallyDelivered->value,
             ])->orWhereNotNull('delivered_at')
                 ->orWhere(fn ($r) => $r->where('status', ShipmentStatus::Returned->value)->where('merchant_due', '!=', 0)))
+            /*
+            | لا يُدفع للتاجر ما لم يصل الشركة (docs/plan/49): الواصلُ مع مندوبٍ لم يُحاسَب عليه
+            | بعد يبقى «قيد المطابقة» خارج الكشف، ويدخل أوّل كشفٍ بعد محاسبة مندوبه.
+            */
+            ->where(fn ($q) => MerchantBalance::cleared($q))
             ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
             ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
             ->orderBy('id');

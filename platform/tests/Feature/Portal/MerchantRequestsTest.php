@@ -89,9 +89,16 @@ class MerchantRequestsTest extends TestCase
         });
     }
 
-    private function delivered(Merchant $merchant): Shipment
+    /** واصلةٌ حاسبت الشركةُ مندوبَها عليها — فمستحقّها متاحٌ للسحب (docs/plan/49) */
+    private function delivered(Merchant $merchant, bool $courierSettled = true): Shipment
     {
-        return $this->walk($merchant, [ShipmentStatus::PickedUp, ShipmentStatus::OutForDelivery, ShipmentStatus::Delivered]);
+        $shipment = $this->walk($merchant, [ShipmentStatus::PickedUp, ShipmentStatus::OutForDelivery, ShipmentStatus::Delivered]);
+
+        if ($courierSettled) {
+            Tenancy::runFor($this->company, fn () => $shipment->forceFill(['courier_settled_at' => now()])->save());
+        }
+
+        return $shipment;
     }
 
     /** راجعٌ استُلم من المندوب وعلى رفّ فرع تاجره */
@@ -370,5 +377,18 @@ class MerchantRequestsTest extends TestCase
         $this->assertNull($request->payout_details);
         $this->assertFalse($request->via_pickup_courier);
         $this->actingAs($this->staff)->get($this->host().'/merchant-requests/payments')->assertSee('يستلمه من الشركة');
+    }
+
+    /** يُطلب المتاحُ للسحب وحده: ما نقده مع المندوب قيد المطابقة (docs/plan/49) */
+    public function test_a_payment_request_waits_for_the_courier_to_be_settled(): void
+    {
+        $this->delivered($this->alpha, courierSettled: false);
+
+        $this->actingAs($this->alphaUser)->get($this->host().'/portal')
+            ->assertOk()->assertSee('إجمالي المستحقات')->assertSee('المتاح للسحب')->assertSee('قيد المطابقة');
+
+        $this->actingAs($this->alphaUser)->post($this->host().'/portal/requests', ['type' => 'payment', 'payout_method' => 'cash'])
+            ->assertSessionHasErrors();
+        $this->assertSame(0, $this->requests()->count());
     }
 }

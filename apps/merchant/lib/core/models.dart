@@ -7,6 +7,9 @@ class HomeData {
     required this.banners,
     required this.balance,
     required this.owed,
+    this.available = 0,
+    this.pending = 0,
+    this.pendingReason,
     required this.stats,
     required this.processing,
     required this.canProcess,
@@ -21,8 +24,11 @@ class HomeData {
       name: j['name'] as String? ?? '',
       unread: j['unread'] as int? ?? 0,
       banners: [for (final b in j['banners'] as List) AdBanner.fromJson((b as Map).cast())],
-      balance: j['balance']['amount'] as int,
+      balance: j['balance']['total'] as int,
       owed: j['balance']['owed'] as bool,
+      available: j['balance']['available'] as int? ?? 0,
+      pending: j['balance']['pending'] as int? ?? 0,
+      pendingReason: j['balance']['reason'] as String?,
       stats: Stats(
         total: stats['total'] as int,
         delivered: stats['delivered'] as int,
@@ -44,6 +50,13 @@ class HomeData {
 
   /// لك عند الشركة (true) أو عليك لها
   final bool owed;
+
+  /// المتاح للسحب: ما حاسبت الشركة مندوبه عليه (docs/plan/49)
+  final int available;
+
+  /// قيد المطابقة: واصلٌ نقده ما زال مع المندوب، وسببه بكلام التاجر
+  final int pending;
+  final String? pendingReason;
   final Stats stats;
   final int processing;
   final bool canProcess;

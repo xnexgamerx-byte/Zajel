@@ -2,6 +2,7 @@
 @section('title', 'طلباتي')
 
 @section('content')
+@php $balance = \App\Support\MerchantBalance::of($merchant); @endphp
 <div class="mb-5">
     <h1 class="page-title">طلباتي</h1>
     <p class="mt-1 text-sm text-ink-500">اطلب مستحقّاتك أو رواجعك من هنا بلا اتصال — برقمٍ تتابع حالته في هذه الصفحة.</p>
@@ -21,16 +22,19 @@
     </section>
 @endif
 
+<x-merchant-balance :merchant="$merchant" class="mb-5" />
+
 <div class="mb-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
     <form method="POST" action="{{ route('portal.requests.store') }}" class="card space-y-4 p-5">
         @csrf
         <input type="hidden" name="type" value="payment">
         <div class="flex items-start justify-between gap-3">
             <h2 class="text-base font-bold">طلب دفع</h2>
+            {{-- يُطلب المتاحُ للسحب وحده: ما نقده مع المندوب قيد المطابقة (docs/plan/49) --}}
             <div class="text-end">
-                <div class="text-xs text-ink-500">{{ $merchant->balance >= 0 ? 'لك الآن' : 'عليك الآن' }}</div>
-                <div class="text-xl font-bold {{ $merchant->balance > 0 ? 'text-ok-700' : 'text-bad-700' }}">
-                    <span class="num">{{ number_format(abs($merchant->balance)) }}</span> <span class="text-sm font-medium text-ink-500">د.ع</span>
+                <div class="text-xs text-ink-500">المتاح للسحب</div>
+                <div class="text-xl font-bold {{ $balance->available() > 0 ? 'text-ok-700' : 'text-ink-500' }}">
+                    <span class="num">{{ number_format($balance->available()) }}</span> <span class="text-sm font-medium text-ink-500">د.ع</span>
                 </div>
             </div>
         </div>
@@ -73,9 +77,11 @@
             <label class="field-label" for="payment_note">ملاحظة (اختياري)</label>
             <textarea id="payment_note" name="note" rows="2" maxlength="500" class="field-input" placeholder="مثال: رقم المحفظة تغيّر"></textarea>
         </div>
-        <button type="submit" class="btn-primary" @disabled($merchant->balance <= 0)>أرسل طلب الدفع</button>
-        @if ($merchant->balance <= 0)
-            <p class="text-xs text-ink-500">لا رصيد لك الآن لتطلب دفعه.</p>
+        <button type="submit" class="btn-primary" @disabled($balance->available() <= 0)>أرسل طلب الدفع</button>
+        @if ($balance->available() <= 0)
+            <p class="text-xs text-ink-500">{{ $balance->pending > 0
+                ? 'لا مبلغ متاحاً للسحب الآن — '.number_format($balance->pending).' د.ع قيد المطابقة، يصير متاحاً حين تحاسب الشركة المندوب.'
+                : 'لا رصيد لك الآن لتطلب دفعه.' }}</p>
         @endif
     </form>
 

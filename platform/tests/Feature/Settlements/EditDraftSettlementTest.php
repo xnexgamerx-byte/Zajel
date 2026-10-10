@@ -239,6 +239,7 @@ class EditDraftSettlementTest extends TestCase
         $sold = $this->delivered(60_000);   // له ٥٥٬٠٠٠
         $back = $this->returned();           // عليه ٢٬٥٠٠
         $other = $this->delivered(30_000);  // له ٢٥٬٠٠٠
+        $this->settleCourierCash($this->company);
 
         $draft = Tenancy::runFor($this->company, fn () => app(BuildMerchantSettlement::class)->handle($this->merchant->refresh(), $this->owner));
         $this->assertSame([3, 1, 90_000, 10_000, 2500, 77_500], [(int) $draft->shipments_count, (int) $draft->returned_count,

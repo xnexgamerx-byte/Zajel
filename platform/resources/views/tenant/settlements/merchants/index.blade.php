@@ -30,13 +30,31 @@
                     <div class="font-semibold">{{ $merchant->business_name }}</div>
                     <div class="text-xs text-ink-500" dir="ltr">{{ $merchant->code }}</div>
 
+                    @php
+                        $wait = $awaiting[$merchant->id] ?? null;
+                        $held = max(0, min((int) ($wait->due ?? 0), (int) $merchant->balance));
+                        $ready = max(0, min((int) $merchant->balance, (int) $merchant->balance - $held));
+                    @endphp
                     <div class="mt-3 flex items-baseline justify-between">
                         <span class="text-sm text-ink-500">
-                            {{ $merchant->balance > 0 ? 'له عند الشركة' : 'عليه للشركة' }}
+                            {{ $merchant->balance > 0 ? 'إجمالي مستحقّاته' : 'عليه للشركة' }}
                         </span>
-                        <span class="text-lg font-bold {{ $merchant->balance > 0 ? 'text-[var(--brand)]' : 'text-bad-700' }}"
+                        <span class="text-lg font-bold {{ $merchant->balance > 0 ? 'text-ink-900' : 'text-bad-700' }}"
                               dir="ltr">{{ number_format(abs($merchant->balance)) }}</span>
                     </div>
+                    @if ($merchant->balance > 0)
+                        {{-- يُدفع له المتاحُ وحده: ما نقده مع المندوب ينتظر محاسبته (docs/plan/49) --}}
+                        <div class="flex items-baseline justify-between">
+                            <span class="text-sm text-ink-500">المتاح للتسوية</span>
+                            <span class="font-bold text-ok-700" dir="ltr">{{ number_format($ready) }}</span>
+                        </div>
+                    @endif
+                    @if ($held > 0)
+                        <p class="mt-1 flex items-center gap-1 text-xs text-warn-700">
+                            <x-icon name="clock" class="size-4" />
+                            <span><span class="num">{{ number_format($held) }}</span> قيد المطابقة — {{ \App\Support\Arabic::shipments((int) $wait->n) }} لم يُحاسَب مندوبها</span>
+                        </p>
+                    @endif
 
                     <button type="submit" class="btn-primary mt-3 w-full">افتح كشفاً</button>
                 </form>

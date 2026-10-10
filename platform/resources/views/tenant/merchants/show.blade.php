@@ -22,6 +22,10 @@
     </div>
 </div>
 
+@can('money.view')
+    <x-merchant-balance :merchant="$merchant" title="حسابه" class="mb-5" />
+@endcan
+
 <div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
     <div class="card p-4">
         <div class="text-xs font-medium text-ink-500">رصيده الحالي</div>

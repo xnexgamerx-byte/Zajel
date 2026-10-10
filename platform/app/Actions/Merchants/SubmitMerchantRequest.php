@@ -36,8 +36,13 @@ class SubmitMerchantRequest
                 ]);
             }
 
-            if ($type === 'payment' && $merchant->balance <= 0) {
-                throw ValidationException::withMessages(['type' => 'لا رصيد لك عندنا الآن لتطلب دفعه.']);
+            // يُطلب المتاحُ للسحب وحده: ما نقده ما زال مع المندوب «قيد المطابقة» (docs/plan/49)
+            $balance = \App\Support\MerchantBalance::of($merchant);
+
+            if ($type === 'payment' && $balance->available() <= 0) {
+                throw ValidationException::withMessages(['type' => $balance->pending > 0
+                    ? 'لا مبلغ متاحاً للسحب الآن: '.number_format($balance->pending).' د.ع قيد المطابقة '.$balance->reason()
+                    : 'لا رصيد لك عندنا الآن لتطلب دفعه.']);
             }
 
             if ($type === 'returns' && ! Shipment::where('merchant_id', $merchant->id)
@@ -56,7 +61,7 @@ class SubmitMerchantRequest
                 // تفاصيل البطاقة أو المحفظة كما كتبها، ومبلغ رصيده ساعةَ طلب (docs/plan/44)
                 'payout_details'     => \App\Support\PayoutMethods::needsDetails($method)
                     ? (trim((string) ($data['payout_details'] ?? '')) ?: $merchant->payout_account) : null,
-                'amount'             => $type === 'payment' ? (int) $merchant->balance : null,
+                'amount'             => $type === 'payment' ? $balance->available() : null,
                 // النقد بيد مندوب الاستلام أو من الشركة؛ وما سواه لا يحمله مندوب
                 'via_pickup_courier' => $type === 'returns' || $method === 'cash'
                     ? (bool) ($data['via_pickup_courier'] ?? false) : false,

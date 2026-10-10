@@ -147,6 +147,7 @@ class SettlementCycleTest extends TestCase
     public function test_a_second_open_sheet_for_the_same_merchant_is_refused(): void
     {
         $this->deliver(50_000);
+        $this->settleCourierCash($this->company);
 
         Tenancy::runFor($this->company, function () {
             app(BuildMerchantSettlement::class)->handle($this->merchant, $this->actor);
@@ -272,6 +273,7 @@ class SettlementCycleTest extends TestCase
     {
         $this->deliver(50_000);     // له 45,000
         $this->returned(30_000);    // عليه 2,500 أجرة راجع
+        $this->settleCourierCash($this->company);
 
         Tenancy::runFor($this->company, function () {
             $settlement = app(BuildMerchantSettlement::class)->handle($this->merchant, $this->actor);
@@ -286,12 +288,38 @@ class SettlementCycleTest extends TestCase
         });
     }
 
+    /** لا يُدفع للتاجر ما لم يصل الشركة (docs/plan/49): الواصل مع مندوبٍ لم يُحاسَب ينتظر خارج الكشف */
+    public function test_a_merchant_is_not_settled_on_cash_still_with_the_courier(): void
+    {
+        $this->deliver(50_000);
+
+        Tenancy::runFor($this->company, function () {
+            $balance = \App\Support\MerchantBalance::of($this->merchant->refresh());
+            $this->assertSame([45_000, 45_000, 0], [$balance->total, $balance->pending, $balance->available()]);
+
+            try {
+                app(BuildMerchantSettlement::class)->handle($this->merchant, $this->actor);
+                $this->fail('بُني كشفٌ على نقدٍ ما زال مع المندوب');
+            } catch (ValidationException $e) {
+                $this->assertStringContainsString('تنتظر محاسبة مندوبها', $e->getMessage());
+            }
+        });
+
+        $this->settleCourierCash($this->company);
+
+        Tenancy::runFor($this->company, function () {
+            $this->assertSame(45_000, \App\Support\MerchantBalance::of($this->merchant->refresh())->available());
+            $this->assertSame(45_000, app(BuildMerchantSettlement::class)->handle($this->merchant, $this->actor)->net_amount);
+        });
+    }
+
     /** الحساب للواصل (docs/plan/44): راجعٌ بلا أجرةٍ على التاجر مكانه كشف الراجع، لا كشف الحساب */
     public function test_a_return_without_a_fee_stays_out_of_the_merchant_statement(): void
     {
         $this->deliver(50_000);
         $free = $this->returned(30_000);
         Tenancy::runFor($this->company, fn () => $free->forceFill(['return_fee' => 0, 'merchant_due' => 0])->save());
+        $this->settleCourierCash($this->company);
 
         Tenancy::runFor($this->company, function () use ($free) {
             $settlement = app(BuildMerchantSettlement::class)->handle($this->merchant, $this->actor);
@@ -306,6 +334,7 @@ class SettlementCycleTest extends TestCase
     public function test_paying_requires_confirming_first(): void
     {
         $this->deliver();
+        $this->settleCourierCash($this->company);
 
         Tenancy::runFor($this->company, function () {
             $settlement = app(BuildMerchantSettlement::class)->handle($this->merchant, $this->actor);
@@ -318,6 +347,7 @@ class SettlementCycleTest extends TestCase
     public function test_paying_zeroes_the_merchant_balance_and_records_the_reference(): void
     {
         $this->deliver(50_000);
+        $this->settleCourierCash($this->company);
 
         Tenancy::runFor($this->company, function () {
             $action = app(PayMerchantSettlement::class);

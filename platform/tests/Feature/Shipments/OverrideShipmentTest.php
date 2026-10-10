@@ -189,6 +189,7 @@ class OverrideShipmentTest extends TestCase
         $shipment = $this->shipment();
 
         Tenancy::runFor($this->company, function () {
+            $this->settleCourierCash($this->company);   // كشف التاجر بعد محاسبة المندوب (docs/plan/49)
             $sheet = app(BuildMerchantSettlement::class)->handle($this->merchant, $this->owner);
             app(PayMerchantSettlement::class)->confirm($sheet, $this->owner);
         });
@@ -200,6 +201,7 @@ class OverrideShipmentTest extends TestCase
     public function test_a_draft_statement_follows_the_new_fee(): void
     {
         $shipment = $this->shipment();
+        $this->settleCourierCash($this->company);   // كشف التاجر بعد محاسبة المندوب (docs/plan/49)
         $sheet = Tenancy::runFor($this->company, fn () => app(BuildMerchantSettlement::class)->handle($this->merchant, $this->owner));
         $net = (int) $sheet->net_amount;
 

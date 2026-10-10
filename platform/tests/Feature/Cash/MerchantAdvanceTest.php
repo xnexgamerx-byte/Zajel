@@ -79,6 +79,7 @@ class MerchantAdvanceTest extends TestCase
     private function settle(): array
     {
         return Tenancy::runFor($this->company, function () {
+            $this->settleCourierCash($this->company);   // كشف التاجر بعد محاسبة المندوب (docs/plan/49)
             $sheet = app(BuildMerchantSettlement::class)->handle($this->merchant, $this->owner);
             $lines = (int) $sheet->net_amount;
 
@@ -194,6 +195,7 @@ class MerchantAdvanceTest extends TestCase
             ->give($this->merchant, 30_000, $this->box, $this->owner));
         $this->deliver(105_000);
 
+        $this->settleCourierCash($this->company);   // كشف التاجر بعد محاسبة المندوب (docs/plan/49)
         $sheet = Tenancy::runFor($this->company, fn () => app(BuildMerchantSettlement::class)->handle($this->merchant, $this->owner));
 
         $this->actingAs($this->owner)->get($this->host()."/settlements/merchants/{$sheet->id}")

@@ -20,9 +20,6 @@ class DashboardController extends Controller
 
         return view('portal.dashboard', [
             'counts'  => $this->statusCounts($merchant),
-            // واصلةٌ لم يُحاسَب عليها بعد: ما يقف خلف رصيده
-            'unsettled' => Shipment::where('merchant_id', $merchant->id)
-                ->whereNotNull('delivered_at')->whereNull('merchant_settled_at')->count(),
             'deliveredToday' => Shipment::where('merchant_id', $merchant->id)
                 ->where('delivered_at', '>=', today())->count(),
             'recent'  => Shipment::where('merchant_id', $merchant->id)

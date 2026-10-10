@@ -127,6 +127,16 @@ abstract class TestCase extends BaseTestCase
         $company->forgetFeatures();
     }
 
+    /**
+     * كأنّ الشركة حاسبت المندوبين على كل ما وصل (docs/plan/49): كشف التاجر لا يأخذ واصلاً
+     * نقدُه ما زال مع مندوبه. لاختبارات كشف التاجر التي لا يعنيها كشف المندوب نفسه.
+     */
+    protected function settleCourierCash(Company $company): void
+    {
+        Tenancy::runFor($company, fn () => \App\Models\Shipment::whereNotNull('delivered_at')
+            ->whereNull('courier_settled_at')->update(['courier_settled_at' => now()]));
+    }
+
     protected function baghdad(): Governorate
     {
         return Governorate::where('code', 'BGD')->firstOrFail();

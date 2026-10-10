@@ -9,13 +9,9 @@
             كل سطر هنا نتيجة حدث على شحنة — لا إدخال يدوي.
         </p>
     </div>
-    <div class="card px-5 py-3 text-center">
-        <div class="text-xs text-ink-500">{{ $merchant->balance >= 0 ? 'لك' : 'عليك' }}</div>
-        <div class="text-2xl font-bold {{ $merchant->balance >= 0 ? 'text-[var(--brand)]' : 'text-bad-700' }}" dir="ltr">
-            {{ number_format(abs($merchant->balance)) }} د.ع
-        </div>
-    </div>
 </div>
+
+<x-merchant-balance :merchant="$merchant" class="mb-5" />
 
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <div class="lg:col-span-2">

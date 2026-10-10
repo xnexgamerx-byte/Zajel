@@ -8,6 +8,7 @@ use App\Models\Announcement;
 use App\Models\AppAd;
 use App\Models\Shipment;
 use App\Support\FeatureGate;
+use App\Support\MerchantBalance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -37,12 +38,8 @@ class HomeController extends Controller
             'name'     => $merchant->owner_name ?: $merchant->business_name,
             'unread'   => Announcement::for($user)->whereDoesntHave('reads', fn ($q) => $q->where('user_id', $user->id))->count(),
             'banners'  => $this->banners(),
-            'balance'  => [
-                'amount'    => abs((int) $merchant->balance),
-                'owed'      => $merchant->balance >= 0,
-                'unsettled' => Shipment::where('merchant_id', $merchant->id)
-                    ->whereNotNull('delivered_at')->whereNull('merchant_settled_at')->count(),
-            ],
+            // إجمالي المستحقات والمتاح للسحب، وما قيد المطابقة بسببه (docs/plan/49)
+            'balance'  => MerchantBalance::of($merchant)->toArray(),
             'stats' => [
                 'total'       => $counts['all'],
                 'delivered'   => $counts['delivered'],

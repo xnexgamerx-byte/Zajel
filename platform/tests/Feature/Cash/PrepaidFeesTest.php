@@ -168,6 +168,7 @@ class PrepaidFeesTest extends TestCase
             $this->assertSame([['shipment_due', 50_000 - $fees], ['prepaid_fee', $fees]], $lines);
 
             // وتسويته تدفع المبلغ كاملاً
+            $this->settleCourierCash($this->company);   // كشف التاجر بعد محاسبة المندوب (docs/plan/49)
             $this->assertSame(50_000, (int) app(BuildMerchantSettlement::class)->handle($this->merchant, $this->owner)->net_amount);
         });
 

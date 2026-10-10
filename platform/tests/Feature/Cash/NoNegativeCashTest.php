@@ -126,6 +126,7 @@ class NoNegativeCashTest extends TestCase
     private function confirmedMerchantSheet(): MerchantSettlement
     {
         return Tenancy::runFor($this->company, function () {
+            $this->settleCourierCash($this->company);   // كشف التاجر بعد محاسبة المندوب (docs/plan/49)
             $sheet = app(BuildMerchantSettlement::class)->handle($this->merchant, $this->staff);
 
             return app(PayMerchantSettlement::class)->confirm($sheet, $this->staff);
