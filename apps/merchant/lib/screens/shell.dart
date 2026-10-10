@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../core/api.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import 'create_screen.dart';
 import 'home_screen.dart';
+import 'scan_screen.dart';
 import 'shipments_screen.dart';
 
 /// هيكل التطبيق: الصفحات الخمس والشريط السفلي العائم بزرّ «طلب جديد» في وسطه.
@@ -28,12 +30,16 @@ class _ShellState extends State<Shell> {
   /// حُفظت شحنةٌ جديدة: تُعاد الرئيسية و«شحناتي» بأرقامها
   final refresh = ValueNotifier<int>(0);
 
+  /// الوصل المطبوع الممسوح بالزرّ الأوسط — يُكتب عليه «طلب جديد»
+  final scanned = ValueNotifier<String?>(null);
+
   Brand get brand => widget.brand;
 
   @override
   void dispose() {
     shipmentsFilter.dispose();
     refresh.dispose();
+    scanned.dispose();
     super.dispose();
   }
 
@@ -58,6 +64,28 @@ class _ShellState extends State<Shell> {
     setState(() => tab = target);
   }
 
+  /// الزرّ الأوسط (docs/plan/52): يمسح الوصل المطبوع بالكاميرا ثم يفتح «طلب جديد» عليه.
+  /// شركةٌ بلا وصولاتٍ مطبوعة: يفتح النموذج مباشرة
+  Future<void> _scan() async {
+    bool waybills;
+    try {
+      waybills = (await Api.instance.createForm()).waybills;
+    } on ApiError {
+      waybills = false;
+    }
+    if (!mounted) return;
+    if (!waybills) {
+      setState(() => tab = 2);
+      return;
+    }
+
+    final result = await Navigator.of(context)
+        .push<ScanResult>(MaterialPageRoute(fullscreenDialog: true, builder: (_) => ScanScreen(brand: brand)));
+    if (!mounted || result == null) return;
+    scanned.value = result.code;
+    setState(() => tab = 2);
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
@@ -68,7 +96,7 @@ class _ShellState extends State<Shell> {
         refresh: refresh,
       ),
       ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh),
-      CreateScreen(brand: brand, onCreated: () => refresh.value++),
+      CreateScreen(brand: brand, onCreated: () => refresh.value++, scanned: scanned, onScan: _scan),
       const _Soon(title: 'المالية', text: 'كشف حسابك وطلب المحاسبة — المرحلة التالية.'),
       _More(brand: brand, session: widget.session, onLogout: widget.onLogout),
     ];
@@ -81,7 +109,7 @@ class _ShellState extends State<Shell> {
           if (AppConfig.demo) const _DemoStatusBar(),
         ],
       ),
-      bottomNavigationBar: _NavBar(brand: brand, index: tab, onTap: (i) => setState(() => tab = i)),
+      bottomNavigationBar: _NavBar(brand: brand, index: tab, onTap: (i) => i == 2 ? _scan() : setState(() => tab = i)),
     );
   }
 }

@@ -13,9 +13,15 @@ import 'shipment_screen.dart';
 /// والباقي اختياري. وتحت السعر «يصلك» من تسعيرته قبل أن يحفظ، وبعد الحفظ بطاقة الشحنة
 /// والنموذج فارغٌ للتالية على المحافظة نفسها.
 class CreateScreen extends StatefulWidget {
-  const CreateScreen({super.key, required this.brand, this.onCreated});
+  const CreateScreen({super.key, required this.brand, this.onCreated, this.scanned, this.onScan});
 
   final Brand brand;
+
+  /// الوصل المطبوع الذي مُسح بالزرّ الأوسط: يُكتب الطلب عليه
+  final ValueNotifier<String?>? scanned;
+
+  /// يفتح الكاميرا لمسح وصلٍ (التالي، أو بدل الممسوح)
+  final VoidCallback? onScan;
 
   /// حُفظت شحنة: تُحدَّث الرئيسية و«شحناتي»
   final VoidCallback? onCreated;
@@ -61,12 +67,33 @@ class _CreateScreenState extends State<CreateScreen> {
   void initState() {
     super.initState();
     cod.addListener(_requote);
+    widget.scanned?.addListener(_useScanned);
     _load();
+    _useScanned();
   }
+
+  /// وصلٌ ممسوح: يُكتب في حقله، ويُفتح النموذج من أعلاه لبيانات طلبه
+  void _useScanned() {
+    final code = widget.scanned?.value;
+    if (code == null) {
+      // تُرك الوصل («بلا وصل» أو حُفظ عليه): لا يبقى رقمه في الحقل للطلب التالي
+      if (lastScanned != null && waybill.text == lastScanned) setState(waybill.clear);
+      lastScanned = null;
+      return;
+    }
+    lastScanned = code;
+    setState(() => (waybill.text = code, created = null, errors.remove('waybill')));
+    if (scroll.hasClients) scroll.jumpTo(0);
+  }
+
+  String? lastScanned;
+
+  bool get _onWaybill => waybill.text.isNotEmpty && waybill.text == widget.scanned?.value;
 
   @override
   void dispose() {
     quoteTimer?.cancel();
+    widget.scanned?.removeListener(_useScanned);
     for (final c in [name, phone, phoneAlt, landmark, cod, goods, notes, waybill]) {
       c.dispose();
     }
@@ -144,6 +171,8 @@ class _CreateScreenState extends State<CreateScreen> {
         c.clear();
       }
       setState(() => (created = made, pieces = 1, size = 'normal', type = 'delivery'));
+      // الوصل استُعمل: التالي يُمسح من جديد
+      widget.scanned?.value = null;
       widget.onCreated?.call();
       scroll.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     } on ApiError catch (e) {
@@ -189,6 +218,7 @@ class _CreateScreenState extends State<CreateScreen> {
           Text('الأساسي: الهاتف والعنوان والسعر — والباقي اختياري.', style: font(12, w5, Palette.slate)),
           const SizedBox(height: 12),
           if (created != null) ...[_done(created!), const SizedBox(height: 10)],
+          if (_onWaybill) ...[_onWaybillBanner(), const SizedBox(height: 10)],
           if (error != null) ...[_alert(error!), const SizedBox(height: 10)],
           _section('الزبون', Icons.person_rounded, [
             _field(
@@ -284,7 +314,7 @@ class _CreateScreenState extends State<CreateScreen> {
               key: 'notes',
             ),
           ]),
-          if (f.waybills) ...[
+          if (f.waybills && !_onWaybill) ...[
             const SizedBox(height: 10),
             _section('رقم الوصل المطبوع', Icons.receipt_long_rounded, [
               _field(
@@ -629,11 +659,63 @@ class _CreateScreenState extends State<CreateScreen> {
               ],
             ),
           ),
-          if (c.row.id > 0)
-            TextButton(
-              onPressed: () => openShipment(context, brand, c.row.id),
-              child: Text('افتحها', style: font(12.5, w8, brand.main)),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (c.row.id > 0)
+                TextButton(
+                  onPressed: () => openShipment(context, brand, c.row.id),
+                  child: Text('افتحها', style: font(12.5, w8, brand.main)),
+                ),
+              if (c.waybill != null && widget.onScan != null)
+                TextButton.icon(
+                  onPressed: widget.onScan,
+                  icon: Icon(Icons.qr_code_scanner_rounded, size: 17, color: brand.main),
+                  label: Text('امسح التالي', style: font(12, w8, brand.main)),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// الطلب يُكتب على وصلٍ ممسوح: رقمه، وتغييره بمسحٍ آخر، أو تركه
+  Widget _onWaybillBanner() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+      decoration: BoxDecoration(
+        color: brand.softer,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: brand.border),
+      ),
+      child: Row(
+        children: [
+          SolidIcon(brand: brand, icon: Icons.qr_code_2_rounded, size: 32, iconSize: 19, radius: 9),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('على الوصل المطبوع', style: font(11.5, w6, Palette.slate)),
+                Text(
+                  waybill.text,
+                  textDirection: TextDirection.ltr,
+                  style: font(17, w8, Palette.ink, height: 1.2).copyWith(letterSpacing: 1.5),
+                ),
+              ],
             ),
+          ),
+          if (widget.onScan != null)
+            TextButton(
+              onPressed: widget.onScan,
+              child: Text('امسح غيره', style: font(12, w8, brand.main)),
+            ),
+          IconButton(
+            tooltip: 'بلا وصل',
+            onPressed: () => widget.scanned?.value = null,
+            icon: const Icon(Icons.close_rounded, size: 19, color: Palette.muted),
+          ),
         ],
       ),
     );

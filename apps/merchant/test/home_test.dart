@@ -125,6 +125,39 @@ void main() {
     // والنموذج فارغٌ للتالية
     expect(_value(tester, '07xxxxxxxxx'), '');
   });
+
+  testWidgets('الزرّ الأوسط: يمسح الوصل المطبوع ثم يُكتب الطلب عليه', (tester) async {
+    tester.view.physicalSize = const Size(393 * 3, 849 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpAndSettle();
+
+    // الزرّ الأحمر في وسط الشريط السفلي يفتح الكاميرا
+    await tester.tapAt(const Offset(196.5, 780));
+    await tester.pumpAndSettle();
+    expect(find.text('امسح الوصل المطبوع'), findsOneWidget);
+
+    // رقمٌ ليس وصلاً يُرفض بسببه
+    await tester.enterText(_hint('90000001'), '1234');
+    await tester.tap(find.text('تحقّق'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ليس رقم وصلٍ مطبوع'), findsOneWidget);
+
+    // والوصل الصحيح — بلوحةٍ عربية — يفتح «طلب جديد» عليه
+    await tester.enterText(_hint('90000001'), '٩٠٠٠٠٠٠٧');
+    await tester.tap(find.text('تحقّق'));
+    await tester.pumpAndSettle();
+    expect(find.text('امسح الوصل المطبوع'), findsNothing);
+    expect(find.text('على الوصل المطبوع'), findsOneWidget);
+    expect(find.text('90000007'), findsOneWidget);
+
+    // «بلا وصل» يتركه
+    await tester.tap(find.byTooltip('بلا وصل'));
+    await tester.pumpAndSettle();
+    expect(find.text('على الوصل المطبوع'), findsNothing);
+  });
 }
 
 Finder _hint(String hint) =>

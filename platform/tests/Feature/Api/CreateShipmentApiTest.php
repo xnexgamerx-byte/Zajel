@@ -116,4 +116,36 @@ class CreateShipmentApiTest extends TestCase
     {
         $this->postJson($this->api('/merchant/shipments'), ['recipient_phone' => '07801234567'])->assertUnauthorized();
     }
+
+    /** الزرّ الأوسط: يُمسح الوصل المطبوع بالكاميرا، ثم تُكتب بياناته (docs/plan/52) */
+    public function test_a_scanned_waybill_is_checked_before_the_order_is_typed(): void
+    {
+        $staff = $this->makeUser($this->company);
+        $mine = Tenancy::runFor($this->company, fn () => app(\App\Actions\Waybills\IssueWaybillBook::class)->handle($this->merchant, 2, $staff));
+        $theirs = Tenancy::runFor($this->company, fn () => app(\App\Actions\Waybills\IssueWaybillBook::class)
+            ->handle($this->makeMerchant($this->company, 'M0002'), 1, $staff));
+        $code = $mine->firstCode();
+        $headers = $this->headers();
+
+        // الكاميرا تقرأ الرقم كما هو، وأرقامٌ عربية أو مسافات لا تضرّ
+        $this->getJson($this->api('/merchant/waybills/check?code='.$code), $headers)->assertOk()->assertJson(['code' => $code]);
+        $this->getJson($this->api('/merchant/waybills/check?code=1234'), $headers)->assertStatus(422)
+            ->assertJsonPath('message', 'هذا ليس رقم وصلٍ مطبوع. امسح الباركود الذي على الوصل.');
+        $this->getJson($this->api('/merchant/waybills/check?code='.$theirs->firstCode()), $headers)->assertStatus(422)
+            ->assertJsonPath('message', 'الرقم '.$theirs->firstCode().' ليس من وصولاتك المطبوعة.');
+
+        $created = $this->postJson($this->api('/merchant/shipments'), [
+            'recipient_phone' => '07801234567',
+            'governorate_id'  => $this->baghdad()->id,
+            'city_id'         => $this->area('المنصور'),
+            'cod_amount'      => 30_000,
+            'waybill'         => $code,
+        ], $headers)->assertCreated()->assertJsonPath('shipment.waybill', $code);
+
+        $this->assertSame($code, Tenancy::runFor($this->company, fn () => Shipment::findOrFail($created->json('shipment.id'))->barcode));
+
+        // ومسحه ثانيةً يقول أين استُعمل
+        $this->getJson($this->api('/merchant/waybills/check?code='.$code), $headers)->assertStatus(422)
+            ->assertJsonPath('message', 'استعملت هذا الوصل للشحنة '.$created->json('shipment.number').'.');
+    }
 }

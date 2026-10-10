@@ -33,6 +33,8 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::get('/shipments/form', [MerchantCreateShipmentController::class, 'form'])->name('shipments.form');
             Route::get('/areas', [MerchantCreateShipmentController::class, 'areas'])->name('areas');
             Route::get('/shipments/quote', [MerchantCreateShipmentController::class, 'quote'])->name('shipments.quote');
+            Route::get('/waybills/check', [MerchantCreateShipmentController::class, 'waybill'])
+                ->middleware(['feature:waybills', 'throttle:60,1'])->name('waybills.check');
             Route::post('/shipments', [MerchantCreateShipmentController::class, 'store'])->middleware('throttle:60,1')->name('shipments.store');
         });
     });

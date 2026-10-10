@@ -86,9 +86,19 @@ class Api {
 
   // ---------------------------------------------------------------- طلب جديد (docs/plan/52)
 
+  /// النموذج لا يتغيّر في الجلسة: يُحفظ أوّل مرّة، فيعرف الزرّ الأوسط فوراً هل للشركة وصولاتٌ مطبوعة
+  CreateForm? _form;
+
   Future<CreateForm> createForm() async {
     if (AppConfig.demo) return Demo.form;
-    return CreateForm.fromJson(await _send(http.get(_uri('/merchant/shipments/form'), headers: _headers)));
+    return _form ??= CreateForm.fromJson(await _send(http.get(_uri('/merchant/shipments/form'), headers: _headers)));
+  }
+
+  /// وصلٌ ممسوح: الرقم مقبولاً، أو خطأٌ يقول لماذا (ليس من وصولاتك، استُعمل للشحنة…)
+  Future<String> checkWaybill(String code) async {
+    if (AppConfig.demo) return Demo.waybill(code);
+    final uri = _uri('/merchant/waybills/check').replace(queryParameters: {'code': code});
+    return (await _send(http.get(uri, headers: _headers)))['code'] as String;
   }
 
   Future<List<Choice>> areas(String governorate) async {
@@ -125,6 +135,7 @@ class Api {
       }
     }
     _token = null;
+    _form = null;
     await _storage.delete(key: _tokenKey);
   }
 

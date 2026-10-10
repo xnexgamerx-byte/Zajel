@@ -1,3 +1,4 @@
+import 'api.dart';
 import 'models.dart';
 
 /// بيانات التصميم نفسها — لنسخة العرض (DEMO) ومطابقة الشاشة بملف التصميم.
@@ -221,4 +222,11 @@ class Demo {
     ),
     due: (data['cod_amount'] as int? ?? 0) - 5000,
   );
+
+  static String waybill(String code) {
+    if (!RegExp(r'^9\d{7}$').hasMatch(code)) {
+      throw ApiError('هذا ليس رقم وصلٍ مطبوع. امسح الباركود الذي على الوصل.');
+    }
+    return code;
+  }
 }

@@ -91,6 +91,26 @@ class CreateShipmentController extends Controller
         ]);
     }
 
+    /**
+     * الوصل الممسوح بكاميرا الهاتف (الزرّ الأوسط — docs/plan/52): يُقبل قبل كتابة بياناته إن كان
+     * من وصولاته المطبوعة ولم يُستعمل — فلا يكتب التاجر طلباً كاملاً ثم يُرفض وصله.
+     */
+    public function waybill(Request $request): JsonResponse
+    {
+        $merchant = $request->attributes->get('merchant');
+        $code = WaybillBook::normalise(WaybillBook::fromInput($request->query('code')));
+
+        if ($code === '' || WaybillBook::serialOf($code) === null) {
+            return response()->json(['message' => 'هذا ليس رقم وصلٍ مطبوع. امسح الباركود الذي على الوصل.'], 422);
+        }
+
+        if ($problem = PortalShipmentController::waybillProblem($code, $merchant->id)) {
+            return response()->json(['message' => $problem], 422);
+        }
+
+        return response()->json(['code' => $code]);
+    }
+
     public function store(AppShipmentRequest $request, CreateShipment $action, CreateFromWaybill $fromWaybill): JsonResponse
     {
         $merchant = $request->attributes->get('merchant');
