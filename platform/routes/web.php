@@ -53,6 +53,7 @@ use App\Http\Controllers\Tenant\CourierManifestController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\CourierTrackingController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
+use App\Http\Controllers\Tenant\DocScanController;
 use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\FlowReportController;
@@ -503,6 +504,14 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/money/position/history', [FinancialPositionController::class, 'history'])->middleware('main-branch')->name('money.position.history');
                 Route::get('/branch-accounts/debts', [BranchRemittanceController::class, 'debts'])->name('branch-accounts.debts');
                 Route::get('/branch-accounts/remittances', [BranchRemittanceController::class, 'inbox'])->name('branch-accounts.remittances');
+                // رمز QR على الورق يُستلم به (docs/plan/61)
+                Route::get('/doc/c/{courier}', [DocScanController::class, 'courier'])->whereNumber('courier')->name('doc.courier');
+                Route::get('/doc/r/{remittance}', [DocScanController::class, 'remittance'])->whereNumber('remittance')->name('doc.remittance');
+                Route::get('/doc/m/{settlement}', [DocScanController::class, 'merchant'])->whereNumber('settlement')->name('doc.merchant');
+                Route::get('/branch-accounts/remittances/{remittance}/print', [DocScanController::class, 'remittancePrint'])
+                    ->whereNumber('remittance')->name('branch-accounts.remittances.print');
+                Route::get('/settlements/merchants/{settlement}/print', [DocScanController::class, 'merchantPrint'])
+                    ->whereNumber('settlement')->name('settlements.merchants.print');
                 Route::get('/branch-accounts', [BranchAccountController::class, 'index'])->name('branch-accounts.index');
                 Route::get('/branch-accounts/deposits', [BranchAccountController::class, 'deposits'])->name('branch-accounts.deposits');
                 Route::get('/branch-accounts/statement', [BranchAccountController::class, 'statement'])->name('branch-accounts.statement');

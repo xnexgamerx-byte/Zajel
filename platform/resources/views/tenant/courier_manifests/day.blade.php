@@ -4,7 +4,9 @@
 @section('subtitle', $courier->name.' — '.$courier->phone.' — '.$day->format('Y-m-d'))
 
 @section('content')
-<div class="mb-5 grid grid-cols-3 gap-3 text-center">
+{{-- رمز الكشف (docs/plan/61): يصل مع ماله من الفرع فيُمسح، ويُفتح كشف استلام المندوب --}}
+<div class="mb-5 flex items-stretch gap-3">
+<div class="grid flex-1 grid-cols-3 gap-3 text-center">
     <div class="rounded-lg border border-ink-300 p-3">
         <div class="text-xs text-ink-600">عدد الشحنات</div>
         <div class="num text-xl font-bold">{{ number_format($totals->shipments) }}</div>
@@ -17,6 +19,11 @@
         <div class="text-xs text-ink-600">المحصَّل منها (د.ع)</div>
         <div class="num text-xl font-black">{{ number_format($totals->collected) }}</div>
     </div>
+</div>
+    <figure class="shrink-0 text-center">
+        <img src="{{ \App\Support\QrCode::dataUri(route('doc.courier', $courier)) }}" alt="" class="size-24">
+        <figcaption class="text-[10px] text-ink-600">امسحه للاستلام</figcaption>
+    </figure>
 </div>
 
 @if ($buckets->isNotEmpty())

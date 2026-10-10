@@ -387,3 +387,24 @@ if (liveParts().length) {
         }
     }, seconds * 1000);
 }
+
+/**
+ * «استلم بالرمز» (docs/plan/61): قارئ الباركود يكتب رابط رمز الورقة ويضغط Enter — فيُفتح
+ * مساره هنا (على عنوان الشركة نفسه، أيّاً كان العنوان المطبوع). وما ليس رمز ورقةٍ يُقال.
+ */
+document.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-doc-scan]');
+
+    if (!form) return;
+
+    event.preventDefault();
+    const input = form.querySelector('input');
+    const match = input.value.trim().match(/\/doc\/[cmr]\/\d+/);
+
+    if (match) {
+        window.location.assign(match[0]);
+    } else {
+        input.value = '';
+        input.placeholder = 'ليس رمز ورقةٍ من النظام — امسح الرمز المطبوع عليها';
+    }
+});

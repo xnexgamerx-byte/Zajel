@@ -9,6 +9,8 @@
     </p>
 </div>
 
+<x-doc-scan hint="امسح رمز وصل حساب التاجر" />
+
 <x-settlement-filters :filters="$filters" :actors="$actors" :action="route('settlements.merchants.index')"
                       placeholder="ابحث عن تاجر بالاسم أو الكود أو الهاتف" />
 

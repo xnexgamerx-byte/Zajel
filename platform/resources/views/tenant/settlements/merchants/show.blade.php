@@ -14,7 +14,13 @@
             إلى {{ $settlement->to_date?->format('Y-m-d') }}
         </p>
     </div>
-    <a href="{{ route('settlements.merchants.index') }}" class="btn-ghost">رجوع</a>
+    <div class="flex flex-wrap gap-2">
+        {{-- وصل الحساب برمز QR: يُمسح عند الدفع فيُفتح هذا الكشف (docs/plan/61) --}}
+        <a href="{{ route('settlements.merchants.print', $settlement) }}" class="btn-ghost" target="_blank" rel="noopener">
+            <x-icon name="printer" class="size-4" /> اطبع وصل الحساب
+        </a>
+        <a href="{{ route('settlements.merchants.index') }}" class="btn-ghost">رجوع</a>
+    </div>
 </div>
 
 <div @class(['grid grid-cols-1 gap-5 lg:grid-cols-3', 'pb-20' => $editable])>

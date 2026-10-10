@@ -9,6 +9,8 @@
     </p>
 </div>
 
+<x-doc-scan hint="امسح رمز وصل الحوالة الذي وصل مع المبلغ" />
+
 <section class="card mb-5 overflow-hidden">
     <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">بانتظار الاستلام</h2>
     <div class="overflow-x-auto">
@@ -16,8 +18,12 @@
             <thead><tr><th>الرقم</th><th>من فرع</th><th>إلى فرع</th><th>المُرسَل</th><th>أرسله</th><th>متى</th>@can('money.cash')<th>الاستلام</th>@endcan</tr></thead>
             <tbody>
                 @forelse ($pending as $remittance)
-                    <tr>
-                        <td class="num font-semibold">{{ $remittance->number }}</td>
+                    <tr id="remittance-{{ $remittance->id }}" class="target:bg-primary-50">
+                        <td class="num font-semibold">
+                            {{ $remittance->number }}
+                            <a href="{{ route('branch-accounts.remittances.print', $remittance) }}" target="_blank" rel="noopener"
+                               class="ms-1 text-xs font-normal text-[var(--brand)] underline">الوصل</a>
+                        </td>
                         <td>{{ $remittance->fromBranch?->name }}</td>
                         <td>{{ $remittance->toBranch?->name }}</td>
                         <td class="num font-bold">{{ number_format($remittance->amount) }}</td>
@@ -60,7 +66,11 @@
                 <tbody>
                     @foreach ($outgoing as $remittance)
                         <tr>
-                            <td class="num font-semibold">{{ $remittance->number }}</td>
+                            <td class="num font-semibold">
+                            {{ $remittance->number }}
+                            <a href="{{ route('branch-accounts.remittances.print', $remittance) }}" target="_blank" rel="noopener"
+                               class="ms-1 text-xs font-normal text-[var(--brand)] underline">الوصل</a>
+                        </td>
                             <td>{{ $remittance->toBranch?->name }}</td>
                             <td class="num">{{ number_format($remittance->amount) }}</td>
                             <td class="num text-xs text-ink-500">{{ $remittance->sent_at->format('Y-m-d H:i') }}</td>
@@ -80,7 +90,11 @@
             <tbody>
                 @forelse ($history as $remittance)
                     <tr>
-                        <td class="num font-semibold">{{ $remittance->number }}</td>
+                        <td class="num font-semibold">
+                            {{ $remittance->number }}
+                            <a href="{{ route('branch-accounts.remittances.print', $remittance) }}" target="_blank" rel="noopener"
+                               class="ms-1 text-xs font-normal text-[var(--brand)] underline">الوصل</a>
+                        </td>
                         <td>{{ $remittance->fromBranch?->name }}</td>
                         <td>{{ $remittance->toBranch?->name }} <span class="text-xs text-ink-500">· {{ $remittance->toBox?->name }}</span></td>
                         <td class="num">{{ number_format($remittance->amount) }}</td>

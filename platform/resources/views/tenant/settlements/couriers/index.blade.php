@@ -9,6 +9,8 @@
     </p>
 </div>
 
+<x-doc-scan hint="امسح رمز كشف المندوب الذي وصل مع ماله" />
+
 <x-settlement-filters :filters="$filters" :actors="$actors" :action="route('settlements.couriers.index')"
                       placeholder="ابحث عن مندوب بالاسم أو الكود أو الهاتف" />
 
