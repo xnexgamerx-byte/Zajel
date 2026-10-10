@@ -21,6 +21,9 @@ use Illuminate\View\View;
  */
 class BranchRemittanceController extends Controller
 {
+    /** الفرع الجامع للنقد: فرع المندوب الموصِّل، وإلّا (ما سُلِّم قبل docs/plan/51) فرع الشحنة */
+    public const COLLECTOR = 'coalesce(shipments.delivery_branch_id, shipments.branch_id)';
+
     public function __construct(protected RemitBetweenBranches $remit) {}
 
     public function debts(Request $request): View
@@ -33,13 +36,19 @@ class BranchRemittanceController extends Controller
             ->whereNull('shipments.deleted_at')
             // ما حُصِّل: سُلِّمت كلّها أو بعضها (وباقي الواصل الجزئي يرجع بلا مال)
             ->whereNotNull('shipments.delivered_at')
-            ->whereNotNull('shipments.branch_id')
             ->whereNotNull('merchants.branch_id')
-            ->whereColumn('shipments.branch_id', '!=', 'merchants.branch_id')
-            ->when($mine, fn ($q) => $q->where(fn ($w) => $w->where('shipments.branch_id', $mine)->orWhere('merchants.branch_id', $mine)))
-            ->selectRaw('shipments.branch_id as debtor, merchants.branch_id as creditor,
-                         count(*) as shipments, sum(shipments.collected_amount) as amount')
-            ->groupBy('shipments.branch_id', 'merchants.branch_id')
+            /*
+            | المدين: الفرع الذي وصّل — فرعُ مندوبه (delivery_branch_id)، وما قبلها فرعُ الشحنة.
+            | ويُطرح من المستحقّ عمولةُ الفرع عن كلّ طلبٍ وصّله: يحتفظ بها من النقد (docs/plan/51).
+            */
+            ->whereRaw(self::COLLECTOR.' is not null')
+            ->whereRaw(self::COLLECTOR.' != merchants.branch_id')
+            ->when($mine, fn ($q) => $q->where(fn ($w) => $w->whereRaw(self::COLLECTOR.' = ?', [$mine])->orWhere('merchants.branch_id', $mine)))
+            ->selectRaw(self::COLLECTOR.' as debtor, merchants.branch_id as creditor,
+                         count(*) as shipments, sum(shipments.collected_amount) as collected,
+                         sum(shipments.branch_commission) as commission,
+                         sum(shipments.collected_amount - shipments.branch_commission) as amount')
+            ->groupByRaw(self::COLLECTOR.', merchants.branch_id')
             ->get();
 
         $remitted = BranchRemittance::query()->touching($mine)

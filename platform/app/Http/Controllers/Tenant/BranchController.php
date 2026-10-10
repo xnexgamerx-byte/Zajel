@@ -6,9 +6,11 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\City;
+use App\Models\Courier;
 use App\Models\Governorate;
 use App\Models\Hub;
 use App\Models\PriceList;
+use App\Models\Shipment;
 use App\Models\User;
 use App\Support\Phone;
 use App\Support\Username;
@@ -83,8 +85,11 @@ class BranchController extends Controller
             return $account ? $this->createOwner($branch, $account) : null;
         });
 
+        $past = $this->applyToPast($branch->refresh(), $request);
+
         return redirect()->route('branches.index')->with('success', 'حُفظ الفرع.'
-            .($owner ? " وأُضيف حساب صاحبه «{$owner->username}»." : ''));
+            .($owner ? " وأُضيف حساب صاحبه «{$owner->username}»." : '')
+            .($past ? ' وحُسبت عمولته على '.\App\Support\Arabic::shipments($past).' وصّلها مناديبه.' : ''));
     }
 
     /**
@@ -169,7 +174,41 @@ class BranchController extends Controller
             // تسعيرة الفرع يختارها الفرع الرئيسي وتسري على تجّاره؛ فارغةً: افتراضية الشركة
             'price_list_id'  => ['nullable', 'integer', Rule::exists('price_lists', 'id')
                                      ->where('company_id', $request->user()->company_id)],
-        ], [], ['code' => 'الرمز', 'name' => 'الاسم', 'phone' => 'الهاتف', 'price_list_id' => 'تسعيرة الفرع']);
+            // عمولة الفرع عن كلّ طلبٍ يوصّله مناديبه (docs/plan/51)؛ فارغةً: لا عمولة
+            'commission_per_delivery' => ['nullable', 'integer', 'min:0', 'max:1000000'],
+            'apply_from'     => ['nullable', 'date', 'before_or_equal:today'],
+        ], [], ['apply_from' => 'تاريخ البداية', 'code' => 'الرمز', 'name' => 'الاسم', 'phone' => 'الهاتف', 'price_list_id' => 'تسعيرة الفرع',
+            'commission_per_delivery' => 'عمولة الفرع']);
+
+        $data['commission_per_delivery'] = (int) ($data['commission_per_delivery'] ?? 0);
+        unset($data['apply_from']);
+
+        return $data;
+    }
+
+    /**
+     * «احسبها على ما وصّله منذ…»: العمولة تُجمَّد على الشحنة عند تسليمها، فما سُلِّم قبل
+     * كتابتها بلا عمولة. يختار صاحب الشركة تاريخاً فتُكتب على ما وصّله مناديب الفرع منذه.
+     *
+     * @return int عدد الشحنات
+     */
+    protected function applyToPast(Branch $branch, Request $request): int
+    {
+        // تحقّق منه validated() قبل الحفظ
+        $from = $request->input('apply_from');
+
+        if (! $from) {
+            return 0;
+        }
+
+        return Shipment::query()
+            ->whereNotNull('delivered_at')
+            ->whereFromDate('delivered_at', $from)
+            ->whereIn('delivery_courier_id', Courier::withTrashed()->where('branch_id', $branch->id)->select('id'))
+            ->update([
+                'delivery_branch_id' => $branch->id,
+                'branch_commission'  => $branch->is_main ? 0 : (int) $branch->commission_per_delivery,
+            ]);
     }
 
     protected function formData(): array

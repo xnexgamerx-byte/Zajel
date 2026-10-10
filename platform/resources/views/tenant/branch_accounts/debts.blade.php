@@ -5,7 +5,7 @@
 <div class="mb-5">
     <h1 class="page-title">ديون على الفروع</h1>
     <p class="mt-1 text-sm text-ink-500">
-        فرعٌ سلّم شحنات تجّار فرعٍ آخر فجمع نقداً ليس له. يُطفأ الدَّين بما وصل فعلاً في
+        فرعٌ سلّم شحنات تجّار فرعٍ آخر فجمع نقداً ليس له — ناقصاً عمولته عن كلّ طلبٍ وصّله، فهي مستحقّاته. يُطفأ الدَّين بما وصل فعلاً في
         <a href="{{ route('branch-accounts.remittances') }}" class="text-[var(--brand)] hover:underline">استلام المبالغ المسدّدة</a>،
         وما بالطريق يُعرض وحده.
     </p>
@@ -16,7 +16,7 @@
         <table class="tbl">
             <thead>
                 <tr>
-                    <th>الفرع المدين</th><th>للفرع</th><th>شحنات</th><th>المستحقّ</th><th>المستلَم</th><th>بالطريق</th><th>الباقي</th>
+                    <th>الفرع المدين</th><th>للفرع</th><th>شحنات</th><th>المحصَّل</th><th>عمولة الفرع</th><th>المستحقّ</th><th>المستلَم</th><th>بالطريق</th><th>الباقي</th>
                     @can('money.cash')<th>سدِّد</th>@endcan
                 </tr>
             </thead>
@@ -26,6 +26,8 @@
                         <td class="font-medium">{{ $branches[$pair->debtor]->name ?? '—' }}</td>
                         <td>{{ $branches[$pair->creditor]->name ?? '—' }}</td>
                         <td class="num">{{ number_format($pair->shipments) }}</td>
+                        <td class="num">{{ number_format($pair->collected) }}</td>
+                        <td class="num text-ok-700">{{ $pair->commission ? '− '.number_format($pair->commission) : '—' }}</td>
                         <td class="num">{{ number_format($pair->amount) }}</td>
                         <td class="num text-ok-700">{{ number_format($pair->received) }}</td>
                         <td class="num text-info-700">{{ $pair->in_transit ? number_format($pair->in_transit) : '—' }}</td>
@@ -52,7 +54,7 @@
                         @endcan
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-16 text-center text-ink-500">لا ديون بين الفروع — كل فرعٍ سلّم شحنات تجّاره.</td></tr>
+                    <tr><td colspan="10" class="px-4 py-16 text-center text-ink-500">لا ديون بين الفروع — كل فرعٍ سلّم شحنات تجّاره.</td></tr>
                 @endforelse
             </tbody>
         </table>

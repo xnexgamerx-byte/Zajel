@@ -16,7 +16,7 @@ class Branch extends Model
 
     protected function casts(): array
     {
-        return ['is_main' => 'boolean', 'is_active' => 'boolean'];
+        return ['is_main' => 'boolean', 'is_active' => 'boolean', 'commission_per_delivery' => 'integer'];
     }
 
     public function users(): HasMany

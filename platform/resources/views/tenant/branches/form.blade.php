@@ -71,6 +71,30 @@
         @error('price_list_id') <p class="field-error">{{ $message }}</p> @enderror
     </div>
 
+    {{-- عمولة الفرع (docs/plan/51): ما للفرع عن كلّ طلبٍ يوصّله مناديبه، يدفع منه عمولة مندوبه والباقي ربحه --}}
+    <div>
+        <label class="field-label" for="commission_per_delivery">عمولة الفرع عن كلّ طلبٍ واصل</label>
+        <div class="relative">
+            <input id="commission_per_delivery" name="commission_per_delivery" type="number" min="0" step="1"
+                   class="field-input ps-12 text-left" dir="ltr" placeholder="0"
+                   value="{{ old('commission_per_delivery', $branch->commission_per_delivery ?: '') }}">
+            <span class="absolute inset-y-0 end-3 flex items-center text-xs text-ink-400">د.ع</span>
+        </div>
+        <p class="mt-1 text-xs text-ink-500">
+            ما اتّفقت عليه مع الفرع عن كلّ طلبٍ يسلّمه مناديبه — ٣٥٠٠ مثلاً. يدفع منها عمولة مندوبه
+            (٢٠٠٠ مثلاً) ويبقى له الفرق ربحاً، وتُخصم ممّا يسدّده لك. لا تُحسب للفرع الرئيسي.
+        </p>
+        @error('commission_per_delivery') <p class="field-error">{{ $message }}</p> @enderror
+
+        @if ($branch->exists)
+            <label class="field-label mt-3" for="apply_from">احسبها أيضاً على ما وصّله مناديبه منذ (اختياري)</label>
+            <input id="apply_from" name="apply_from" type="date" class="field-input" value="{{ old('apply_from') }}"
+                   max="{{ now()->toDateString() }}">
+            <p class="mt-1 text-xs text-ink-500">العمولة تُثبَّت على الطلب ساعة تسليمه؛ ما سُلِّم قبل كتابتها يُحسب بهذا التاريخ.</p>
+            @error('apply_from') <p class="field-error">{{ $message }}</p> @enderror
+        @endif
+    </div>
+
     <div class="flex flex-wrap gap-5">
         <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" name="is_main" value="1" @checked(old('is_main', $branch->is_main))

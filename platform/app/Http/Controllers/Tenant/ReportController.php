@@ -210,6 +210,10 @@ class ReportController extends Controller
             ShipmentStatus::Returned->value,
         ];
 
+        /*
+        | ما خرج عن كلّ شحنة: عمولة مندوبها — أو عمولة الفرع الذي وصّلها إن كان له عمولة،
+        | وهو يدفع منها عمولة مندوبه (docs/plan/51). فتظهر عمولة الفرع مخصومةً عند الشركة.
+        */
         $rows = Shipment::query()
             ->visibleTo($request->user())
             ->whereBetween('status_changed_at', [$from, $to])
@@ -217,7 +221,7 @@ class ReportController extends Controller
             ->selectRaw(SqlDate::month('status_changed_at')." as month,
                 count(*) as total,
                 sum(".Shipment::sqlRevenue().") as revenue,
-                sum(courier_commission) as commission")
+                sum(case when branch_commission > 0 then branch_commission else courier_commission end) as commission")
             ->groupBy('month')
             ->orderBy('month')
             ->toBase()

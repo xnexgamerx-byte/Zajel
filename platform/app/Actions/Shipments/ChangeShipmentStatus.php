@@ -3,6 +3,7 @@
 namespace App\Actions\Shipments;
 
 use App\Enums\ShipmentStatus;
+use App\Models\Branch;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
@@ -238,6 +239,15 @@ class ChangeShipmentStatus
                 if (! $shipment->courier_commission_fixed) {
                     $attributes['courier_commission'] = $courier?->payForDelivery($shipment) ?? 0;
                 }
+
+                /*
+                | عمولة الفرع (docs/plan/51): فرعُ المندوب الموصِّل يستحقّ ما اتّفقت الشركة معه عليه
+                | عن كلّ طلبٍ يوصّله، ويدفع منه عمولة مندوبه. تُجمَّد هنا كعمولة المندوب، والرئيسي
+                | لا عمولة له — الشركةُ نفسها.
+                */
+                $branch = $courier?->branch_id ? Branch::find($courier->branch_id) : null;
+                $attributes['delivery_branch_id'] = $branch?->id;
+                $attributes['branch_commission'] = $branch && ! $branch->is_main ? (int) $branch->commission_per_delivery : 0;
 
                 // وما دفعه التاجر مقدّماً من الأجور يعود إليه هنا: لا تُخصم أجرةٌ دُفعت
                 $attributes['merchant_due'] = ($shipment->fees_paid_by === 'customer'

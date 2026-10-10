@@ -40,19 +40,37 @@ class BranchAccountController extends Controller
         // موظّف الفرع يرى صفّ فرعه وحده، والفرع الرئيسي الفروعَ كلّها
         $mine = $request->user()->isBranchLimited() ? $request->user()->branch_id : null;
 
-        $revenue = DB::table('shipments')
+        $closedIn = fn () => DB::table('shipments')
             ->where('company_id', $request->user()->company_id)
-            ->when($mine, fn ($q) => $q->where('branch_id', $mine))
             ->whereNull('deleted_at')
             ->whereIn('status', $closed)
-            ->whereBetween('status_changed_at', [$from, $to])
+            ->whereBetween('status_changed_at', [$from, $to]);
+
+        /*
+        | فرع الشحنة (فرع تاجرها) يكسب أجورها ويدفع كلفتها: عمولة المندوب — أو عمولةَ الفرع
+        | الذي وصّلها إن كان له عمولة، وهو يدفع منها عمولة مندوبه (docs/plan/51).
+        */
+        $revenue = $closedIn()
+            ->when($mine, fn ($q) => $q->where('branch_id', $mine))
             // باقي الواصل الجزئي بأجوره كاملةً لا بأجرة رجوعه (Shipment::sqlRevenue)
             ->selectRaw('branch_id, count(*) as shipments,
                 sum('.Shipment::sqlRevenue().') as revenue,
-                sum(courier_commission) as commission')
+                sum(case when branch_commission > 0 then 0 else courier_commission end) as commission,
+                sum(branch_commission) as branch_paid')
             ->groupBy('branch_id')
             ->get()
             ->keyBy('branch_id');
+
+        // والفرع الموصِّل: له عمولته عن كلّ طلب، وعليه عمولة مندوبه — والفرق ربحه
+        $earned = $closedIn()
+            ->when($mine, fn ($q) => $q->where('delivery_branch_id', $mine))
+            ->where('branch_commission', '>', 0)
+            ->selectRaw('delivery_branch_id, count(*) as shipments,
+                sum(branch_commission) as earned,
+                sum(courier_commission) as couriers')
+            ->groupBy('delivery_branch_id')
+            ->get()
+            ->keyBy('delivery_branch_id');
 
         $expenses = DB::table('expenses')
             ->where('company_id', $request->user()->company_id)
@@ -70,6 +88,7 @@ class BranchAccountController extends Controller
             'period'   => $period,
             'branches' => Branch::when($mine, fn ($q) => $q->whereKey($mine))->orderByDesc('is_main')->orderBy('name')->get(),
             'revenue'  => $revenue,
+            'earned'   => $earned,
             'expenses' => $expenses,
             'cash'     => $cash,
             'debts'    => $this->interBranchDebts($request, $from, $to),
@@ -91,16 +110,19 @@ class BranchAccountController extends Controller
             // ما حُصِّل: سُلِّمت كلّها أو بعضها — كما في «ديون الفروع» (BranchRemittanceController)
             ->whereNotNull('shipments.delivered_at')
             ->whereBetween('shipments.status_changed_at', [$from, $to])
-            ->whereNotNull('shipments.branch_id')
             ->whereNotNull('merchants.branch_id')
-            ->whereColumn('shipments.branch_id', '!=', 'merchants.branch_id')
+            // الجامع فرعُ المندوب الموصِّل، ويحتفظ بعمولته من النقد (docs/plan/51)
+            ->whereRaw(BranchRemittanceController::COLLECTOR.' is not null')
+            ->whereRaw(BranchRemittanceController::COLLECTOR.' != merchants.branch_id')
             // ما بين فرعه وغيره وحده، إن كان مقيَّداً بفرع
             ->when($request->user()->isBranchLimited(), fn ($q) => $q->where(fn ($w) => $w
-                ->where('shipments.branch_id', $request->user()->branch_id)
+                ->whereRaw(BranchRemittanceController::COLLECTOR.' = ?', [$request->user()->branch_id])
                 ->orWhere('merchants.branch_id', $request->user()->branch_id)))
-            ->selectRaw('shipments.branch_id as collector, merchants.branch_id as owner,
-                         count(*) as shipments, sum(shipments.collected_amount) as amount')
-            ->groupBy('shipments.branch_id', 'merchants.branch_id')
+            ->selectRaw(BranchRemittanceController::COLLECTOR.' as collector, merchants.branch_id as owner,
+                         count(*) as shipments, sum(shipments.collected_amount) as collected,
+                         sum(shipments.branch_commission) as commission,
+                         sum(shipments.collected_amount - shipments.branch_commission) as amount')
+            ->groupByRaw(BranchRemittanceController::COLLECTOR.', merchants.branch_id')
             ->orderByDesc('amount')
             ->get();
     }

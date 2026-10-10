@@ -3,7 +3,7 @@
 
 @section('content')
 <x-report-shell title="أرباح الشحنات"
-                question="ما دخل من أجور وما خرج عمولاتٍ للمندوبين."
+                question="ما دخل من أجور وما خرج عمولاتٍ للمندوبين والفروع."
                 :period="$period"
                 basis="تُحسب بالشحنات التي أُقفلت في المدّة: وصلت أو رجعت.">
 
@@ -17,7 +17,7 @@
             <div class="num mt-1 text-2xl font-bold text-ok-700">{{ number_format($totals->revenue) }}</div>
         </div>
         <div class="stat">
-            <div class="stat-label">عمولات المندوبين</div>
+            <div class="stat-label">عمولات المناديب والفروع</div>
             <div class="num mt-1 text-2xl font-bold text-warn-700">{{ number_format($totals->commission) }}</div>
         </div>
         <div class="stat">

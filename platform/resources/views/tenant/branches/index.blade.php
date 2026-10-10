@@ -21,6 +21,7 @@
                 <th >المحافظة</th>
                 <th >الهاتف</th>
                 <th >التسعيرة</th>
+                <th >عمولة الفرع</th>
                 <th >حساب الفرع</th>
                 <th >مستخدمون</th>
                 <th >الحالة</th>
@@ -42,6 +43,7 @@
                     <td class="px-4 py-3 text-ink-600">{{ $branch->governorate?->name_ar ?? '—' }}</td>
                     <td class="px-4 py-3 text-ink-600" dir="ltr">{{ $branch->phone ?? '—' }}</td>
                     <td class="px-4 py-3 text-ink-600">{{ $branch->priceList?->name ?? 'افتراضية الشركة' }}</td>
+                    <td class="px-4 py-3 num">{{ ! $branch->is_main && $branch->commission_per_delivery ? number_format($branch->commission_per_delivery).' / طلب' : '—' }}</td>
                     <td class="px-4 py-3 font-mono text-ink-600" dir="ltr">{{ $branch->users->pluck('username')->implode('، ') ?: '—' }}</td>
                     <td class="px-4 py-3" dir="ltr">{{ number_format($branch->users_count) }}</td>
                     <td class="px-4 py-3">
@@ -58,7 +60,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9" class="px-4 py-16 text-center text-ink-500">لا فروع.</td></tr>
+                <tr><td colspan="10" class="px-4 py-16 text-center text-ink-500">لا فروع.</td></tr>
             @endforelse
         </tbody>
     </table>
