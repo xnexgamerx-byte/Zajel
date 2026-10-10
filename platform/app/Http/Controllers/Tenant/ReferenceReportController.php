@@ -37,6 +37,7 @@ class ReferenceReportController extends Controller
         'web'             => 'إدخال موظّف',
         'import'          => 'رفع ملف',
         'merchant_portal' => 'بوابة التاجر',
+        'merchant_app'    => 'تطبيق التاجر',
         'api'             => 'واجهة برمجية',
     ];
 
@@ -90,7 +91,8 @@ class ReferenceReportController extends Controller
         $day = SqlDate::day('shipments.created_at');
 
         $days = Shipment::query()->visibleTo($request->user())
-            ->where('shipments.source', 'merchant_portal')
+            // ما أدخله التاجر بنفسه: من البوابة أو من تطبيقه (docs/plan/52)
+            ->whereIn('shipments.source', ['merchant_portal', 'merchant_app'])
             ->whereBetween('shipments.created_at', [$from, $to])
             ->when($merchantId, fn ($q) => $q->where('shipments.merchant_id', $merchantId))
             ->selectRaw("{$day} as day, count(*) as created,

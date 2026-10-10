@@ -9,9 +9,12 @@ import 'models.dart';
 
 /// خطأٌ يُعرض للتاجر كما كتبه النظام («اسم المستخدم أو كلمة المرور غير صحيحة.»)
 class ApiError implements Exception {
-  ApiError(this.message, {this.unauthorised = false});
+  ApiError(this.message, {this.unauthorised = false, this.fields = const {}});
 
   final String message;
+
+  /// أخطاء النموذج بحقولها: {recipient_phone: «رقم الهاتف يجب أن يبدأ بـ 07…»}
+  final Map<String, String> fields;
 
   /// انتهى الدخول (رمزٌ أُبطل أو حسابٌ أُوقف): يعود إلى شاشة الدخول
   final bool unauthorised;
@@ -81,6 +84,35 @@ class Api {
     return ShipmentDetail.fromJson(await _send(http.get(_uri('/merchant/shipments/$id'), headers: _headers)));
   }
 
+  // ---------------------------------------------------------------- طلب جديد (docs/plan/52)
+
+  Future<CreateForm> createForm() async {
+    if (AppConfig.demo) return Demo.form;
+    return CreateForm.fromJson(await _send(http.get(_uri('/merchant/shipments/form'), headers: _headers)));
+  }
+
+  Future<List<Choice>> areas(String governorate) async {
+    if (AppConfig.demo) return Demo.areas(governorate);
+    final uri = _uri('/merchant/areas').replace(queryParameters: {'governorate': governorate});
+    final body = await _send(http.get(uri, headers: _headers));
+    return [for (final a in body['areas'] as List) Choice.fromJson((a as Map).cast())];
+  }
+
+  Future<Quote> quote({required String governorate, String? area, int cod = 0, String size = 'normal'}) async {
+    if (AppConfig.demo) return Demo.quote(cod);
+    final uri = _uri(
+      '/merchant/shipments/quote',
+    ).replace(queryParameters: {'governorate_id': governorate, 'city_id': ?area, 'cod_amount': '$cod', 'size': size});
+    return Quote.fromJson(await _send(http.get(uri, headers: _headers)));
+  }
+
+  Future<Created> createShipment(Map<String, dynamic> data) async {
+    if (AppConfig.demo) return Demo.create(data);
+    return Created.fromJson(
+      await _send(http.post(_uri('/merchant/shipments'), headers: _headers, body: jsonEncode(data))),
+    );
+  }
+
   /// صورة إعلانٍ محميّة برمز الدخول
   Map<String, String> get imageHeaders => {if (_token != null) 'Authorization': 'Bearer $_token'};
 
@@ -115,7 +147,13 @@ class Api {
     if (res.statusCode >= 400) {
       final errors = body['errors'] as Map<String, dynamic>?;
       final first = errors?.values.whereType<List>().expand((e) => e).firstOrNull;
-      throw ApiError((first ?? body['message'] ?? 'حدث خطأ. حاول مجدداً.').toString());
+      throw ApiError(
+        (first ?? body['message'] ?? 'حدث خطأ. حاول مجدداً.').toString(),
+        fields: {
+          for (final e in (errors ?? const {}).entries)
+            if (e.value is List && (e.value as List).isNotEmpty) e.key: '${(e.value as List).first}',
+        },
+      );
     }
 
     return body;

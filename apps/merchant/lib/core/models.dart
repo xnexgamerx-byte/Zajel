@@ -240,3 +240,77 @@ class Session {
   final String? companyLogo;
   final String? companyInitial;
 }
+
+// ------------------------------------------------------------------ طلب جديد (docs/plan/52)
+
+/// خيارٌ في النموذج: محافظة أو منطقة (id)، أو حجم ونوع (value)
+class Choice {
+  const Choice(this.key, this.label);
+
+  factory Choice.fromJson(Map<String, dynamic> j) =>
+      Choice('${j['id'] ?? j['value']}', j['name'] as String? ?? j['label'] as String);
+
+  final String key;
+  final String label;
+}
+
+/// ما يحتاجه نموذج «طلب جديد» مرّةً: GET /merchant/shipments/form
+class CreateForm {
+  CreateForm({
+    required this.governorates,
+    required this.home,
+    required this.sizes,
+    required this.types,
+    required this.required,
+    required this.waybills,
+    required this.goods,
+  });
+
+  factory CreateForm.fromJson(Map<String, dynamic> j) => CreateForm(
+    governorates: [for (final g in j['governorates'] as List) Choice.fromJson((g as Map).cast())],
+    home: j['home'] == null ? null : '${j['home']}',
+    sizes: [for (final s in j['sizes'] as List) Choice.fromJson((s as Map).cast())],
+    types: [for (final t in j['types'] as List) Choice.fromJson((t as Map).cast())],
+    required: [for (final r in j['required'] as List) '$r'],
+    waybills: j['waybills'] as bool? ?? false,
+    goods: j['goods'] as String? ?? 'ملابس',
+  );
+
+  final List<Choice> governorates;
+
+  /// محافظة التاجر: يُفتح النموذج عليها
+  final String? home;
+  final List<Choice> sizes;
+  final List<Choice> types;
+
+  /// ما ألزمته الشركة من الحقول الاختيارية (recipient_name، landmark…)
+  final List<String> required;
+  final bool waybills;
+  final String goods;
+}
+
+/// «يصلك»: أجرة التوصيل بتسعيرته وما يبقى له — GET /merchant/shipments/quote
+class Quote {
+  const Quote({required this.deliveryFee, required this.fees, required this.due});
+
+  factory Quote.fromJson(Map<String, dynamic> j) =>
+      Quote(deliveryFee: j['delivery_fee'] as int? ?? 0, fees: j['fees'] as int? ?? 0, due: j['due'] as int? ?? 0);
+
+  final int deliveryFee;
+  final int fees;
+  final int due;
+}
+
+/// الشحنة المحفوظة للتوّ: صفّها في القوائم وما يصله منها
+class Created {
+  const Created({required this.row, required this.due, this.waybill});
+
+  factory Created.fromJson(Map<String, dynamic> j) {
+    final s = (j['shipment'] as Map).cast<String, dynamic>();
+    return Created(row: RecentShipment.fromJson(s), due: s['due'] as int? ?? 0, waybill: s['waybill'] as String?);
+  }
+
+  final RecentShipment row;
+  final int due;
+  final String? waybill;
+}

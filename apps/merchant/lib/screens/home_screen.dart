@@ -11,7 +11,7 @@ import 'shipment_screen.dart';
 /// التحيّة، الإعلانات، الرصيد، العدّادات الأربعة، إنشاء شحنة بثلاث طرق، الأدوات
 /// السريعة، «للمعالجة» و«تحتاج انتباهك»، ثم آخر الشحنات.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.brand, required this.companyName, this.onOpen});
+  const HomeScreen({super.key, required this.brand, required this.companyName, this.onOpen, this.refresh});
 
   final Brand brand;
 
@@ -20,6 +20,9 @@ class HomeScreen extends StatefulWidget {
 
   /// يفتح شاشةً من شاشات التطبيق باسمها (shipments, create, finance…)
   final void Function(String screen)? onOpen;
+
+  /// يُعاد التحميل حين يتغيّر — بعد حفظ شحنةٍ جديدة
+  final Listenable? refresh;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -35,7 +38,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    widget.refresh?.addListener(_load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    widget.refresh?.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {

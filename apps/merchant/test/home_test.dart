@@ -70,7 +70,7 @@ void main() {
     // البحث في الكل
     await tester.tap(find.textContaining('الكل').first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'زهراء');
+    await tester.enterText(_hint('ابحث بالاسم أو الهاتف أو رقم الوصل'), 'زهراء');
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
     expect(find.text('زهراء كريم'), findsOneWidget);
@@ -83,4 +83,51 @@ void main() {
       expect(find.text(text), findsOneWidget, reason: text);
     }
   });
+
+  testWidgets('طلب جديد: أرقام الهاتف العربية، والمنطقة بالبحث، ويصلك، والحفظ', (tester) async {
+    tester.view.physicalSize = const Size(393 * 3, 849 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpAndSettle();
+
+    // «إدخال يدوي» في الرئيسية يفتح النموذج على محافظة التاجر
+    await tester.tap(find.text('إدخال يدوي'));
+    await tester.pumpAndSettle();
+    expect(find.text('بغداد'), findsOneWidget);
+
+    // لوحة الهاتف العربية: تُكتب أرقاماً لاتينية
+    await tester.enterText(_hint('07xxxxxxxxx'), '٠٧٨٠١٢٣٤٥٦٧');
+    expect(_value(tester, '07xxxxxxxxx'), '07801234567');
+
+    // المنطقة بالبحث: «كراده» تجد «الكرادة»
+    await tester.tap(find.text('اختر المنطقة'));
+    await tester.pumpAndSettle();
+    await tester.enterText(_hint('ابحث عن المنطقة'), 'كراده');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الكرادة'));
+    await tester.pumpAndSettle();
+    expect(find.text('الكرادة'), findsOneWidget);
+
+    // السعر بمسافات الآلاف، و«يصلك» من التسعيرة
+    await tester.enterText(_hint('ما يدفعه الزبون'), '25000');
+    expect(_value(tester, 'ما يدفعه الزبون'), '25 000');
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('يصلك 20,000 د.ع', findRichText: true), findsOneWidget);
+
+    await tester.dragUntilVisible(find.text('حفظ الشحنة'), find.text('العنوان'), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حفظ الشحنة'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('حُفظت الشحنة', findRichText: true), findsOneWidget);
+    // والنموذج فارغٌ للتالية
+    expect(_value(tester, '07xxxxxxxxx'), '');
+  });
 }
+
+Finder _hint(String hint) =>
+    find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == hint, description: 'حقل «$hint»');
+
+String _value(WidgetTester tester, String hint) => tester.widget<TextField>(_hint(hint)).controller!.text;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import 'create_screen.dart';
 import 'home_screen.dart';
 import 'shipments_screen.dart';
 
@@ -24,11 +25,15 @@ class _ShellState extends State<Shell> {
   /// شريحة «شحناتي» التي تفتحها الرئيسية (عدّادٌ أو بطاقةٌ أو «عرض الكل»)
   final shipmentsFilter = ValueNotifier<String>('all');
 
+  /// حُفظت شحنةٌ جديدة: تُعاد الرئيسية و«شحناتي» بأرقامها
+  final refresh = ValueNotifier<int>(0);
+
   Brand get brand => widget.brand;
 
   @override
   void dispose() {
     shipmentsFilter.dispose();
+    refresh.dispose();
     super.dispose();
   }
 
@@ -56,9 +61,14 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      HomeScreen(brand: brand, companyName: widget.session?.companyName ?? AppConfig.companyName, onOpen: _open),
-      ShipmentsScreen(brand: brand, filter: shipmentsFilter),
-      const _Soon(title: 'طلب جديد', text: 'إنشاء شحنة يدوياً أو بالذكاء الاصطناعي أو بالصوت — المرحلة التالية.'),
+      HomeScreen(
+        brand: brand,
+        companyName: widget.session?.companyName ?? AppConfig.companyName,
+        onOpen: _open,
+        refresh: refresh,
+      ),
+      ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh),
+      CreateScreen(brand: brand, onCreated: () => refresh.value++),
       const _Soon(title: 'المالية', text: 'كشف حسابك وطلب المحاسبة — المرحلة التالية.'),
       _More(brand: brand, session: widget.session, onLogout: widget.onLogout),
     ];

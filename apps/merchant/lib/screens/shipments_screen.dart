@@ -11,12 +11,15 @@ import 'shipment_screen.dart';
 /// «شحناتي»: بحثٌ بالاسم أو الهاتف أو رقم الوصل، وشرائح بأعدادها (هي عدّادات الرئيسية
 /// نفسها)، والقائمة تتحمّل صفحةً بعد صفحة كلّما نزلت.
 class ShipmentsScreen extends StatefulWidget {
-  const ShipmentsScreen({super.key, required this.brand, required this.filter});
+  const ShipmentsScreen({super.key, required this.brand, required this.filter, this.refresh});
 
   final Brand brand;
 
   /// الشريحة المطلوبة — تضبطها الرئيسية حين تفتح «مسلمة» أو «للمعالجة»…
   final ValueNotifier<String> filter;
+
+  /// بعد حفظ شحنةٍ جديدة: تُعاد القائمة
+  final Listenable? refresh;
 
   @override
   State<ShipmentsScreen> createState() => _ShipmentsScreenState();
@@ -44,6 +47,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
   void initState() {
     super.initState();
     widget.filter.addListener(_reload);
+    widget.refresh?.addListener(_reload);
     scroll.addListener(() {
       if (scroll.position.pixels > scroll.position.maxScrollExtent - 300) _more();
     });
@@ -53,6 +57,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
   @override
   void dispose() {
     widget.filter.removeListener(_reload);
+    widget.refresh?.removeListener(_reload);
     debounce?.cancel();
     search.dispose();
     scroll.dispose();

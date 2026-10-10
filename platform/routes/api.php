@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Merchant\CreateShipmentController as MerchantCreateShipmentController;
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
 use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentController;
 use App\Http\Controllers\Tenant\AppAdController;
@@ -28,6 +29,11 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::get('/home', MerchantHomeController::class)->name('home');
             Route::get('/shipments', [MerchantShipmentController::class, 'index'])->name('shipments.index');
             Route::get('/shipments/{shipment}', [MerchantShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.show');
+            // «طلب جديد» (docs/plan/52): نموذج البوابة نفسه
+            Route::get('/shipments/form', [MerchantCreateShipmentController::class, 'form'])->name('shipments.form');
+            Route::get('/areas', [MerchantCreateShipmentController::class, 'areas'])->name('areas');
+            Route::get('/shipments/quote', [MerchantCreateShipmentController::class, 'quote'])->name('shipments.quote');
+            Route::post('/shipments', [MerchantCreateShipmentController::class, 'store'])->middleware('throttle:60,1')->name('shipments.store');
         });
     });
 });

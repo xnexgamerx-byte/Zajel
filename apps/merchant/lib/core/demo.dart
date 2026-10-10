@@ -173,4 +173,52 @@ class Demo {
     final n = DateTime.now();
     return DateTime(n.year, n.month, n.day, h, m);
   }
+
+  // ---------------------------------------------------------------- طلب جديد
+
+  static final form = CreateForm(
+    governorates: const [
+      Choice('1', 'بغداد'),
+      Choice('2', 'البصرة'),
+      Choice('3', 'نينوى'),
+      Choice('4', 'أربيل'),
+      Choice('5', 'النجف'),
+    ],
+    home: '1',
+    sizes: const [
+      Choice('normal', 'عادي'),
+      Choice('medium', 'متوسط'),
+      Choice('large', 'كبير'),
+      Choice('special', 'خاص'),
+    ],
+    types: const [Choice('delivery', 'طلب جديد'), Choice('exchange', 'استبدال')],
+    required: const [],
+    waybills: true,
+    goods: 'ملابس',
+  );
+
+  static List<Choice> areas(String governorate) => [
+    for (final (i, name)
+        in (governorate == '1'
+                ? ['المنصور', 'الكرادة', 'زيونة', 'الأعظمية', 'الكاظمية', 'البياع', 'الدورة', 'اليرموك']
+                : ['المركز', 'الأطراف'])
+            .indexed)
+      Choice('${int.parse(governorate) * 100 + i}', name),
+  ];
+
+  static Quote quote(int cod) => Quote(deliveryFee: 5000, fees: 5000, due: cod - 5000);
+
+  static Created create(Map<String, dynamic> data) => Created(
+    row: RecentShipment(
+      id: 1,
+      number: 'ZA-20260125',
+      name: (data['recipient_name'] as String?)?.isNotEmpty == true ? data['recipient_name'] as String : 'الزبون',
+      area: 'المنصور',
+      amount: data['cod_amount'] as int? ?? 0,
+      at: DateTime.now(),
+      status: 'جديد',
+      urgent: false,
+    ),
+    due: (data['cod_amount'] as int? ?? 0) - 5000,
+  );
 }
