@@ -149,9 +149,22 @@ class BuildMerchantSettlement
     /** @return Builder<Shipment> */
     public function eligibleQuery(Merchant $merchant, array $options = []): Builder
     {
-        return Shipment::query()
-            ->where('merchant_id', $merchant->id)
-            ->whereNull('merchant_settlement_id')
+        return static::eligibleScope(Shipment::query()->where('merchant_id', $merchant->id))
+            ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
+            ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
+            ->orderBy('id');
+    }
+
+    /**
+     * شرط الكشف بلا تاجرٍ بعينه — منه يُحسب «المتاح للتسوية» لكلّ التجّار في استعلامٍ واحد
+     * (MerchantBalance)، فلا يفترق ما تَعِد به البطاقة عمّا يحمله الكشف.
+     *
+     * @param  Builder<Shipment>  $q
+     * @return Builder<Shipment>
+     */
+    public static function eligibleScope(Builder $q): Builder
+    {
+        return $q->whereNull('merchant_settlement_id')
             /*
             | الحساب للواصل (docs/plan/44): المسلَّم كلّه أو بعضه. والراجع لا يدخل الكشف إلّا بأجرة رجوعٍ
             | تُقتطع من التاجر — وراجعٌ بلا أجرةٍ مكانه «كشف الراجع» (إيصال الراجع) لا كشف الحساب.
@@ -165,9 +178,6 @@ class BuildMerchantSettlement
             | لا يُدفع للتاجر ما لم يصل الشركة (docs/plan/49): الواصلُ مع مندوبٍ لم يُحاسَب عليه
             | بعد يبقى «قيد المطابقة» خارج الكشف، ويدخل أوّل كشفٍ بعد محاسبة مندوبه.
             */
-            ->where(fn ($q) => MerchantBalance::cleared($q))
-            ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
-            ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
-            ->orderBy('id');
+            ->where(fn ($q) => MerchantBalance::cleared($q));
     }
 }

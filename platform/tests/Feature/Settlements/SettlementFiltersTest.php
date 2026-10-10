@@ -98,7 +98,8 @@ class SettlementFiltersTest extends TestCase
 
             MerchantSettlement::create(['merchant_id' => $first->id, 'code' => 'MS1', 'status' => 'paid',
                 'paid_by_user_id' => $this->owner->id]);
-            MerchantSettlement::create(['merchant_id' => $second->id, 'code' => 'MS2', 'status' => 'draft']);
+            // مُقفَلٌ بلا مبلغ: مسودّةٌ تظهر في بطاقة تاجرها («افتح المسودّة») فلا تُختبر بها قائمة الكشوف
+            MerchantSettlement::create(['merchant_id' => $second->id, 'code' => 'MS2', 'status' => 'confirmed']);
         });
 
         $this->actingAs($this->owner)->get($this->host().'/settlements/merchants?q=العطور')->assertOk()

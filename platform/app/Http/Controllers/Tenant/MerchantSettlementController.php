@@ -43,15 +43,8 @@ class MerchantSettlementController extends Controller
                 ->where('balance', '!=', 0)
                 ->orderByDesc('balance')
                 ->get(),
-            // «قيد المطابقة» لكلّ تاجر في استعلامٍ واحد: واصلٌ لم يُحاسَب مندوبه بعد (docs/plan/49)
-            'awaiting' => \App\Support\MerchantBalance::awaitingCourier(\App\Models\Shipment::query())
-                ->whereNull('merchant_settlement_id')
-                ->whereIn('merchant_id', $pending->pluck('id'))
-                ->groupBy('merchant_id')
-                ->toBase()
-                ->selectRaw('merchant_id, count(*) as n, coalesce(sum(merchant_due), 0) as due')
-                ->get()
-                ->keyBy('merchant_id'),
+            // حساب كلّ تاجرٍ مفصَّلاً باستعلاماتٍ معدودة: المتاح للتسوية هو رقم الكشف نفسه (docs/plan/51)
+            'balances' => \App\Support\MerchantBalance::many($pending),
         ]);
     }
 

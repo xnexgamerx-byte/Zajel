@@ -23,7 +23,7 @@
 </div>
 
 @can('money.view')
-    <x-merchant-balance :merchant="$merchant" title="حسابه" class="mb-5" />
+    <x-merchant-balance :merchant="$merchant" title="حسابه" :staff="true" class="mb-5" />
 @endcan
 
 <div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
