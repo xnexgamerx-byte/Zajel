@@ -67,6 +67,18 @@
     </dl>
 </section>
 
+@if ($location)
+    {{-- آخر موقعٍ للمندوب مع شحنتك (docs/plan/61) --}}
+    <section class="card mt-5 overflow-hidden">
+        <h2 class="card-title px-5 pt-5">أين شحنتك الآن</h2>
+        <p class="px-5 pb-3 text-xs text-ink-500">آخر موقعٍ أرسله المندوب وهي معه{{ $location['at'] ? ' — '.\Illuminate\Support\Carbon::parse($location['at'])->diffForHumans() : '' }}.</p>
+        <div data-map data-fit class="h-64 w-full bg-ink-50" data-zoom="14"
+             data-center="{{ json_encode([$location['lat'], $location['lng']]) }}"
+             data-points="{{ json_encode([['lat' => $location['lat'], 'lng' => $location['lng'], 'exact' => true, 'name' => 'شحنتك']]) }}"
+             aria-label="موقع الشحنة"></div>
+    </section>
+@endif
+
 <section class="card mt-5 p-5 sm:p-6">
     <h2 class="card-title mb-4">مسار الشحنة</h2>
     <ol class="space-y-4">

@@ -408,3 +408,8 @@ document.addEventListener('submit', (event) => {
         input.placeholder = 'ليس رمز ورقةٍ من النظام — امسح الرمز المطبوع عليها';
     }
 });
+
+// الخرائط تُحمَّل حيث تُرسم وحدها، في صفحات الموظّف وصفحة تتبّع الزبون: Leaflet لا يثقل كلّ صفحة (docs/plan/61)
+if (document.querySelector('[data-map]')) {
+    import('./map');
+}

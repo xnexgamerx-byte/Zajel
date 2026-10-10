@@ -15,6 +15,18 @@
     </form>
 </div>
 
+{{-- الخريطة (docs/plan/61): كلّ مندوبٍ عند آخر موقعٍ أرسله هاتفه، أو تقريبياً عند محافظة شحنته --}}
+<section class="card mb-5 overflow-hidden">
+    <div data-map class="h-[26rem] w-full bg-ink-50"
+         data-center='@json($map['center'])' data-zoom="{{ $map['zoom'] }}" data-points='@json($map['points'])'
+         aria-label="خريطة المناديب"></div>
+    <p class="flex flex-wrap gap-4 border-t border-ink-100 px-4 py-2 text-xs text-ink-500">
+        <span><span class="inline-block size-2.5 rounded-full bg-[var(--brand)]"></span> موقعٌ أرسله هاتف المندوب مع آخر تحديث</span>
+        <span><span class="inline-block size-2.5 rounded-full border-2 border-ink-400"></span> تقريبيّ: محافظة آخر شحنةٍ له</span>
+        <span><span class="inline-block size-2.5 rounded-full bg-warn-500"></span> سكت أكثر من ٣ ساعات</span>
+    </p>
+</section>
+
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
         <table class="tbl">

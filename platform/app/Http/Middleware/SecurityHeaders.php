@@ -27,7 +27,7 @@ class SecurityHeaders
     /** كل مصدرٍ خارجي تحمّله الصفحات — وحارسه SecurityHeadersTest. */
     public const EXTERNAL = [
         'style-src' => ['https://fonts.googleapis.com'],
-        'font-src'  => ['https://fonts.gstatic.com'],
+        'font-src' => ['https://fonts.gstatic.com'],
     ];
 
     public function handle(Request $request, Closure $next): Response
@@ -73,15 +73,16 @@ class SecurityHeaders
         $ours = $domain !== '' ? ["*.{$domain}:*"] : [];
 
         $directives = [
-            'default-src'     => [$self],
-            'script-src'      => [$self],
-            'style-src'       => [$self, "'unsafe-inline'", ...self::EXTERNAL['style-src']],
-            'font-src'        => [$self, ...self::EXTERNAL['font-src']],
-            'img-src'         => [$self, 'data:', 'blob:'],
-            'connect-src'     => ["'self'"],
-            'object-src'      => ["'none'"],
-            'base-uri'        => ["'self'"],
-            'form-action'     => ["'self'", ...$ours],
+            'default-src' => [$self],
+            'script-src' => [$self],
+            'style-src' => [$self, "'unsafe-inline'", ...self::EXTERNAL['style-src']],
+            'font-src' => [$self, ...self::EXTERNAL['font-src']],
+            // بلاطات الخريطة من OpenStreetMap (docs/plan/61)
+            'img-src' => [$self, 'data:', 'blob:', 'https://tile.openstreetmap.org'],
+            'connect-src' => ["'self'"],
+            'object-src' => ["'none'"],
+            'base-uri' => ["'self'"],
+            'form-action' => ["'self'", ...$ours],
             'frame-ancestors' => ["'none'"],
         ];
 

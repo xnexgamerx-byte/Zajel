@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Enums\ShipmentStatus;
 use App\Models\Shipment;
+use App\Support\Phone;
+use App\Support\ShipmentLocation;
 use App\Support\Tracking;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +26,7 @@ class TrackingController extends Controller
     public function form(Request $request): View|RedirectResponse
     {
         $number = trim((string) $request->query('number'));
-        $digits = preg_replace('/\D+/', '', \App\Support\Phone::latinDigits((string) $request->query('phone')));
+        $digits = preg_replace('/\D+/', '', Phone::latinDigits((string) $request->query('phone')));
 
         if ($number === '' && $digits === '') {
             return view('track.form');
@@ -65,10 +67,14 @@ class TrackingController extends Controller
             ->get(['id', 'shipment_id', 'to_status', 'failure_reason_id', 'created_at']);
 
         return view('track.show', [
-            'shipment'  => $shipment,
-            'events'    => $events,
+            'shipment' => $shipment,
+            'events' => $events,
             // المبلغ يخصّ من ينتظر شحنته: لا معنى له بعد التسليم أو الإرجاع أو الإلغاء
-            'awaiting'  => $shipment->status->isOpen() && $shipment->status !== ShipmentStatus::Returning,
+            'awaiting' => $shipment->status->isOpen() && $shipment->status !== ShipmentStatus::Returning,
+            // وهي مع المندوب في الطريق إليه: آخر موقعٍ أرسله هاتفه، على الخريطة (docs/plan/61)
+            'location' => in_array($shipment->status, [ShipmentStatus::OutForDelivery, ShipmentStatus::Postponed, ShipmentStatus::FailedAttempt], true)
+                ? array_filter([ShipmentLocation::of($shipment)], fn ($l) => $l && $l['exact'])[0] ?? null
+                : null,
         ]);
     }
 }

@@ -1232,3 +1232,13 @@ summary:focus-visible,
 [data-payout]:has(input[name='payout_method'][value='qi']:checked) [data-payout-hint='qi'] { display: inline; }
 [data-payout]:has(input[name='payout_method'][value='fib']:checked) [data-payout-hint='fib'] { display: inline; }
 [data-payout]:has(input[name='payout_method'][value='bank_transfer']:checked) [data-payout-hint='bank_transfer'] { display: inline; }
+
+/* اسم المندوب فوق نقطته على الخريطة (docs/plan/61) */
+.leaflet-tooltip.map-label {
+    border: 0;
+    border-radius: 9999px;
+    padding: 1px 8px;
+    font: 600 12px/1.6 inherit;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+.leaflet-container { font-family: inherit; }

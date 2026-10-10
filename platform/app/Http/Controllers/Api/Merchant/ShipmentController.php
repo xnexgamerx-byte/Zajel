@@ -6,6 +6,7 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
+use App\Support\ShipmentLocation;
 use App\Support\Tracking;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -83,6 +84,8 @@ class ShipmentController extends Controller
                 'courier' => $shipment->status->isOpen() ? ($shipment->deliveryCourier?->name ?? $shipment->pickupCourier?->name) : null,
                 'status' => $shipment->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $shipment->statusLabel(),
                 'at' => ($shipment->status_changed_at ?? $shipment->created_at)?->toIso8601String(),
+                // على الخريطة ما دامت لم تُحسم (docs/plan/61): دقيقٌ من هاتف المندوب، أو تقريبيٌّ بمحافظتها
+                'location' => $shipment->status->isOpen() ? ShipmentLocation::of($shipment) : null,
             ],
             'timeline' => $shipment->events->map(fn (ShipmentEvent $e) => [
                 'title' => $e->merchantHeadline(),
