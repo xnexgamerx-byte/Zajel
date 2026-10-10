@@ -89,7 +89,15 @@ void main() {
     // الشحنة: مسارها وزبونها وحسابها
     await tester.tap(find.text('زهراء كريم'));
     await tester.pumpAndSettle();
-    for (final text in ['مسار الشحنة', 'الزبون والعنوان', 'حساب الشحنة', 'كود التسليم', 'أرسل التتبّع للزبون']) {
+    for (final text in [
+      'كود التسليم',
+      'مسار الشحنة',
+      'الزبون والعنوان',
+      'حساب الشحنة',
+      'أرسل التتبّع للزبون',
+      'اسأل عن الشحنة',
+    ]) {
+      await tester.scrollUntilVisible(find.text(text), 200, scrollable: _vertical);
       expect(find.text(text), findsOneWidget, reason: text);
     }
   });
