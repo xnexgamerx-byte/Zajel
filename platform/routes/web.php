@@ -68,6 +68,7 @@ use App\Http\Controllers\Tenant\TransferController;
 use App\Http\Controllers\Tenant\CourierChatController;
 use App\Http\Controllers\Tenant\StaffChatController;
 use App\Http\Controllers\Courier\ChatController as CourierChatAppController;
+use App\Http\Controllers\Tenant\ShipmentActivityController;
 use App\Http\Controllers\Tenant\ShipmentOverrideController;
 use App\Http\Controllers\Tenant\MerchantAdvanceController;
 use App\Http\Controllers\Tenant\WaybillBookController;
@@ -206,6 +207,9 @@ Route::middleware('tenant')->group(function () {
             Route::get('/shipments/{shipment}/override', [ShipmentOverrideController::class, 'edit'])->name('shipments.override');
             Route::put('/shipments/{shipment}/override', [ShipmentOverrideController::class, 'update'])->name('shipments.override.update');
         });
+        // «حركات الطلب» (docs/plan/53): من عدّل عليها وماذا غيّر
+        Route::get('/shipments/{shipment}/activity', ShipmentActivityController::class)
+            ->middleware(['staff', 'can:shipments.view'])->name('shipments.activity');
         Route::delete('/shipments/{shipment}', [ShipmentTrashController::class, 'destroy'])
             ->middleware(['staff', 'can:shipments.delete'])->name('shipments.destroy');
         Route::post('/shipments/{shipment}/status', [ShipmentStatusController::class, 'update'])
@@ -283,6 +287,7 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/merchant-message', [ProcessingController::class, 'editMessage'])->name('merchant-message.edit');
                 Route::put('/merchant-message', [ProcessingController::class, 'message'])->name('merchant-message.update');
                 Route::post('/processing/{shipment}', [ProcessingController::class, 'store'])->name('processing.store');
+                Route::post('/processing/{shipment}/follow', [ProcessingController::class, 'follow'])->middleware('throttle:60,1')->name('processing.follow');
                 Route::post('/processing/{shipment}/ask', [ProcessingController::class, 'ask'])->middleware('throttle:60,1')->name('processing.ask');
                 // محادثتا الشحنة في صفّها: التاجر والمندوب، بلا انتقالٍ لشاشةٍ أخرى (docs/plan/43)
                 Route::post('/processing/{shipment}/merchant-chat', [ProcessingController::class, 'merchantChat'])->middleware('throttle:60,1')->name('processing.merchant-chat');

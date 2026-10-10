@@ -13,6 +13,27 @@ class StoreShipmentRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    /**
+     * أجور التاجر (التوصيل والرسوم والخصم) للمحاسب ولمن يملك «تعديل الأجور» وحده (docs/plan/53):
+     * غيره يُدخل الشحنة ويصحّح بياناتها، وأجورها من التسعيرة — وما كانت عليه في التعديل يبقى.
+     * لا يكفي إخفاء الحقول: ما يُرسَل بيدٍ يُستبدل هنا.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->user()?->can('shipments.override')) {
+            return;
+        }
+
+        $current = $this->route('shipment');
+        $current = $current instanceof \App\Models\Shipment ? $current : null;
+
+        $this->merge([
+            'delivery_fee' => null,
+            'extra_fee'    => $current?->extra_fee ?? 0,
+            'discount'     => $current?->discount ?? 0,
+        ]);
+    }
+
     public function rules(): array
     {
         return $this->withCompanyRequired([

@@ -13,6 +13,7 @@ use App\Models\Courier;
 use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
+use App\Models\ShipmentFollowUp;
 use App\Services\Shipments\ShipmentFilters;
 use App\Support\FeatureGate;
 use App\Support\MerchantMessage;
@@ -47,6 +48,13 @@ class ProcessingController extends Controller
         // الواحد بعينه — والشارة تعدّ كل ما ينتظر لا ما وافق البحث
         $found = ShipmentFilters::apply(clone $pending, $request);
 
+        // «المتابعة» (docs/plan/53): ما أتابعه أنا، أو ما لم يتابعه أحدٌ بعد
+        $follow = in_array($request->query('follow'), ['mine', 'none'], true) ? $request->query('follow') : null;
+        $found->when($follow === 'mine', fn ($q) => $q->whereExists(fn ($e) => $e->selectRaw('1')->from('shipment_follow_ups')
+            ->whereRaw(ShipmentFollowUp::CURRENT_SQL)->where('shipment_follow_ups.user_id', $request->user()->id)))
+            ->when($follow === 'none', fn ($q) => $q->whereNotExists(fn ($e) => $e->selectRaw('1')->from('shipment_follow_ups')
+                ->whereRaw(ShipmentFollowUp::CURRENT_SQL)));
+
         $mine = $request->user()->handledGovernorateIds();
 
         $page = $tab === 'pending'
@@ -65,13 +73,17 @@ class ProcessingController extends Controller
 
         return view('tenant.processing.index', [
             'canChat'   => $canChat,
-            'chats'     => $page && $canChat ? $this->chats($page->getCollection()) : ['merchant' => collect(), 'courier' => collect()],
+            'chats'     => $page && $canChat ? $this->chats($page->getCollection()) : ['merchant' => collect(), 'courier' => collect(), 'threads' => collect()],
             'tab'       => $tab,
             'canAsk'    => FeatureGate::enabled(Feature::Conversations),
             'governorates' => $mine === [] ? collect()
                 : Governorate::query()->whereIn('id', $mine)->orderedForCompany()->pluck('name_ar'),
             'pendingCount' => (clone $pending)->count(),
-            'filtered'  => $request->filled('q') || $request->filled('courier_id'),
+            'filtered'  => $request->filled('q') || $request->filled('courier_id') || $follow !== null,
+            'follow'    => $follow,
+            // من يتابع كلّ شحنة الآن — أسماؤهم للجميع، والملاحظة لصاحبها وحده (في الصفحة)
+            'followUps' => $page ? ShipmentFollowUp::whereIn('shipment_id', $page->getCollection()->pluck('id'))
+                ->with('user:id,name')->orderBy('started_at')->get()->groupBy('shipment_id') : collect(),
             'couriers'  => $tab === 'pending' ? Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']) : collect(),
             'shipments' => $page,
             // ما عولج في الأيام السبعة الأخيرة: القرار ومن اتّخذه وبعد كم
@@ -103,21 +115,58 @@ class ProcessingController extends Controller
      * عليها من شاشة المعالجة نفسها، لا من شاشةٍ أخرى.
      *
      * @param  \Illuminate\Support\Collection<int, Shipment>  $shipments
-     * @return array{merchant: \Illuminate\Support\Collection, courier: \Illuminate\Support\Collection}
+     * @return array{merchant: \Illuminate\Support\Collection, courier: \Illuminate\Support\Collection, threads: \Illuminate\Support\Collection}
      */
     private function chats($shipments): array
     {
+        /*
+        | آخر الرسائل لا أوّلها، وبترتيب الكتابة: الأحدث أسفل كأيّ محادثة (docs/plan/53).
+        | كانت latest() بعد orderBy('id') في العلاقة نفسها فتُهمَل: تُؤخذ أقدم ثلاثين وتُقلب،
+        | فيعلو الأقدم ويختفي كلّ جديدٍ بعد الثلاثين.
+        */
         $merchant = Conversation::query()
             ->whereIn('shipment_id', $shipments->pluck('id'))
-            ->with(['messages' => fn ($q) => $q->latest('id')->limit(30)])
-            ->latest('id')->get()->unique('shipment_id')->keyBy('shipment_id');
+            ->with(['messages' => fn ($q) => $q->reorder()->latest('id')->limit(30)])
+            ->latest('id')->get()->unique('shipment_id')
+            ->each(fn (Conversation $c) => $c->setRelation('messages', $c->messages->sortBy('id')->values()))
+            ->keyBy('shipment_id');
 
-        $courier = \App\Models\CourierThread::query()
+        // محادثة المندوب في صفّ الشحنة: رسائل هذه الشحنة وحدها، لا كلّ ما بينه وبيننا
+        $courier = \App\Models\CourierMessage::query()
+            ->whereIn('shipment_id', $shipments->pluck('id'))
+            ->latest('id')
+            ->limit(1000)
+            ->get()
+            ->groupBy('shipment_id')
+            ->map(fn ($messages) => $messages->take(30)->sortBy('id')->values());
+
+        $threads = \App\Models\CourierThread::query()
             ->whereIn('courier_id', $shipments->pluck('delivery_courier_id')->filter()->unique())
-            ->with(['messages' => fn ($q) => $q->with('shipment:id,number')->latest('id')->limit(30)])
-            ->get()->keyBy('courier_id');
+            ->get(['id', 'courier_id', 'staff_unread'])->keyBy('courier_id');
 
-        return ['merchant' => $merchant, 'courier' => $courier];
+        return ['merchant' => $merchant, 'courier' => $courier, 'threads' => $threads];
+    }
+
+    /**
+     * «بدأت المتابعة» (docs/plan/53): اسمه على الشحنة يراه زملاؤه، وملاحظته له وحده. ضغطةٌ ثانية تحفظ
+     * الملاحظة. وإن تعثّرت الشحنة ثانيةً بعد متابعته بدأت متابعته من جديد بلا ملاحظةٍ قديمة.
+     */
+    public function follow(Request $request, Shipment $shipment): RedirectResponse
+    {
+        abort_unless(Shipment::visibleTo($request->user())->whereKey($shipment->id)->exists(), 404);
+
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:1000']], [], ['note' => 'ملاحظتك']);
+
+        $row = ShipmentFollowUp::firstOrNew(['shipment_id' => $shipment->id, 'user_id' => $request->user()->id]);
+        $fresh = ! $row->exists || ! $row->isCurrent($shipment);
+
+        $row->forceFill([
+            'started_at' => $fresh ? now() : $row->started_at,
+            'note'       => $request->has('note') ? (trim((string) ($data['note'] ?? '')) ?: null) : ($fresh ? null : $row->note),
+        ])->save();
+
+        return redirect()->to(url()->previous().'#row-'.$shipment->id)
+            ->with('success', $fresh ? "بدأت متابعة {$shipment->number} — يراها زملاؤك باسمك." : 'حُفظت ملاحظتك.');
     }
 
     /** ردٌّ على التاجر من صفّ الشحنة: في محادثتها، أو محادثةٌ جديدة عنها */

@@ -65,4 +65,29 @@ final class MerchantMessage
             '{الشركة}'  => (string) (Tenancy::company()?->name ?? ''),
         ]);
     }
+
+    /**
+     * نصّ الموظّف في محادثةٍ مع التاجر (docs/plan/53): من شحنتها إن كانت عن شحنة، وإلّا ما يُعرف
+     * من التاجر والموظّف والشركة — وخانات الشحنة شرطةٌ لا قوسٌ فارغ.
+     */
+    public static function forConversation(\App\Models\Conversation $conversation, User $user): string
+    {
+        // الشحنة كاملةً: المحادثة تحمل منها رقمها وحالها وحدهما
+        $shipment = $conversation->shipment_id
+            ? Shipment::with(['merchant', 'governorate', 'city', 'lastFailureReason', 'deliveryCourier'])->find($conversation->shipment_id)
+            : null;
+
+        if ($shipment) {
+            return self::for($shipment, $user);
+        }
+
+        $merchant = $conversation->merchant;
+
+        return strtr(self::templateOf($user), [
+            '{التاجر}'  => (string) ($merchant?->owner_name ?: $merchant?->business_name),
+            '{المتجر}'  => (string) $merchant?->business_name,
+            '{الموظف}'  => (string) $user->name,
+            '{الشركة}'  => (string) (Tenancy::company()?->name ?? ''),
+        ] + array_fill_keys(['{الوصل}', '{الزبون}', '{الهاتف}', '{العنوان}', '{المبلغ}', '{السبب}', '{المندوب}'], '—'));
+    }
 }

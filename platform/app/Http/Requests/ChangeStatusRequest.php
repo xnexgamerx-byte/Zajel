@@ -12,6 +12,28 @@ use Illuminate\Validation\Rule;
 
 class ChangeStatusRequest extends FormRequest
 {
+    /** «إعادة توصيل» و«واصل إجباري» في قائمة «الحالة الجديدة» — لا حالتين بل طريقين إليهما */
+    public const REDELIVER = 'redeliver';
+
+    public const FORCE_DELIVERED = 'forced_delivered';
+
+    public const SHORTCUTS = [self::REDELIVER, self::FORCE_DELIVERED];
+
+    /** تُعاد للتوصيل من هنا: محاولةٌ فشلت، أو تأجّلت، أو رجعت للمخزن بعد محاولة */
+    public static function canRedeliver(Shipment $shipment): bool
+    {
+        return in_array($shipment->status, [ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed], true)
+            || ($shipment->status === ShipmentStatus::AtHub && (int) $shipment->attempts_count > 0);
+    }
+
+    /** «واصل إجباري» من القائمة: لمن يملك صلاحيته، ولشحنةٍ لم تنتهِ ولم تصل */
+    public static function canForceDelivered(Shipment $shipment, $user): bool
+    {
+        return $user?->can('control.force')
+            && $shipment->status->isOpen()
+            && $shipment->status !== ShipmentStatus::Delivered;
+    }
+
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -20,7 +42,8 @@ class ChangeStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status'            => ['required', Rule::enum(ShipmentStatus::class)],
+            // ومعها خياران في القائمة نفسها (docs/plan/53): «إعادة توصيل» و«واصل إجباري»
+            'status'            => ['required', Rule::in([...array_column(ShipmentStatus::cases(), 'value'), ...self::SHORTCUTS])],
             'courier_id'        => ['nullable', 'integer'],
             'hub_id'            => ['nullable', 'integer'],
             'failure_reason_id' => ['nullable', 'integer'],
@@ -30,6 +53,7 @@ class ChangeStatusRequest extends FormRequest
             // إعادة توصيل الراجع بطلب التاجر: قرارٌ صريح بسببه (docs/plan/38)
             'retry'             => ['nullable', 'boolean'],
             'forced_reason'     => ['required_if:force,1', 'nullable', 'string', 'max:255'],
+            'force_delivered_reason' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -38,6 +62,19 @@ class ChangeStatusRequest extends FormRequest
         $validator->after(function ($validator) {
             /** @var Shipment $shipment */
             $shipment = $this->route('shipment');
+
+            if ($this->input('status') === self::REDELIVER) {
+                $this->checkRedeliver($validator, $shipment);
+
+                return;
+            }
+
+            if ($this->input('status') === self::FORCE_DELIVERED) {
+                $this->checkForceDelivered($validator, $shipment);
+
+                return;
+            }
+
             $to = ShipmentStatus::tryFrom((string) $this->input('status'));
 
             if (! $to) {
@@ -114,6 +151,49 @@ class ChangeStatusRequest extends FormRequest
                 $validator->errors()->add('collected_amount', 'المبلغ المحصَّل أكبر من المطلوب من الزبون.');
             }
         });
+    }
+
+    protected function checkRedeliver($validator, Shipment $shipment): void
+    {
+        if (! self::canRedeliver($shipment)) {
+            $validator->errors()->add('status', "الشحنة «{$shipment->status->label()}»: لا تُعاد للتوصيل من هنا.");
+
+            return;
+        }
+
+        // المتعثّرة تخرج مع مندوبها؛ والمؤجّلة والراجعة للمخزن تحتاجه
+        if ($shipment->status !== ShipmentStatus::FailedAttempt && ! $this->courier_id && ! $shipment->delivery_courier_id) {
+            $validator->errors()->add('courier_id', 'اختر المندوب الذي يعيد توصيلها.');
+        }
+
+        if ($this->courier_id) {
+            $courier = Courier::whereKey($this->courier_id)->visibleTo($this->user())->first();
+
+            if (! $courier || $courier->status !== 'active' || ! $courier->delivers()) {
+                $validator->errors()->add('courier_id', 'المندوب غير موجود أو غير مفعّل أو ليس مندوب توصيل.');
+            }
+        }
+    }
+
+    protected function checkForceDelivered($validator, Shipment $shipment): void
+    {
+        if (! self::canForceDelivered($shipment, $this->user())) {
+            $validator->errors()->add('status', $this->user()?->can('control.force')
+                ? "الشحنة «{$shipment->status->label()}»: لا تُعلَن واصلة."
+                : '«واصل إجباري» لمن يملك صلاحيته.');
+
+            return;
+        }
+
+        if (! filled(trim((string) $this->input('force_delivered_reason')))) {
+            $validator->errors()->add('force_delivered_reason', 'اكتب سبب الواصل الإجباري — يُسجَّل باسمك.');
+        }
+
+        if ($this->input('collected_amount') === null) {
+            $validator->errors()->add('collected_amount', 'أدخل المبلغ المحصَّل فعلاً.');
+        } elseif ((int) $this->input('collected_amount') > $shipment->cod_amount) {
+            $validator->errors()->add('collected_amount', 'المبلغ المحصَّل أكبر من المطلوب من الزبون.');
+        }
     }
 
     public function attributes(): array

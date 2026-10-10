@@ -35,16 +35,20 @@
                 </a>
             @endcan
         @endif
-        {{-- راسل موظّفاً أو قسماً عنها — موظّف الراجع، الحسابات (docs/plan/41) --}}
-        <a href="{{ route('staff-chat.index', ['shipment' => $shipment->number]) }}" class="btn-ghost">
-            <x-icon name="chat" class="size-5"/>
-            راسل موظّفاً عنها
+        {{-- «حركات الطلب» (docs/plan/53): من عدّل عليها، ومتى، وماذا غيّر --}}
+        <a href="{{ route('shipments.activity', $shipment) }}" class="btn-ghost">
+            <x-icon name="clock" class="size-5"/>
+            حركات الطلب
         </a>
-        {{-- راسل مندوبها من الكول سنتر عنها (docs/plan/38) --}}
-        @if ($shipment->delivery_courier_id && auth()->user()->can('support.reply') && \App\Support\FeatureGate::enabled(\App\Enums\Feature::Conversations))
-            <a href="{{ route('courier-chat.index', ['courier' => $shipment->delivery_courier_id, 'shipment' => $shipment->number]) }}" class="btn-ghost">
+        {{--
+            «راسل المندوب عنها» (docs/plan/53): محادثة مندوبها — الموصِّل، وإلّا مندوب الاستلام — على هذه
+            الشحنة. وبلا مندوبٍ بعد: محادثات المناديب يُختار منها، والشحنة مكتوبةٌ فيها.
+        --}}
+        @if (auth()->user()->can('support.reply') && \App\Support\FeatureGate::enabled(\App\Enums\Feature::Conversations))
+            <a href="{{ route('courier-chat.index', array_filter(['courier' => $shipment->delivery_courier_id ?: $shipment->pickup_courier_id, 'shipment' => $shipment->number])) }}"
+               class="btn-ghost" data-courier-chat>
                 <x-icon name="chat" class="size-5"/>
-                راسل المندوب
+                راسل المندوب عنها
             </a>
         @endif
         {{-- بصلاحيةٍ خاصّة: الأجور والطلبية ولو انتهت الشحنة (docs/plan/38) --}}
@@ -265,11 +269,29 @@
                                     } }}
                                 </option>
                             @endforeach
+                            {{-- طريقان مختصران (docs/plan/53): إعادة التوصيل، والواصل الإجباري لمن يملكه --}}
+                            @if (\App\Http\Requests\ChangeStatusRequest::canRedeliver($shipment))
+                                <option value="redeliver" @selected(old('status') === 'redeliver')>إعادة توصيل</option>
+                            @endif
+                            @if (\App\Http\Requests\ChangeStatusRequest::canForceDelivered($shipment, auth()->user()))
+                                <option value="forced_delivered" @selected(old('status') === 'forced_delivered')>واصل إجباري</option>
+                            @endif
                         </select>
                         @error('status') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
 
-                    <div data-when="out_for_delivery">
+                    <div data-when="forced_delivered">
+                        <p class="mb-2 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-700">
+                            يُسجَّل «واصل» خارج المسار باسمك وسببه، ويظهر في تقرير «واصل إجباري».
+                        </p>
+                        <label class="field-label" for="force_delivered_reason">سبب الواصل الإجباري <span class="text-bad-700">*</span></label>
+                        <input id="force_delivered_reason" name="force_delivered_reason" type="text" maxlength="255"
+                               class="field-input" value="{{ old('force_delivered_reason') }}"
+                               placeholder="اتصل الزبون وأكّد الاستلام والمندوب نسي التسجيل">
+                        @error('force_delivered_reason') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div data-when="out_for_delivery{{ $shipment->status === \App\Enums\ShipmentStatus::FailedAttempt ? '' : ' redeliver' }}">
                         <label class="field-label" for="courier_id">المندوب</label>
                         <select id="courier_id" name="courier_id" class="field-input">
                             <option value="">
@@ -326,7 +348,7 @@
                         @error('failure_reason_id') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
 
-                    <div data-when="delivered partially_delivered">
+                    <div data-when="delivered partially_delivered forced_delivered">
                         <label class="field-label" for="collected_amount">المبلغ المحصَّل</label>
                         <div class="relative">
                             <input id="collected_amount" name="collected_amount" type="number" min="0" step="1"

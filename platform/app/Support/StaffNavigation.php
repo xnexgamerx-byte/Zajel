@@ -45,7 +45,7 @@ final class StaffNavigation
             ]],
             // كل ما يخصّ الشحنة نفسها: إدخالها، وقائمتها، وما انتهى منها
             'shipments' => ['الشحنات', 'boxes', [
-                ['shipments.index', 'كل الشحنات', ['shipments.index', 'shipments.show', 'shipments.edit'], 'shipments.view'],
+                ['shipments.index', 'كل الشحنات', ['shipments.index', 'shipments.show', 'shipments.edit', 'shipments.activity'], 'shipments.view'],
                 ['shipments.create', 'شحنة جديدة', ['shipments.create'], 'shipments.create'],
                 ['shipments.quick', 'إدخال سريع (حتى ٣٠ شحنة)', ['shipments.quick*'], 'shipments.create'],
                 ['shipments.import', 'رفع ملف Excel', ['shipments.import*'], 'shipments.create'],
@@ -60,7 +60,6 @@ final class StaffNavigation
             // رحلة الشحنة يوماً بيوم: من استلامها من التاجر حتى الزبون، وبين الفروع
             'delivery' => ['التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],
-                ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
                 // الاستلام في المخزن وحده، والتوزيع لكلّ محافظةٍ على مناديب مناطقها (docs/plan/50)
                 ['shipments.scan', 'استلام بالمسح', ['shipments.scan'], 'shipments.status'],
                 ['shipments.distribute', 'توزيع بالمسح', ['shipments.distribute*'], 'shipments.assign'],
@@ -75,7 +74,6 @@ final class StaffNavigation
                 ['returns.sorting', 'فرز الراجع للفروع', ['returns.sorting'], 'returns.manage'],
                 ['returns.outgoing', 'تسليم الراجع للتاجر', ['returns.outgoing'], 'returns.manage'],
                 ['returns.pickup', 'تسليم الراجع لمندوب الاستلام', ['returns.pickup'], 'returns.manage'],
-                ['returns.requests', 'طلبات التجّار لكشف الراجع', ['returns.requests'], 'returns.manage'],
                 ['return-batches.index', 'إيصالات الراجع', ['return-batches.*'], 'returns.manage'],
             ]],
             // مال اليوم: ما يدخل الصندوق وما يُدفع، والمحاسبة مع المناديب والتجّار
@@ -87,22 +85,35 @@ final class StaffNavigation
                 ['couriers.cash', 'النقد بيد المندوبين', ['couriers.cash'], 'money.view'],
                 ['settlements.couriers.index', 'محاسبة المندوبين', ['settlements.couriers.*'], 'money.view'],
                 ['settlements.merchants.index', 'محاسبة التجّار', ['settlements.merchants.*'], 'money.view'],
-                ['merchant-requests.payments', 'طلبات محاسبة من التجّار', ['merchant-requests.payments'], 'money.view'],
                 ['expenses.index', 'المصروفات', ['expenses.index'], 'money.expenses'],
                 ['pickup-agents.index', 'حسابات مندوبي الاستلام', ['pickup-agents.index', 'pickup-agents.show'], 'money.view'],
                 ['pickup-agents.objections', 'اعتراضات مندوبي الاستلام', ['pickup-agents.objections'], 'money.view'],
             ]],
-            // الصورة الكاملة: موقف الشركة، وتدقيق حساباتها، وحساب كل فرعٍ مع غيره
-            'position' => ['الموقف المالي والفروع', 'bank', [
+            // الصورة الكاملة: موقف الشركة وتدقيق حساباتها — وحساب الفروع في «الفروع»
+            'position' => ['الموقف المالي', 'bank', [
                 ['money.position', 'الموقف المالي', ['money.position'], 'money.view'],
                 ['money.position.history', 'تاريخ الموقف المالي', ['money.position.history'], 'money.view'],
                 ['money.reconcile', 'تدقيق الحسابات', ['money.reconcile'], 'money.view'],
                 ['money.accountants', 'قبض ودفع الموظّفين', ['money.accountants'], 'money.view'],
-                ['branch-accounts.index', 'محاسبة الفروع', ['branch-accounts.index'], 'money.view'],
+                ['branch-accounts.deposits', 'تأمينات التجّار', ['branch-accounts.deposits'], 'money.view'],
+            ]],
+            // كلّ فرعٍ بتفاصيله (docs/plan/53): الفروع، وحسابها، وكشفها، وديونها، وما تسدّده، وتسعيرتها
+            'branches' => ['الفروع', 'building', [
+                ['branches.index', 'الفروع', ['branches.*'], 'settings.branches'],
+                ['branch-accounts.index', 'محاسبة الفروع وأرباحها', ['branch-accounts.index'], 'money.view'],
                 ['branch-accounts.statement', 'كشف حساب الفرع', ['branch-accounts.statement*'], 'money.view'],
                 ['branch-accounts.debts', 'ديون على الفروع', ['branch-accounts.debts'], 'money.view'],
                 ['branch-accounts.remittances', 'استلام مبالغ الفروع', ['branch-accounts.remittances'], 'money.view'],
-                ['branch-accounts.deposits', 'تأمينات التجّار', ['branch-accounts.deposits'], 'money.view'],
+                // لمن يُضيف التجّار: عليه تسري تسعيرة الفرع (صاحب الفرع يحملها)
+                ['pricing.branch', 'تسعيرة الفرع', ['pricing.branch'], 'settings.merchants'],
+            ]],
+            // كلّ ما ينتظر جواباً منّا في مكانٍ واحد (docs/plan/53)
+            'requests' => ['الطلبات', 'inbound', [
+                ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
+                ['returns.requests', 'طلبات التجّار لكشف الراجع', ['returns.requests'], 'returns.manage'],
+                ['merchant-requests.payments', 'طلبات محاسبة التجّار', ['merchant-requests.payments'], 'money.view'],
+                // المندوب عند الباب والزبون يقول مبلغاً آخر: ينتظر جوابنا الآن
+                ['tickets.index', 'طلبات المناديب لتغيير المبلغ', ['tickets.*'], 'tickets.handle'],
             ]],
             // الأكثر سؤالاً هنا، والباقي كلّه في «كل التقارير»
             'reports' => ['التقارير', 'chart', [
@@ -126,19 +137,19 @@ final class StaffNavigation
                 ['conversations.index', 'المحادثات', ['conversations.*'], 'support.reply'],
                 // الكول سنتر والمندوب في الطريق (docs/plan/38)
                 ['courier-chat.index', 'محادثة المناديب', ['courier-chat.*'], 'support.reply'],
-                // المندوب عند الباب والزبون يقول مبلغاً آخر: ينتظر جوابنا الآن
-                ['tickets.index', 'طلبات المناديب لتغيير المبلغ', ['tickets.*'], 'tickets.handle'],
                 // ما يُراجَع قبل أن يمضي
                 ['control.review', 'تحت المراجعة', ['control.review*'], 'control.review'],
                 ['control.duplicates', 'شحنات مكرّرة', ['control.duplicates'], 'control.duplicates'],
                 ['control.forced', 'واصل إجباري', ['control.forced'], 'control.force'],
-                // ما يُرسَل للجميع
+                // نصٌّ جاهز يُرسَل للتاجر من شاشة المعالجة، لكل موظّفٍ نصّه (docs/plan/41)
+                ['merchant-message.edit', 'رسالتي الثابتة للتاجر', ['merchant-message.*'], 'shipments.status'],
+            ]],
+            // ما يُرسَل للجميع: إشعاراتٌ وإعلانات التطبيق (docs/plan/53)
+            'notify' => ['الإشعارات', 'megaphone', [
                 ['announcements.index', 'إشعار لكل التجّار', ['announcements.*'], 'notify.send', ['audience' => 'merchants']],
                 ['announcements.index', 'إشعار لمندوبي التوصيل', ['announcements.*'], 'notify.send', ['audience' => 'delivery_couriers']],
                 ['announcements.index', 'إشعار لمندوبي الاستلام', ['announcements.*'], 'notify.send', ['audience' => 'pickup_couriers']],
                 ['app-ads.index', 'إعلانات التطبيق', ['app-ads.*'], 'notify.send'],
-                // نصٌّ جاهز يُرسَل للتاجر من شاشة المعالجة، لكل موظّفٍ نصّه (docs/plan/41)
-                ['merchant-message.edit', 'رسالتي الثابتة للتاجر', ['merchant-message.*'], 'shipments.status'],
             ]],
             // الناس والأسعار والشركة: ما يُضبط مرّةً ويُعدَّل أحياناً
             'settings' => ['الإعدادات', 'building', [
@@ -148,10 +159,7 @@ final class StaffNavigation
                 ['users.index', 'المستخدمون', ['users.*'], 'settings.users'],
                 ['permissions.index', 'الصلاحيات والمراتب', ['permissions.index', 'permissions.ranks.*'], 'settings.permissions'],
                 ['permissions.grants.index', 'صلاحية إضافية لموظّف', ['permissions.grants.*'], 'settings.permissions'],
-                ['branches.index', 'الفروع', ['branches.*'], 'settings.branches'],
                 ['pricing.index', 'التسعيرات', ['pricing.index', 'pricing.edit'], 'settings.pricing'],
-                // لمن يُضيف التجّار: عليه تسري تسعيرة الفرع (صاحب الفرع يحملها)
-                ['pricing.branch', 'تسعيرة الفرع', ['pricing.branch'], 'settings.merchants'],
                 ['governorate-settings.index', 'إعدادات المحافظات', ['governorate-settings.*'], 'settings.pricing'],
                 ['areas.index', 'أجور المناطق والأطراف', ['areas.*'], 'settings.pricing'],
                 ['settings.company', 'بيانات الشركة', ['settings.company*'], 'settings.company'],
@@ -275,7 +283,9 @@ final class StaffNavigation
     }
 
     /**
-     * ما في $order أوّلاً بترتيبه — المعروف منه وحده — ثم الباقي بمكانه.
+     * ما في $order أوّلاً بترتيبه — المعروف منه وحده — وكلّ ما ليس فيه (قائمةٌ أو رابطٌ أُضيف بعد
+     * ترتيب الشركة) بعد جاره الذي يسبقه في الترتيب الأصليّ: «الفروع» بعد «الموقف المالي» لا آخر
+     * الشريط (docs/plan/53). وما لا جار له قبله يأتي بعد المرتَّب.
      *
      * @template T
      * @param array<string, T> $items
@@ -283,9 +293,26 @@ final class StaffNavigation
      */
     private static function arrange(array $items, mixed $order): array
     {
-        $order = is_array($order) ? array_filter($order, 'is_string') : [];
+        $order = is_array($order) ? array_values(array_filter($order, fn ($key) => is_string($key) && array_key_exists($key, $items))) : [];
+        $order = array_values(array_unique($order));
 
-        return array_replace(array_intersect_key(array_flip($order), $items), $items);
+        if ($order === []) {
+            return $items;
+        }
+
+        $placed = $order;
+        $previous = null;
+
+        foreach (array_keys($items) as $key) {
+            if (! in_array($key, $placed, true)) {
+                $at = $previous === null ? count($placed) : array_search($previous, $placed, true) + 1;
+                array_splice($placed, $at, 0, [$key]);
+            }
+
+            $previous = $key;
+        }
+
+        return array_combine($placed, array_map(fn ($key) => $items[$key], $placed));
     }
 
     /**

@@ -32,7 +32,15 @@
 
     <form method="POST" action="{{ route('conversations.reply', $conversation) }}" enctype="multipart/form-data" class="card p-4">
         @csrf
-        <label class="field-label" for="body">ردّك</label>
+        <div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <label class="field-label mb-0" for="body">ردّك</label>
+            {{-- «رسالتي الثابتة للتاجر» هنا أيضاً (docs/plan/53): تُدرَج في الردّ مملوءةً، وتُعدَّل قبل الإرسال --}}
+            <button type="button" class="btn-ghost py-1 text-xs" data-fill="#body"
+                    data-fill-text="{{ \App\Support\MerchantMessage::forConversation($conversation, auth()->user()) }}">
+                <x-icon name="pin" class="size-4"/>
+                أدرج رسالتي الثابتة
+            </button>
+        </div>
         <textarea id="body" name="body" rows="3" class="field-input" maxlength="2000" autofocus>{{ old('body') }}</textarea>
         <div class="mt-3">
             <label class="field-label" for="attachment">ملف (اختياري)</label>

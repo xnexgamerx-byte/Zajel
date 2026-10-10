@@ -389,6 +389,68 @@ class ProcessingTest extends TestCase
             ->assertSee('نعم أعيدوه');
     }
 
+    /** «المحادثات القديمة تبقى والجديد يصير فوق» (docs/plan/53): الأحدث أسفل، وكلّ شحنةٍ رسائلها */
+    public function test_the_courier_chat_in_a_row_shows_its_latest_messages_newest_last(): void
+    {
+        $this->setFeature($this->company, \App\Enums\Feature::Conversations);
+        $one = $this->failed();
+        $other = $this->failed(['status_changed_at' => now()->subHour()]);
+
+        Tenancy::runFor($this->company, function () use ($one, $other) {
+            $chat = app(\App\Actions\Support\CourierChat::class);
+            $chat->send($this->courier, 'عن الشحنة الأخرى', $this->owner, \App\Actions\Support\CourierChat::STAFF, $other);
+            foreach (range(1, 35) as $i) {
+                $chat->send($this->courier, "رسالة رقم {$i}#", $this->owner, \App\Actions\Support\CourierChat::STAFF, $one);
+            }
+        });
+
+        $page = $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk();
+        $html = $page->getContent();
+        $row = substr($html, strpos($html, 'id="row-'.$one->id.'"'));
+        $row = substr($row, 0, strpos($row, '<section id="row-', 10) ?: strlen($row));
+
+        // الأحدث موجودٌ وفي آخرها، والأقدم من الثلاثين خارجها
+        $this->assertStringContainsString('رسالة رقم 35#', $row);
+        $this->assertLessThan(strpos($row, 'رسالة رقم 35#'), strpos($row, 'رسالة رقم 6#'));
+        $this->assertStringNotContainsString('رسالة رقم 5#', $row);
+        // ورسالة شحنةٍ أخرى لا تختلط بها
+        $this->assertStringNotContainsString('عن الشحنة الأخرى', $row);
+        $page->assertSee('data-scroll-end', false);
+    }
+
+    /** «بدأت المتابعة» (docs/plan/53): الاسم للجميع، والملاحظة لصاحبها، وتبدأ من جديد بعد تعثّرٍ جديد */
+    public function test_a_follow_up_shows_who_called_and_keeps_the_note_private(): void
+    {
+        $one = $this->failed();
+        $two = $this->failed();
+        Tenancy::runFor($this->company, fn () => $this->owner->update(['name' => 'سارة المتابعة']));
+        $colleague = $this->makeUser($this->company, UserRole::Operations);
+
+        $this->actingAs($this->owner->refresh())->from($this->host().'/processing')
+            ->post($this->host()."/processing/{$one->id}/follow")
+            ->assertRedirect($this->host().'/processing#row-'.$one->id);
+        $this->actingAs($this->owner)->from($this->host().'/processing')
+            ->post($this->host()."/processing/{$one->id}/follow", ['note' => 'اتصلت مرتين، يرد بعد الخامسة']);
+
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertOk()
+            ->assertSee('يتابعها أنت')->assertSee('اتصلت مرتين، يرد بعد الخامسة');
+        $this->actingAs($colleague)->get($this->host().'/processing')->assertOk()
+            ->assertSee('يتابعها سارة المتابعة')->assertDontSee('اتصلت مرتين');
+
+        // الفلتر: ما أتابعه أنا، وما لم يتابعه أحد
+        $mine = $this->actingAs($this->owner)->get($this->host().'/processing?follow=mine')->viewData('shipments');
+        $this->assertSame([$one->id], $mine->pluck('id')->all());
+        $none = $this->actingAs($colleague)->get($this->host().'/processing?follow=none')->viewData('shipments');
+        $this->assertSame([$two->id], $none->pluck('id')->all());
+
+        // تعثّرت ثانيةً: متابعةٌ قديمة لا تُعدّ، والضغطة تبدأها بلا الملاحظة القديمة
+        Tenancy::runFor($this->company, fn () => $one->refresh()->forceFill(['status_changed_at' => now()->addMinute()])->save());
+        $this->travel(2)->minutes();
+        $this->actingAs($colleague)->get($this->host().'/processing')->assertDontSee('يتابعها سارة المتابعة');
+        $this->actingAs($this->owner)->from($this->host().'/processing')->post($this->host()."/processing/{$one->id}/follow");
+        $this->actingAs($this->owner)->get($this->host().'/processing')->assertSee('يتابعها أنت')->assertDontSee('اتصلت مرتين');
+    }
+
     private function courierUser(): User
     {
         return Tenancy::runFor($this->company, fn () => User::firstOrCreate(['phone' => '07720000099'], [

@@ -265,6 +265,23 @@ class ConversationTest extends TestCase
             ->assertSee('href="'.route('shipments.show', $theirs).'"', false);
     }
 
+    /** «رسالتي الثابتة للتاجر» في المحادثة (docs/plan/53): زرٌّ يدرجها مملوءةً في الردّ */
+    public function test_the_pinned_message_is_offered_in_the_reply_filled_in(): void
+    {
+        $shipment = $this->makeShipment($this->alpha);
+        Tenancy::runFor($this->company, fn () => $this->owner->update(['name' => 'سارة', 'merchant_message' => 'أهلاً {المتجر}، بخصوص {الوصل} — {الموظف}']));
+
+        $about = $this->ask($this->alphaUser, 'عن طلب', ['shipment_number' => $shipment->number]);
+        $this->actingAs($this->owner->refresh())->get($this->host().'/conversations/'.$about->id)->assertOk()
+            ->assertSee('أدرج رسالتي الثابتة')
+            ->assertSee('data-fill-text="أهلاً '.$this->alpha->business_name.'، بخصوص '.$shipment->number.' — سارة"', false);
+
+        // وبلا شحنة: ما يُعرف وحده، وخانة الوصل شرطة
+        $general = $this->ask($this->alphaUser, 'سؤال عام');
+        $this->actingAs($this->owner)->get($this->host().'/conversations/'.$general->id)->assertOk()
+            ->assertSee('data-fill-text="أهلاً '.$this->alpha->business_name.'، بخصوص — — سارة"', false);
+    }
+
     private function makeShipment(Merchant $merchant): \App\Models\Shipment
     {
         return Tenancy::runFor($this->company, fn () => app(\App\Actions\Shipments\CreateShipment::class)->handle([

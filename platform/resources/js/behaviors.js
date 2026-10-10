@@ -309,3 +309,32 @@ document.addEventListener('click', async (event) => {
     button.textContent = copied ? '✓ نُسخت — الصقها' : 'تعذّر النسخ';
     window.setTimeout(() => { button.textContent = label; }, 2000);
 });
+
+/*
+ * محادثةٌ تُفتح على آخرها (docs/plan/53): data-scroll-end يُنزَل إلى أسفله — الأحدث — عند
+ * التحميل، وحين تُفتح details التي فيها («محادثة المندوب» في صفّ المعالجة).
+ */
+const scrollToEnd = (root) => root.querySelectorAll('[data-scroll-end]').forEach((list) => {
+    list.scrollTop = list.scrollHeight;
+});
+scrollToEnd(document);
+document.addEventListener('toggle', (event) => {
+    if (event.target instanceof HTMLDetailsElement && event.target.open) scrollToEnd(event.target);
+}, true);
+
+/*
+ * «أدرج رسالتي الثابتة» (docs/plan/53): data-fill يملأ الحقل المسمّى بنصّ data-fill-text —
+ * يحلّ محلّ الفارغ، ويُلحق بما كُتب — ثم يضع المؤشّر في آخره ليُعدَّل قبل الإرسال.
+ */
+document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-fill]');
+    const field = button && document.querySelector(button.dataset.fill);
+
+    if (!field) return;
+
+    const text = button.dataset.fillText ?? '';
+    field.value = field.value.trim() === '' ? text : `${field.value.trimEnd()}\n${text}`;
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+});

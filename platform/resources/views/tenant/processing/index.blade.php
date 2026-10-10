@@ -41,6 +41,14 @@
                     @endforeach
                 </select>
             </div>
+            <div class="min-w-44">
+                <label class="field-label" for="follow">المتابعة</label>
+                <select id="follow" name="follow" class="field-input">
+                    <option value="">الكل</option>
+                    <option value="mine" @selected($follow === 'mine')>أتابعها أنا</option>
+                    <option value="none" @selected($follow === 'none')>لم يتابعها أحد</option>
+                </select>
+            </div>
             <button type="submit" class="btn-primary">بحث</button>
             @if ($filtered)
                 <a href="{{ route('processing.index') }}" class="btn-ghost">إلغاء البحث</a>
@@ -73,14 +81,53 @@
                             · {{ $shipment->deliveryCourier?->name ?? 'بلا مندوب' }}
                         </span>
                     </div>
+                    {{--
+                        «بدأت المتابعة» (docs/plan/53): من اتّصل بالزبون يكتب اسمه عليها فيراه زملاؤه، وملاحظته
+                        له وحده. ومتابعةٌ بدأت قبل آخر تعثّرٍ لا تُعدّ: الشحنة تنتظر من جديد.
+                    --}}
+                    @php
+                        $following = ($followUps[$shipment->id] ?? collect())->filter(fn ($f) => $f->isCurrent($shipment));
+                        $myFollow = $following->firstWhere('user_id', auth()->id());
+                    @endphp
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs" data-follow>
+                        @foreach ($following as $follow)
+                            <span @class(['chip', 'chip-info' => $follow->user_id !== auth()->id(), 'chip-ok' => $follow->user_id === auth()->id()])>
+                                يتابعها {{ $follow->user_id === auth()->id() ? 'أنت' : $follow->user?->name }}
+                                · {{ $follow->started_at->diffForHumans() }}
+                            </span>
+                        @endforeach
+                        @if (! $myFollow)
+                            <form method="POST" action="{{ route('processing.follow', $shipment) }}">
+                                @csrf
+                                <button type="submit" class="btn-ghost py-1 text-xs">
+                                    <x-icon name="user" class="size-4"/>
+                                    بدأت المتابعة
+                                </button>
+                            </form>
+                        @else
+                            <details class="basis-full sm:basis-auto">
+                                <summary class="cursor-pointer text-ink-600 underline-offset-4 hover:underline">
+                                    ملاحظتي @if ($myFollow->note)<span class="text-ink-500">— {{ \Illuminate\Support\Str::limit($myFollow->note, 60) }}</span>@endif
+                                </summary>
+                                <form method="POST" action="{{ route('processing.follow', $shipment) }}" class="mt-2 flex gap-2">
+                                    @csrf
+                                    <textarea name="note" rows="1" maxlength="1000" class="field-input flex-1 py-1.5"
+                                              placeholder="تظهر لك وحدك — مثلاً: اتصلت ٣ مرات، يرد بعد الخامسة"
+                                              aria-label="ملاحظتي عن {{ $shipment->number }}">{{ $myFollow->note }}</textarea>
+                                    <button type="submit" class="btn-ghost py-1">احفظ</button>
+                                </form>
+                            </details>
+                        @endif
+                    </div>
                     @php
                         $text = \App\Support\MerchantMessage::for($shipment, auth()->user());
                         $whatsapp = \App\Support\Phone::whatsappUrl($shipment->merchant?->phone, $text);
                     @endphp
                     @php
                         $merchantChat = $chats['merchant'][$shipment->id] ?? null;
-                        $courierThread = $shipment->delivery_courier_id ? ($chats['courier'][$shipment->delivery_courier_id] ?? null) : null;
-                        $courierNew = $courierThread?->staff_unread && $courierThread->messages->contains(fn ($m) => $m->author === 'courier' && $m->shipment_id === $shipment->id);
+                        $courierThread = $shipment->delivery_courier_id ? ($chats['threads'][$shipment->delivery_courier_id] ?? null) : null;
+                        $courierMessages = $chats['courier'][$shipment->id] ?? collect();
+                        $courierNew = $courierThread?->staff_unread && $courierMessages->contains(fn ($m) => $m->author === 'courier');
                         $opened = session('open_chat');
                     @endphp
                     <div class="mt-2 flex flex-wrap items-start gap-2 text-sm">
@@ -100,8 +147,8 @@
                                     @if ($merchantChat?->staff_unread)<span class="nav-badge">جديد</span>@endif
                                 </summary>
                                 <div class="mt-2 rounded-2xl border border-ink-200 bg-white p-3">
-                                    <ol class="max-h-64 space-y-2 overflow-y-auto" aria-label="محادثة التاجر عن {{ $shipment->number }}">
-                                        @forelse ($merchantChat?->messages->reverse() ?? [] as $message)
+                                    <ol class="max-h-64 space-y-2 overflow-y-auto" data-scroll-end aria-label="محادثة التاجر عن {{ $shipment->number }}">
+                                        @forelse ($merchantChat?->messages ?? [] as $message)
                                             @php $ours = $message->author === 'staff'; @endphp
                                             <li class="flex {{ $ours ? 'justify-end' : 'justify-start' }}">
                                                 <div class="max-w-[85%] rounded-2xl px-3 py-2 {{ $ours ? 'bg-[var(--brand)] text-white' : 'bg-ink-50' }}">
@@ -129,18 +176,18 @@
                                     @if ($courierNew)<span class="nav-badge">جديد</span>@endif
                                 </summary>
                                 <div class="mt-2 rounded-2xl border border-ink-200 bg-white p-3">
-                                    <ol class="max-h-64 space-y-2 overflow-y-auto" aria-label="محادثة {{ $shipment->deliveryCourier->name }}">
-                                        @forelse ($courierThread?->messages->reverse() ?? [] as $message)
-                                            @php $ours = $message->author === 'staff'; $here = $message->shipment_id === $shipment->id; @endphp
-                                            <li @class(['flex', 'justify-end' => $ours, 'justify-start' => ! $ours, 'opacity-60' => ! $here])>
+                                    {{-- رسائل هذه الشحنة وحدها، والأحدث أسفل (docs/plan/53) --}}
+                                    <ol class="max-h-64 space-y-2 overflow-y-auto" data-scroll-end aria-label="محادثة {{ $shipment->deliveryCourier->name }} عن {{ $shipment->number }}">
+                                        @forelse ($courierMessages as $message)
+                                            @php $ours = $message->author === 'staff'; @endphp
+                                            <li @class(['flex', 'justify-end' => $ours, 'justify-start' => ! $ours])>
                                                 <div class="max-w-[85%] rounded-2xl px-3 py-2 {{ $ours ? 'bg-[var(--brand)] text-white' : 'bg-ink-50' }}">
-                                                    @if ($message->shipment)<a href="{{ route('shipments.show', $message->shipment) }}" class="text-[11px] underline {{ $ours ? 'text-white/80' : 'text-ink-500' }}">الشحنة <span class="num">{{ $message->shipment->number }}</span></a>@endif
                                                     <p class="whitespace-pre-line">{{ \App\Support\ShipmentLinks::text($message->body) }}</p>
                                                     <p class="mt-0.5 text-[11px] {{ $ours ? 'text-white/75' : 'text-ink-400' }}">{{ $message->author_name }} · <span class="num">{{ $message->created_at->format('m-d H:i') }}</span></p>
                                                 </div>
                                             </li>
                                         @empty
-                                            <li class="py-3 text-center text-ink-500">لا رسالة مع {{ $shipment->deliveryCourier->name }} بعد.</li>
+                                            <li class="py-3 text-center text-ink-500">لا رسالة مع {{ $shipment->deliveryCourier->name }} عن هذه الشحنة بعد.</li>
                                         @endforelse
                                     </ol>
                                     <form method="POST" action="{{ route('processing.courier-chat', $shipment) }}" class="mt-2 flex gap-2">

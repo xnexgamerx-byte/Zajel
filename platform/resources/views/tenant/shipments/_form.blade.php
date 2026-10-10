@@ -259,7 +259,9 @@
                         </label>
                     </div>
 
-                    {{-- الأجرة تُحسب من التسعيرة: تعديلها والرسوم والخصم استثناءٌ لا خطوة --}}
+                    {{-- الأجرة تُحسب من التسعيرة: تعديلها والرسوم والخصم استثناءٌ لا خطوة —
+                         للمحاسب ولمن يملك «تعديل الأجور» وحده (docs/plan/53) --}}
+                    @can('shipments.override')
                     <div>
                         <label class="field-label" for="delivery_fee">أجرة التوصيل</label>
                         <div class="relative">
@@ -289,6 +291,10 @@
                                value="{{ old('discount', $shipment?->discount) }}" class="field-input text-left" dir="ltr">
                         @error('discount') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
+
+                    @else
+                        <p class="text-xs text-ink-500 sm:col-span-3">الأجور من تسعيرة التاجر — تعديلها للمحاسب ولمن يملك صلاحيتها.</p>
+                    @endcan
 
                     <div class="sm:col-span-3">
                         <label class="field-label" for="fee_prepaid">دفع الأجرة مقدّماً</label>

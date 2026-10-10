@@ -426,7 +426,7 @@ class CompanyFeaturesTest extends TestCase
 
     public function test_the_platform_orders_one_company_menus_and_links(): void
     {
-        $default = ['home', 'shipments', 'delivery', 'returns', 'money', 'position', 'reports', 'followup', 'settings'];
+        $default = ['home', 'shipments', 'delivery', 'returns', 'money', 'position', 'branches', 'requests', 'reports', 'followup', 'notify', 'settings'];
         $this->assertSame($default, $this->menuKeys($this->company, $this->owner));
 
         $move = fn (string $value) => $this->actingAs($this->admin)
@@ -436,7 +436,7 @@ class CompanyFeaturesTest extends TestCase
         $move('menu|reports|up');
         $move('menu|home|up'); // الأولى لا تصعد
 
-        $this->assertSame(['home', 'shipments', 'delivery', 'returns', 'reports', 'money', 'position', 'followup', 'settings'],
+        $this->assertSame(['home', 'shipments', 'delivery', 'returns', 'money', 'position', 'reports', 'branches', 'requests', 'followup', 'notify', 'settings'],
             $this->menuKeys($this->company, $this->owner));
         $this->assertSame($default, $this->menuKeys($this->other, $this->makeUser($this->other)));
 
@@ -450,7 +450,7 @@ class CompanyFeaturesTest extends TestCase
         $this->assertSame(['شحنة جديدة', 'كل الشحنات'], array_slice(array_column($shipments['links'], 'label'), 0, 2));
 
         $this->actingAs($this->owner)->get($this->host().'/')->assertOk()
-            ->assertSeeInOrder(['التقارير', 'الحسابات المالية', 'الموقف المالي والفروع']);
+            ->assertSeeInOrder(['الحسابات المالية', 'الموقف المالي', 'التقارير', 'الفروع']);
 
         $this->actingAs($this->admin)->post('/admin/companies/'.$this->company->id.'/navigation', ['reset' => '1'])
             ->assertSessionHas('success', 'عادت قوائم موظّفي الشركة إلى ترتيبها الأصليّ.');
@@ -476,8 +476,19 @@ class CompanyFeaturesTest extends TestCase
 
         $keys = $this->menuKeys($this->company, $this->owner);
         $this->assertSame(['settings', 'home', 'shipments', 'delivery'], array_slice($keys, 0, 4));
-        $this->assertCount(9, $keys);
+        $this->assertCount(count(StaffNavigation::menus()), $keys);
 
+        // قائمةٌ جديدة تأتي بعد جارها في الترتيب الأصليّ، لا آخر الشريط (docs/plan/53)
+        Tenancy::runAsPlatform(fn () => $this->company->update(['settings' => ['navigation' => [
+            'menus' => ['home', 'shipments', 'delivery', 'returns', 'reports', 'money', 'position', 'followup', 'settings'],
+        ]]]));
+        $this->assertSame(['home', 'shipments', 'delivery', 'returns', 'reports', 'money', 'position', 'branches', 'requests', 'followup', 'notify', 'settings'],
+            $this->menuKeys($this->company, $this->owner));
+
+        Tenancy::runAsPlatform(fn () => $this->company->update(['settings' => ['navigation' => [
+            'menus' => ['settings', 'gone', 'home'],
+            'links' => ['shipments' => ['shipments.trash', 'nothing.here']],
+        ]]]));
         $shipments = StaffNavigation::ordered(Tenancy::runAsPlatform(fn () => $this->company->fresh()))['shipments'][2];
         $this->assertSame('shipments.trash', $shipments[0][0]);
         $this->assertCount(count(StaffNavigation::menus()['shipments'][2]), $shipments);

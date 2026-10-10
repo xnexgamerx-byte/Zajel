@@ -210,11 +210,16 @@ class OverrideShipmentTest extends TestCase
         $this->assertSame($net - 2000, (int) $sheet->refresh()->net_amount);
     }
 
-    public function test_only_the_owner_by_default_and_whoever_is_granted_it(): void
+    public function test_only_the_owner_and_the_accountant_by_default_and_whoever_is_granted_it(): void
     {
         $shipment = $this->shipment();
 
-        foreach ([UserRole::CompanyAdmin, UserRole::BranchOwner, UserRole::Accountant] as $role) {
+        // والمحاسب افتراضاً (docs/plan/53): أجور التاجر والمندوب له ولمن يملك صلاحيتها
+        $accountant = $this->makeUser($this->company, UserRole::Accountant);
+        $this->assertTrue($accountant->can(Ability::SHIPMENTS_OVERRIDE));
+        $this->actingAs($accountant)->get($this->host()."/shipments/{$shipment->id}/override")->assertOk();
+
+        foreach ([UserRole::CompanyAdmin, UserRole::BranchOwner, UserRole::CustomerService] as $role) {
             $user = $this->makeUser($this->company, $role);
             $this->assertFalse($user->can(Ability::SHIPMENTS_OVERRIDE), $role->value);
             $this->actingAs($user)->get($this->host()."/shipments/{$shipment->id}/override")->assertForbidden();

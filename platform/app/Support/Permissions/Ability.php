@@ -45,8 +45,9 @@ class Ability
 
     /**
      * تعديل أجور الشحنة (التاجر والمندوب) وطلبيتها أيّاً كانت حالها، ولو انتهت أو كان فيها
-     * مشكلة — والفرق قيدٌ في الحساب بسببه (docs/plan/38). لصاحب الشركة وحده افتراضاً،
-     * ويُمنح لمن يشاء من الفروع بمرتبةٍ أو صلاحيةٍ استثنائية.
+     * مشكلة — والفرق قيدٌ في الحساب بسببه (docs/plan/38). لصاحب الشركة وللمحاسب افتراضاً
+     * (docs/plan/53)، ويُمنح لمن يشاء بمرتبةٍ أو صلاحيةٍ استثنائية. وبه وحده تُكتب أجور
+     * التاجر في نموذج الشحنة وتعديلها.
      */
     public const SHIPMENTS_OVERRIDE = 'shipments.override';
 
@@ -282,9 +283,10 @@ class Ability
                 self::REPORTS_VIEW, self::SUPPORT_REPLY, self::TICKETS_HANDLE,
             ],
 
+            // والمحاسب يعدّل أجور التاجر والمندوب (docs/plan/53) — وغيره بمرتبةٍ أو صلاحيةٍ استثنائية
             UserRole::Accountant => [
                 self::SHIPMENTS_VIEW, self::SHIPMENTS_EXPORT, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
-                self::CONTROL_DUPLICATES,
+                self::CONTROL_DUPLICATES, self::SHIPMENTS_OVERRIDE,
             ],
 
             default => [],
