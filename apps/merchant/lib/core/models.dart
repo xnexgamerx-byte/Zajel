@@ -18,6 +18,7 @@ class HomeData {
     required this.canProcess,
     required this.attention,
     required this.recent,
+    this.attentionItems = const [],
   });
 
   factory HomeData.fromJson(Map<String, dynamic> j) {
@@ -43,6 +44,9 @@ class HomeData {
       canProcess: j['processing']['allowed'] as bool,
       attention: j['attention']['count'] as int,
       recent: [for (final r in j['recent'] as List) RecentShipment.fromJson((r as Map).cast())],
+      attentionItems: [
+        for (final r in (j['attention']['items'] as List?) ?? const []) AttentionItem.fromJson((r as Map).cast()),
+      ],
     );
   }
 
@@ -69,6 +73,9 @@ class HomeData {
   final bool canProcess;
   final int attention;
   final List<RecentShipment> recent;
+
+  /// «تحتاج انتباهك» بتفاصيلها (docs/plan/61): قبل آخر الشحنات في الرئيسية
+  final List<AttentionItem> attentionItems;
 }
 
 class Stats {
@@ -198,6 +205,7 @@ class ShipmentDetail {
     this.courier,
     this.lastStatus,
     this.lastAt,
+    this.location,
   });
 
   factory ShipmentDetail.fromJson(Map<String, dynamic> j) {
@@ -216,8 +224,12 @@ class ShipmentDetail {
       courier: (j['tracking'] as Map?)?['courier'] as String?,
       lastStatus: (j['tracking'] as Map?)?['status'] as String?,
       lastAt: _at((j['tracking'] as Map?)?['at']),
+      location: ShipmentLocation.fromJson((j['tracking'] as Map?)?['location'] as Map?),
     );
   }
+
+  /// على الخريطة (docs/plan/61): من هاتف المندوب، أو تقريبيٌّ بمحافظتها
+  final ShipmentLocation? location;
 
   /// تتبّعه الآن (docs/plan/59): المندوب الذي معه الطرد، وآخر حالةٍ ومتى
   final String? courier;
@@ -976,4 +988,41 @@ class AppNotice {
   /// لم يُقرأ قبل فتح الجرس هذه المرّة
   final bool fresh;
   final DateTime? at;
+}
+
+/// موقع الشحنة على الخريطة: دقيقٌ من هاتف المندوب مع آخر حدث، أو مركز محافظتها
+class ShipmentLocation {
+  ShipmentLocation({required this.lat, required this.lng, required this.exact, this.at});
+
+  static ShipmentLocation? fromJson(Map? j) {
+    if (j == null || j['lat'] == null || j['lng'] == null) return null;
+    return ShipmentLocation(
+      lat: (j['lat'] as num).toDouble(),
+      lng: (j['lng'] as num).toDouble(),
+      exact: j['exact'] as bool? ?? false,
+      at: DateTime.tryParse(j['at'] as String? ?? '')?.toLocal(),
+    );
+  }
+
+  final double lat;
+  final double lng;
+  final bool exact;
+  final DateTime? at;
+}
+
+/// شحنةٌ تحتاج انتباه التاجر: لماذا، وكم محاولة، وإلى متى أُجّلت
+class AttentionItem {
+  AttentionItem({required this.row, this.reason, this.attempts = 0, this.until});
+
+  factory AttentionItem.fromJson(Map<String, dynamic> j) => AttentionItem(
+    row: RecentShipment.fromJson(j),
+    reason: j['reason'] as String?,
+    attempts: j['attempts'] as int? ?? 0,
+    until: DateTime.tryParse(j['until'] as String? ?? '')?.toLocal(),
+  );
+
+  final RecentShipment row;
+  final String? reason;
+  final int attempts;
+  final DateTime? until;
 }

@@ -6,6 +6,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/page.dart';
 import 'shipment_screen.dart';
 
 /// «شحناتي»: بحثٌ بالاسم أو الهاتف أو رقم الوصل، وشرائح بأعدادها (هي عدّادات الرئيسية
@@ -105,6 +106,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 15),
           child: Row(
             children: [
+              const TabBack(),
               Text('شحناتي', style: font(20, w8, Palette.ink, height: 1.2)),
               const SizedBox(width: 8),
               if (total > 0) Text('${money(total)} شحنة', style: font(12, w6, Palette.slate)),

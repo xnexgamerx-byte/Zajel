@@ -674,9 +674,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ------------------------------------------------------------------ آخر الشحنات
+  // ------------------------------------------------------------------ تحتاج انتباهك · آخر الشحنات
+
+  /// «تحتاج انتباهك» أوّلاً حين يكون فيها شيء — هي الأهمّ (docs/plan/61) — وزرّان يبدّلان بينهما
+  bool? showRecent;
+
+  Widget _switch(HomeData d, bool recent) {
+    Widget chip(String label, bool on, VoidCallback tap) => Tap(
+      radius: 20,
+      onTap: tap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: on ? brand.main : const Color(0xFFF1F4F8),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(label, style: font(12.5, w8, on ? Colors.white : Palette.slate, height: 1.2)),
+      ),
+    );
+    return Row(
+      children: [
+        chip(
+          'تحتاج انتباهك${d.attentionItems.isEmpty ? '' : ' (${d.attentionItems.length})'}',
+          !recent,
+          () => setState(() => showRecent = false),
+        ),
+        const SizedBox(width: 6),
+        chip('آخر الشحنات', recent, () => setState(() => showRecent = true)),
+      ],
+    );
+  }
 
   Widget _recent(HomeData d) {
+    final recent = showRecent ?? d.attentionItems.isEmpty;
     return WhiteCard(
       padding: const EdgeInsets.only(top: 10, bottom: 4),
       child: Column(
@@ -685,7 +716,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                Expanded(child: Text('آخر الشحنات', style: font(15, w8, Palette.ink, height: 1.3))),
+                Expanded(child: _switch(d, recent)),
                 Tap(
                   radius: 10,
                   onTap: () => _open('shipments'),
@@ -704,7 +735,21 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          if (d.recent.isEmpty)
+          if (!recent) ...[
+            if (d.attentionItems.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                child: Text(
+                  'لا شيء يحتاج انتباهك الآن.',
+                  textAlign: TextAlign.center,
+                  style: font(12.5, w5, Palette.slate),
+                ),
+              ),
+            for (final item in d.attentionItems) ...[
+              const Divider(height: 1, thickness: .6, indent: 12, endIndent: 12, color: Color(0xFFE9EDF2)),
+              _row(item.row, detail: item),
+            ],
+          ] else if (d.recent.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               child: Text(
@@ -713,16 +758,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: font(12.5, w5, Palette.slate),
               ),
             ),
-          for (var i = 0; i < d.recent.length; i++) ...[
-            const Divider(height: 1, thickness: .6, indent: 12, endIndent: 12, color: Color(0xFFE9EDF2)),
-            _row(d.recent[i]),
-          ],
+          if (recent)
+            for (var i = 0; i < d.recent.length; i++) ...[
+              const Divider(height: 1, thickness: .6, indent: 12, endIndent: 12, color: Color(0xFFE9EDF2)),
+              _row(d.recent[i]),
+            ],
         ],
       ),
     );
   }
 
-  Widget _row(RecentShipment s) {
+  Widget _row(RecentShipment s, {AttentionItem? detail}) {
     return InkWell(
       onTap: s.id == 0 ? null : () => openShipment(context, brand, s.id),
       child: Padding(
@@ -750,6 +796,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     textDirection: TextDirection.ltr,
                     style: font(11, w5, Palette.muted, height: 1.3),
                   ),
+                  // لماذا تحتاج انتباهه، وكم حاولنا، وإلى متى أُجّلت
+                  if (detail != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        [
+                          if (detail.reason != null) detail.reason!,
+                          if (detail.attempts > 0) 'محاولات: ${detail.attempts}',
+                          if (detail.until != null) 'مؤجّلة إلى ${when(detail.until)}',
+                        ].join(' · '),
+                        style: font(11.5, w7, brand.main, height: 1.4),
+                      ),
+                    ),
                 ],
               ),
             ),

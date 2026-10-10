@@ -54,7 +54,9 @@ class _MerchantAppState extends State<MerchantApp> {
   void _adopt(Session s) => setState(() {
     session = s;
     signedIn = true;
-    if (s.companyColor != null) brand = Brand.hex(s.companyColor, fallback: AppConfig.brandColor);
+    if (s.companyColor != null && !AppConfig.brandFixed) {
+      brand = Brand.hex(s.companyColor, fallback: AppConfig.brandColor);
+    }
   });
 
   Future<void> _logout() async {

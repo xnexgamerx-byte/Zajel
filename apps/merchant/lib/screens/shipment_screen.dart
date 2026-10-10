@@ -1,11 +1,17 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
+import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/page.dart';
+import 'support_screen.dart';
 
 /// يفتح الشحنة فوق الشاشة الحالية — من «شحناتي» أو من آخر الشحنات في الرئيسية
 void openShipment(BuildContext context, Brand brand, int id) {
@@ -14,6 +20,86 @@ void openShipment(BuildContext context, Brand brand, int id) {
       builder: (_) => ShipmentScreen(brand: brand, id: id),
     ),
   );
+}
+
+/// رقم وصلٍ في أيّ مكان يفتح شحنته (docs/plan/61): يُبحث برقمه في «شحناتي» ويُفتح ما طابقه حرفاً
+Future<void> openShipmentNumber(BuildContext context, Brand brand, String number) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final clean = number.replaceAll(RegExp(r'[^0-9A-Za-z-]'), '');
+  try {
+    final page = await Api.instance.shipments(q: clean);
+    final hit = page.items.where((r) => r.number == clean).firstOrNull;
+    if (!context.mounted) return;
+    if (hit == null) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('لا شحنة لك برقم $clean'), behavior: SnackBarBehavior.floating));
+      return;
+    }
+    openShipment(context, brand, hit.id);
+  } on ApiError catch (e) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating));
+  }
+}
+
+/// أرقام الوصولات في نصٍّ (رسالة، إشعار) تصير روابط تفتح شحناتها
+class LinkedText extends StatefulWidget {
+  const LinkedText(this.text, {super.key, required this.brand, required this.style, this.linkColor});
+
+  final String text;
+  final Brand brand;
+  final TextStyle style;
+  final Color? linkColor;
+
+  /// رقم وصلٍ: ستّة أرقامٍ فأكثر، لا جزءاً من رقم هاتف (07…) ولا من مبلغ بفواصل
+  static final pattern = RegExp(r'(?<![0-9,])(?!07[0-9]{9}\b)[0-9]{6,9}(?![0-9,])');
+
+  @override
+  State<LinkedText> createState() => _LinkedTextState();
+}
+
+class _LinkedTextState extends State<LinkedText> {
+  final taps = <TapGestureRecognizer>[];
+
+  @override
+  void dispose() {
+    for (final t in taps) {
+      t.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    for (final t in taps) {
+      t.dispose();
+    }
+    taps.clear();
+    final spans = <InlineSpan>[];
+    var at = 0;
+    for (final m in LinkedText.pattern.allMatches(widget.text)) {
+      if (m.start > at) spans.add(TextSpan(text: widget.text.substring(at, m.start)));
+      final number = m.group(0)!;
+      final tap = TapGestureRecognizer()..onTap = () => openShipmentNumber(context, widget.brand, number);
+      taps.add(tap);
+      spans.add(
+        TextSpan(
+          text: number,
+          recognizer: tap,
+          style: TextStyle(
+            color: widget.linkColor ?? widget.brand.main,
+            fontWeight: FontWeight.w800,
+            decoration: TextDecoration.underline,
+          ),
+        ),
+      );
+      at = m.end;
+    }
+    if (at < widget.text.length) spans.add(TextSpan(text: widget.text.substring(at)));
+    return Text.rich(TextSpan(style: widget.style, children: spans));
+  }
 }
 
 /// الشحنة: حالتها، كود التسليم، سبب التعثّر، مسارها، زبونها، وحسابها — كبوابة التاجر في الموقع.
@@ -102,6 +188,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                           if (d.deliveryCode != null) ...[_code(d.deliveryCode!), const SizedBox(height: 8)],
                           if (d.failureReason != null) ...[_failure(d), const SizedBox(height: 8)],
                           _tracking(d),
+                          if (d.location != null) ...[const SizedBox(height: 8), _map(d.location!)],
                           const SizedBox(height: 8),
                           _timeline(d),
                           const SizedBox(height: 8),
@@ -110,6 +197,15 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                           _money(d),
                           const SizedBox(height: 12),
                           _share(d),
+                          const SizedBox(height: 10),
+                          // «اسأل عن الشحنة» (docs/plan/61): خياراتٌ ثم محادثةٌ مع المتابعة عن هذا الوصل
+                          SheetButton(
+                            brand: brand,
+                            label: 'اسأل عن الشحنة',
+                            icon: Icons.support_agent_rounded,
+                            outlined: true,
+                            onTap: () => askAboutShipment(context, brand, d.row.number),
+                          ),
                         ],
                       ),
                     ),
@@ -217,6 +313,62 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
   // ------------------------------------------------------------------ المسار
 
   /// تتبّعه الآن (docs/plan/59): آخر حالةٍ ومتى، ومع أيّ مندوبٍ الطرد ما دام في الطريق
+  /// الشحنة على الخريطة (docs/plan/61): نقطةٌ ممتلئة من هاتف المندوب، وحلقةٌ تقريبية بمحافظتها
+  Widget _map(ShipmentLocation at) {
+    final point = LatLng(at.lat, at.lng);
+    return WhiteCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            child: SizedBox(
+              height: 190,
+              child: AppConfig.testing
+                  ? const ColoredBox(color: Palette.eye)
+                  : FlutterMap(
+                      options: MapOptions(
+                        initialCenter: point,
+                        initialZoom: at.exact ? 14 : 9,
+                        interactionOptions: const InteractionOptions(
+                          flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                        ),
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.wahaj.merchant',
+                        ),
+                        CircleLayer(
+                          circles: [
+                            CircleMarker(
+                              point: point,
+                              radius: at.exact ? 9 : 22,
+                              color: at.exact ? brand.main : brand.main.withValues(alpha: .15),
+                              borderColor: brand.main,
+                              borderStrokeWidth: 3,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+            child: Text(
+              at.exact
+                  ? 'آخر موقعٍ أرسله المندوب وهي معه${at.at != null ? ' — ${when(at.at!)}' : ''}'
+                  : 'تقريبيّ: محافظتها — يدقّ حين يحدّثها المندوب من هاتفه',
+              style: font(12, w6, Palette.slate),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _tracking(ShipmentDetail d) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(

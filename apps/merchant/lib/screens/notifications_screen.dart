@@ -4,6 +4,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import 'shipment_screen.dart';
 import '../widgets/page.dart';
 import 'support_screen.dart' show ThreadScreen;
 
@@ -118,12 +119,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text(n.title, style: font(14, w8, Palette.ink, height: 1.4))),
+                    Expanded(
+                      child: LinkedText(n.title, brand: brand, style: font(14, w8, Palette.ink, height: 1.4)),
+                    ),
                     if (n.fresh) Chip2('جديد', color: brand.main),
                   ],
                 ),
                 const SizedBox(height: 3),
-                Text(n.body, style: font(13, w5, Palette.slate, height: 1.6)),
+                LinkedText(n.body, brand: brand, style: font(13, w5, Palette.slate, height: 1.6)),
                 const SizedBox(height: 4),
                 Text(when(n.at), style: font(11, w5, Palette.muted)),
               ],

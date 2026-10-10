@@ -7,6 +7,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/page.dart';
 import 'shipment_screen.dart';
 
 /// «طلب جديد» (docs/plan/52): نموذج بوابة التاجر نفسه — الأساسي الهاتف والعنوان والسعر،
@@ -278,7 +279,12 @@ class _CreateScreenState extends State<CreateScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 1),
-            child: Text('طلب جديد', style: font(20, w8, Palette.ink, height: 1.2)),
+            child: Row(
+              children: [
+                const TabBack(),
+                Text('طلب جديد', style: font(20, w8, Palette.ink, height: 1.2)),
+              ],
+            ),
           ),
           const SizedBox(height: 2),
           Text('الأساسي: الهاتف والعنوان والسعر — والباقي اختياري.', style: font(12, w5, Palette.slate)),

@@ -16,6 +16,10 @@ class AppConfig {
   /// لون العلامة قبل أن يصل لون الشركة من النظام
   static const brandColor = String.fromEnvironment('BRAND_COLOR', defaultValue: '#FE0A0E');
 
+  /// لون التطبيق من ملف إعداده هو لونه (docs/plan/61): تطبيق الزاجل أحمر كتصميمه، ولو كان لون
+  /// الشركة في النظام غيره (لون واجهة الموقع). ما لم يُكتب في الإعداد يأخذ لون الشركة من النظام.
+  static const brandFixed = bool.hasEnvironment('BRAND_COLOR');
+
   /// بياناتٌ تجريبية بلا نظام — للقطات المتجر ومطابقة التصميم
   static const demo = bool.fromEnvironment('DEMO');
 

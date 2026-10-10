@@ -19,6 +19,26 @@ class Demo {
     processing: 3,
     canProcess: true,
     attention: 3,
+    // «تحتاج انتباهك» بتفاصيلها (docs/plan/61)
+    attentionItems: [
+      AttentionItem(
+        row: _row(5, 'زهراء كريم', 'الكاظمية', 25000, 'مؤجل', 'amber', urgent: true, hours: 20),
+        reason: 'الزبون طلب التأجيل',
+        attempts: 1,
+        until: DateTime.now().add(const Duration(days: 1)),
+      ),
+      AttentionItem(
+        row: _row(9, 'أحمد ناصر', 'الشعب', 41000, 'راجع', 'red', urgent: true, hours: 30),
+        reason: 'الزبون رفض الاستلام',
+        attempts: 2,
+      ),
+      AttentionItem(
+        row: _row(10, 'نبأ سالم', 'حي الجهاد', 33000, 'مؤجل', 'amber', urgent: true, hours: 44),
+        reason: 'الهاتف مغلق',
+        attempts: 2,
+        until: DateTime.now().add(const Duration(days: 2)),
+      ),
+    ],
     recent: [
       RecentShipment(
         number: 'ZA-20260124',
@@ -108,6 +128,10 @@ class Demo {
       courier: row.tone == 'green' || row.tone == 'red' ? null : 'حيدر كريم',
       lastStatus: row.status,
       lastAt: settled ? row.at : start.add(const Duration(hours: 22)),
+      // على الخريطة ما دامت لم تُحسم: دقيقٌ وهي مع المندوب، وإلّا تقريبيٌّ بمحافظتها (docs/plan/61)
+      location: row.tone == 'green' || row.tone == 'red'
+          ? null
+          : ShipmentLocation(lat: 33.3128, lng: 44.4345, exact: row.status == 'قيد التوصيل', at: row.at),
       timeline: [
         TimelineStep(title: 'جديد', at: start),
         TimelineStep(title: 'استلمه المندوب', at: start.add(const Duration(hours: 3))),

@@ -5,6 +5,7 @@ import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/page.dart';
 import 'create_screen.dart';
 import 'finance_screen.dart';
 import 'home_screen.dart';
@@ -165,6 +166,17 @@ class _ShellState extends State<Shell> {
       _More(brand: brand, session: widget.session, onLogout: widget.onLogout, onOpen: _open),
     ];
 
+    // زرّ رجوع الهاتف: من أيّ صفحةٍ إلى الرئيسية، ومن الرئيسية يخرج
+    return PopScope(
+      canPop: tab == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => tab = 0);
+      },
+      child: ShellNav(home: () => setState(() => tab = 0), child: _scaffold(pages)),
+    );
+  }
+
+  Widget _scaffold(List<Widget> pages) {
     return Scaffold(
       extendBody: true,
       body: Stack(
@@ -351,7 +363,12 @@ class _More extends StatelessWidget {
     child: ListView(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 130),
       children: [
-        Text('المزيد', style: font(20, w8, Palette.ink)),
+        Row(
+          children: [
+            const TabBack(),
+            Text('المزيد', style: font(20, w8, Palette.ink)),
+          ],
+        ),
         const SizedBox(height: 4),
         if (session != null) Text('${session!.name} · ${session!.companyName}', style: font(13, w6, Palette.slate)),
         const SizedBox(height: 8),

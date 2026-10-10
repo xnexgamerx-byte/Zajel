@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,9 +11,60 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import 'shipment_screen.dart';
 
 Future<void> openSupport(BuildContext context, Brand brand) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => SupportScreen(brand: brand)));
+
+/// ما يُسأل عنه في شحنةٍ (docs/plan/61): يختار التاجر أوّلاً، ثم تُكتب الرسالة باسم ذلك
+const shipmentTopics = [
+  ('متى توصل شحنتي؟', Icons.schedule_rounded, 'متى توصل هذه الشحنة؟'),
+  ('تغيير العنوان أو الهاتف', Icons.edit_location_alt_outlined, 'أريد تغيير عنوان الزبون أو هاتفه إلى: '),
+  ('تغيير المبلغ', Icons.payments_outlined, 'أريد تغيير مبلغ الوصل إلى: '),
+  ('تأجيل أو إلغاء', Icons.event_busy_outlined, 'أريد تأجيل هذه الشحنة / إلغاءها، والسبب: '),
+  ('شكوى عن التوصيل', Icons.report_gmailerrorred_rounded, 'عندي ملاحظة على توصيل هذه الشحنة: '),
+  ('سؤال آخر', Icons.chat_bubble_outline_rounded, ''),
+];
+
+/// «اسأل عن الشحنة» في أسفل صفحتها: خياراتٌ أوّلاً، ثم رسالةٌ للمتابعة مربوطة بالوصل، ثم المحادثة نفسها
+Future<void> askAboutShipment(BuildContext context, Brand brand, String number) async {
+  final topic = await showSheet<int>(
+    context,
+    SheetFrame(
+      title: 'اسأل عن الشحنة',
+      text: 'تصل رسالتك فريق المتابعة مع الوصل $number، ويردّون في المحادثة نفسها.',
+      children: [
+        for (final (i, (label, icon, _)) in shipmentTopics.indexed)
+          Builder(
+            builder: (c) => ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: SoftIcon(
+                brand: brand,
+                size: 36,
+                radius: 10,
+                child: Icon(icon, size: 19, color: brand.main),
+              ),
+              title: Text(label, style: font(14, w7, Palette.ink)),
+              trailing: const Chev(size: 9, stroke: 1.6),
+              onTap: () => Navigator.of(c).pop(i),
+            ),
+          ),
+      ],
+    ),
+  );
+  if (topic == null || !context.mounted) return;
+  final (label, _, body) = shipmentTopics[topic];
+  final id = await showSheet<int>(
+    context,
+    _NewSheet(brand: brand, subject: '$label — $number', shipment: number, body: body),
+  );
+  if (id == null || !context.mounted) return;
+  await Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ThreadScreen(brand: brand, id: id),
+    ),
+  );
+}
 
 /// صورةٌ تُرفق برسالة — من معرض الهاتف، تحت حدّ الخادم (٥ ميغابايت)
 Future<(Uint8List, String)?> _pickImage(BuildContext context) async {
@@ -178,18 +231,21 @@ class _SupportScreenState extends State<SupportScreen> {
 }
 
 class _NewSheet extends StatefulWidget {
-  const _NewSheet({required this.brand});
+  const _NewSheet({required this.brand, this.subject = '', this.shipment = '', this.body = ''});
 
   final Brand brand;
+  final String subject;
+  final String shipment;
+  final String body;
 
   @override
   State<_NewSheet> createState() => _NewSheetState();
 }
 
 class _NewSheetState extends State<_NewSheet> {
-  final subject = TextEditingController();
-  final shipment = TextEditingController();
-  final body = TextEditingController();
+  late final subject = TextEditingController(text: widget.subject);
+  late final shipment = TextEditingController(text: widget.shipment);
+  late final body = TextEditingController(text: widget.body);
   (Uint8List, String)? file;
   bool busy = false;
   String? error;
@@ -235,11 +291,24 @@ class _NewSheetState extends State<_NewSheet> {
       text: 'عن شحنةٍ بعينها اكتب رقم وصلها، فيراها الموظّف معها.',
       children: [
         const FieldLabel('الموضوع'),
-        InputBox(controller: subject, hint: 'مثلاً: تأخّر طرد الكرادة', maxLength: 160, autofocus: true),
-        const FieldLabel('رقم الوصل (اختياري)'),
-        InputBox(controller: shipment, hint: 'ZA-20260122', ltr: true, maxLength: 40),
+        InputBox(
+          controller: subject,
+          hint: 'مثلاً: تأخّر طرد الكرادة',
+          maxLength: 160,
+          autofocus: widget.subject.isEmpty,
+        ),
+        if (widget.shipment.isEmpty) ...[
+          const FieldLabel('رقم الوصل (اختياري)'),
+          InputBox(controller: shipment, hint: 'ZA-20260122', ltr: true, maxLength: 40),
+        ],
         const FieldLabel('رسالتك'),
-        InputBox(controller: body, hint: 'اكتب ما تريد السؤال عنه…', lines: 3, maxLength: 2000),
+        InputBox(
+          controller: body,
+          hint: 'اكتب ما تريد السؤال عنه…',
+          lines: 3,
+          maxLength: 2000,
+          autofocus: widget.subject.isNotEmpty,
+        ),
         const SizedBox(height: 8),
         Align(
           alignment: AlignmentDirectional.centerStart,
@@ -281,32 +350,41 @@ class _ThreadScreenState extends State<ThreadScreen> {
   String? error;
   bool sending = false;
 
+  /// ردّ الشركة يظهر وحده (docs/plan/61): تُسأل المحادثة كلّ ثمانية ثوانٍ وهي مفتوحة
+  Timer? live;
+
   Brand get brand => widget.brand;
 
   @override
   void initState() {
     super.initState();
     _load();
+    if (!AppConfig.testing) {
+      live = Timer.periodic(const Duration(seconds: 8), (_) => _load(quiet: true));
+    }
   }
 
   @override
   void dispose() {
+    live?.cancel();
     text.dispose();
     scroll.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool quiet = false}) async {
     try {
       final d = await Api.instance.thread(widget.id);
       if (!mounted) return;
+      // سؤالٌ صامت لا يحرّك الشاشة إن لم يأتِ جديد
+      if (quiet && data != null && d.messages.length == data!.messages.length) return;
       setState(() => (data = d, error = null));
       // الأحدث أسفل، وتُفتح المحادثة على آخرها
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (scroll.hasClients) scroll.jumpTo(scroll.position.maxScrollExtent);
       });
     } on ApiError catch (e) {
-      if (mounted) setState(() => error = e.message);
+      if (mounted && !quiet) setState(() => error = e.message);
     }
   }
 
@@ -371,7 +449,14 @@ class _ThreadScreenState extends State<ThreadScreen> {
           children: [
             if (!mine && m.author != null) Text(m.author!, style: font(11, w8, brand.main)),
             if (m.file != null) ...[_file(m.file!, mine), const SizedBox(height: 4)],
-            if (m.body.isNotEmpty) Text(m.body, style: font(13.5, w6, mine ? Colors.white : Palette.ink, height: 1.5)),
+            // رقم وصلٍ في الرسالة يفتح شحنته (docs/plan/61)
+            if (m.body.isNotEmpty)
+              LinkedText(
+                m.body,
+                brand: brand,
+                style: font(13.5, w6, mine ? Colors.white : Palette.ink, height: 1.5),
+                linkColor: mine ? Colors.white : null,
+              ),
             Text(when(m.at), style: font(10, w5, mine ? Colors.white.withValues(alpha: .8) : Palette.muted)),
           ],
         ),

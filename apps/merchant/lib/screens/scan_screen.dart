@@ -29,7 +29,7 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen> {
   final camera = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
-    formats: const [BarcodeFormat.code128, BarcodeFormat.qrCode],
+    formats: const [BarcodeFormat.qrCode, BarcodeFormat.code128],
   );
   final typed = TextEditingController();
 
@@ -116,7 +116,7 @@ class _ScanScreenState extends State<ScanScreen> {
           Text('امسح الوصل المطبوع', style: font(19, w8, Colors.white)),
           const SizedBox(height: 4),
           Text(
-            'وجّه الكاميرا إلى الباركود أو رمز QR على الوصل، ثم اكتب بيانات الطلب.',
+            'ضع رمز QR المربّع على الوصل داخل الإطار، ثم اكتب بيانات الطلب.',
             textAlign: TextAlign.center,
             style: font(12.5, w5, Colors.white.withValues(alpha: .85), height: 1.5),
           ),
@@ -239,8 +239,9 @@ class _Frame extends StatelessWidget {
 class _FramePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width * .78;
-    final h = w * .62;
+    // مربّعٌ لرمز QR المطبوع على الوصل (docs/plan/61) — والباركود الطويل يُقرأ فيه أيضاً
+    final w = size.width * .68;
+    final h = w;
     final window = Rect.fromCenter(center: Offset(size.width / 2, size.height * .42), width: w, height: h);
     final hole = RRect.fromRectAndRadius(window, const Radius.circular(18));
 

@@ -4,6 +4,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/page.dart';
 
 /// «المالية» (docs/plan/54): حساب التاجر بأرقام البوابة نفسها — الإجمالي والمتاح للسحب وما وراءهما —
 /// وطلب المحاسبة بطريقة دفعه، وكشوفه ودفعاتها و«استلمتُها»، وآخر حركات حسابه.
@@ -106,7 +107,12 @@ class _FinanceScreenState extends State<FinanceScreen> {
       child: ListView(
         padding: EdgeInsets.fromLTRB(14, top > 0 ? top + 6 : 34, 14, 130),
         children: [
-          Text('المالية', style: font(20, w8, Palette.ink, height: 1.2)),
+          Row(
+            children: [
+              const TabBack(),
+              Text('المالية', style: font(20, w8, Palette.ink, height: 1.2)),
+            ],
+          ),
           const SizedBox(height: 10),
           _balance(d),
           const SizedBox(height: 10),

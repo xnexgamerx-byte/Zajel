@@ -325,3 +325,43 @@ class FieldLabel extends StatelessWidget {
     child: Text(text, style: font(12, w7, Palette.ink)),
   );
 }
+
+/// صفحات الشريط تعود إلى الرئيسية (docs/plan/61): زرّ الرجوع في رأسها، وزرّ رجوع الهاتف كذلك
+class ShellNav extends InheritedWidget {
+  const ShellNav({super.key, required this.home, required super.child});
+
+  final VoidCallback home;
+
+  static ShellNav? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<ShellNav>();
+
+  @override
+  bool updateShouldNotify(ShellNav oldWidget) => false;
+}
+
+/// زرّ الرجوع في رأس صفحةٍ من صفحات الشريط: إلى الرئيسية
+class TabBack extends StatelessWidget {
+  const TabBack({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final nav = ShellNav.of(context);
+    if (nav == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(end: 10),
+      child: Tooltip(
+        message: 'رجوع',
+        child: Tap(
+          radius: 18,
+          onTap: nav.home,
+          child: Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: cardShadow),
+            child: const Chev(size: 11, stroke: 1.8),
+          ),
+        ),
+      ),
+    );
+  }
+}

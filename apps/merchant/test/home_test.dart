@@ -40,7 +40,9 @@ void main() {
       'بالتسجيل الصوتي',
       'للمعالجة',
       'عرض الكل',
-      '#ZA-20260124',
+      // «تحتاج انتباهك» أوّلاً بتفاصيلها (docs/plan/61)
+      'تحتاج انتباهك (3)',
+      'الزبون طلب التأجيل',
       'طلب جديد',
     ]) {
       expect(find.textContaining(text), findsWidgets, reason: text);
@@ -52,6 +54,12 @@ void main() {
     expect(find.textContaining('1,750,000'), findsNothing);
     // والأدوات في «المزيد» لا في الرئيسية (docs/plan/59)
     expect(find.text('أدوات سريعة'), findsNothing);
+
+    // و«آخر الشحنات» بضغطة
+    await tester.scrollUntilVisible(find.text('آخر الشحنات'), 300, scrollable: _vertical);
+    await tester.tap(find.text('آخر الشحنات'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('#ZA-20260124', skipOffstage: false), findsWidgets);
   });
 
   testWidgets('شحناتي: الشرائح والبحث وفتح الشحنة', (tester) async {
@@ -166,3 +174,6 @@ Finder _hint(String hint) =>
     find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == hint, description: 'حقل «$hint»');
 
 String _value(WidgetTester tester, String hint) => tester.widget<TextField>(_hint(hint)).controller!.text;
+
+/// قائمة الرئيسية العمودية — لا شرائح الإعلانات الأفقية فوقها
+final _vertical = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
