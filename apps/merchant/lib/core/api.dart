@@ -189,6 +189,106 @@ class Api {
     await _storage.delete(key: _tokenKey);
   }
 
+  // ---------------------------------------------------------------- الأدوات السريعة (docs/plan/56)
+
+  /// ما يفتح ملفّات المحادثة (الصور) برمز التاجر
+  Map<String, String> get fileHeaders => {if (_token != null) 'Authorization': 'Bearer $_token'};
+
+  Future<PickupsPage> pickups() async {
+    if (AppConfig.demo) return Demo.pickups();
+    return PickupsPage.fromJson(await _send(http.get(_uri('/merchant/pickups'), headers: _headers)));
+  }
+
+  /// يعود نصّ النظام: «أُرسل طلب استلام برقم …»
+  Future<String> requestPickup({required int count, String? day, String? address, String? phone, String? notes}) async {
+    if (AppConfig.demo) return Demo.requestPickup(count, day, notes);
+    final body = await _send(
+      http.post(
+        _uri('/merchant/pickups'),
+        headers: _headers,
+        body: jsonEncode({
+          'expected_count': count,
+          'scheduled_at': ?day,
+          if (address?.isNotEmpty == true) 'address': address,
+          if (phone?.isNotEmpty == true) 'contact_phone': phone,
+          if (notes?.isNotEmpty == true) 'notes': notes,
+        }),
+      ),
+    );
+    return body['message'] as String? ?? 'أُرسل طلب الاستلام.';
+  }
+
+  Future<RequestsPage> requests() async {
+    if (AppConfig.demo) return Demo.requests();
+    return RequestsPage.fromJson(await _send(http.get(_uri('/merchant/requests'), headers: _headers)));
+  }
+
+  /// طلب كشف راجع — مع مندوب الاستلام أو من المخزن
+  Future<String> requestReturns({required bool courier, String? note}) async {
+    if (AppConfig.demo) return Demo.requestReturns(courier, note);
+    final body = await _send(
+      http.post(
+        _uri('/merchant/requests'),
+        headers: _headers,
+        body: jsonEncode({'via_pickup_courier': courier, if (note?.isNotEmpty == true) 'note': note}),
+      ),
+    );
+    return body['message'] as String? ?? 'أُرسل طلب كشف الراجع.';
+  }
+
+  Future<String> cancelRequest(int id) async {
+    if (AppConfig.demo) return Demo.cancelRequest(id);
+    final body = await _send(http.post(_uri('/merchant/requests/$id/cancel'), headers: _headers));
+    return body['message'] as String? ?? 'أُلغي الطلب.';
+  }
+
+  /// «وصلتني»: رواجع الإيصال وصلت التاجر
+  Future<String> confirmReturns(int id) async {
+    if (AppConfig.demo) return Demo.confirmReturns(id);
+    final body = await _send(http.post(_uri('/merchant/returns/$id/confirm'), headers: _headers));
+    return body['message'] as String? ?? 'أكّدت الاستلام.';
+  }
+
+  Future<SupportPage> support() async {
+    if (AppConfig.demo) return Demo.support();
+    return SupportPage.fromJson(await _send(http.get(_uri('/merchant/support'), headers: _headers)));
+  }
+
+  /// محادثةٌ جديدة — ويعود رقمها لتُفتح
+  Future<int> startConversation({
+    required String subject,
+    required String body,
+    String? shipment,
+    Uint8List? file,
+    String? filename,
+  }) async {
+    if (AppConfig.demo) return Demo.startConversation(subject, body, shipment);
+    final request = http.MultipartRequest('POST', _uri('/merchant/support'))
+      ..headers.addAll({..._headers}..remove('Content-Type'))
+      ..fields.addAll({
+        'subject': subject,
+        'body': body,
+        if (shipment?.isNotEmpty == true) 'shipment_number': shipment!,
+      });
+    if (file != null) request.files.add(http.MultipartFile.fromBytes('attachment', file, filename: filename));
+    final res = await _send(request.send().then(http.Response.fromStream), timeout: _reading);
+    return res['id'] as int;
+  }
+
+  Future<Thread> thread(int id) async {
+    if (AppConfig.demo) return Demo.thread(id);
+    return Thread.fromJson(await _send(http.get(_uri('/merchant/support/$id'), headers: _headers)));
+  }
+
+  Future<void> reply(int id, String body, {Uint8List? file, String? filename}) async {
+    if (AppConfig.demo) return Demo.reply(id, body, image: file != null);
+    final request = http.MultipartRequest('POST', _uri('/merchant/support/$id/reply'))
+      ..headers.addAll({..._headers}..remove('Content-Type'))
+      ..fields.addAll({if (body.isNotEmpty) 'body': body});
+    if (file != null) request.files.add(http.MultipartFile.fromBytes('attachment', file, filename: filename));
+    await _send(request.send().then(http.Response.fromStream), timeout: _reading);
+  }
+
   // ---------------------------------------------------------------- بالذكاء الاصطناعي وبالصوت (docs/plan/55)
 
   /// قراءة الصورة والتسجيل قد تطول: الذكاء الاصطناعي يقرأ لقطة الشاشة كلّها

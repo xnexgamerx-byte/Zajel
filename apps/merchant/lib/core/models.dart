@@ -549,3 +549,283 @@ class OrderReading {
   final String? transcript;
   final bool ai;
 }
+
+// ---------------------------------------------------------------- الأدوات السريعة (docs/plan/56)
+
+DateTime? _at(Object? v) => v == null ? null : DateTime.tryParse('$v')?.toLocal();
+
+/// طلب استلام: GET /merchant/pickups
+class Pickup {
+  Pickup({
+    required this.id,
+    required this.number,
+    required this.status,
+    required this.label,
+    required this.expected,
+    this.actual,
+    this.courier,
+    this.courierPhone,
+    this.at,
+    this.day,
+    this.notes,
+  });
+
+  factory Pickup.fromJson(Map<String, dynamic> j) => Pickup(
+    id: j['id'] as int,
+    number: '${j['number']}',
+    status: j['status'] as String,
+    label: j['label'] as String,
+    expected: j['expected'] as int? ?? 0,
+    actual: j['actual'] as int?,
+    courier: (j['courier'] as Map?)?['name'] as String?,
+    courierPhone: (j['courier'] as Map?)?['phone'] as String?,
+    at: _at(j['at']),
+    day: j['day'] as String?,
+    notes: j['notes'] as String?,
+  );
+
+  final int id;
+  final String number;
+
+  /// pending · assigned · in_progress · completed · cancelled
+  final String status;
+  final String label;
+  final int expected;
+  final int? actual;
+  final String? courier;
+  final String? courierPhone;
+  final DateTime? at;
+
+  /// اليوم المفضّل للاستلام: 2026-10-11
+  final String? day;
+  final String? notes;
+}
+
+class PickupsPage {
+  PickupsPage({required this.items, this.address, this.phone, this.open = false});
+
+  factory PickupsPage.fromJson(Map<String, dynamic> j) => PickupsPage(
+    items: [for (final p in j['data'] as List) Pickup.fromJson((p as Map).cast())],
+    address: j['address'] as String?,
+    phone: j['phone'] as String?,
+    open: j['open'] as bool? ?? false,
+  );
+
+  final List<Pickup> items;
+
+  /// عنوان الحساب وهاتفه: يُكتبان في الطلب ما لم يكتب غيرهما
+  final String? address;
+  final String? phone;
+
+  /// طلبٌ مفتوح ينتظر مندوباً — لا يُطلب ثانٍ
+  bool open;
+}
+
+/// طلبٌ من «طلباتي»: دفعٌ أو كشف راجع
+class MerchantRequestRow {
+  MerchantRequestRow({
+    required this.id,
+    required this.number,
+    required this.type,
+    required this.label,
+    required this.status,
+    required this.state,
+    this.amount,
+    this.method,
+    this.courier = false,
+    this.note,
+    this.result,
+    this.at,
+  });
+
+  factory MerchantRequestRow.fromJson(Map<String, dynamic> j) => MerchantRequestRow(
+    id: j['id'] as int,
+    number: '${j['number']}',
+    type: j['type'] as String,
+    label: j['label'] as String,
+    status: j['status'] as String,
+    state: j['state'] as String,
+    amount: j['amount'] as int?,
+    method: j['method'] as String?,
+    courier: j['courier'] as bool? ?? false,
+    note: j['note'] as String?,
+    result: j['result'] as String?,
+    at: _at(j['at']),
+  );
+
+  final int id;
+  final String number;
+
+  /// payment · returns
+  final String type;
+  final String label;
+
+  /// open · handled · cancelled
+  String status;
+  String state;
+  final int? amount;
+  final String? method;
+  final bool courier;
+  final String? note;
+
+  /// ما انتهى إليه: «كشف MS000041» أو «إيصال RB000012»
+  final String? result;
+  final DateTime? at;
+}
+
+/// إيصال راجعٍ سُلّم للتاجر
+class ReturnReceipt {
+  ReturnReceipt({
+    required this.id,
+    required this.number,
+    required this.count,
+    required this.fees,
+    required this.via,
+    this.at,
+    this.received,
+  });
+
+  factory ReturnReceipt.fromJson(Map<String, dynamic> j) => ReturnReceipt(
+    id: j['id'] as int,
+    number: '${j['number']}',
+    count: j['count'] as int? ?? 0,
+    fees: j['fees'] as int? ?? 0,
+    via: j['via'] as String? ?? '',
+    at: _at(j['at']),
+    received: _at(j['received']),
+  );
+
+  final int id;
+  final String number;
+  final int count;
+  final int fees;
+  final String via;
+  final DateTime? at;
+
+  /// متى أكّد التاجر وصوله — وما لم يؤكَّد فعليه «وصلتني»
+  DateTime? received;
+}
+
+class RequestsPage {
+  RequestsPage({required this.returning, required this.requests, required this.batches});
+
+  factory RequestsPage.fromJson(Map<String, dynamic> j) => RequestsPage(
+    returning: j['returning'] as int? ?? 0,
+    requests: [for (final r in j['requests'] as List) MerchantRequestRow.fromJson((r as Map).cast())],
+    batches: [for (final b in j['batches'] as List) ReturnReceipt.fromJson((b as Map).cast())],
+  );
+
+  /// شحناته الراجعة الآن: ما يجمعه طلب كشف الراجع
+  final int returning;
+  final List<MerchantRequestRow> requests;
+  final List<ReturnReceipt> batches;
+}
+
+/// محادثة دعم
+class Conversation {
+  Conversation({
+    required this.id,
+    required this.subject,
+    this.shipment,
+    this.closed = false,
+    this.unread = false,
+    this.staff = false,
+    this.at,
+  });
+
+  factory Conversation.fromJson(Map<String, dynamic> j) => Conversation(
+    id: j['id'] as int,
+    subject: j['subject'] as String,
+    shipment: j['shipment'] as String?,
+    closed: j['closed'] as bool? ?? false,
+    unread: j['unread'] as bool? ?? false,
+    staff: j['staff'] as bool? ?? false,
+    at: _at(j['at']),
+  );
+
+  final int id;
+  final String subject;
+  final String? shipment;
+  final bool closed;
+
+  /// ردّت الشركة ولم يقرأه
+  bool unread;
+
+  /// آخر رسالةٍ من الشركة
+  final bool staff;
+  final DateTime? at;
+}
+
+class SupportPage {
+  SupportPage({required this.items, this.whatsapp, this.complaints});
+
+  factory SupportPage.fromJson(Map<String, dynamic> j) => SupportPage(
+    items: [for (final c in j['data'] as List) Conversation.fromJson((c as Map).cast())],
+    whatsapp: j['whatsapp'] as String?,
+    complaints: j['complaints'] as String?,
+  );
+
+  final List<Conversation> items;
+
+  /// رابط واتساب الدعم (لمحافظته)، وهاتف الشكاوى
+  final String? whatsapp;
+  final String? complaints;
+}
+
+class Attachment {
+  Attachment({required this.name, required this.image, required this.size, required this.url});
+
+  factory Attachment.fromJson(Map<String, dynamic> j) => Attachment(
+    name: j['name'] as String? ?? 'ملف',
+    image: j['image'] as bool? ?? false,
+    size: j['size'] as String? ?? '',
+    url: j['url'] as String? ?? '',
+  );
+
+  final String name;
+  final bool image;
+  final String size;
+
+  /// يُفتح برمز التاجر — صورٌ تُعرض في المحادثة
+  final String url;
+}
+
+class Message {
+  Message({required this.id, required this.mine, required this.body, this.author, this.file, this.at});
+
+  factory Message.fromJson(Map<String, dynamic> j) => Message(
+    id: j['id'] as int,
+    mine: j['mine'] as bool? ?? false,
+    author: j['author'] as String?,
+    body: j['body'] as String? ?? '',
+    file: j['file'] == null ? null : Attachment.fromJson((j['file'] as Map).cast()),
+    at: _at(j['at']),
+  );
+
+  final int id;
+  final bool mine;
+
+  /// اسم الموظّف لرسائل الشركة
+  final String? author;
+  final String body;
+  final Attachment? file;
+  final DateTime? at;
+}
+
+class Thread {
+  Thread({required this.id, required this.subject, required this.messages, this.shipment, this.closed = false});
+
+  factory Thread.fromJson(Map<String, dynamic> j) => Thread(
+    id: j['id'] as int,
+    subject: j['subject'] as String,
+    shipment: j['shipment'] as String?,
+    closed: j['closed'] as bool? ?? false,
+    messages: [for (final m in j['messages'] as List) Message.fromJson((m as Map).cast())],
+  );
+
+  final int id;
+  final String subject;
+  final String? shipment;
+  final bool closed;
+  final List<Message> messages;
+}

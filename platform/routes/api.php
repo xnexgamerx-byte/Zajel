@@ -4,8 +4,11 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Merchant\CreateShipmentController as MerchantCreateShipmentController;
 use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceController;
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
+use App\Http\Controllers\Api\Merchant\PickupController as MerchantPickupController;
 use App\Http\Controllers\Api\Merchant\ProcessingController as MerchantProcessingController;
+use App\Http\Controllers\Api\Merchant\RequestController as MerchantRequestController;
 use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentController;
+use App\Http\Controllers\Api\Merchant\SupportController as MerchantSupportController;
 use App\Http\Controllers\OrderListeningController;
 use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Tenant\AppAdController;
@@ -52,6 +55,23 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::post('/finance/request', [MerchantFinanceController::class, 'request'])->middleware('throttle:20,1')->name('finance.request');
             Route::post('/finance/statements/{settlement}/confirm', [MerchantFinanceController::class, 'confirm'])
                 ->whereNumber('settlement')->name('finance.confirm');
+            // الأدوات السريعة (docs/plan/56): طلبات الاستلام، وطلباتي، والدعم
+            Route::get('/pickups', [MerchantPickupController::class, 'index'])->name('pickups.index');
+            Route::post('/pickups', [MerchantPickupController::class, 'store'])->middleware('throttle:20,1')->name('pickups.store');
+            Route::get('/requests', [MerchantRequestController::class, 'index'])->name('requests.index');
+            Route::post('/requests', [MerchantRequestController::class, 'store'])->middleware('throttle:20,1')->name('requests.store');
+            Route::post('/requests/{merchantRequest}/cancel', [MerchantRequestController::class, 'cancel'])->whereNumber('merchantRequest')
+                ->name('requests.cancel');
+            Route::post('/returns/{batch}/confirm', [MerchantRequestController::class, 'confirm'])->whereNumber('batch')->name('returns.confirm');
+            Route::middleware('feature:conversations')->prefix('support')->name('support.')->group(function () {
+                Route::get('/', [MerchantSupportController::class, 'index'])->name('index');
+                Route::post('/', [MerchantSupportController::class, 'store'])->middleware('throttle:20,1')->name('store');
+                Route::get('/{conversation}', [MerchantSupportController::class, 'show'])->whereNumber('conversation')->name('show');
+                Route::post('/{conversation}/reply', [MerchantSupportController::class, 'reply'])->whereNumber('conversation')
+                    ->middleware('throttle:60,1')->name('reply');
+                Route::get('/{conversation}/files/{message}', [MerchantSupportController::class, 'file'])
+                    ->whereNumber(['conversation', 'message'])->name('file');
+            });
             Route::post('/shipments', [MerchantCreateShipmentController::class, 'store'])->middleware('throttle:60,1')->name('shipments.store');
         });
     });

@@ -4,13 +4,18 @@ import '../core/api.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../widgets/bits.dart';
+import '../widgets/page.dart';
 import 'create_screen.dart';
 import 'finance_screen.dart';
 import 'home_screen.dart';
+import 'pickups_screen.dart';
 import 'processing_screen.dart';
 import 'reader_sheets.dart';
+import 'requests_screen.dart';
 import 'scan_screen.dart';
 import 'shipments_screen.dart';
+import 'support_screen.dart';
 
 /// هيكل التطبيق: الصفحات الخمس والشريط السفلي العائم بزرّ «طلب جديد» في وسطه.
 class Shell extends StatefulWidget {
@@ -55,6 +60,21 @@ class _ShellState extends State<Shell> {
     // «للمعالجة» شاشةٌ وحدها (docs/plan/54): يقرّر التاجر فيها، ثم تُعاد الأرقام
     if (parts.first == 'processing') {
       openProcessing(context, brand, onChanged: () => refresh.value++);
+      return;
+    }
+    // الأدوات السريعة (docs/plan/56): شاشاتٌ فوق الشريط
+    final tool = switch (screen) {
+      'pickups' => openPickups,
+      'requests' => openRequests,
+      'support' => openSupport,
+      _ => null,
+    };
+    if (tool != null) {
+      tool(context, brand).then((_) => refresh.value++);
+      return;
+    }
+    if (screen == 'waybills' || screen == 'import') {
+      toast(context, 'من البوابة على الموقع الآن — وتصل التطبيق في التحديث القادم.');
       return;
     }
     if (screen == 'create:ai' || screen == 'create:voice') {
@@ -143,7 +163,7 @@ class _ShellState extends State<Shell> {
       ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh),
       CreateScreen(brand: brand, onCreated: () => refresh.value++, scanned: scanned, onScan: _scan, reading: reading),
       FinanceScreen(brand: brand, refresh: refresh),
-      _More(brand: brand, session: widget.session, onLogout: widget.onLogout),
+      _More(brand: brand, session: widget.session, onLogout: widget.onLogout, onOpen: _open),
     ];
 
     return Scaffold(
@@ -309,31 +329,65 @@ class _BarPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+/// «المزيد»: الأدوات كلّها في قائمةٍ واحدة، ثم الخروج
 class _More extends StatelessWidget {
-  const _More({required this.brand, required this.session, required this.onLogout});
+  const _More({required this.brand, required this.session, required this.onLogout, required this.onOpen});
 
   final Brand brand;
   final Session? session;
   final Future<void> Function() onLogout;
+  final void Function(String screen) onOpen;
+
+  static const _items = [
+    ('للمعالجة', Icons.schedule_rounded, 'processing'),
+    ('طلبات الاستلام', Icons.hail_rounded, 'pickups'),
+    ('طلباتي', Icons.assignment_outlined, 'requests'),
+    ('الدعم', Icons.headset_mic_outlined, 'support'),
+    ('وصلات للطباعة', Icons.print_outlined, 'waybills'),
+    ('رفع شحنات من ملف', Icons.upload_file_outlined, 'import'),
+  ];
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('المزيد', style: font(20, w8, Palette.ink)),
-          const SizedBox(height: 6),
-          if (session != null) Text('${session!.name} · ${session!.companyName}', style: font(13, w6, Palette.slate)),
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: onLogout,
-            icon: Icon(Icons.logout_rounded, color: brand.main),
-            label: Text('تسجيل الخروج', style: font(14, w7, brand.main)),
+    child: ListView(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 130),
+      children: [
+        Text('المزيد', style: font(20, w8, Palette.ink)),
+        const SizedBox(height: 4),
+        if (session != null) Text('${session!.name} · ${session!.companyName}', style: font(13, w6, Palette.slate)),
+        const SizedBox(height: 16),
+        WhiteCard(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          // ListTile يرسم ضغطته على Material — والبطاقة لونٌ فوقه
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
+              children: [
+                for (final (i, (label, icon, screen)) in _items.indexed) ...[
+                  if (i > 0) const Divider(height: 1, indent: 56, color: Palette.line),
+                  ListTile(
+                    onTap: () => onOpen(screen),
+                    leading: SoftIcon(
+                      brand: brand,
+                      size: 34,
+                      radius: 10,
+                      child: Icon(icon, size: 19, color: brand.main),
+                    ),
+                    title: Text(label, style: font(14, w7, Palette.ink)),
+                    trailing: const Chev(size: 9, stroke: 1.6),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 20),
+        OutlinedButton.icon(
+          onPressed: onLogout,
+          icon: Icon(Icons.logout_rounded, color: brand.main),
+          label: Text('تسجيل الخروج', style: font(14, w7, brand.main)),
+        ),
+      ],
     ),
   );
 }

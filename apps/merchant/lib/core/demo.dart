@@ -347,4 +347,197 @@ class Demo {
     _confirmed.add(id);
     return 'أكّدت استلام الدفعة.';
   }
+
+  // ---------------------------------------------------------------- الأدوات السريعة (docs/plan/56)
+
+  static DateTime _ago(int hours) => DateTime.now().subtract(Duration(hours: hours));
+
+  static final _pickups = <Pickup>[
+    Pickup(
+      id: 2,
+      number: 'PU000118',
+      status: 'completed',
+      label: 'تمّ الاستلام',
+      expected: 15,
+      actual: 14,
+      courier: 'حيدر كريم',
+      courierPhone: '07720000002',
+      at: _ago(28),
+    ),
+    Pickup(id: 1, number: 'PU000097', status: 'completed', label: 'تمّ الاستلام', expected: 9, actual: 9, at: _ago(75)),
+  ];
+
+  static PickupsPage pickups() => PickupsPage(
+    items: List.of(_pickups),
+    address: 'بغداد، المنصور — شارع ١٤ رمضان',
+    phone: '07790000001',
+    open: _pickups.any((p) => p.status == 'pending' || p.status == 'assigned'),
+  );
+
+  static String requestPickup(int count, String? day, String? notes) {
+    if (_pickups.any((p) => p.status == 'pending' || p.status == 'assigned')) {
+      throw ApiError('عندك طلب استلام مفتوح. انتظر وصول المندوب، أو اتّصل بالشركة لتعديل عدده.');
+    }
+    final number = 'PU000${119 + _pickups.length - 2}';
+    _pickups.insert(
+      0,
+      Pickup(
+        id: _pickups.length + 1,
+        number: number,
+        status: 'pending',
+        label: 'بانتظار مندوب',
+        expected: count,
+        at: DateTime.now(),
+        day: day,
+        notes: notes,
+      ),
+    );
+    return 'أُرسل طلب استلام برقم $number.';
+  }
+
+  static const _returning = 3;
+
+  static final _requests = <MerchantRequestRow>[
+    MerchantRequestRow(
+      id: 2,
+      number: 'REQ-261008-3',
+      type: 'payment',
+      label: 'طلب دفع',
+      status: 'handled',
+      state: 'تمّت معالجته',
+      amount: 870000,
+      method: 'زين كاش',
+      result: 'كشف MS000041',
+      at: _ago(50),
+    ),
+    MerchantRequestRow(
+      id: 1,
+      number: 'RET-261004-1',
+      type: 'returns',
+      label: 'طلب كشف راجع',
+      status: 'handled',
+      state: 'تمّت معالجته',
+      courier: true,
+      result: 'إيصال RB000031',
+      at: _ago(150),
+    ),
+  ];
+
+  static final _batches = <ReturnReceipt>[
+    ReturnReceipt(id: 2, number: 'RB000034', count: 2, fees: 5000, via: 'مع حيدر كريم', at: _ago(5)),
+    ReturnReceipt(
+      id: 1,
+      number: 'RB000031',
+      count: 4,
+      fees: 10000,
+      via: 'من المخزن',
+      at: _ago(140),
+      received: _ago(140),
+    ),
+  ];
+
+  static RequestsPage requests() =>
+      RequestsPage(returning: _returning, requests: List.of(_requests), batches: List.of(_batches));
+
+  static String requestReturns(bool courier, String? note) {
+    if (_returning == 0) throw ApiError('لا راجع لك عندنا الآن.');
+    if (_requests.any((r) => r.type == 'returns' && r.status == 'open')) {
+      throw ApiError('عندك طلب كشف راجع مفتوح.');
+    }
+    final number = 'RET-261010-${_requests.length + 1}';
+    _requests.insert(
+      0,
+      MerchantRequestRow(
+        id: _requests.length + 1,
+        number: number,
+        type: 'returns',
+        label: 'طلب كشف راجع',
+        status: 'open',
+        state: 'بانتظار المعالجة',
+        courier: courier,
+        note: note,
+        at: DateTime.now(),
+      ),
+    );
+    return 'أُرسل طلب كشف راجع برقم $number.';
+  }
+
+  static String cancelRequest(int id) {
+    final r = _requests.firstWhere((r) => r.id == id);
+    r
+      ..status = 'cancelled'
+      ..state = 'ملغى';
+    return 'أُلغي الطلب ${r.number}.';
+  }
+
+  static String confirmReturns(int id) {
+    final b = _batches.firstWhere((b) => b.id == id)..received = DateTime.now();
+    return 'أكّدت استلام رواجع الإيصال ${b.number}.';
+  }
+
+  static final _threads = <Thread>[
+    Thread(
+      id: 1,
+      subject: 'تأخّر طرد الكرادة',
+      shipment: 'ZA-20260122',
+      messages: [
+        Message(id: 1, mine: true, body: 'السلام عليكم، الطرد صار له يومين ما وصل. شنو السبب؟', at: _ago(6)),
+        Message(
+          id: 2,
+          mine: false,
+          author: 'سارة — خدمة التجّار',
+          body: 'وعليكم السلام، الزبون ما يرد. نحاول اليوم مرة ثانية ونبلغك.',
+          at: _ago(5),
+        ),
+      ],
+    ),
+  ];
+
+  static final _unread = <int>{1};
+
+  static SupportPage support() => SupportPage(
+    whatsapp: 'https://wa.me/9647701234567',
+    complaints: '07801112222',
+    items: [
+      for (final t in _threads.reversed)
+        Conversation(
+          id: t.id,
+          subject: t.subject,
+          shipment: t.shipment,
+          unread: _unread.contains(t.id),
+          staff: !t.messages.last.mine,
+          at: t.messages.last.at,
+        ),
+    ],
+  );
+
+  static int startConversation(String subject, String body, String? shipment) {
+    final id = _threads.length + 1;
+    _threads.add(
+      Thread(
+        id: id,
+        subject: subject,
+        shipment: shipment?.isNotEmpty == true ? shipment : null,
+        messages: [Message(id: 100 + id, mine: true, body: body, at: DateTime.now())],
+      ),
+    );
+    return id;
+  }
+
+  static Thread thread(int id) {
+    _unread.remove(id);
+    return _threads.firstWhere((t) => t.id == id);
+  }
+
+  static void reply(int id, String body, {bool image = false}) => _threads
+      .firstWhere((t) => t.id == id)
+      .messages
+      .add(
+        Message(
+          id: DateTime.now().millisecondsSinceEpoch,
+          mine: true,
+          body: image && body.isEmpty ? '📎 صورة' : body,
+          at: DateTime.now(),
+        ),
+      );
 }
