@@ -44,7 +44,7 @@ void main() {
   testWidgets('بالذكاء الاصطناعي: رسالة الزبون تملأ «طلب جديد» للمراجعة', (tester) async {
     await _start(tester);
 
-    await tester.tap(find.text('إنشاء بالذكاء الاصطناعي'));
+    await tester.tap(find.text('بالذكاء الاصطناعي'));
     await tester.pumpAndSettle();
     expect(find.text('لقطة شاشة'), findsOneWidget);
 
@@ -74,7 +74,7 @@ void main() {
   testWidgets('بالتسجيل الصوتي: يسجّل حتى «أوقف» ثم يُكتب ما سُمع', (tester) async {
     await _start(tester);
 
-    await tester.tap(find.text('إنشاء بالتسجيل الصوتي'));
+    await tester.tap(find.text('بالتسجيل الصوتي'));
     await tester.pumpAndSettle();
     expect(find.text('اضغط المايك وتكلّم'), findsOneWidget);
 

@@ -19,12 +19,12 @@ class ShipmentController extends Controller
 {
     /** شرائح القائمة بترتيبها في التطبيق — وكلٌّ يطابق عدّاده في الرئيسية */
     public const FILTERS = [
-        'all'        => 'الكل',
-        'open'       => 'قيد التوصيل',
-        'delivered'  => 'مسلمة',
+        'all' => 'الكل',
+        'open' => 'قيد التوصيل',
+        'delivered' => 'مسلمة',
         'processing' => 'للمعالجة',
-        'attention'  => 'تحتاج انتباهك',
-        'returns'    => 'راجع مؤكدة',
+        'attention' => 'تحتاج انتباهك',
+        'returns' => 'راجع مؤكدة',
     ];
 
     public function index(Request $request): JsonResponse
@@ -60,6 +60,7 @@ class ShipmentController extends Controller
 
         $shipment->load([
             'governorate:id,name_ar', 'city:id,name_ar', 'lastFailureReason:id,name_ar,category',
+            'deliveryCourier:id,name', 'pickupCourier:id,name',
             'events' => fn ($q) => $q->whereIn('event_type', ShipmentEvent::MERCHANT_EVENTS)->orderBy('id'),
         ]);
 
@@ -68,41 +69,47 @@ class ShipmentController extends Controller
 
         return response()->json([
             ...self::row($shipment),
-            'created_at'    => $shipment->created_at?->toIso8601String(),
-            'reference'     => $shipment->merchant_reference,
+            'created_at' => $shipment->created_at?->toIso8601String(),
+            'reference' => $shipment->merchant_reference,
             // للتاجر وحده يرسله لزبونه: لا يُسلَّم الطرد إلّا به
             'delivery_code' => $open ? $shipment->delivery_code : null,
-            'failure'       => $open && $shipment->lastFailureReason ? [
-                'reason'   => $shipment->lastFailureReason->name_ar,
+            'failure' => $open && $shipment->lastFailureReason ? [
+                'reason' => $shipment->lastFailureReason->name_ar,
                 'attempts' => (int) $shipment->attempts_count,
             ] : null,
             'tracking_url' => Tracking::url($shipment),
-            'timeline'     => $shipment->events->map(fn (ShipmentEvent $e) => [
+            // تتبّعه الآن (docs/plan/59): من معه الطرد، وآخر ما جرى عليه ومتى
+            'tracking' => [
+                'courier' => $shipment->status->isOpen() ? ($shipment->deliveryCourier?->name ?? $shipment->pickupCourier?->name) : null,
+                'status' => $shipment->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $shipment->statusLabel(),
+                'at' => ($shipment->status_changed_at ?? $shipment->created_at)?->toIso8601String(),
+            ],
+            'timeline' => $shipment->events->map(fn (ShipmentEvent $e) => [
                 'title' => $e->merchantHeadline(),
-                'note'  => $e->merchantNote(),
-                'at'    => $e->created_at?->toIso8601String(),
+                'note' => $e->merchantNote(),
+                'at' => $e->created_at?->toIso8601String(),
             ])->values(),
             'recipient' => [
-                'name'        => $shipment->recipient_name,
-                'phone'       => $shipment->recipient_phone,
-                'phone_alt'   => $shipment->recipient_phone_alt,
+                'name' => $shipment->recipient_name,
+                'phone' => $shipment->recipient_phone,
+                'phone_alt' => $shipment->recipient_phone_alt,
                 'governorate' => $shipment->governorate?->name_ar,
-                'city'        => $shipment->city?->name_ar,
-                'address'     => $shipment->address,
-                'landmark'    => $shipment->landmark,
-                'pieces'      => (int) $shipment->pieces_count,
-                'type'        => Shipment::TYPES[$shipment->type] ?? $shipment->type,
-                'size'        => Shipment::SIZES[$shipment->size] ?? $shipment->size,
-                'goods'       => $shipment->description,
+                'city' => $shipment->city?->name_ar,
+                'address' => $shipment->address,
+                'landmark' => $shipment->landmark,
+                'pieces' => (int) $shipment->pieces_count,
+                'type' => Shipment::TYPES[$shipment->type] ?? $shipment->type,
+                'size' => Shipment::SIZES[$shipment->size] ?? $shipment->size,
+                'goods' => $shipment->description,
             ],
             'money' => [
-                'cod'          => (int) $shipment->cod_amount,
-                'collected'    => (int) $shipment->collected_amount,
+                'cod' => (int) $shipment->cod_amount,
+                'collected' => (int) $shipment->collected_amount,
                 'delivery_fee' => (int) $shipment->delivery_fee,
-                'cod_fee'      => (int) $shipment->cod_fee,
-                'return_fee'   => $returnFee,
-                'due'          => abs((int) $shipment->merchant_due),
-                'owed'         => (int) $shipment->merchant_due >= 0,
+                'cod_fee' => (int) $shipment->cod_fee,
+                'return_fee' => $returnFee,
+                'due' => abs((int) $shipment->merchant_due),
+                'owed' => (int) $shipment->merchant_due >= 0,
             ],
         ]);
     }
@@ -111,15 +118,15 @@ class ShipmentController extends Controller
     public static function row(Shipment $s): array
     {
         return [
-            'id'     => $s->id,
+            'id' => $s->id,
             'number' => $s->number,
-            'name'   => $s->recipient_name ?: $s->recipient_phone,
-            'area'   => $s->city?->name_ar ?? $s->governorate?->name_ar,
+            'name' => $s->recipient_name ?: $s->recipient_phone,
+            'area' => $s->city?->name_ar ?? $s->governorate?->name_ar,
             'amount' => (int) $s->cod_amount,
-            'at'     => ($s->status_changed_at ?? $s->created_at)?->toIso8601String(),
+            'at' => ($s->status_changed_at ?? $s->created_at)?->toIso8601String(),
             'status' => $s->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $s->statusLabel(),
             // «للمعالجة» بلون الشركة في التطبيق، والراجع أحمر (docs/plan/50)
-            'tone'   => $s->status === ShipmentStatus::FailedAttempt ? 'urgent' : $s->statusColor(),
+            'tone' => $s->status === ShipmentStatus::FailedAttempt ? 'urgent' : $s->statusColor(),
             'urgent' => in_array($s->status, [
                 ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed, ShipmentStatus::Returning,
             ], true),
@@ -132,13 +139,13 @@ class ShipmentController extends Controller
         $values = fn (ShipmentStatus ...$s) => array_map(fn ($x) => $x->value, $s);
 
         return match ($filter) {
-            'open'       => $q->whereIn('status', ShipmentStatus::openValues()),
-            'delivered'  => $q->whereIn('status', $values(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered)),
+            'open' => $q->whereIn('status', ShipmentStatus::openValues()),
+            'delivered' => $q->whereIn('status', $values(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered)),
             'processing' => $q->where('status', ShipmentStatus::FailedAttempt->value),
-            'attention'  => $q->whereIn('status', $values(ShipmentStatus::Postponed, ShipmentStatus::Returning)),
-            'returns'    => $q->where(fn ($w) => $w->where('status', ShipmentStatus::Returned->value)
+            'attention' => $q->whereIn('status', $values(ShipmentStatus::Postponed, ShipmentStatus::Returning)),
+            'returns' => $q->where(fn ($w) => $w->where('status', ShipmentStatus::Returned->value)
                 ->orWhere(fn ($r) => $r->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at'))),
-            default      => $q,
+            default => $q,
         };
     }
 
@@ -156,12 +163,12 @@ class ShipmentController extends Controller
         $of = fn (ShipmentStatus ...$s) => (int) collect($s)->sum(fn ($x) => $rows[$x->value] ?? 0);
 
         return [
-            'all'        => (int) $rows->sum(),
-            'open'       => (int) $rows->only(ShipmentStatus::openValues())->sum(),
-            'delivered'  => $of(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered),
+            'all' => (int) $rows->sum(),
+            'open' => (int) $rows->only(ShipmentStatus::openValues())->sum(),
+            'delivered' => $of(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered),
             'processing' => $of(ShipmentStatus::FailedAttempt),
-            'attention'  => $of(ShipmentStatus::Postponed, ShipmentStatus::Returning),
-            'returns'    => $of(ShipmentStatus::Returned) + Shipment::where('merchant_id', $merchantId)
+            'attention' => $of(ShipmentStatus::Postponed, ShipmentStatus::Returning),
+            'returns' => $of(ShipmentStatus::Returned) + Shipment::where('merchant_id', $merchantId)
                 ->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at')->count(),
         ];
     }

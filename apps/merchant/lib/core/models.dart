@@ -5,6 +5,7 @@ class HomeData {
     required this.name,
     required this.unread,
     required this.banners,
+    this.logo,
     required this.balance,
     required this.owed,
     this.available = 0,
@@ -23,6 +24,7 @@ class HomeData {
       greeting: j['greeting'] as String,
       name: j['name'] as String? ?? '',
       unread: j['unread'] as int? ?? 0,
+      logo: j['logo'] as String?,
       banners: [for (final b in j['banners'] as List) AdBanner.fromJson((b as Map).cast())],
       balance: j['balance']['total'] as int,
       owed: j['balance']['owed'] as bool,
@@ -43,6 +45,9 @@ class HomeData {
   }
 
   final String greeting;
+
+  /// صورة التاجر أو شعاره (يُفتح برمزه) — فارغةٌ حتى يضعها
+  final String? logo;
   final String name;
   final int unread;
   final List<AdBanner> banners;
@@ -188,6 +193,9 @@ class ShipmentDetail {
     required this.timeline,
     required this.recipient,
     required this.money,
+    this.courier,
+    this.lastStatus,
+    this.lastAt,
   });
 
   factory ShipmentDetail.fromJson(Map<String, dynamic> j) {
@@ -203,8 +211,16 @@ class ShipmentDetail {
       timeline: [for (final t in j['timeline'] as List) TimelineStep.fromJson((t as Map).cast())],
       recipient: (j['recipient'] as Map).cast<String, dynamic>(),
       money: (j['money'] as Map).cast<String, dynamic>(),
+      courier: (j['tracking'] as Map?)?['courier'] as String?,
+      lastStatus: (j['tracking'] as Map?)?['status'] as String?,
+      lastAt: _at((j['tracking'] as Map?)?['at']),
     );
   }
+
+  /// تتبّعه الآن (docs/plan/59): المندوب الذي معه الطرد، وآخر حالةٍ ومتى
+  final String? courier;
+  final String? lastStatus;
+  final DateTime? lastAt;
 
   final RecentShipment row;
   final DateTime? createdAt;
@@ -927,4 +943,35 @@ class ImportPreview {
 
   /// أوّل عشرين صفّاً صحيحاً
   final List<({int row, String? name, String phone, String place, int amount})> rows;
+}
+
+/// ما في الجرس: إعلانٌ من الشركة، أو ردٌّ منها على محادثته (docs/plan/59)
+class AppNotice {
+  AppNotice({
+    required this.kind,
+    required this.id,
+    required this.title,
+    required this.body,
+    this.fresh = false,
+    this.at,
+  });
+
+  factory AppNotice.fromJson(Map<String, dynamic> j) => AppNotice(
+    kind: j['kind'] as String? ?? 'notice',
+    id: j['id'] as int,
+    title: j['title'] as String? ?? '',
+    body: j['body'] as String? ?? '',
+    fresh: j['fresh'] as bool? ?? false,
+    at: _at(j['at']),
+  );
+
+  /// notice · support
+  final String kind;
+  final int id;
+  final String title;
+  final String body;
+
+  /// لم يُقرأ قبل فتح الجرس هذه المرّة
+  final bool fresh;
+  final DateTime? at;
 }

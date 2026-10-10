@@ -101,6 +101,8 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                         children: [
                           if (d.deliveryCode != null) ...[_code(d.deliveryCode!), const SizedBox(height: 8)],
                           if (d.failureReason != null) ...[_failure(d), const SizedBox(height: 8)],
+                          _tracking(d),
+                          const SizedBox(height: 8),
                           _timeline(d),
                           const SizedBox(height: 8),
                           _recipient(d),
@@ -213,6 +215,32 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
   }
 
   // ------------------------------------------------------------------ المسار
+
+  /// تتبّعه الآن (docs/plan/59): آخر حالةٍ ومتى، ومع أيّ مندوبٍ الطرد ما دام في الطريق
+  Widget _tracking(ShipmentDetail d) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: brand.softer,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: brand.border),
+    ),
+    child: Row(
+      children: [
+        SolidIcon(brand: brand, icon: Icons.my_location_rounded, size: 40, iconSize: 22, radius: 12),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('آخر تحديث: ${d.lastStatus ?? d.row.status}', style: font(14, w8, Palette.ink, height: 1.4)),
+              Text(when(d.lastAt ?? d.row.at), style: font(12, w6, Palette.slate, height: 1.4)),
+              if (d.courier != null) Text('مع المندوب: ${d.courier}', style: font(12.5, w7, brand.main, height: 1.4)),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _timeline(ShipmentDetail d) {
     final steps = d.timeline;

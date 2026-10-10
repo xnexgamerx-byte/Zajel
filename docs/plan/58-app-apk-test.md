@@ -7,7 +7,7 @@
 
 1. في GitHub: المستودع ← **Actions** ← **Merchant app** ← آخر تشغيلٍ أخضر.
 2. أسفل الصفحة في **Artifacts**:
-   - **zajel-merchant-apk** — على النظام الحقيقي (`https://zajel.wahaj.iq`).
+   - **zajel-merchant-apk** — على النظام الحقيقي (`https://zajel.wahajiq.net`).
    - **demo-merchant-apk** — بيانات العرض، بلا نظام (لعرض الشكل على أحد).
 3. يُنزَّل ملفّ zip، وفيه الـAPK. تبقى ١٤ يوماً.
 

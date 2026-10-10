@@ -316,7 +316,19 @@ class _VoiceSheetState extends State<_VoiceSheet> {
       // m4a على الهاتف، وwebm في المتصفّح — وكلاهما يسمعه الخادم
       final web = kIsWeb && !await r.isEncoderSupported(AudioEncoder.aacLc);
       final path = kIsWeb ? '' : '${(await getTemporaryDirectory()).path}/order.m4a';
-      await r.start(RecordConfig(encoder: web ? AudioEncoder.opus : AudioEncoder.aacLc, numChannels: 1), path: path);
+      // جودةٌ أعلى ليُسمع الكلام بدقّة: ٤٤٫١ كيلوهرتز و١٢٨ كيلوبت، وكتم الضجيج ورفع الصوت الخافت
+      await r.start(
+        RecordConfig(
+          encoder: web ? AudioEncoder.opus : AudioEncoder.aacLc,
+          numChannels: 1,
+          sampleRate: 44100,
+          bitRate: 128000,
+          noiseSuppress: true,
+          autoGain: true,
+          echoCancel: true,
+        ),
+        path: path,
+      );
       _tick();
     } catch (_) {
       setState(() => error = 'تعذّر بدء التسجيل. تأكّد أنّ المايك غير مشغولٍ بتطبيقٍ آخر.');
@@ -410,7 +422,8 @@ class _VoiceSheetState extends State<_VoiceSheet> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
           child: Text(
-            'مثلاً: «علي حسين، صفر سبعة سبعة واحد…، بغداد الكرادة قرب ساحة كهرمانة، خمسة وعشرين ألف»',
+            'مثلاً: «علي حسين، صفر سبعة سبعة واحد…، بغداد الكرادة قرب ساحة كهرمانة، خمسة وعشرين ألف»\n'
+            'تكلّم قريباً من الهاتف في مكانٍ هادئ، وقل الأرقام رقماً رقماً.',
             style: font(12, w6, Palette.slate, height: 1.6),
           ),
         ),

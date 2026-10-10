@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
 use App\Http\Controllers\Api\Merchant\ImportController as MerchantImportController;
 use App\Http\Controllers\Api\Merchant\PickupController as MerchantPickupController;
 use App\Http\Controllers\Api\Merchant\ProcessingController as MerchantProcessingController;
+use App\Http\Controllers\Api\Merchant\ProfileController as MerchantProfileController;
 use App\Http\Controllers\Api\Merchant\RequestController as MerchantRequestController;
 use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentController;
 use App\Http\Controllers\Api\Merchant\SupportController as MerchantSupportController;
@@ -36,6 +37,11 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
 
         Route::prefix('merchant')->name('merchant.')->middleware(['abilities:merchant', 'merchant'])->group(function () {
             Route::get('/home', MerchantHomeController::class)->name('home');
+            // صورته أو شعاره، والجرس (docs/plan/59)
+            Route::get('/logo', [MerchantProfileController::class, 'logo'])->name('logo.show');
+            Route::post('/logo', [MerchantProfileController::class, 'uploadLogo'])->middleware('throttle:20,60')->name('logo.store');
+            Route::delete('/logo', [MerchantProfileController::class, 'deleteLogo'])->name('logo.destroy');
+            Route::get('/notifications', [MerchantProfileController::class, 'notifications'])->name('notifications');
             Route::get('/shipments', [MerchantShipmentController::class, 'index'])->name('shipments.index');
             Route::get('/shipments/{shipment}', [MerchantShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.show');
             // «طلب جديد» (docs/plan/52): نموذج البوابة نفسه

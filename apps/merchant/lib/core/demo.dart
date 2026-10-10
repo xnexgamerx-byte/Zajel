@@ -97,6 +97,7 @@ class Demo {
   static ShipmentDetail shipment(int id) {
     final row = _all.firstWhere((s) => s.id == id, orElse: () => _all.first);
     final start = (row.at ?? DateTime.now()).subtract(const Duration(hours: 30));
+    final settled = row.tone == 'green' || row.status == 'للمعالجة';
     return ShipmentDetail(
       row: row,
       createdAt: start,
@@ -104,6 +105,9 @@ class Demo {
       failureReason: row.status == 'للمعالجة' ? 'الزبون لا يرد' : null,
       attempts: row.status == 'للمعالجة' ? 1 : 0,
       trackingUrl: 'https://example.com/t/${row.number}',
+      courier: row.tone == 'green' || row.tone == 'red' ? null : 'حيدر كريم',
+      lastStatus: row.status,
+      lastAt: settled ? row.at : start.add(const Duration(hours: 22)),
       timeline: [
         TimelineStep(title: 'جديد', at: start),
         TimelineStep(title: 'استلمه المندوب', at: start.add(const Duration(hours: 3))),
@@ -612,5 +616,39 @@ class Demo {
   static String confirmImport(bool skipErrors) {
     if (!skipErrors) throw ApiError('في الملف صفوف بأخطاء، عددها 1. صحّحه أو استورد الصفوف الصحيحة وحدها.');
     return 'أُنشئت شحناتك، عددها 2. اطلب استلاماً متى جهّزت الطرود. وتُخطّيت صفوف بأخطاء، عددها 1.';
+  }
+
+  // ---------------------------------------------------------------- الجرس (docs/plan/59)
+
+  static bool _noticesRead = false;
+
+  static List<AppNotice> notices() {
+    final fresh = !_noticesRead;
+    _noticesRead = true;
+    return [
+      AppNotice(
+        kind: 'support',
+        id: 1,
+        title: 'ردّت الشركة: تأخّر طرد الكرادة',
+        body: 'افتح المحادثة لتقرأ الردّ.',
+        fresh: true,
+        at: _ago(5),
+      ),
+      AppNotice(
+        kind: 'notice',
+        id: 2,
+        title: 'عطلة العيد',
+        body: 'لا توصيل يوم الجمعة، ويعود العمل السبت صباحاً.',
+        fresh: fresh,
+        at: _ago(20),
+      ),
+      AppNotice(
+        kind: 'notice',
+        id: 1,
+        title: 'أسعار جديدة للمحافظات',
+        body: 'تبدأ من أوّل الشهر — راجع «المالية».',
+        at: _ago(170),
+      ),
+    ];
   }
 }

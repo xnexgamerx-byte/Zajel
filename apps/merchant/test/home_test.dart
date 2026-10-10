@@ -30,14 +30,14 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final text in [
-      'صباح الخير، أحمد',
+      '، أحمد',
       'إجمالي المستحقات',
       'المتاح للسحب',
       'قيد المطابقة',
       '1,750,000',
       'إجمالي الشحنات',
-      'إنشاء بالذكاء الاصطناعي',
-      'أدوات سريعة',
+      'بالذكاء الاصطناعي',
+      'بالتسجيل الصوتي',
       'للمعالجة',
       'عرض الكل',
       '#ZA-20260124',
@@ -49,7 +49,9 @@ void main() {
     // إخفاء الرصيد بالعين
     await tester.tap(find.byIcon(Icons.visibility_outlined));
     await tester.pump();
-    expect(find.text('1,750,000'), findsNothing);
+    expect(find.textContaining('1,750,000'), findsNothing);
+    // والأدوات في «المزيد» لا في الرئيسية (docs/plan/59)
+    expect(find.text('أدوات سريعة'), findsNothing);
   });
 
   testWidgets('شحناتي: الشرائح والبحث وفتح الشحنة', (tester) async {
@@ -61,7 +63,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // عدّاد «مسلمة» في الرئيسية يفتح «شحناتي» على شريحته
-    await tester.tap(find.text('مسلمة').first);
+    await tester.tap(find.text('مسلّمة').first);
     await tester.pumpAndSettle();
     expect(find.text('شحناتي'), findsWidgets);
     expect(find.text('محمد علي'), findsOneWidget);

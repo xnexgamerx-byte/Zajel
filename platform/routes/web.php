@@ -1,23 +1,19 @@
 <?php
 
-use App\Http\Controllers\ShipmentLabelController;
-use App\Http\Controllers\TlsAskController;
-use App\Http\Controllers\TrackingController;
+use App\Http\Controllers\AppLinkController;
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
-use App\Http\Controllers\Platform\CompanySystemController;
 use App\Http\Controllers\Courier\ActionController as CourierActionController;
 use App\Http\Controllers\Courier\CashController as CourierCashController;
+use App\Http\Controllers\Courier\ChatController as CourierChatAppController;
 use App\Http\Controllers\Courier\PickupController as CourierPickupController;
 use App\Http\Controllers\Courier\ShareController as CourierShareController;
 use App\Http\Controllers\Courier\TaskController;
 use App\Http\Controllers\Courier\TicketController as CourierTicketController;
-use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
-use App\Http\Controllers\AppLinkController;
-use App\Http\Controllers\Portal\PickupRequestController;
-use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
-use App\Http\Controllers\Portal\ShipmentImportController as PortalShipmentImportController;
-use App\Http\Controllers\Portal\StatementController;
+use App\Http\Controllers\InboxController;
+use App\Http\Controllers\OrderListeningController;
+use App\Http\Controllers\OrderReadingController;
+use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
+use App\Http\Controllers\Platform\CompanySystemController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 use App\Http\Controllers\Platform\FeatureController;
 use App\Http\Controllers\Platform\ImpersonationController;
@@ -27,80 +23,86 @@ use App\Http\Controllers\Platform\PaymentNoticeController;
 use App\Http\Controllers\Platform\PlanController;
 use App\Http\Controllers\Platform\SettingsController as PlatformSettingsController;
 use App\Http\Controllers\Platform\SubscriptionController as PlatformSubscriptionController;
-use App\Http\Controllers\InboxController;
-use App\Http\Controllers\OrderListeningController;
-use App\Http\Controllers\OrderReadingController;
+use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
+use App\Http\Controllers\Portal\PickupRequestController;
+use App\Http\Controllers\Portal\ProcessingController as PortalProcessingController;
+use App\Http\Controllers\Portal\RequestController as PortalRequestController;
+use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
+use App\Http\Controllers\Portal\ShipmentImportController as PortalShipmentImportController;
+use App\Http\Controllers\Portal\StatementController;
 use App\Http\Controllers\Portal\SupportController as PortalSupportController;
-use App\Http\Controllers\Tenant\BillingController;
+use App\Http\Controllers\Portal\WaybillController as PortalWaybillController;
+use App\Http\Controllers\ShipmentLabelController;
+use App\Http\Controllers\Tenant\AccountantAccountsController;
 use App\Http\Controllers\Tenant\AnnouncementController;
-use App\Http\Controllers\Tenant\HomeLayoutController;
+use App\Http\Controllers\Tenant\AppAdController;
+use App\Http\Controllers\Tenant\AreaController;
+use App\Http\Controllers\Tenant\BagController;
+use App\Http\Controllers\Tenant\BillingController;
 use App\Http\Controllers\Tenant\BranchAccountController;
+use App\Http\Controllers\Tenant\BranchController;
+use App\Http\Controllers\Tenant\BranchRemittanceController;
+use App\Http\Controllers\Tenant\CashBoxController;
 use App\Http\Controllers\Tenant\CompanyLogoController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
-use App\Http\Controllers\Tenant\ConversationController;
-use App\Http\Controllers\Tenant\OperationalAlertController;
-use App\Http\Controllers\Tenant\ReconcileController;
-use App\Http\Controllers\Tenant\PassedThroughController;
-use App\Http\Controllers\Tenant\ShipmentArchiveController;
-use App\Http\Controllers\Tenant\ProcessingController;
-use App\Http\Controllers\Tenant\ShipmentTicketController;
-use App\Http\Controllers\Tenant\QuickEntryController;
-use App\Http\Controllers\Tenant\RankController;
-use App\Http\Controllers\Tenant\ReviewHoldController;
-use App\Http\Controllers\Tenant\ShipmentExportController;
-use App\Http\Controllers\Tenant\ShipmentDistributeController;
-use App\Http\Controllers\Tenant\ShipmentScanController;
-use App\Http\Controllers\Tenant\ShipmentTrashController;
-use App\Http\Controllers\Tenant\UserGrantController;
-use App\Http\Controllers\Tenant\BranchController;
-use App\Http\Controllers\Tenant\BagController;
-use App\Http\Controllers\Tenant\CashBoxController;
 use App\Http\Controllers\Tenant\ControlController;
+use App\Http\Controllers\Tenant\ConversationController;
+use App\Http\Controllers\Tenant\CourierChatController;
 use App\Http\Controllers\Tenant\CourierController;
 use App\Http\Controllers\Tenant\CourierManifestController;
-use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
-use App\Http\Controllers\Tenant\MerchantSettlementController;
+use App\Http\Controllers\Tenant\CourierTrackingController;
+use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\ExpenseController;
+use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\FlowReportController;
-use App\Http\Controllers\Tenant\PrepaidFeeController;
-use App\Http\Controllers\Tenant\ShipmentWaybillController;
-use App\Http\Controllers\Tenant\TransferController;
-use App\Http\Controllers\Tenant\CourierChatController;
-use App\Http\Controllers\Tenant\StaffChatController;
-use App\Http\Controllers\Courier\ChatController as CourierChatAppController;
-use App\Http\Controllers\Tenant\ShipmentActivityController;
-use App\Http\Controllers\Tenant\ShipmentOverrideController;
-use App\Http\Controllers\Tenant\MerchantAdvanceController;
-use App\Http\Controllers\Tenant\WaybillBookController;
-use App\Http\Controllers\Portal\WaybillController as PortalWaybillController;
+use App\Http\Controllers\Tenant\GovernorateSettingController;
+use App\Http\Controllers\Tenant\HomeLayoutController;
 use App\Http\Controllers\Tenant\ManifestController;
+use App\Http\Controllers\Tenant\MerchantAdvanceController;
 use App\Http\Controllers\Tenant\MerchantController;
-use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
+use App\Http\Controllers\Tenant\MerchantRequestController;
+use App\Http\Controllers\Tenant\MerchantSettlementController;
+use App\Http\Controllers\Tenant\MyCashBoxController;
+use App\Http\Controllers\Tenant\OperationalAlertController;
+use App\Http\Controllers\Tenant\PassedThroughController;
 use App\Http\Controllers\Tenant\PermissionController;
 use App\Http\Controllers\Tenant\PickupAgentController;
+use App\Http\Controllers\Tenant\PickupRequestController as TenantPickupRequestController;
+use App\Http\Controllers\Tenant\PrepaidFeeController;
 use App\Http\Controllers\Tenant\PriceListController;
-use App\Http\Controllers\Tenant\ReportController;
-use App\Http\Controllers\Tenant\ReturnController;
 use App\Http\Controllers\Tenant\PricingQuoteController;
-use App\Http\Controllers\Tenant\ShipmentAmountController;
-use App\Http\Controllers\Tenant\ShipmentController;
-use App\Http\Controllers\Tenant\ShipmentImportController;
-use App\Http\Controllers\Tenant\ShipmentStatusController;
-use App\Http\Controllers\Tenant\UserController;
-use App\Http\Controllers\Tenant\ZoneController;
-use App\Http\Controllers\Tenant\AppAdController;
+use App\Http\Controllers\Tenant\ProcessingController;
+use App\Http\Controllers\Tenant\QuickEntryController;
+use App\Http\Controllers\Tenant\RankController;
+use App\Http\Controllers\Tenant\ReconcileController;
 use App\Http\Controllers\Tenant\ReferenceReportController;
-use App\Http\Controllers\Tenant\FinancialPositionController;
-use App\Http\Controllers\Tenant\BranchRemittanceController;
-use App\Http\Controllers\Tenant\MyCashBoxController;
-use App\Http\Controllers\Tenant\AccountantAccountsController;
-use App\Http\Controllers\Tenant\AreaController;
-use App\Http\Controllers\Tenant\GovernorateSettingController;
-use App\Http\Controllers\Tenant\MerchantRequestController;
+use App\Http\Controllers\Tenant\ReportController;
 use App\Http\Controllers\Tenant\ReturnBatchController;
-use App\Http\Controllers\Portal\RequestController as PortalRequestController;
-use App\Http\Controllers\Portal\ProcessingController as PortalProcessingController;
+use App\Http\Controllers\Tenant\ReturnController;
+use App\Http\Controllers\Tenant\ReviewHoldController;
+use App\Http\Controllers\Tenant\ShipmentActivityController;
+use App\Http\Controllers\Tenant\ShipmentAmountController;
+use App\Http\Controllers\Tenant\ShipmentArchiveController;
+use App\Http\Controllers\Tenant\ShipmentController;
+use App\Http\Controllers\Tenant\ShipmentDistributeController;
+use App\Http\Controllers\Tenant\ShipmentExportController;
+use App\Http\Controllers\Tenant\ShipmentImportController;
+use App\Http\Controllers\Tenant\ShipmentOverrideController;
+use App\Http\Controllers\Tenant\ShipmentScanController;
+use App\Http\Controllers\Tenant\ShipmentStatusController;
+use App\Http\Controllers\Tenant\ShipmentTicketController;
+use App\Http\Controllers\Tenant\ShipmentTrashController;
+use App\Http\Controllers\Tenant\ShipmentWaybillController;
+use App\Http\Controllers\Tenant\StaffChatController;
+use App\Http\Controllers\Tenant\TransferController;
+use App\Http\Controllers\Tenant\UserController;
+use App\Http\Controllers\Tenant\UserGrantController;
+use App\Http\Controllers\Tenant\WaybillBookController;
+use App\Http\Controllers\Tenant\ZoneController;
+use App\Http\Controllers\TlsAskController;
+use App\Http\Controllers\TrackingController;
+use App\Http\Middleware\EnsureUserBelongsToTenant;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -176,6 +178,9 @@ Route::middleware('tenant')->group(function () {
         // قبل /shipments/{shipment}: وإلا قُرئت «labels» رقمَ شحنة
         Route::get('/shipments/labels', [ShipmentLabelController::class, 'staff'])
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.labels');
+        // أين كلّ مندوبٍ الآن، من آخر شحنةٍ تحدّثت على يده (docs/plan/59)
+        Route::get('/couriers/tracking', CourierTrackingController::class)
+            ->middleware(['staff', 'can:shipments.view'])->name('couriers.tracking');
         Route::get('/shipments/stages', [ShipmentController::class, 'stages'])
             ->middleware(['staff', 'can:shipments.view'])->name('shipments.stages');
         Route::get('/shipments/passed', [PassedThroughController::class, 'index'])
@@ -346,30 +351,30 @@ Route::middleware('tenant')->group(function () {
 
             // عشرة تقارير لا واحد وثلاثون
             Route::middleware('can:reports.view')->group(function () {
-            Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-            Route::get('/reports/returns', [ReportController::class, 'returns'])->name('reports.returns');
-            Route::get('/reports/couriers', [ReportController::class, 'couriers'])->name('reports.couriers');
-            Route::get('/reports/merchants', [ReportController::class, 'merchants'])->name('reports.merchants');
-            Route::get('/reports/governorates', [ReportController::class, 'governorates'])->name('reports.governorates');
-            Route::get('/reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
-            Route::get('/reports/dormant', [ReportController::class, 'dormant'])->name('reports.dormant');
-            Route::get('/reports/debtors', [ReportController::class, 'debtors'])->name('reports.debtors');
-            Route::get('/reports/changes', [ReportController::class, 'changes'])->name('reports.changes');
-            // وما في المعتاد غيرها، كلٌّ بسؤاله
-            Route::get('/reports/entries', [ReferenceReportController::class, 'entries'])->name('reports.entries');
-            Route::get('/reports/portal', [ReferenceReportController::class, 'portal'])->name('reports.portal');
-            Route::get('/reports/processing', [ReferenceReportController::class, 'processing'])->name('reports.processing');
-            Route::get('/reports/stuck', [ReferenceReportController::class, 'stuck'])->name('reports.stuck');
-            Route::get('/reports/special-prices', [ReferenceReportController::class, 'specialPrices'])->name('reports.special-prices');
-            Route::get('/reports/unconfirmed', [ReferenceReportController::class, 'unconfirmed'])->name('reports.unconfirmed');
-            Route::get('/reports/notifications', [ReferenceReportController::class, 'notifications'])->name('reports.notifications');
-            // تتبّع الدفق: من مندوب الاستلام إلى تسوية التاجر، ومن فرعٍ إلى فرع
-            Route::get('/reports/pickup-received', [FlowReportController::class, 'pickupReceived'])->name('reports.pickup-received');
-            Route::get('/reports/pickup-performance', [FlowReportController::class, 'pickupPerformance'])->name('reports.pickup-performance');
-            Route::get('/reports/unsettled', [FlowReportController::class, 'unsettled'])->name('reports.unsettled');
-            Route::get('/reports/repriced', [FlowReportController::class, 'repriced'])->name('reports.repriced');
-            Route::get('/reports/distribution', [FlowReportController::class, 'distribution'])->name('reports.distribution');
-            Route::get('/reports/branch-traffic', [FlowReportController::class, 'branchTraffic'])->name('reports.branch-traffic');
+                Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+                Route::get('/reports/returns', [ReportController::class, 'returns'])->name('reports.returns');
+                Route::get('/reports/couriers', [ReportController::class, 'couriers'])->name('reports.couriers');
+                Route::get('/reports/merchants', [ReportController::class, 'merchants'])->name('reports.merchants');
+                Route::get('/reports/governorates', [ReportController::class, 'governorates'])->name('reports.governorates');
+                Route::get('/reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
+                Route::get('/reports/dormant', [ReportController::class, 'dormant'])->name('reports.dormant');
+                Route::get('/reports/debtors', [ReportController::class, 'debtors'])->name('reports.debtors');
+                Route::get('/reports/changes', [ReportController::class, 'changes'])->name('reports.changes');
+                // وما في المعتاد غيرها، كلٌّ بسؤاله
+                Route::get('/reports/entries', [ReferenceReportController::class, 'entries'])->name('reports.entries');
+                Route::get('/reports/portal', [ReferenceReportController::class, 'portal'])->name('reports.portal');
+                Route::get('/reports/processing', [ReferenceReportController::class, 'processing'])->name('reports.processing');
+                Route::get('/reports/stuck', [ReferenceReportController::class, 'stuck'])->name('reports.stuck');
+                Route::get('/reports/special-prices', [ReferenceReportController::class, 'specialPrices'])->name('reports.special-prices');
+                Route::get('/reports/unconfirmed', [ReferenceReportController::class, 'unconfirmed'])->name('reports.unconfirmed');
+                Route::get('/reports/notifications', [ReferenceReportController::class, 'notifications'])->name('reports.notifications');
+                // تتبّع الدفق: من مندوب الاستلام إلى تسوية التاجر، ومن فرعٍ إلى فرع
+                Route::get('/reports/pickup-received', [FlowReportController::class, 'pickupReceived'])->name('reports.pickup-received');
+                Route::get('/reports/pickup-performance', [FlowReportController::class, 'pickupPerformance'])->name('reports.pickup-performance');
+                Route::get('/reports/unsettled', [FlowReportController::class, 'unsettled'])->name('reports.unsettled');
+                Route::get('/reports/repriced', [FlowReportController::class, 'repriced'])->name('reports.repriced');
+                Route::get('/reports/distribution', [FlowReportController::class, 'distribution'])->name('reports.distribution');
+                Route::get('/reports/branch-traffic', [FlowReportController::class, 'branchTraffic'])->name('reports.branch-traffic');
             });
 
             // مراسلة الموظّفين: موظّفٌ لموظّف أو لقسمٍ كلّه (docs/plan/41) — لكل موظّف
@@ -417,38 +422,38 @@ Route::middleware('tenant')->group(function () {
 
             // النقل بين المراكز: كيس مختوم على كشف، والوارد يُستلَم كيساً كيساً
             Route::middleware('can:transport.manage')->group(function () {
-            // النقل بين الفروع بخطوةٍ واحدة: يُرسَل ويُستلَم، والكيس والكشف يُبنيان وحدهما (docs/plan/38)
-            Route::get('/transfers', [TransferController::class, 'index'])->name('transfers.index');
-            Route::post('/transfers', [TransferController::class, 'send'])->name('transfers.send');
-            // الوارد يُستلم بمسح كلّ طلبٍ بوحده، وما لم يُمسح «لم يصل» (docs/plan/50)
-            Route::get('/transfers/{manifest}/receive', [TransferController::class, 'receiveForm'])->name('transfers.receive.form');
-            Route::get('/transfers/{manifest}/lookup', [TransferController::class, 'lookup'])->name('transfers.lookup');
-            Route::post('/transfers/{manifest}/receive', [TransferController::class, 'receive'])->name('transfers.receive');
+                // النقل بين الفروع بخطوةٍ واحدة: يُرسَل ويُستلَم، والكيس والكشف يُبنيان وحدهما (docs/plan/38)
+                Route::get('/transfers', [TransferController::class, 'index'])->name('transfers.index');
+                Route::post('/transfers', [TransferController::class, 'send'])->name('transfers.send');
+                // الوارد يُستلم بمسح كلّ طلبٍ بوحده، وما لم يُمسح «لم يصل» (docs/plan/50)
+                Route::get('/transfers/{manifest}/receive', [TransferController::class, 'receiveForm'])->name('transfers.receive.form');
+                Route::get('/transfers/{manifest}/lookup', [TransferController::class, 'lookup'])->name('transfers.lookup');
+                Route::post('/transfers/{manifest}/receive', [TransferController::class, 'receive'])->name('transfers.receive');
 
-            Route::get('/bags', [BagController::class, 'index'])->name('bags.index');
-            Route::post('/bags', [BagController::class, 'store'])->name('bags.store');
-            Route::get('/bags/{bag}', [BagController::class, 'show'])->name('bags.show');
-            Route::post('/bags/{bag}/add', [BagController::class, 'add'])->name('bags.add');
-            Route::delete('/bags/{bag}/shipments/{shipment}', [BagController::class, 'remove'])->name('bags.remove');
-            Route::post('/bags/{bag}/seal', [BagController::class, 'seal'])->name('bags.seal');
-            Route::post('/bags/{bag}/open', [BagController::class, 'open'])->name('bags.open');
+                Route::get('/bags', [BagController::class, 'index'])->name('bags.index');
+                Route::post('/bags', [BagController::class, 'store'])->name('bags.store');
+                Route::get('/bags/{bag}', [BagController::class, 'show'])->name('bags.show');
+                Route::post('/bags/{bag}/add', [BagController::class, 'add'])->name('bags.add');
+                Route::delete('/bags/{bag}/shipments/{shipment}', [BagController::class, 'remove'])->name('bags.remove');
+                Route::post('/bags/{bag}/seal', [BagController::class, 'seal'])->name('bags.seal');
+                Route::post('/bags/{bag}/open', [BagController::class, 'open'])->name('bags.open');
 
-            // كشف عهدة المندوب — ورقة تخرج معه وتُطابَق عند عودته
-            Route::get('/courier-manifests', [CourierManifestController::class, 'index'])->name('courier-manifests.index');
-            Route::get('/courier-manifests/{courier}', [CourierManifestController::class, 'show'])->name('courier-manifests.show');
-            Route::get('/courier-manifests/{courier}/{date}', [CourierManifestController::class, 'day'])->withTrashed()
-                ->where('date', '\d{4}-\d{2}-\d{2}')->name('courier-manifests.day');
+                // كشف عهدة المندوب — ورقة تخرج معه وتُطابَق عند عودته
+                Route::get('/courier-manifests', [CourierManifestController::class, 'index'])->name('courier-manifests.index');
+                Route::get('/courier-manifests/{courier}', [CourierManifestController::class, 'show'])->name('courier-manifests.show');
+                Route::get('/courier-manifests/{courier}/{date}', [CourierManifestController::class, 'day'])->withTrashed()
+                    ->where('date', '\d{4}-\d{2}-\d{2}')->name('courier-manifests.day');
 
-            Route::get('/manifests', [ManifestController::class, 'index'])->name('manifests.index');
-            Route::post('/manifests', [ManifestController::class, 'store'])->name('manifests.store');
-            Route::get('/manifests/inbound', [ManifestController::class, 'inbound'])->name('manifests.inbound');
-            Route::get('/manifests/archive', [ManifestController::class, 'archive'])->name('manifests.archive');
-            Route::get('/manifests/{manifest}/print', [ManifestController::class, 'print'])->name('manifests.print');
-            Route::get('/manifests/{manifest}', [ManifestController::class, 'show'])->name('manifests.show');
-            Route::post('/manifests/{manifest}/load', [ManifestController::class, 'load'])->name('manifests.load');
-            Route::delete('/manifests/{manifest}/bags/{bag}', [ManifestController::class, 'unload'])->name('manifests.unload');
-            Route::post('/manifests/{manifest}/dispatch', [ManifestController::class, 'dispatchManifest'])->name('manifests.dispatch');
-            Route::post('/manifests/{manifest}/receive', [ManifestController::class, 'receive'])->name('manifests.receive');
+                Route::get('/manifests', [ManifestController::class, 'index'])->name('manifests.index');
+                Route::post('/manifests', [ManifestController::class, 'store'])->name('manifests.store');
+                Route::get('/manifests/inbound', [ManifestController::class, 'inbound'])->name('manifests.inbound');
+                Route::get('/manifests/archive', [ManifestController::class, 'archive'])->name('manifests.archive');
+                Route::get('/manifests/{manifest}/print', [ManifestController::class, 'print'])->name('manifests.print');
+                Route::get('/manifests/{manifest}', [ManifestController::class, 'show'])->name('manifests.show');
+                Route::post('/manifests/{manifest}/load', [ManifestController::class, 'load'])->name('manifests.load');
+                Route::delete('/manifests/{manifest}/bags/{bag}', [ManifestController::class, 'unload'])->name('manifests.unload');
+                Route::post('/manifests/{manifest}/dispatch', [ManifestController::class, 'dispatchManifest'])->name('manifests.dispatch');
+                Route::post('/manifests/{manifest}/receive', [ManifestController::class, 'receive'])->name('manifests.receive');
             });
 
             // القاصة والمصروفات: كم في الدرج، وأين ذهب
@@ -752,7 +757,7 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
 // الشركة — فلا معنى لطرد مَن كان فيها قبله: على مضيفٍ واحدٍ في التطوير
 // كان هو المدير نفسه، فيُطرَد إلى الدخول قبل أن تُصرَف تذكرته.
 Route::middleware('tenant')
-    ->withoutMiddleware(\App\Http\Middleware\EnsureUserBelongsToTenant::class)
+    ->withoutMiddleware(EnsureUserBelongsToTenant::class)
     ->get('/impersonate/{token}', [ImpersonationController::class, 'enter'])
     ->where('token', '[A-Za-z0-9]{64}')
     ->name('impersonation.enter');

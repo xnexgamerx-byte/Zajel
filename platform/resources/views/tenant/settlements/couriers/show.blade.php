@@ -80,7 +80,7 @@
                                               class="flex items-center gap-1.5">
                                             @csrf
                                             <input type="hidden" name="shipment_id" value="{{ $line->shipment_id }}">
-                                            <input name="courier_commission" type="number" min="0" step="250" required
+                                            <input name="courier_commission" type="number" min="0" step="1" required
                                                    value="{{ (int) $line->commission }}" aria-label="عمولة المندوب على {{ $line->shipment->number }}"
                                                    class="field-input w-24 py-1 text-left text-sm font-semibold text-ok-700">
                                             <button class="btn-ghost px-2 py-1 text-xs">حفظ</button>

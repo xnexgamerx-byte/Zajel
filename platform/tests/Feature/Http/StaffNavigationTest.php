@@ -144,20 +144,20 @@ class StaffNavigationTest extends TestCase
         $requests = $menus[array_search('الطلبات', $labels, true)];
         $this->assertSame(['طلبات المناديب لتغيير المبلغ'], array_column($requests['links'], 'label'));
         $delivery = $menus[array_search('التوصيل', $labels, true)];
-        $this->assertSame(['كل مراحل النقل', 'استلام بالمسح'],   // والتوزيع للمُسنِد وحده (docs/plan/50)
+        $this->assertSame(['كل مراحل النقل', 'تتبّع المناديب', 'استلام بالمسح'],   // والتوزيع للمُسنِد وحده (docs/plan/50)
             array_column($delivery['links'], 'label'));
         $review = $menus[array_search('المتابعة', $labels, true)];
         $this->assertSame(['التنبيهات التشغيلية', 'شحنات لم تُسلَّم (للمعالجة)', 'مراسلة الموظفين', 'المحادثات', 'محادثة المناديب', 'رسالتي الثابتة للتاجر'], array_column($review['links'], 'label'));
 
-        // والقائمة التي بقي فيها رابطٌ واحد رابطٌ مباشر: لا قائمة تنسدل بسطرٍ واحد —
-        // المحاسب يرى من التوصيل «كل مراحل النقل» وحدها: عدّاداتٌ للقراءة
+        // المحاسب يرى من التوصيل للقراءة: المراحل بعدّاداتها، وأين المناديب (docs/plan/59)
         $accountant = $this->makeUser($this->company, UserRole::Accountant);
         $accounts = Tenancy::runFor($this->company, fn () => StaffNavigation::for($accountant, Request::create('/')));
         $delivery = collect($accounts)->firstWhere('label', 'التوصيل');
-        $this->assertSame(['كل مراحل النقل'], array_column($delivery['links'], 'label'));
-        $this->assertSame($delivery['links'][0]['url'], $delivery['url']);
+        $this->assertSame(['كل مراحل النقل', 'تتبّع المناديب'], array_column($delivery['links'], 'label'));
+        // والقائمة ذات الرابط الواحد رابطٌ مباشر: لا قائمة تنسدل بسطرٍ واحد
         $home = $menus[array_search('الرئيسية', $labels, true)];
         $this->assertSame(['لوحة اليوم'], array_column($home['links'], 'label'));
+        $this->assertSame($home['links'][0]['url'], $home['url']);
         $this->assertNotNull($home['url']);
 
         // والتقارير: أرباح الشحنات لمن يرى أرباح الشركة وحده

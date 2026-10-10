@@ -2,9 +2,11 @@
 
 namespace App\Support;
 
+use App\Actions\Support\StaffChat;
 use App\Enums\Feature;
 use App\Models\Company;
 use App\Models\Conversation;
+use App\Models\CourierThread;
 use App\Models\ShipmentTicket;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
@@ -60,6 +62,8 @@ final class StaffNavigation
             // رحلة الشحنة يوماً بيوم: من استلامها من التاجر حتى الزبون، وبين الفروع
             'delivery' => ['التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],
+                // أين كلّ مندوبٍ الآن (docs/plan/59)
+                ['couriers.tracking', 'تتبّع المناديب', ['couriers.tracking'], 'shipments.view'],
                 // الاستلام في المخزن وحده، والتوزيع لكلّ محافظةٍ على مناديب مناطقها (docs/plan/50)
                 ['shipments.scan', 'استلام بالمسح', ['shipments.scan'], 'shipments.status'],
                 ['shipments.distribute', 'توزيع بالمسح', ['shipments.distribute*'], 'shipments.assign'],
@@ -184,25 +188,25 @@ final class StaffNavigation
 
         // ومحادثات المناديب التي كتب فيها المندوب آخر سطر (docs/plan/38)
         $couriersWaiting = $user->can('support.reply') && FeatureGate::enabled(Feature::Conversations)
-            ? \App\Models\CourierThread::visibleTo($user)->where('staff_unread', true)->count()
+            ? CourierThread::visibleTo($user)->where('staff_unread', true)->count()
             : 0;
 
         // ورسائل الموظّفين التي لم يقرأها (docs/plan/41)
-        $staffUnread = app(\App\Actions\Support\StaffChat::class)->unreadCount($user);
+        $staffUnread = app(StaffChat::class)->unreadCount($user);
 
         // وطلبات المناديب المفتوحة في محافظات اختصاصه (docs/plan/30)
         $tickets = $user->can('tickets.handle') ? ShipmentTicket::visibleTo($user)->open()->count() : 0;
 
         $menus = [];
 
-        foreach (static::ordered(Tenancy::company()) as $key => [$label, $icon, $links]) {
+        foreach (self::ordered(Tenancy::company()) as $key => [$label, $icon, $links]) {
             $visible = [];
 
             foreach ($links as $link) {
                 [$route, $text, $patterns, $ability] = $link;
                 $params = $link[4] ?? [];
 
-                if (! static::allows($user, $route, $ability)) {
+                if (! self::allows($user, $route, $ability)) {
                     continue;
                 }
 
@@ -214,17 +218,17 @@ final class StaffNavigation
                 $here = $request->routeIs(...$patterns);
 
                 $visible[] = [
-                    'label'  => $text,
-                    'url'    => route($route, $params),
-                    'here'   => $here,
+                    'label' => $text,
+                    'url' => route($route, $params),
+                    'here' => $here,
                     // رابطٌ بمعاملات (جمهور الإشعار) حاليٌّ حين تطابق معاملاته الطلب
                     'active' => $here && collect($params)->every(fn ($value, $key) => $request->query($key) === $value),
-                    'badge'  => match ($route) {
+                    'badge' => match ($route) {
                         'conversations.index' => $waiting,
-                        'courier-chat.index'  => $couriersWaiting,
-                        'staff-chat.index'    => $staffUnread,
-                        'tickets.index'       => $tickets,
-                        default               => 0,
+                        'courier-chat.index' => $couriersWaiting,
+                        'staff-chat.index' => $staffUnread,
+                        'tickets.index' => $tickets,
+                        default => 0,
                     },
                 ];
             }
@@ -234,14 +238,14 @@ final class StaffNavigation
             }
 
             $menus[] = [
-                'key'    => $key,
-                'label'  => $label,
-                'icon'   => $icon,
+                'key' => $key,
+                'label' => $label,
+                'icon' => $icon,
                 'active' => in_array(true, array_column($visible, 'here'), true),
-                'badge'  => array_sum(array_column($visible, 'badge')),
+                'badge' => array_sum(array_column($visible, 'badge')),
                 // رابطٌ واحد يبقى: يُفتح بضغطةٍ لا بقائمةٍ فيها سطرٌ واحد
-                'url'    => count($visible) === 1 ? $visible[0]['url'] : null,
-                'links'  => array_map(fn (array $link) => Arr::except($link, 'here'), $visible),
+                'url' => count($visible) === 1 ? $visible[0]['url'] : null,
+                'links' => array_map(fn (array $link) => Arr::except($link, 'here'), $visible),
             ];
         }
 
@@ -257,7 +261,7 @@ final class StaffNavigation
      */
     public static function ordered(?Company $company): array
     {
-        $menus = static::menus();
+        $menus = self::menus();
         $order = $company?->setting('navigation');
 
         if (! is_array($order)) {
@@ -288,7 +292,8 @@ final class StaffNavigation
      * الشريط (docs/plan/53). وما لا جار له قبله يأتي بعد المرتَّب.
      *
      * @template T
-     * @param array<string, T> $items
+     *
+     * @param  array<string, T>  $items
      * @return array<string, T>
      */
     private static function arrange(array $items, mixed $order): array

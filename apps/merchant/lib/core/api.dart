@@ -189,6 +189,26 @@ class Api {
     await _storage.delete(key: _tokenKey);
   }
 
+  // ---------------------------------------------------------------- الصورة والجرس (docs/plan/59)
+
+  /// صورته أو شعاره — ويعود رابطها الجديد
+  Future<String?> uploadLogo(Uint8List bytes, String filename) async {
+    if (AppConfig.demo) return null;
+    return (await _upload('/merchant/logo', 'logo', bytes, filename))['logo'] as String?;
+  }
+
+  Future<void> deleteLogo() async {
+    if (AppConfig.demo) return;
+    await _send(http.delete(_uri('/merchant/logo'), headers: _headers));
+  }
+
+  /// الجرس: يُفتح فيُقرأ ما فيه من إعلانات
+  Future<List<AppNotice>> notifications() async {
+    if (AppConfig.demo) return Demo.notices();
+    final body = await _send(http.get(_uri('/merchant/notifications'), headers: _headers));
+    return [for (final n in body['data'] as List) AppNotice.fromJson((n as Map).cast())];
+  }
+
   // ---------------------------------------------------------------- الأدوات السريعة (docs/plan/56)
 
   /// ما يفتح ملفّات المحادثة (الصور) برمز التاجر
