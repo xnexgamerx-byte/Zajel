@@ -342,3 +342,48 @@ document.addEventListener('click', (event) => {
     field.setSelectionRange(field.value.length, field.value.length);
     field.dispatchEvent(new Event('input', { bubbles: true }));
 });
+
+/**
+ * المحادثات حيّة (docs/plan/61): ما يحمل data-live (بثوانيه) وid يُجلب من الصفحة نفسها كل
+ * بضع ثوانٍ ويُستبدل إن تغيّر — فتظهر الرسالة الجديدة بلا خروجٍ من المحادثة والرجوع إليها.
+ * لا يُسأل والصفحة مخفيّة، ولا سؤالان معاً. وما كان عند آخره (data-scroll-end) يبقى عند آخره.
+ */
+const liveParts = () => [...document.querySelectorAll('[data-live][id]')];
+
+if (liveParts().length) {
+    const seconds = Math.max(4, Math.min(...liveParts().map((part) => Number(part.dataset.live) || 8)));
+    let asking = false;
+
+    window.setInterval(async () => {
+        if (asking || document.hidden) return;
+        asking = true;
+
+        try {
+            const response = await fetch(window.location.href, { headers: { 'X-Live': '1' }, credentials: 'same-origin' });
+
+            if (!response.ok || response.redirected) return;
+
+            const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+
+            for (const part of liveParts()) {
+                const fresh = page.getElementById(part.id);
+
+                if (!fresh || fresh.innerHTML === part.innerHTML) continue;
+
+                const atEnd = part.scrollHeight - part.scrollTop - part.clientHeight < 40;
+                const pageAtEnd = window.innerHeight + window.scrollY >= document.body.scrollHeight - 80;
+                part.innerHTML = fresh.innerHTML;
+
+                if (part.hasAttribute('data-scroll-end') && atEnd) {
+                    part.scrollTop = part.scrollHeight;
+                } else if (!part.hasAttribute('data-scroll-end') && pageAtEnd && part.matches('ol')) {
+                    window.scrollTo({ top: document.body.scrollHeight });
+                }
+            }
+        } catch {
+            // الشبكة انقطعت: يُسأل في الدورة القادمة
+        } finally {
+            asking = false;
+        }
+    }, seconds * 1000);
+}

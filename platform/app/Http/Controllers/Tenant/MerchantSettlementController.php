@@ -92,9 +92,45 @@ class MerchantSettlementController extends Controller
             'lines'      => $settlement->lines()->with('shipment.governorate:id,name_ar')
                 ->orderBy('id')->paginate(100),
             'editable'     => $editable,
+            'feesEditable' => $editable && $request->user()->can('shipments.override'),
             'addable'      => $editable ? $edit->addable($settlement) : collect(),
             'addableCount' => $editable ? $edit->addableCount($settlement) : 0,
         ]);
+    }
+
+    /**
+     * أجرة التوصيل على التاجر — أو أجرة الراجع لسطر راجع — تُصحَّح من سطر المسودّة قبل الدفع
+     * (docs/plan/61)، كعمولة المندوب في كشفه: بتعديل أجور الشحنة نفسه (OverrideShipment)، فيُقيَّد
+     * الفرق في حسابه، ويُسجَّل في سجلّ الشحنة، ويُعاد السطر ومجاميع الكشف منها.
+     */
+    public function fee(Request $request, MerchantSettlement $settlement, \App\Actions\Shipments\OverrideShipment $override): RedirectResponse
+    {
+        abort_unless($settlement->status === 'draft', 422, 'الكشف أُقفل: تصحيح أجرته حركةٌ في الدفتر، لا تعديل سطر.');
+
+        $data = $request->validate([
+            'shipment_id' => ['required', 'integer'],
+            'fee'         => ['required', 'string', 'max:12'],
+        ], [], ['fee' => 'الأجرة']);
+
+        $fee = (int) preg_replace('/\D/', '', \App\Support\Phone::latinDigits($data['fee']));
+        if ($fee > 1_000_000) {
+            return back()->withErrors(['fee' => 'الأجرة أكبر من المعقول — راجع الرقم.']);
+        }
+
+        $line = $settlement->lines()->where('shipment_id', $data['shipment_id'])->with('shipment')->firstOrFail();
+        $shipment = $line->shipment;
+        $isReturn = ! $shipment->wasDelivered();
+
+        // سطر الواصل يعرض التوصيل مع الرسوم الإضافية: يُكتب المجموع، وتبقى الإضافية كما هي
+        [$field, $value, $before] = $isReturn
+            ? ['return_fee', $fee, (int) $line->return_fee]
+            : ['delivery_fee', max(0, $fee - (int) $shipment->extra_fee), (int) $line->delivery_fee];
+
+        $override->handle($shipment, [$field => $value], $request->user(),
+            ($isReturn ? 'تعديل أجرة الراجع' : 'تعديل أجرة التوصيل')." من كشف {$settlement->code}");
+
+        return back()->with('success', ($isReturn ? 'أجرة الراجع' : 'أجرة التوصيل')." على {$shipment->number}: "
+            .number_format($before).' ← '.number_format($fee).'.');
     }
 
     /** «حذف الكشف» في يومه: الدفعة والمقتطع للسلف يُعكسان، وتعود شحناته لكشفٍ جديد (docs/plan/38). */

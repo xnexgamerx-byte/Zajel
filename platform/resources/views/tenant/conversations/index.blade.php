@@ -25,7 +25,7 @@
                     {{ $filter === 'waiting' ? 'لا سؤال ينتظر ردّاً.' : 'لا محادثات هنا.' }}
                 </p>
             @else
-                <ul class="divide-y divide-ink-100">
+                <ul id="conversations" class="divide-y divide-ink-100" data-live="10">
                     @foreach ($conversations as $conversation)
                         <li>
                             <a href="{{ route('conversations.show', $conversation) }}"

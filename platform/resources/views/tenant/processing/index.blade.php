@@ -147,7 +147,7 @@
                                     @if ($merchantChat?->staff_unread)<span class="nav-badge">جديد</span>@endif
                                 </summary>
                                 <div class="mt-2 rounded-2xl border border-ink-200 bg-white p-3">
-                                    <ol class="max-h-64 space-y-2 overflow-y-auto" data-scroll-end aria-label="محادثة التاجر عن {{ $shipment->number }}">
+                                    <ol id="merchant-chat-{{ $shipment->id }}" class="max-h-64 space-y-2 overflow-y-auto" data-scroll-end data-live="10" aria-label="محادثة التاجر عن {{ $shipment->number }}">
                                         @forelse ($merchantChat?->messages ?? [] as $message)
                                             @php $ours = $message->author === 'staff'; @endphp
                                             <li class="flex {{ $ours ? 'justify-end' : 'justify-start' }}">
@@ -177,7 +177,7 @@
                                 </summary>
                                 <div class="mt-2 rounded-2xl border border-ink-200 bg-white p-3">
                                     {{-- رسائل هذه الشحنة وحدها، والأحدث أسفل (docs/plan/53) --}}
-                                    <ol class="max-h-64 space-y-2 overflow-y-auto" data-scroll-end aria-label="محادثة {{ $shipment->deliveryCourier->name }} عن {{ $shipment->number }}">
+                                    <ol id="courier-chat-{{ $shipment->id }}" class="max-h-64 space-y-2 overflow-y-auto" data-scroll-end data-live="10" aria-label="محادثة {{ $shipment->deliveryCourier->name }} عن {{ $shipment->number }}">
                                         @forelse ($courierMessages as $message)
                                             @php $ours = $message->author === 'staff'; @endphp
                                             <li @class(['flex', 'justify-end' => $ours, 'justify-start' => ! $ours])>

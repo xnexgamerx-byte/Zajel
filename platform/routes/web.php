@@ -592,6 +592,9 @@ Route::middleware('tenant')->group(function () {
                     Route::delete('merchants/{settlement}', [MerchantSettlementController::class, 'destroy'])->name('merchants.destroy');
                     Route::post('merchants/{settlement}/add', [MerchantSettlementController::class, 'addLines'])->name('merchants.lines.add');
                     Route::post('merchants/{settlement}/cancel', [MerchantSettlementController::class, 'cancel'])->name('merchants.cancel');
+                    // أجرة التوصيل (أو الراجع) من سطر المسودّة قبل الدفع (docs/plan/61)
+                    Route::post('merchants/{settlement}/fee', [MerchantSettlementController::class, 'fee'])
+                        ->middleware('can:shipments.override')->name('merchants.fee');
                 });
                 Route::post('merchants/{settlement}/pay', [MerchantSettlementController::class, 'pay'])
                     ->middleware('can:money.pay')->name('merchants.pay');

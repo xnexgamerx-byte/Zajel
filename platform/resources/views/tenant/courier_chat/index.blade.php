@@ -15,7 +15,7 @@
             <input name="q" type="search" value="{{ $q }}" class="field-input py-1.5" placeholder="ابحث باسم المندوب أو هاتفه">
             <button type="submit" class="btn-ghost px-3">ابحث</button>
         </form>
-        <ul class="max-h-[32rem] divide-y divide-ink-100 overflow-y-auto">
+        <ul id="courier-threads" class="max-h-[32rem] divide-y divide-ink-100 overflow-y-auto" data-live="6">
             @forelse ($threads as $thread)
                 <li>
                     <a href="{{ route('courier-chat.index', ['courier' => $thread->courier_id]) }}"
@@ -46,7 +46,7 @@
                 <a href="{{ route('courier-manifests.show', $courier) }}" class="btn-ghost text-sm">كشفه الآن</a>
             </div>
 
-            <ol class="mb-4 max-h-[28rem] space-y-3 overflow-y-auto" aria-label="الرسائل">
+            <ol id="courier-thread" class="mb-4 max-h-[28rem] space-y-3 overflow-y-auto" data-live="6" data-scroll-end aria-label="الرسائل">
                 @forelse ($messages as $message)
                     @php $mine = $message->author === 'staff'; @endphp
                     <li class="flex {{ $mine ? 'justify-end' : 'justify-start' }}">

@@ -74,11 +74,35 @@
                                 <td class="px-4 py-2.5 font-semibold" dir="ltr">
                                     {{ number_format($line->collected_amount) }}
                                 </td>
+                                @php $isReturn = ! $line->shipment->wasDelivered(); @endphp
                                 <td class="px-4 py-2.5 text-ink-600" dir="ltr">
-                                    {{ $line->delivery_fee ? '−'.number_format($line->delivery_fee) : '' }}
+                                    @if ($feesEditable && ! $isReturn)
+                                        {{-- أجرة التوصيل تُصحَّح هنا قبل الدفع (docs/plan/61) --}}
+                                        <form method="POST" action="{{ route('settlements.merchants.fee', $settlement) }}" class="flex items-center gap-1.5">
+                                            @csrf
+                                            <input type="hidden" name="shipment_id" value="{{ $line->shipment_id }}">
+                                            <input name="fee" type="number" min="0" step="1" required value="{{ (int) $line->delivery_fee }}"
+                                                   aria-label="أجرة التوصيل على {{ $line->shipment->number }}"
+                                                   class="field-input w-24 py-1 text-left text-sm">
+                                            <button class="btn-ghost px-2 py-1 text-xs">حفظ</button>
+                                        </form>
+                                    @else
+                                        {{ $line->delivery_fee ? '−'.number_format($line->delivery_fee) : '' }}
+                                    @endif
                                 </td>
                                 <td class="px-4 py-2.5 text-warn-700" dir="ltr">
-                                    {{ $line->return_fee ? '−'.number_format($line->return_fee) : '' }}
+                                    @if ($feesEditable && $isReturn)
+                                        <form method="POST" action="{{ route('settlements.merchants.fee', $settlement) }}" class="flex items-center gap-1.5">
+                                            @csrf
+                                            <input type="hidden" name="shipment_id" value="{{ $line->shipment_id }}">
+                                            <input name="fee" type="number" min="0" step="1" required value="{{ (int) $line->return_fee }}"
+                                                   aria-label="أجرة الراجع على {{ $line->shipment->number }}"
+                                                   class="field-input w-24 py-1 text-left text-sm text-warn-700">
+                                            <button class="btn-ghost px-2 py-1 text-xs">حفظ</button>
+                                        </form>
+                                    @else
+                                        {{ $line->return_fee ? '−'.number_format($line->return_fee) : '' }}
+                                    @endif
                                 </td>
                                 <td class="px-4 py-2.5 font-bold {{ $line->net_amount >= 0 ? '' : 'text-bad-700' }}"
                                     dir="ltr">{{ number_format($line->net_amount) }}</td>

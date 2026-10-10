@@ -31,7 +31,7 @@
         @if ($conversations->isEmpty())
             <p class="p-10 text-center text-ink-500">لم تبدأ محادثة بعد.</p>
         @else
-            <ul class="divide-y divide-ink-100">
+            <ul id="conversations" class="divide-y divide-ink-100" data-live="10">
                 @foreach ($conversations as $conversation)
                     <li>
                         <a href="{{ route('portal.support.show', $conversation) }}" class="flex items-start justify-between gap-3 px-5 py-3.5 transition hover:bg-ink-50">

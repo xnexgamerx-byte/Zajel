@@ -5,7 +5,7 @@
 <h1 class="mb-1 font-heading text-lg font-bold">المحادثة مع المكتب</h1>
 <p class="mb-3 text-sm text-ink-500">اكتب للكول سنتر عن أيّ شحنة: الزبون لا يردّ، العنوان غلط، يريد موعداً آخر.</p>
 
-<ol class="mb-4 space-y-3" aria-label="الرسائل">
+<ol id="courier-messages" class="mb-4 space-y-3" data-live="6" aria-label="الرسائل">
     @forelse ($messages as $message)
         @php $mine = $message->author === 'courier'; @endphp
         <li class="flex {{ $mine ? 'justify-end' : 'justify-start' }}">

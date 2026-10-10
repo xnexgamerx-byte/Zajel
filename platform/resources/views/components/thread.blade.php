@@ -7,7 +7,8 @@
   «fileRoute» مسار ملفّات الرسائل من جهة القارئ: الصورة مصغّرةٌ تُفتح
   كاملة، وغيرها رابطٌ باسمه وحجمه.
 --}}
-<ol class="space-y-3" aria-label="الرسائل">
+{{-- data-live: الرسائل الجديدة تظهر وحدها كل ثوانٍ، بلا خروجٍ ورجوع (docs/plan/61) --}}
+<ol id="thread" class="space-y-3" data-live="6" aria-label="الرسائل">
     @foreach ($messages as $message)
         @php $isMine = $message->author === $mine; @endphp
         <li class="flex {{ $isMine ? 'justify-end' : 'justify-start' }}">

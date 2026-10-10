@@ -65,7 +65,7 @@
                 <a href="{{ route('staff-chat.index') }}" class="btn-ghost px-3 py-1 text-sm">رسالة جديدة</a>
             @endif
         </div>
-        <ul class="max-h-[32rem] divide-y divide-ink-100 overflow-y-auto">
+        <ul id="staff-threads" class="max-h-[32rem] divide-y divide-ink-100 overflow-y-auto" data-live="6">
             @forelse ($threads as $item)
                 @php $isUnread = in_array($item->id, $unread, true); @endphp
                 <li>
@@ -98,7 +98,7 @@
                 </p>
             </div>
 
-            <ol class="mb-4 max-h-[28rem] space-y-3 overflow-y-auto" aria-label="الرسائل">
+            <ol id="staff-thread" class="mb-4 max-h-[28rem] space-y-3 overflow-y-auto" data-live="6" data-scroll-end aria-label="الرسائل">
                 @forelse ($messages as $message)
                     @php $mine = $message->user_id === auth()->id(); @endphp
                     <li class="flex {{ $mine ? 'justify-end' : 'justify-start' }}">
