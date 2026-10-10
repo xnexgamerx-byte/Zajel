@@ -51,6 +51,12 @@ class Ability
      */
     public const SHIPMENTS_OVERRIDE = 'shipments.override';
 
+    /**
+     * سطر «إجمالي المبالغ» و«إجمالي التوصيل» تحت قائمة الشحنات لما في البحث كلّه (docs/plan/60):
+     * للفرع والرئيسي والمحاسب افتراضاً، ولمن يُمنح بمرتبةٍ أو صلاحيةٍ استثنائية.
+     */
+    public const SHIPMENTS_TOTALS = 'shipments.totals';
+
     /** ما لا يُعطى بالدور: لصاحب الشركة، ولمن يُمنح بعينه */
     public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE];
 
@@ -139,51 +145,52 @@ class Ability
     {
         return [
             'shipments' => ['label' => 'الشحنات', 'abilities' => [
-                self::SHIPMENTS_VIEW   => 'عرض الشحنات',
+                self::SHIPMENTS_VIEW => 'عرض الشحنات',
                 self::SHIPMENTS_CREATE => 'إنشاء شحنة ورفع ملف',
-                self::SHIPMENTS_EDIT   => 'تعديل بيانات الشحنة',
+                self::SHIPMENTS_EDIT => 'تعديل بيانات الشحنة',
                 self::SHIPMENTS_STATUS => 'تغيير حالة شحنة',
                 self::SHIPMENTS_ASSIGN => 'إسناد للمندوبين',
                 self::SHIPMENTS_EXPORT => 'تصدير القوائم (Excel وPDF) بأرقام الزبائن',
+                self::SHIPMENTS_TOTALS => 'إجمالي المبالغ والتوصيل تحت قائمة الشحنات',
                 self::SHIPMENTS_DELETE => 'مسح الشحنات قبل استلامها، واسترجاعها',
                 self::SHIPMENTS_OVERRIDE => 'تعديل أجور التاجر والمندوب والطلبية لأيّ شحنة، ولو انتهت',
             ]],
             'delivery' => ['label' => 'التوصيل', 'abilities' => [
-                self::PICKUPS_MANAGE   => 'طلبات الاستلام',
+                self::PICKUPS_MANAGE => 'طلبات الاستلام',
                 self::TRANSPORT_MANAGE => 'كشوف المناديب والأكياس والنقل بين الفروع',
             ]],
             'returns' => ['label' => 'الراجع', 'abilities' => [
                 self::RETURNS_MANAGE => 'الراجع: استلاماً وفرزاً وتسليماً',
             ]],
             'money' => ['label' => 'المال والحسابات', 'abilities' => [
-                self::MONEY_VIEW           => 'عرض المال والحسابات والأرصدة',
-                self::MONEY_CASH           => 'الصندوق والجرد والمناقلة',
-                self::MONEY_EXPENSES       => 'المصروفات',
-                self::MONEY_SETTLE         => 'محاسبة المندوبين ومندوبي الاستلام',
-                self::MONEY_PAY            => 'دفع كشوف التجّار',
+                self::MONEY_VIEW => 'عرض المال والحسابات والأرصدة',
+                self::MONEY_CASH => 'الصندوق والجرد والمناقلة',
+                self::MONEY_EXPENSES => 'المصروفات',
+                self::MONEY_SETTLE => 'محاسبة المندوبين ومندوبي الاستلام',
+                self::MONEY_PAY => 'دفع كشوف التجّار',
                 self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
             ]],
             'reports' => ['label' => 'التقارير', 'abilities' => [
-                self::REPORTS_VIEW      => 'التقارير',
+                self::REPORTS_VIEW => 'التقارير',
                 self::REPORTS_FINANCIAL => 'أرباح الشحنات ومال الرواجع',
             ]],
             'review' => ['label' => 'المتابعة', 'abilities' => [
-                self::SUPPORT_REPLY      => 'محادثات التجّار',
-                self::TICKETS_HANDLE     => 'طلبات المناديب لتغيير المبلغ (اعتمادٌ يغيّر مبلغ الشحنة)',
-                self::NOTIFY_SEND        => 'الإشعارات وإعلانات التطبيق',
-                self::CONTROL_REVIEW     => 'إجازة الشحنات المعلّقة للمراجعة',
+                self::SUPPORT_REPLY => 'محادثات التجّار',
+                self::TICKETS_HANDLE => 'طلبات المناديب لتغيير المبلغ (اعتمادٌ يغيّر مبلغ الشحنة)',
+                self::NOTIFY_SEND => 'الإشعارات وإعلانات التطبيق',
+                self::CONTROL_REVIEW => 'إجازة الشحنات المعلّقة للمراجعة',
                 self::CONTROL_DUPLICATES => 'حسم الشحنات المكرّرة',
-                self::CONTROL_FORCE      => 'التغيير الإجباري خارج المسار',
+                self::CONTROL_FORCE => 'التغيير الإجباري خارج المسار',
             ]],
             'settings' => ['label' => 'الإعدادات', 'abilities' => [
-                self::SETTINGS_MERCHANTS   => 'التجّار',
-                self::SETTINGS_COURIERS    => 'المندوبون',
-                self::SETTINGS_USERS       => 'المستخدمون',
+                self::SETTINGS_MERCHANTS => 'التجّار',
+                self::SETTINGS_COURIERS => 'المندوبون',
+                self::SETTINGS_USERS => 'المستخدمون',
                 self::SETTINGS_PERMISSIONS => 'الصلاحيات والمراتب',
-                self::SETTINGS_BRANCHES    => 'الفروع والمراكز',
-                self::SETTINGS_ZONES       => 'المناطق',
-                self::SETTINGS_PRICING     => 'التسعيرات',
-                self::SETTINGS_COMPANY     => 'بيانات الشركة وواتساب الدعم',
+                self::SETTINGS_BRANCHES => 'الفروع والمراكز',
+                self::SETTINGS_ZONES => 'المناطق',
+                self::SETTINGS_PRICING => 'التسعيرات',
+                self::SETTINGS_COMPANY => 'بيانات الشركة وواتساب الدعم',
             ]],
         ];
     }
@@ -268,7 +275,7 @@ class Ability
 
             // مدير الفرع يُدير العمليات ويرى المال ولا يُحرّكه؛ وله التقارير المالية كما في المعتاد
             UserRole::BranchManager => [
-                ...$operations, self::SHIPMENTS_EXPORT, self::MONEY_VIEW, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
+                ...$operations, self::SHIPMENTS_EXPORT, self::SHIPMENTS_TOTALS, self::MONEY_VIEW, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
                 self::CONTROL_DUPLICATES, self::CONTROL_REVIEW, self::SETTINGS_ZONES, self::NOTIFY_SEND,
                 self::SUPPORT_REPLY, self::TICKETS_HANDLE,
             ],
@@ -285,7 +292,7 @@ class Ability
 
             // والمحاسب يعدّل أجور التاجر والمندوب (docs/plan/53) — وغيره بمرتبةٍ أو صلاحيةٍ استثنائية
             UserRole::Accountant => [
-                self::SHIPMENTS_VIEW, self::SHIPMENTS_EXPORT, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
+                self::SHIPMENTS_VIEW, self::SHIPMENTS_EXPORT, self::SHIPMENTS_TOTALS, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
                 self::CONTROL_DUPLICATES, self::SHIPMENTS_OVERRIDE,
             ],
 

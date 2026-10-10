@@ -170,7 +170,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
             children: [
               Expanded(
                 child: _tile(
-                  d.owed ? 'إجمالي المستحقات' : 'عليك للشركة',
+                  d.owed ? 'إجمالي المستحقات عن الواصل' : 'عليك للشركة',
                   d.total,
                   d.owed ? Palette.ink : Palette.returnRed,
                 ),

@@ -359,7 +359,10 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(d.owed ? 'إجمالي المستحقات' : 'عليك للشركة', style: font(12.5, w7, Palette.slate, height: 1.3)),
+                Text(
+                  d.owed ? 'إجمالي المستحقات عن الواصل' : 'عليك للشركة',
+                  style: font(12.5, w7, Palette.slate, height: 1.3),
+                ),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: AlignmentDirectional.centerStart,

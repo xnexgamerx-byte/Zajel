@@ -25,10 +25,12 @@ use App\Models\WaybillBook;
 use App\Services\Shipments\ShipmentFilters;
 use App\Services\Shipments\ShipmentStages;
 use App\Support\FeatureGate;
+use App\Support\Permissions\Ability;
 use App\Support\StaffNavigation;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class ShipmentController extends Controller
@@ -43,7 +45,7 @@ class ShipmentController extends Controller
     {
         $query = Shipment::query()
             ->with(['merchant:id,business_name,is_vip', 'governorate:id,name_ar', 'city:id,name_ar',
-                    'deliveryCourier:id,name'])
+                'deliveryCourier:id,name'])
             ->visibleTo($request->user());
 
         ShipmentFilters::apply($query, $request);
@@ -53,20 +55,21 @@ class ShipmentController extends Controller
         $shipments = $query->latest('id')->paginate(config('zajel.per_page'))->withQueryString();
 
         return view('tenant.shipments.index', $this->bulkBar($everything, $request->user(), $shipments->total(), $request->query('stage')) + [
-            'shipments'    => $shipments,
-            'statuses'     => ShipmentStatus::cases(),
-            'stage'        => ShipmentStages::find($request->query('stage')),
-            'merchants'    => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
+            'shipments' => $shipments,
+            'statuses' => ShipmentStatus::cases(),
+            'stage' => ShipmentStages::find($request->query('stage')),
+            'merchants' => Merchant::visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
-            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
-            'couriers'     => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')
+            'cities' => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+            'couriers' => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'pickupCouriers' => Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
-            'branches'     => Branch::orderBy('name')->get(['id', 'name']),
-            'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(['id', 'name_ar', 'requires_note']),
-            'advanced'     => ShipmentFilters::hasAdvanced($request),
-            'filters'      => ShipmentFilters::active($request),
-            'totals'       => $this->totals($request),
+            'branches' => Branch::orderBy('name')->get(['id', 'name']),
+            'reasons' => FailureReason::availableFor($request->user()->company_id)->get(['id', 'name_ar', 'requires_note']),
+            'advanced' => ShipmentFilters::hasAdvanced($request),
+            'filters' => ShipmentFilters::active($request),
+            'totals' => $this->totals($request),
+            'sums' => $this->sums($everything, $request->user()),
         ]);
     }
 
@@ -93,8 +96,8 @@ class ShipmentController extends Controller
                     ->first();
 
                 return $stage + [
-                    'count'  => (int) ($row->total ?? 0),
-                    'oldest' => $row?->oldest ? \Illuminate\Support\Carbon::parse($row->oldest) : null,
+                    'count' => (int) ($row->total ?? 0),
+                    'oldest' => $row?->oldest ? Carbon::parse($row->oldest) : null,
                 ];
             })->all();
 
@@ -118,21 +121,42 @@ class ShipmentController extends Controller
             ->paginate(config('zajel.per_page'))->withQueryString();
 
         return view('tenant.shipments.stages', $this->bulkBar($everything, $user, $shipments->total(), $key) + [
-            'groups'       => $groups,
-            'stage'        => $stage,
-            'stageKey'     => $key,
-            'shipments'    => $shipments,
-            'links'        => collect($stage['links'] ?? [])
+            'groups' => $groups,
+            'stage' => $stage,
+            'stageKey' => $key,
+            'shipments' => $shipments,
+            'links' => collect($stage['links'] ?? [])
                 ->filter(fn (array $link) => StaffNavigation::allows($user, $link[0], $link[2]))
                 ->map(fn (array $link) => ['url' => route($link[0]), 'label' => $link[1]])
                 ->values()->all(),
-            'filters'      => ShipmentFilters::active($request),
-            'merchants'    => Merchant::visibleTo($user)->orderBy('business_name')->get(['id', 'business_name']),
+            'filters' => ShipmentFilters::active($request),
+            'merchants' => Merchant::visibleTo($user)->orderBy('business_name')->get(['id', 'business_name']),
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
-            'couriers'     => Courier::delivering()->active()->visibleTo($user)->orderBy('name')
+            'couriers' => Courier::delivering()->active()->visibleTo($user)->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
-            'reasons'      => FailureReason::availableFor($user->company_id)->get(['id', 'name_ar', 'requires_note']),
+            'reasons' => FailureReason::availableFor($user->company_id)->get(['id', 'name_ar', 'requires_note']),
+            'sums' => $this->sums($everything, $user),
         ]);
+    }
+
+    /**
+     * «إجمالي المبالغ» و«إجمالي التوصيل» لما في البحث كلّه لا للصفحة (docs/plan/60): يُفلتَر تاجرٌ
+     * فيُعرف كم له بالمجمل. للفرع والرئيسي والمحاسب، ولمن تُمنح له (Ability::SHIPMENTS_TOTALS).
+     *
+     * @param  Builder<Shipment>  $everything
+     * @return array{cod: int, fees: int}|null
+     */
+    private function sums($everything, User $user): ?array
+    {
+        if (! $user->can(Ability::SHIPMENTS_TOTALS)) {
+            return null;
+        }
+
+        $row = (clone $everything)->toBase()->reorder()
+            ->selectRaw('coalesce(sum(shipments.cod_amount), 0) as cod, coalesce(sum(shipments.total_fees), 0) as fees')
+            ->first();
+
+        return ['cod' => (int) $row->cod, 'fees' => (int) $row->fees];
     }
 
     /**
@@ -153,15 +177,15 @@ class ShipmentController extends Controller
         $countable = $targets !== [] && $total > 0 && $total <= ChangeStatusInBulk::MAX;
 
         return [
-            'bulkTargets'  => $targets,
-            'bulkSources'  => collect($targets)
+            'bulkTargets' => $targets,
+            'bulkSources' => collect($targets)
                 ->map(fn (string $label, string $value) => ChangeStatusInBulk::sources(ShipmentStatus::from($value)))
                 ->all(),
             'statusCounts' => ! $countable ? [] : $query->reorder()->toBase()
                 ->select('shipments.status')->selectRaw('count(*) as total')
                 ->groupBy('shipments.status')
                 ->pluck('total', 'status')->map(fn ($total) => (int) $total)->all(),
-            'approvable'   => $stage === 'awaiting_approval' && $user->can('money.confirm_amount'),
+            'approvable' => $stage === 'awaiting_approval' && $user->can('money.confirm_amount'),
         ];
     }
 
@@ -177,7 +201,7 @@ class ShipmentController extends Controller
 
             $book = WaybillBook::forCode($code);
             $waybill = (object) [
-                'code'     => WaybillBook::codeFor(WaybillBook::serialOf($code)),
+                'code' => WaybillBook::codeFor(WaybillBook::serialOf($code)),
                 'merchant' => $book->merchant,
             ];
         }
@@ -186,11 +210,11 @@ class ShipmentController extends Controller
         $created = $waybill ? null : Shipment::visibleTo($request->user())->find($request->session()->get('created'));
 
         return view('tenant.shipments.create', [
-            'created'      => $created,
-            'merchants'    => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name', 'phone']),
+            'created' => $created,
+            'merchants' => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name', 'phone']),
             'governorates' => Governorate::offered()->get(['id', 'name_ar']),
-            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
-            'waybill'      => $waybill,
+            'cities' => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+            'waybill' => $waybill,
         ]);
     }
 
@@ -221,11 +245,11 @@ class ShipmentController extends Controller
         );
 
         return view('tenant.shipments.edit', [
-            'shipment'     => $shipment->load('merchant:id,business_name'),
-            'reroutable'   => UpdateShipment::reroutable($shipment),
+            'shipment' => $shipment->load('merchant:id,business_name'),
+            'reroutable' => UpdateShipment::reroutable($shipment),
             'governorates' => Governorate::offered()->orWhere('id', $shipment->governorate_id)->get(['id', 'name_ar']),
             // ومنطقتها ولو أُخفيت بعدها: التعديل لا يُسقط عنوانها الحاليّ
-            'cities'       => City::where(fn ($q) => $q->where('is_active', true)->orWhere('id', $shipment->city_id))
+            'cities' => City::where(fn ($q) => $q->where('is_active', true)->orWhere('id', $shipment->city_id))
                 ->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
         ]);
     }
@@ -252,16 +276,16 @@ class ShipmentController extends Controller
         ]);
 
         return view('tenant.shipments.show', [
-            'shipment'   => $shipment,
+            'shipment' => $shipment,
             // الخيارات تأتي من خريطة الانتقالات نفسها، فلا تظهر في الواجهة
             // حالة لا يقبلها النظام — الواجهة والمنطق مصدرهما واحد.
             'nextStatuses' => $shipment->status->allowedNext(),
-            'couriers'     => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')
+            'couriers' => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
-            'hubs'         => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'reasons'      => FailureReason::availableFor($request->user()->company_id)->get(),
+            'hubs' => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'reasons' => FailureReason::availableFor($request->user()->company_id)->get(),
             // طلبات المندوب لتغيير مبلغها، وما حُسم فيها (docs/plan/30)
-            'tickets'      => $shipment->tickets()->with(['courier:id,name', 'handledBy:id,name'])->get(),
+            'tickets' => $shipment->tickets()->with(['courier:id,name', 'handledBy:id,name'])->get(),
             // «محادثة الشحنة»: ما دار مع التاجر عنها، لمن يردّ على المحادثات
             'conversations' => $request->user()->can('support.reply')
                 ? Conversation::visibleTo($request->user())->where('shipment_id', $shipment->id)
@@ -304,11 +328,11 @@ class ShipmentController extends Controller
             ->sum('c');
 
         return [
-            'total'     => (int) $rows->sum('c'),
-            'open'      => (int) $open->sum('c'),
+            'total' => (int) $rows->sum('c'),
+            'open' => (int) $open->sum('c'),
             'delivered' => $countOf(ShipmentStatus::Delivered),
-            'returned'  => $countOf(ShipmentStatus::Returned),
-            'cod_open'  => (int) $open->sum('cod'),
+            'returned' => $countOf(ShipmentStatus::Returned),
+            'cod_open' => (int) $open->sum('cod'),
         ];
     }
 }

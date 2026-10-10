@@ -155,6 +155,17 @@
     @endif
 </div>
 
-<p class="mt-3 mb-20 text-xs text-ink-500">
+<p class="mt-3 {{ empty($sums) ? 'mb-20' : '' }} text-xs text-ink-500">
     إجمالي النتائج: {{ number_format($shipments->total()) }}
 </p>
+{{-- لما في البحث كلّه لا للصفحة: يُفلتَر تاجرٌ فيُعرف كم له بالمجمل (docs/plan/60) --}}
+@if (! empty($sums))
+    <dl class="mt-2 mb-20 flex flex-wrap gap-x-6 gap-y-1 text-sm" data-shipment-sums>
+        <div class="flex gap-1.5"><dt class="text-ink-500">إجمالي المبالغ:</dt>
+            <dd class="font-bold"><span class="num" dir="ltr">{{ number_format($sums['cod']) }}</span> د.ع</dd></div>
+        <div class="flex gap-1.5"><dt class="text-ink-500">إجمالي التوصيل:</dt>
+            <dd class="font-bold"><span class="num" dir="ltr">{{ number_format($sums['fees']) }}</span> د.ع</dd></div>
+        <div class="flex gap-1.5"><dt class="text-ink-500">الصافي بعد التوصيل:</dt>
+            <dd class="font-bold text-ok-700"><span class="num" dir="ltr">{{ number_format($sums['cod'] - $sums['fees']) }}</span> د.ع</dd></div>
+    </dl>
+@endif

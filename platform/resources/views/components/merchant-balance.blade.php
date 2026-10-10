@@ -16,7 +16,7 @@
 
     <div class="grid grid-cols-2 gap-3">
         <div class="rounded-2xl bg-ink-50 p-3.5 sm:p-4">
-            <div class="whitespace-nowrap text-[13px] font-semibold text-ink-600 sm:text-sm">{{ $b->owed() ? 'إجمالي المستحقات' : 'عليك للشركة' }}</div>
+            <div class="text-[13px] font-semibold text-ink-600 sm:text-sm">{{ $b->owed() ? 'إجمالي المستحقات عن الواصل' : 'عليك للشركة' }}</div>
             <div class="mt-1 text-[clamp(1.4rem,6vw,2rem)] font-bold leading-tight num {{ $b->owed() ? 'text-ink-900' : 'text-bad-700' }}" dir="ltr">
                 {{ number_format(abs($b->total)) }}
             </div>
