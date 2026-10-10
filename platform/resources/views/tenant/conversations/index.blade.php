@@ -71,7 +71,8 @@
             <select id="merchant_id" name="merchant_id" class="field-input" required>
                 <option value="">اختر…</option>
                 @foreach ($merchants as $merchant)
-                    <option value="{{ $merchant->id }}" @selected((int) old('merchant_id', request('merchant_id')) === $merchant->id)>{{ $merchant->business_name }}</option>
+                    <option value="{{ $merchant->id }}" data-owner="{{ $merchant->owner_name ?: $merchant->business_name }}" data-store="{{ $merchant->business_name }}"
+                            @selected((int) old('merchant_id', request('merchant_id')) === $merchant->id)>{{ $merchant->business_name }}</option>
                 @endforeach
             </select>
         </div>
@@ -84,8 +85,15 @@
             <input id="shipment_number" name="shipment_number" class="field-input num" value="{{ old('shipment_number', request('shipment_number')) }}">
         </div>
         <div>
-            <label class="field-label" for="body">الرسالة</label>
-            <textarea id="body" name="body" rows="4" class="field-input" maxlength="2000">{{ old('body') }}</textarea>
+            <div class="mb-1 flex items-center justify-between gap-2">
+                <label class="field-label mb-0" for="body">الرسالة</label>
+                {{-- رسالتي الثابتة (docs/plan/59): يُكتب فيها اسم التاجر المختار، وتُعدَّل قبل الإرسال --}}
+                <button type="button" class="btn-ghost py-1 text-xs" data-fill="#body" data-fill-merchant="#merchant_id"
+                        data-fill-text="{{ \App\Support\MerchantMessage::forNewConversation(auth()->user()) }}">
+                    أدرج رسالتي الثابتة
+                </button>
+            </div>
+            <textarea id="body" name="body" rows="6" class="field-input" maxlength="2000">{{ old('body') }}</textarea>
         </div>
         <div>
             <label class="field-label" for="attachment">ملف (اختياري)</label>

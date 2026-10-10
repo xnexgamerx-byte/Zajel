@@ -100,8 +100,11 @@ class BuildCourierSettlement
     }
 
     /**
-     * شحنات وصلت حالة نهائية على يد هذا المندوب ولم تُسوَّ بعد — والواصل الجزئي منذ
-     * تسليمه: نقده بيد المندوب وعمولته ثبتت، وباقيه في طريقه لتاجره لا مال فيه.
+     * ما يُحاسَب عليه المندوب: الواصل على يده ولم يُسوَّ بعد — والواصل الجزئي منذ تسليمه: نقده
+     * بيد المندوب وعمولته ثبتت، وباقيه في طريقه لتاجره لا مال فيه.
+     *
+     * والراجع لا يدخل كشف المندوب: لا نقد فيه، ويُستلم من المندوب في «استلام الراجع». إلّا
+     * راجعاً تدفع الشركة عليه للمندوب أجرةً (commission_per_return): تلك عمولةٌ تُحاسَب.
      */
     public function eligible(Courier $courier, array $options = [])
     {
@@ -117,8 +120,8 @@ class BuildCourierSettlement
             ->where(fn ($q) => $q->whereIn('status', [
                 ShipmentStatus::Delivered->value,
                 ShipmentStatus::PartiallyDelivered->value,
-                ShipmentStatus::Returned->value,
-            ])->orWhereNotNull('delivered_at'))
+            ])->orWhereNotNull('delivered_at')
+                ->orWhere(fn ($r) => $r->where('status', ShipmentStatus::Returned->value)->where('courier_commission', '>', 0)))
             ->when($options['from'] ?? null, fn ($q, $from) => $q->whereFromDate('status_changed_at', $from))
             ->when($options['to'] ?? null, fn ($q, $to) => $q->whereUntilDate('status_changed_at', $to))
             ->orderBy('id');

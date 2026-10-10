@@ -90,4 +90,16 @@ final class MerchantMessage
             '{الشركة}'  => (string) (Tenancy::company()?->name ?? ''),
         ] + array_fill_keys(['{الوصل}', '{الزبون}', '{الهاتف}', '{العنوان}', '{المبلغ}', '{السبب}', '{المندوب}'], '—'));
     }
+
+    /**
+     * «راسِل تاجراً» قبل أن يُختار التاجر (docs/plan/59): الموظّف والشركة مكتوبان، و{التاجر}
+     * و{المتجر} يملؤهما المتصفّح من التاجر المختار، وخانات الشحنة شرطة.
+     */
+    public static function forNewConversation(User $user): string
+    {
+        return strtr(self::templateOf($user), [
+            '{الموظف}' => (string) $user->name,
+            '{الشركة}' => (string) (Tenancy::company()?->name ?? ''),
+        ] + array_fill_keys(['{الوصل}', '{الزبون}', '{الهاتف}', '{العنوان}', '{المبلغ}', '{السبب}', '{المندوب}'], '—'));
+    }
 }

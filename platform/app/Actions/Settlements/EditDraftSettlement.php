@@ -31,6 +31,27 @@ class EditDraftSettlement
     public function __construct(protected SequenceGenerator $sequences) {}
 
     /**
+     * مسودّةٌ بُنيت قبل أن يخرج الراجع من كشف المندوب: يُخرج منها راجعٌ لم يُسلَّم ولا أجرة له
+     * — سطرٌ بصفرين لا يُحاسَب عليه شيء. ويعود له أن يُحاسَب إن تغيّر.
+     */
+    public function dropUnpaidReturns(CourierSettlement $settlement): int
+    {
+        if ($settlement->status !== 'draft') {
+            return 0;
+        }
+
+        $dropped = $settlement->lines()->where('commission', 0)->where('collected_amount', 0)
+            ->whereHas('shipment', fn ($q) => $q->where('status', \App\Enums\ShipmentStatus::Returned->value)->whereNull('delivered_at'))
+            ->delete();
+
+        if ($dropped > 0) {
+            BuildCourierSettlement::refreshTotals($settlement->refresh());
+        }
+
+        return $dropped;
+    }
+
+    /**
      * «حاسب على المحدَّد»: المحدَّد من سطور المسودّة يُفصل في كشفٍ جديدٍ للطرف نفسه، يُقفله
      * المستدعي في المعاملة نفسها (ConfirmCourierSettlement، PayMerchantSettlement::confirm)،
      * وتبقى البقية في المسودّة برمزها. فإن حُدِّد الكل فالمسودّة نفسها هي ما يُقفَل.

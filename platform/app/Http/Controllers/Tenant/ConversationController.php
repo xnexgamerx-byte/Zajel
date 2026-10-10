@@ -46,7 +46,7 @@ class ConversationController extends Controller
                 'waiting' => $base()->where('status', 'open')->where('last_author', 'merchant')->count(),
                 'open'    => $base()->where('status', 'open')->count(),
             ],
-            'merchants'     => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name']),
+            'merchants'     => Merchant::where('status', 'active')->visibleTo($request->user())->orderBy('business_name')->get(['id', 'business_name', 'owner_name']),
         ]);
     }
 

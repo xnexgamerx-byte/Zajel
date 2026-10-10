@@ -118,6 +118,8 @@ class CourierSettlementController extends Controller
     public function show(Request $request, CourierSettlement $settlement, EditDraftSettlement $edit): View
     {
         $settlement->load('courier');
+        // كشف المندوب للواصل وحده: راجعٌ بلا مالٍ في مسودّةٍ قديمة يخرج منها (docs/plan/59)
+        $edit->dropUnpaidReturns($settlement);
 
         // المسودّة تُعدَّل لمن يملك التسوية: يُحاسَب على بعضها، ويُضاف إليها ما ينتظر خارجها
         $editable = $settlement->status === 'draft' && $request->user()->can('money.settle');
@@ -130,6 +132,8 @@ class CourierSettlementController extends Controller
             'lines'      => $settlement->lines()->with('shipment.governorate:id,name_ar')
                 ->orderBy('id')->paginate(100),
             'editable'     => $editable,
+            // أجرة المندوب تُصحَّح من الكشف نفسه قبل استلامه — لمن يعدّل الأجور
+            'feesEditable' => $editable && $user->can('shipments.override'),
             // أين يدخل النقد: صندوقه هو إن كان له صندوق، ويختار غيره ممّا يقبض فيه
             'boxes'        => $editable ? CashBox::payableBy($user)->orderByRaw('case when user_id = ? then 0 else 1 end', [$user->id])
                 ->orderBy('name')->get(['id', 'name', 'balance', 'user_id']) : collect(),
@@ -215,6 +219,32 @@ class CourierSettlementController extends Controller
         $added = $edit->add($settlement, $this->picked($request), $request->user());
 
         return back()->with('success', 'أُضيفت إلى كشف '.$settlement->code.': '.\App\Support\Arabic::shipments(count($added)).'.');
+    }
+
+    /**
+     * «عمولته» تُصحَّح من سطر المسودّة قبل الاستلام (٣٠٠٠ ← ٥٠٠٠): تعديل أجور الشحنة نفسه
+     * (OverrideShipment) — يُسجَّل في سجلّ الشحنة، ويُعاد سطر الكشف ومجاميعه منها.
+     */
+    public function commission(Request $request, CourierSettlement $settlement, \App\Actions\Shipments\OverrideShipment $override): RedirectResponse
+    {
+        abort_unless($settlement->status === 'draft', 422, 'الكشف أُقفل: تصحيح أجرته حركةٌ في الدفتر، لا تعديل سطر.');
+
+        $data = $request->validate([
+            'shipment_id'        => ['required', 'integer'],
+            'courier_commission' => ['required', 'string', 'max:12'],
+        ], [], ['courier_commission' => 'أجرة المندوب']);
+
+        $fee = (int) preg_replace('/\D/', '', \App\Support\Phone::latinDigits($data['courier_commission']));
+        if ($fee > 1_000_000) {
+            return back()->withErrors(['courier_commission' => 'أجرة المندوب أكبر من المعقول — راجع الرقم.']);
+        }
+
+        $line = $settlement->lines()->where('shipment_id', $data['shipment_id'])->with('shipment')->firstOrFail();
+        $before = (int) $line->commission;
+
+        $override->handle($line->shipment, ['courier_commission' => $fee], $request->user(), "تعديل أجرة المندوب من كشف {$settlement->code}");
+
+        return back()->with('success', "أجرة المندوب على {$line->shipment->number}: ".number_format($before).' ← '.number_format($fee).'.');
     }
 
     /** @return list<int> */

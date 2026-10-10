@@ -332,7 +332,11 @@ document.addEventListener('click', (event) => {
 
     if (!field) return;
 
-    const text = button.dataset.fillText ?? '';
+    // «راسِل تاجراً»: اسم التاجر والمتجر من التاجر المختار، وإلّا تبقى الخانة ليُكتب فيها
+    const picked = button.dataset.fillMerchant && document.querySelector(button.dataset.fillMerchant)?.selectedOptions?.[0];
+    const text = (button.dataset.fillText ?? '')
+        .replaceAll('{التاجر}', picked?.dataset.owner || '{التاجر}')
+        .replaceAll('{المتجر}', picked?.dataset.store || '{المتجر}');
     field.value = field.value.trim() === '' ? text : `${field.value.trimEnd()}\n${text}`;
     field.focus();
     field.setSelectionRange(field.value.length, field.value.length);

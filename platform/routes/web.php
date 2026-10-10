@@ -569,6 +569,9 @@ Route::middleware('tenant')->group(function () {
                 Route::middleware('can:money.settle')->group(function () {
                     Route::delete('couriers/{settlement}', [CourierSettlementController::class, 'destroy'])->name('couriers.destroy');
                     Route::post('couriers/{settlement}/add', [CourierSettlementController::class, 'addLines'])->name('couriers.lines.add');
+                    // أجرة المندوب تُصحَّح من سطر المسودّة (docs/plan/59) — لمن يعدّل الأجور
+                    Route::post('couriers/{settlement}/commission', [CourierSettlementController::class, 'commission'])
+                        ->middleware('can:shipments.override')->name('couriers.commission');
                     // المُقفَل يُحذف في يومه وحده، بحركاتٍ معاكسة (docs/plan/38)
                     Route::post('couriers/{settlement}/cancel', [CourierSettlementController::class, 'cancel'])->name('couriers.cancel');
                 });

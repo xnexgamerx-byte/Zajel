@@ -74,7 +74,20 @@
                                     {{ number_format($line->collected_amount) }}
                                 </td>
                                 <td class="px-4 py-2.5 text-ok-700" dir="ltr">
-                                    {{ number_format($line->commission) }}
+                                    @if ($feesEditable)
+                                        {{-- أجرة المندوب تُصحَّح هنا قبل الاستلام (docs/plan/59) --}}
+                                        <form method="POST" action="{{ route('settlements.couriers.commission', $settlement) }}"
+                                              class="flex items-center gap-1.5">
+                                            @csrf
+                                            <input type="hidden" name="shipment_id" value="{{ $line->shipment_id }}">
+                                            <input name="courier_commission" type="number" min="0" step="250" required
+                                                   value="{{ (int) $line->commission }}" aria-label="عمولة المندوب على {{ $line->shipment->number }}"
+                                                   class="field-input w-24 py-1 text-left text-sm font-semibold text-ok-700">
+                                            <button class="btn-ghost px-2 py-1 text-xs">حفظ</button>
+                                        </form>
+                                    @else
+                                        {{ number_format($line->commission) }}
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -97,6 +110,8 @@
 
             <p class="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">
                 السطور لقطة مُجمَّدة وقت دخولها الكشف — تغيير تسعيرة لاحقاً لا يمسّها.
+                كشف المندوب للواصل وحده؛ والراجع يُستلم منه في «استلام الراجع».
+                @if ($feesEditable) وعمولته تُصحَّح من سطرها قبل الاستلام، وتُسجَّل في سجلّ الشحنة. @endif
             </p>
         </section>
 
