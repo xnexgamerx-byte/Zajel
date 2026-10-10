@@ -261,6 +261,8 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/return-batches/merchant', [ReturnBatchController::class, 'merchantReturns'])->name('return-batches.merchant');
                 Route::get('/return-batches/{batch}/print', [ReturnBatchController::class, 'print'])->whereNumber('batch')->name('return-batches.print');
                 Route::post('/return-batches/{batch}/confirm', [ReturnBatchController::class, 'confirm'])->whereNumber('batch')->name('return-batches.confirm');
+                // رمز إيصال الراجع (docs/plan/61)
+                Route::get('/doc/b/{batch}', [DocScanController::class, 'returns'])->whereNumber('batch')->name('doc.returns');
             });
 
             // طلبات الحساب من بوابات التجّار: تُرى بصلاحية المال، وتُغلق يدوياً بصلاحية التسوية

@@ -72,6 +72,7 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::post('/requests', [MerchantRequestController::class, 'store'])->middleware('throttle:20,1')->name('requests.store');
             Route::post('/requests/{merchantRequest}/cancel', [MerchantRequestController::class, 'cancel'])->whereNumber('merchantRequest')
                 ->name('requests.cancel');
+            Route::get('/returns/{batch}', [MerchantRequestController::class, 'batch'])->whereNumber('batch')->name('returns.show');
             Route::post('/returns/{batch}/confirm', [MerchantRequestController::class, 'confirm'])->whereNumber('batch')->name('returns.confirm');
             Route::middleware('feature:conversations')->prefix('support')->name('support.')->group(function () {
                 Route::get('/', [MerchantSupportController::class, 'index'])->name('index');

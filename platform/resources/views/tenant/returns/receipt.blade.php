@@ -10,7 +10,14 @@
         <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
             <h2 class="text-lg font-bold">{{ $batch->merchant?->business_name }}
                 <span class="num text-sm font-normal text-ink-600">{{ $batch->merchant?->code }}</span></h2>
-            <div class="num text-base font-bold">{{ $batch->number }}</div>
+            <div class="flex items-center gap-3">
+                <div class="num text-base font-bold">{{ $batch->number }}</div>
+                {{-- يُمسح حين يعود الإيصال موقَّعاً، أو بكاميرا التطبيق عند التاجر (docs/plan/61) --}}
+                <figure class="text-center">
+                    <img src="{{ \App\Support\QrCode::dataUri(route('doc.returns', $batch)) }}" alt="" class="size-20">
+                    <figcaption class="text-[10px] text-ink-600">امسحه للاستلام</figcaption>
+                </figure>
+            </div>
         </div>
 
         <div class="mb-5 grid grid-cols-2 gap-x-8 gap-y-2 text-sm">

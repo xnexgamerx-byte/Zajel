@@ -16,6 +16,8 @@
     @endif
 </div>
 
+<x-doc-scan hint="امسح رمز إيصال الراجع الذي عاد موقَّعاً من التاجر" />
+
 <form method="GET" class="card mb-4 flex flex-wrap items-end gap-3 p-4">
     <div class="min-w-48 flex-1">
         <label class="field-label" for="q">اسم التاجر</label>
@@ -146,7 +148,7 @@
             </thead>
             <tbody>
                 @forelse ($batches as $batch)
-                    <tr>
+                    <tr id="batch-{{ $batch->id }}" class="target:bg-amber-50">
                         <td class="num font-semibold">{{ $batch->number }}</td>
                         <td>{{ $batch->merchant?->business_name }}</td>
                         <td class="num">{{ number_format($batch->shipments_count) }}</td>

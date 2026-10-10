@@ -269,6 +269,12 @@ class Api {
     return body['message'] as String? ?? 'أُلغي الطلب.';
   }
 
+  /// تفاصيل إيصال الراجع: شحناته واحدةً واحدة
+  Future<ReturnReceiptDetail> returnReceipt(int id) async {
+    if (AppConfig.demo) return Demo.returnReceipt(id);
+    return ReturnReceiptDetail.fromJson(await _send(http.get(_uri('/merchant/returns/$id'), headers: _headers)));
+  }
+
   /// «وصلتني»: رواجع الإيصال وصلت التاجر
   Future<String> confirmReturns(int id) async {
     if (AppConfig.demo) return Demo.confirmReturns(id);

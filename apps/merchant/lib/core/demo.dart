@@ -528,6 +528,31 @@ class Demo {
     return 'أُلغي الطلب ${r.number}.';
   }
 
+  static ReturnReceiptDetail returnReceipt(int id) {
+    final b = _batches.firstWhere((b) => b.id == id, orElse: () => throw ApiError('الإيصال غير موجود.'));
+    const people = [
+      ('مريم سعد', 'بغداد · المنصور', 52000, 'الزبون رفض الاستلام'),
+      ('أحمد ناصر', 'بغداد · الشعب', 41000, 'الهاتف مغلق'),
+      ('زينب علي', 'بغداد · الكرادة', 30000, 'الزبون غير موجود'),
+      ('حسين كاظم', 'بغداد · الدورة', 25000, 'العنوان غير صحيح'),
+    ];
+    return ReturnReceiptDetail(
+      receipt: b,
+      lines: [
+        for (var i = 0; i < b.count; i++)
+          ReturnLine(
+            id: 0,
+            number: 'ZA-2026011${i + 1}',
+            name: people[i % people.length].$1,
+            place: people[i % people.length].$2,
+            amount: people[i % people.length].$3,
+            reason: people[i % people.length].$4,
+            fee: b.fees ~/ b.count,
+          ),
+      ],
+    );
+  }
+
   static String confirmReturns(int id) {
     final b = _batches.firstWhere((b) => b.id == id)..received = DateTime.now();
     return 'أكّدت استلام رواجع الإيصال ${b.number}.';

@@ -147,6 +147,10 @@ class _ShellState extends State<Shell> {
     final result = await Navigator.of(context)
         .push<ScanResult>(MaterialPageRoute(fullscreenDialog: true, builder: (_) => ScanScreen(brand: brand)));
     if (!mounted || result == null) return;
+    if (result.receipt != null) {
+      openReturnReceipt(context, brand, result.receipt!);
+      return;
+    }
     scanned.value = result.code;
     setState(() => tab = 2);
   }

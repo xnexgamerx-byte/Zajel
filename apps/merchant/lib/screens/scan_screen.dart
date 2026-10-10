@@ -6,14 +6,21 @@ import '../core/palette.dart';
 import '../widgets/bits.dart';
 import 'create_screen.dart' show LatinDigits;
 
-/// ما يعود من شاشة المسح: رقم وصلٍ مقبول، أو «بلا وصل» للإدخال اليدوي
+/// ما يعود من شاشة المسح: رقم وصلٍ مقبول، أو «بلا وصل» للإدخال اليدوي، أو رمز إيصال راجع
 class ScanResult {
-  const ScanResult.waybill(String this.code) : manual = false;
-  const ScanResult.manual() : code = null, manual = true;
+  const ScanResult.waybill(String this.code) : manual = false, receipt = null;
+  const ScanResult.manual() : code = null, manual = true, receipt = null;
+  const ScanResult.receipt(int this.receipt) : code = null, manual = false;
 
   final String? code;
   final bool manual;
+
+  /// إيصال راجعٍ مُسح رمزه المطبوع (docs/plan/61): يُفتح ليؤكَّد وصوله
+  final int? receipt;
 }
+
+/// رمز إيصال الراجع المطبوع رابطٌ ينتهي بـ /doc/b/رقمه
+int? receiptCode(String raw) => int.tryParse(RegExp(r'/doc/b/(\d+)').firstMatch(raw)?.group(1) ?? '');
 
 /// الزرّ الأوسط (docs/plan/52): كاميرا تقرأ باركود الوصل المطبوع أو رمزه، فيتحقّق النظام أنه
 /// من وصولات التاجر ولم يُستعمل — ثم تُكتب بيانات الطلب في «طلب جديد» على هذا الوصل.
@@ -49,6 +56,11 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _check(String raw) async {
     final code = LatinDigits.convert(raw).replaceAll(RegExp(r'\s'), '');
     if (checking || code.isEmpty) return;
+    final receipt = receiptCode(code);
+    if (receipt != null) {
+      Navigator.of(context).pop(ScanResult.receipt(receipt));
+      return;
+    }
     setState(() => (checking = true, error = null));
     try {
       final ok = await Api.instance.checkWaybill(code);

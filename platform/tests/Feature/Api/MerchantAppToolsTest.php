@@ -169,6 +169,15 @@ class MerchantAppToolsTest extends TestCase
             ->assertJsonPath('batches.0.via', 'مع حيدر الاستلام')
             ->assertJsonPath('batches.0.received', null);
 
+        // تفاصيل الإيصال: شحناته كما طُبعت — وإيصال غيره «غير موجود» (docs/plan/61)
+        $this->getJson($this->api("/merchant/returns/{$a->id}"), $headers)->assertOk()
+            ->assertJsonPath('number', $a->number)
+            ->assertJsonPath('via', 'مع حيدر الاستلام')
+            ->assertJsonCount(1, 'shipments')
+            ->assertJsonPath('shipments.0.number', $mine->number)
+            ->assertJsonPath('shipments.0.fee', Tenancy::runFor($this->company, fn () => (int) $mine->refresh()->return_fee));
+        $this->getJson($this->api("/merchant/returns/{$b->id}"), $headers)->assertNotFound();
+
         $this->postJson($this->api("/merchant/returns/{$b->id}/confirm"), [], $headers)->assertNotFound();
         $this->postJson($this->api("/merchant/returns/{$a->id}/confirm"), [], $headers)->assertOk();
         $this->postJson($this->api("/merchant/returns/{$a->id}/confirm"), [], $headers)->assertStatus(422);

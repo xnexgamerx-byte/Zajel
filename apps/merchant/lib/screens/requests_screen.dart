@@ -5,9 +5,18 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import 'scan_screen.dart';
+import 'shipment_screen.dart';
 
 Future<void> openRequests(BuildContext context, Brand brand) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => RequestsScreen(brand: brand)));
+
+/// إيصال راجعٍ بشحناته (docs/plan/61) — من «طلباتي» أو بمسح رمزه المطبوع
+Future<void> openReturnReceipt(BuildContext context, Brand brand, int id) => Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (_) => ReturnReceiptScreen(brand: brand, id: id),
+  ),
+);
 
 /// «طلباتي» (docs/plan/56): طلب كشف الراجع، وإيصالات الراجع التي سُلّمت للتاجر بـ«وصلتني»، وطلباته
 /// كلّها (والدفع منها يُطلب من «المالية») بإلغاء المفتوح منها — كما في البوابة.
@@ -57,6 +66,19 @@ class _RequestsScreenState extends State<RequestsScreen> {
     }
   }
 
+  /// رمز إيصال الراجع المطبوع يُمسح فيُفتح الإيصال بشحناته و«وصلتني»
+  Future<void> _scanReceipt() async {
+    final result = await Navigator.of(context)
+        .push<ScanResult>(MaterialPageRoute(fullscreenDialog: true, builder: (_) => ScanScreen(brand: brand)));
+    if (!mounted || result?.receipt == null) return;
+    await _open(result!.receipt!);
+  }
+
+  Future<void> _open(int id) async {
+    await openReturnReceipt(context, brand, id);
+    if (mounted) await _load();
+  }
+
   Future<void> _returns() async {
     final message = await showSheet<String>(context, _ReturnsSheet(brand: brand, count: data!.returning));
     if (message == null || !mounted) return;
@@ -89,7 +111,15 @@ class _RequestsScreenState extends State<RequestsScreen> {
         bottom: false,
         child: Column(
           children: [
-            const PageBar(title: 'طلباتي', subtitle: 'كشف الراجع وإيصالاته، وطلباتك إلى الشركة'),
+            PageBar(
+              title: 'طلباتي',
+              subtitle: 'كشف الراجع وإيصالاته، وطلباتك إلى الشركة',
+              trailing: IconButton(
+                tooltip: 'امسح رمز إيصال الراجع',
+                onPressed: _scanReceipt,
+                icon: Icon(Icons.qr_code_scanner_rounded, color: brand.main),
+              ),
+            ),
             Expanded(
               child: d == null
                   ? Waiting(brand: brand, error: error, onRetry: _load)
@@ -166,16 +196,20 @@ class _RequestsScreenState extends State<RequestsScreen> {
     child: Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('إيصال ${b.number}', style: font(13.5, w8, Palette.ink)),
-              Text(
-                '${b.count} شحنة · ${b.via}${b.fees > 0 ? ' · أجور راجع ${money(b.fees)} د.ع' : ''}',
-                style: font(11.5, w5, Palette.slate, height: 1.5),
-              ),
-              Text(when(b.at), style: font(10.5, w5, Palette.muted)),
-            ],
+          child: Tap(
+            onTap: () => _open(b.id),
+            radius: 8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('إيصال ${b.number}', style: font(13.5, w8, brand.main)),
+                Text(
+                  '${b.count} شحنة · ${b.via}${b.fees > 0 ? ' · أجور راجع ${money(b.fees)} د.ع' : ''}',
+                  style: font(11.5, w5, Palette.slate, height: 1.5),
+                ),
+                Text('${when(b.at)} · اضغط لترى شحناته', style: font(10.5, w5, Palette.muted)),
+              ],
+            ),
           ),
         ),
         if (b.received != null)
@@ -301,4 +335,170 @@ class _ReturnsSheetState extends State<_ReturnsSheet> {
       ],
     );
   }
+}
+
+/// تفاصيل إيصال الراجع (docs/plan/61): شحناته واحدةً واحدة — المستلم والوجهة والمبلغ وسبب الرجوع
+/// وأجرته — و«وصلتني» إن لم يؤكَّد. أرقامها تفتح شحناتها.
+class ReturnReceiptScreen extends StatefulWidget {
+  const ReturnReceiptScreen({super.key, required this.brand, required this.id});
+
+  final Brand brand;
+  final int id;
+
+  @override
+  State<ReturnReceiptScreen> createState() => _ReturnReceiptScreenState();
+}
+
+class _ReturnReceiptScreenState extends State<ReturnReceiptScreen> {
+  ReturnReceiptDetail? data;
+  String? error;
+  bool confirming = false;
+
+  Brand get brand => widget.brand;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final d = await Api.instance.returnReceipt(widget.id);
+      if (mounted) setState(() => (data = d, error = null));
+    } on ApiError catch (e) {
+      if (mounted) setState(() => error = e.message);
+    }
+  }
+
+  Future<void> _confirm() async {
+    setState(() => confirming = true);
+    try {
+      final message = await Api.instance.confirmReturns(widget.id);
+      if (mounted) toast(context, message);
+      await _load();
+    } on ApiError catch (e) {
+      if (mounted) toast(context, e.message, bad: true);
+    } finally {
+      if (mounted) setState(() => confirming = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data;
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            PageBar(
+              title: d == null ? 'إيصال الراجع' : 'إيصال ${d.receipt.number}',
+              subtitle: d == null ? null : '${d.receipt.count} شحنة · ${d.receipt.via}',
+            ),
+            Expanded(
+              child: d == null
+                  ? Waiting(brand: brand, error: error, onRetry: _load)
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(14, 4, 14, 32),
+                      children: [
+                        _summary(d),
+                        const SizedBox(height: 10),
+                        if (d.receipt.received == null) ...[
+                          SheetButton(
+                            brand: brand,
+                            label: 'وصلتني هذه الرواجع',
+                            icon: Icons.check_circle_rounded,
+                            busy: confirming,
+                            onTap: _confirm,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        const SectionTitle('شحنات الإيصال'),
+                        WhiteCard(
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: Column(
+                              children: [
+                                for (final (i, l) in d.lines.indexed) ...[
+                                  if (i > 0) const Divider(height: 1, color: Palette.line),
+                                  _line(l),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summary(ReturnReceiptDetail d) {
+    Widget row(String label, String value, {Color? color}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: font(13, w6, Palette.slate))),
+          Text(value, style: font(13.5, w8, color ?? Palette.ink)),
+        ],
+      ),
+    );
+    final received = d.receipt.received;
+    return WhiteCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          row('عدد الشحنات', '${d.receipt.count}'),
+          row('التسليم', d.receipt.via),
+          if (d.receipt.at != null) row('سُلّم', when(d.receipt.at)),
+          row('أجور الراجع', '${money(d.receipt.fees)} د.ع', color: Palette.returnRed),
+          const Divider(color: Palette.line),
+          row(
+            'الاستلام',
+            received == null ? 'لم تؤكّده بعد' : 'وصلتك ${when(received)}',
+            color: received == null ? const Color(0xFFB45309) : const Color(0xFF0F7B4A),
+          ),
+          if ((d.note ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('ملاحظة: ${d.note}', style: font(11.5, w6, Palette.slate)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _line(ReturnLine l) => InkWell(
+    onTap: () => l.id > 0 ? openShipment(context, brand, l.id) : openShipmentNumber(context, brand, l.number),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('#${l.number}', textDirection: TextDirection.ltr, style: font(13, w8, brand.main)),
+                Text(
+                  [l.name, l.place].where((t) => t.isNotEmpty).join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: font(12, w6, Palette.ink),
+                ),
+                Text(
+                  'المبلغ ${money(l.amount)}${l.reason == null ? '' : ' · ${l.reason}'}',
+                  maxLines: 2,
+                  style: font(11, w5, Palette.slate),
+                ),
+              ],
+            ),
+          ),
+          Text('${money(l.fee)} د.ع', style: font(13, w8, Palette.returnRed)),
+        ],
+      ),
+    ),
+  );
 }

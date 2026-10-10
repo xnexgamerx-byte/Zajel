@@ -14,6 +14,7 @@ use App\Models\BranchRemittance;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Merchant;
+use App\Models\ReturnBatch;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -114,6 +115,21 @@ class DocScanTest extends TestCase
             ->assertRedirect($this->host().'/branch-accounts/remittances#remittance-'.$remittance->id);
         $this->actingAs($this->owner)->get($this->host().'/branch-accounts/remittances')
             ->assertOk()->assertSee('id="remittance-'.$remittance->id.'"', false)->assertSee('استلم بالرمز');
+    }
+
+    public function test_a_return_receipt_carries_a_code_that_opens_its_row_to_confirm(): void
+    {
+        $batch = Tenancy::runFor($this->company, fn () => ReturnBatch::create([
+            'merchant_id' => $this->merchant->id, 'number' => 'RB-7', 'via' => 'pickup_courier', 'courier_id' => $this->courier->id,
+            'handed_at' => now(),
+        ]));
+
+        $this->actingAs($this->owner)->get($this->host()."/return-batches/{$batch->id}/print")
+            ->assertOk()->assertSee('RB-7')->assertSee('امسحه للاستلام');
+        $this->actingAs($this->owner)->get($this->host()."/doc/b/{$batch->id}")
+            ->assertRedirect($this->host().'/return-batches?merchant_id='.$this->merchant->id.'#batch-'.$batch->id);
+        $this->actingAs($this->owner)->get($this->host().'/return-batches?merchant_id='.$this->merchant->id)
+            ->assertOk()->assertSee('id="batch-'.$batch->id.'"', false)->assertSee('استلم بالرمز')->assertSee('أكِّد الاستلام');
     }
 
     public function test_whoever_cannot_see_money_cannot_open_a_code(): void

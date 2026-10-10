@@ -399,7 +399,7 @@ document.addEventListener('submit', (event) => {
 
     event.preventDefault();
     const input = form.querySelector('input');
-    const match = input.value.trim().match(/\/doc\/[cmr]\/\d+/);
+    const match = input.value.trim().match(/\/doc\/[cmrb]\/\d+/);
 
     if (match) {
         window.location.assign(match[0]);

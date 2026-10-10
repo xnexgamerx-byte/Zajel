@@ -736,6 +736,51 @@ class ReturnReceipt {
   DateTime? received;
 }
 
+/// تفاصيل إيصال الراجع (docs/plan/61): شحناته كما طُبعت عليه
+class ReturnReceiptDetail {
+  ReturnReceiptDetail({required this.receipt, required this.lines, this.note});
+
+  factory ReturnReceiptDetail.fromJson(Map<String, dynamic> j) => ReturnReceiptDetail(
+    receipt: ReturnReceipt.fromJson(j),
+    note: j['note'] as String?,
+    lines: [for (final l in j['shipments'] as List) ReturnLine.fromJson((l as Map).cast())],
+  );
+
+  final ReturnReceipt receipt;
+  final String? note;
+  final List<ReturnLine> lines;
+}
+
+class ReturnLine {
+  ReturnLine({
+    required this.id,
+    required this.number,
+    required this.name,
+    required this.place,
+    required this.amount,
+    required this.fee,
+    this.reason,
+  });
+
+  factory ReturnLine.fromJson(Map<String, dynamic> j) => ReturnLine(
+    id: j['id'] as int? ?? 0,
+    number: j['number'] as String? ?? '',
+    name: j['name'] as String? ?? '',
+    place: j['place'] as String? ?? '',
+    amount: j['amount'] as int? ?? 0,
+    fee: j['fee'] as int? ?? 0,
+    reason: j['reason'] as String?,
+  );
+
+  final int id;
+  final String number;
+  final String name;
+  final String place;
+  final int amount;
+  final int fee;
+  final String? reason;
+}
+
 class RequestsPage {
   RequestsPage({required this.returning, required this.requests, required this.batches});
 

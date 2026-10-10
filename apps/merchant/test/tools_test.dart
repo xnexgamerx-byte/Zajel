@@ -66,6 +66,16 @@ void main() {
     expect(find.text('3 شحنة'), findsOneWidget);
     expect(find.text('إيصال RB000034'), findsOneWidget);
 
+    // الإيصال يُفتح بشحناته وسبب رجوع كلٍّ منها (docs/plan/61)
+    await tester.tap(find.text('إيصال RB000034'));
+    await tester.pumpAndSettle();
+    expect(find.text('شحنات الإيصال'), findsOneWidget);
+    expect(find.text('#ZA-20260111'), findsOneWidget);
+    expect(find.textContaining('الزبون رفض الاستلام'), findsOneWidget);
+    expect(find.text('وصلتني هذه الرواجع'), findsOneWidget);
+    await tester.tap(find.byTooltip('رجوع').last);
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('وصلتني'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'وصلتني').last);
