@@ -354,6 +354,23 @@ class _More extends StatelessWidget {
         Text('المزيد', style: font(20, w8, Palette.ink)),
         const SizedBox(height: 4),
         if (session != null) Text('${session!.name} · ${session!.companyName}', style: font(13, w6, Palette.slate)),
+        const SizedBox(height: 8),
+        // بأيّ نظامٍ هذه النسخة مربوطة: أوّل ما يُسأل حين لا يصل شيء
+        if (AppConfig.demo)
+          const DemoNote()
+        else
+          Row(
+            children: [
+              const Icon(Icons.link_rounded, size: 16, color: Color(0xFF1E8E3E)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'مربوط بنظام الشركة: ${Uri.parse(AppConfig.apiUrl).host}',
+                  style: font(12, w6, Palette.slate),
+                ),
+              ),
+            ],
+          ),
         const SizedBox(height: 16),
         WhiteCard(
           padding: const EdgeInsets.symmetric(vertical: 4),

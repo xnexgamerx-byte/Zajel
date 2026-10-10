@@ -1,3 +1,5 @@
+import 'config.dart';
+
 /// ما يعيده النظام لرئيسية التاجر: GET /api/v1/merchant/home
 class HomeData {
   HomeData({
@@ -24,7 +26,7 @@ class HomeData {
       greeting: j['greeting'] as String,
       name: j['name'] as String? ?? '',
       unread: j['unread'] as int? ?? 0,
-      logo: j['logo'] as String?,
+      logo: (j['logo'] as String?) == null ? null : media(j['logo'] as String),
       banners: [for (final b in j['banners'] as List) AdBanner.fromJson((b as Map).cast())],
       balance: j['balance']['total'] as int,
       owed: j['balance']['owed'] as bool,
@@ -82,7 +84,7 @@ class AdBanner {
   AdBanner({required this.title, required this.image, this.link});
 
   factory AdBanner.fromJson(Map<String, dynamic> j) =>
-      AdBanner(title: j['title'] as String? ?? '', image: j['image'] as String, link: j['link'] as String?);
+      AdBanner(title: j['title'] as String? ?? '', image: media(j['image'] as String), link: j['link'] as String?);
 
   final String title;
   final String image;
@@ -246,7 +248,7 @@ class Session {
     name: j['user']['name'] as String,
     companyName: j['company']['name'] as String,
     companyColor: j['company']['color'] as String?,
-    companyLogo: j['company']['logo'] as String?,
+    companyLogo: (j['company']['logo'] as String?) == null ? null : media(j['company']['logo'] as String),
     companyInitial: j['company']['initial'] as String?,
   );
 
@@ -795,7 +797,7 @@ class Attachment {
     name: j['name'] as String? ?? 'ملف',
     image: j['image'] as bool? ?? false,
     size: j['size'] as String? ?? '',
-    url: j['url'] as String? ?? '',
+    url: media(j['url'] as String? ?? ''),
   );
 
   final String name;

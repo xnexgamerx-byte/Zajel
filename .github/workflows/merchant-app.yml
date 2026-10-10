@@ -1,8 +1,10 @@
-# تطبيق التاجر (apps/merchant): اختباراته، ثم نسختا تنصيبٍ لأندرويد تُنزَّلان من صفحة التشغيل
+# تطبيق التاجر (apps/merchant): اختباراته، ثم نسخة التنصيب لأندرويد تُنزَّل من صفحة التشغيل
 # في GitHub (Actions ← التشغيل ← Artifacts):
 #
 #   zajel-merchant-apk  — على النظام الحقيقي (config/zajel.json)
-#   demo-merchant-apk   — بيانات العرض، بلا نظام
+#
+# ونسخة العرض (config/demo.json) للاختبارات ولقطات الشاشة وحدها، لا تُنصَّب: بياناتها تجريبية،
+# فلا يرفع منها شيءٌ ولا تصل محادثاتها الشركة — وتشبه الحقيقية حتى يحسبها أحدٌ إيّاها.
 #
 # تُبنى هنا لا على خادم التطوير: أدوات أندرويد على أجهزة GitHub. والتوقيع توقيع التجربة؛ نسخة
 # المتجر بمفتاحٍ يُحفظ في أسرار المستودع، لا في الملفات.
@@ -59,19 +61,9 @@ jobs:
           flutter build apk --release --dart-define-from-file=config/zajel.json
           mv build/app/outputs/flutter-apk/app-release.apk zajel-merchant.apk
 
-      - name: APK — demo data
-        run: |
-          flutter build apk --release --dart-define-from-file=config/demo.json
-          mv build/app/outputs/flutter-apk/app-release.apk demo-merchant.apk
-
       - uses: actions/upload-artifact@v4
         with:
           name: zajel-merchant-apk
           path: apps/merchant/zajel-merchant.apk
           retention-days: 14
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: demo-merchant-apk
-          path: apps/merchant/demo-merchant.apk
-          retention-days: 14

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -126,7 +127,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     Uint8List bytes;
     String name;
-    if (AppConfig.demo) {
+    // نسخة العرض على الويب بلا معرض صور؛ وعلى الهاتف تفتح المعرض كالحقيقية
+    if (AppConfig.demo && kIsWeb) {
       bytes = (await rootBundle.load('assets/images/demo-avatar.jpg')).buffer.asUint8List();
       name = 'logo.jpg';
     } else {
@@ -167,6 +169,8 @@ class _HomeScreenState extends State<HomeScreen> {
         // تحت شريط الحالة؛ وفي نسخة العرض على الويب تحت شريط حالةٍ مرسوم
         padding: EdgeInsets.only(top: _top(context), bottom: 110),
         children: [
+          // نسخة العرض على الهاتف تقول ذلك صراحةً: لا تُحسب على النظام
+          if (AppConfig.demo && !kIsWeb) _pad(const DemoNote()),
           _header(d),
           const SizedBox(height: 10),
           _pad(_banner(d)),
@@ -928,4 +932,20 @@ class _AdsState extends State<_Ads> {
       ],
     );
   }
+}
+
+/// «نسخة عرض»: بياناتٌ تجريبية، لا رفع ولا محادثات تصل الشركة
+class DemoNote extends StatelessWidget {
+  const DemoNote({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(color: const Color(0xFFFFF4E5), borderRadius: BorderRadius.circular(12)),
+    child: Text(
+      'نسخة عرض ببياناتٍ تجريبية — غير مربوطة بالنظام. لا يصل منها شيءٌ للشركة.',
+      style: font(12, w7, const Color(0xFF9A5B00), height: 1.5),
+    ),
+  );
 }

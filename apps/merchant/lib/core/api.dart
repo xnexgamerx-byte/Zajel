@@ -194,7 +194,8 @@ class Api {
   /// صورته أو شعاره — ويعود رابطها الجديد
   Future<String?> uploadLogo(Uint8List bytes, String filename) async {
     if (AppConfig.demo) return null;
-    return (await _upload('/merchant/logo', 'logo', bytes, filename))['logo'] as String?;
+    final url = (await _upload('/merchant/logo', 'logo', bytes, filename))['logo'] as String?;
+    return url == null ? null : media(url);
   }
 
   Future<void> deleteLogo() async {

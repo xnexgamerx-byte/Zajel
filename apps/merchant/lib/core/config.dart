@@ -22,3 +22,15 @@ class AppConfig {
   /// تحت flutter test: لا مؤقّتات تتكرّر (تقليب الإعلانات) تبقى بعد الاختبار
   static bool get testing => !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
 }
+
+/// عنوان صورةٍ أو ملفٍّ من النظام على عنوان النظام في إعداد التطبيق.
+///
+/// النظام يبني الروابط من الطلب الذي وصله، وخلف Cloudflare قد يراه «http» أو باسمٍ داخليّ —
+/// والهاتف يرفض http ولا يعرف الاسم الداخليّ، فتظهر الصورة فارغة. المسار وحده من النظام.
+String media(String url) => rebase(url, AppConfig.apiUrl);
+
+String rebase(String url, String base) {
+  if (base.isEmpty || url.isEmpty) return url;
+  final u = Uri.parse(url);
+  return Uri.parse(base).replace(path: u.path, query: u.hasQuery ? u.query : null).toString();
+}
