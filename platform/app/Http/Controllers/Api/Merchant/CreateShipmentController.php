@@ -12,6 +12,7 @@ use App\Models\City;
 use App\Models\Governorate;
 use App\Models\Merchant;
 use App\Models\WaybillBook;
+use App\Services\Orders\Speech\SpeechToText;
 use App\Services\PricingService;
 use App\Support\FeatureGate;
 use App\Support\ShipmentFields;
@@ -41,6 +42,9 @@ class CreateShipmentController extends Controller
             'types'    => collect(\App\Models\Shipment::TYPES)->map(fn ($l, $v) => ['value' => $v, 'label' => $l])->values(),
             'required' => ShipmentFields::required(),
             'waybills' => FeatureGate::enabled(Feature::Waybills),
+            // بطاقتا «بالذكاء الاصطناعي» و«بالتسجيل الصوتي»: القراءة ميزةٌ للشركة، والسماع مفتاحٌ على الخادم
+            'reading'   => $reading = FeatureGate::enabled(Feature::OrderReading),
+            'listening' => $reading && app(SpeechToText::class)->available(),
             'goods'    => $goods && ! in_array($merchant->goods_type, ['general', 'other'], true) ? $goods : 'ملابس',
         ]);
     }

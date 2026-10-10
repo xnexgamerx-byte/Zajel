@@ -4,6 +4,10 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>لمسح باركود الوصل المطبوع على الطرد.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>لتقول بيانات الشحنة بصوتك فتُكتب في الطلب.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>لتختار لقطة شاشةٍ لمحادثة زبونك فيُقرأ منها الطلب.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

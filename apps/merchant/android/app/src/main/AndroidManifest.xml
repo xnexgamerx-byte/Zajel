@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- الزرّ الأوسط يمسح باركود الوصل المطبوع بالكاميرا (docs/plan/52) -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- «إنشاء بالتسجيل الصوتي» (docs/plan/55) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="التاجر"

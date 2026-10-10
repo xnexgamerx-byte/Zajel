@@ -13,7 +13,7 @@ import 'shipment_screen.dart';
 /// والباقي اختياري. وتحت السعر «يصلك» من تسعيرته قبل أن يحفظ، وبعد الحفظ بطاقة الشحنة
 /// والنموذج فارغٌ للتالية على المحافظة نفسها.
 class CreateScreen extends StatefulWidget {
-  const CreateScreen({super.key, required this.brand, this.onCreated, this.scanned, this.onScan});
+  const CreateScreen({super.key, required this.brand, this.onCreated, this.scanned, this.onScan, this.reading});
 
   final Brand brand;
 
@@ -22,6 +22,9 @@ class CreateScreen extends StatefulWidget {
 
   /// يفتح الكاميرا لمسح وصلٍ (التالي، أو بدل الممسوح)
   final VoidCallback? onScan;
+
+  /// ما قرأه الذكاء الاصطناعي أو سُمع من التسجيل (docs/plan/55): يملأ النموذج للمراجعة
+  final ValueNotifier<OrderReading?>? reading;
 
   /// حُفظت شحنة: تُحدَّث الرئيسية و«شحناتي»
   final VoidCallback? onCreated;
@@ -61,6 +64,12 @@ class _CreateScreenState extends State<CreateScreen> {
   String? error;
   Created? created;
 
+  /// القراءة المملوءة في النموذج: بطاقتها أعلاه حتى يحفظ أو يتركها
+  OrderReading? read;
+
+  /// قراءةٌ وصلت قبل أن يُحمَّل النموذج
+  OrderReading? pendingReading;
+
   Brand get brand => widget.brand;
 
   @override
@@ -68,8 +77,59 @@ class _CreateScreenState extends State<CreateScreen> {
     super.initState();
     cod.addListener(_requote);
     widget.scanned?.addListener(_useScanned);
+    widget.reading?.addListener(_useReading);
     _load();
     _useScanned();
+    _useReading();
+  }
+
+  void _useReading() {
+    final r = widget.reading?.value;
+    if (r == null) return;
+    widget.reading!.value = null;
+    _apply(r);
+  }
+
+  /// طلبٌ جديد من القراءة: تُفرَّغ حقول الطلب السابق ثم يُكتب ما قُرئ — والوصل الممسوح يبقى
+  Future<void> _apply(OrderReading r) async {
+    final f = form;
+    if (f == null) {
+      pendingReading = r;
+      return;
+    }
+    final v = r.fields;
+    String? text(String key) => v[key] == null || '${v[key]}'.trim().isEmpty ? null : '${v[key]}'.trim();
+
+    setState(() {
+      (read = r, created = null, errors = {}, error = null, pieces = 1);
+      for (final (c, key) in [
+        (name, 'recipient_name'),
+        (phone, 'recipient_phone'),
+        (phoneAlt, 'recipient_phone_alt'),
+        (landmark, 'landmark'),
+        (notes, 'notes'),
+      ]) {
+        c.text = text(key) ?? '';
+      }
+      cod.text = text('cod_amount') == null ? '' : Thousands.group(text('cod_amount')!.replaceAll(RegExp(r'\D'), ''));
+      final p = int.tryParse(text('pieces_count') ?? '');
+      if (p != null && p > 0) pieces = p;
+    });
+    if (scroll.hasClients) scroll.jumpTo(0);
+
+    final g = f.governorates.where((g) => g.key == text('governorate_id')).firstOrNull;
+    if (g != null && g.key != governorate?.key) {
+      await _pickGovernorate(g);
+    } else if (mounted) {
+      setState(() => area = null);
+    }
+    final city = text('city_id');
+    if (city != null && mounted && governorate != null) {
+      setState(
+        () => area = areas.where((a) => a.key == city).firstOrNull ?? Choice(city, r.found['city_id'] ?? 'المنطقة'),
+      );
+      _requote();
+    }
   }
 
   /// وصلٌ ممسوح: يُكتب في حقله، ويُفتح النموذج من أعلاه لبيانات طلبه
@@ -94,6 +154,7 @@ class _CreateScreenState extends State<CreateScreen> {
   void dispose() {
     quoteTimer?.cancel();
     widget.scanned?.removeListener(_useScanned);
+    widget.reading?.removeListener(_useReading);
     for (final c in [name, phone, phoneAlt, landmark, cod, goods, notes, waybill]) {
       c.dispose();
     }
@@ -108,6 +169,11 @@ class _CreateScreenState extends State<CreateScreen> {
       setState(() => (form = f, loadError = null));
       final home = f.governorates.where((g) => g.key == f.home).firstOrNull ?? f.governorates.firstOrNull;
       if (home != null) await _pickGovernorate(home);
+      final r = pendingReading;
+      if (r != null) {
+        pendingReading = null;
+        await _apply(r);
+      }
     } on ApiError catch (e) {
       if (mounted) setState(() => loadError = e.message);
     }
@@ -170,7 +236,7 @@ class _CreateScreenState extends State<CreateScreen> {
       for (final c in [name, phone, phoneAlt, landmark, cod, goods, notes, waybill]) {
         c.clear();
       }
-      setState(() => (created = made, pieces = 1, size = 'normal', type = 'delivery'));
+      setState(() => (created = made, read = null, pieces = 1, size = 'normal', type = 'delivery'));
       // الوصل استُعمل: التالي يُمسح من جديد
       widget.scanned?.value = null;
       widget.onCreated?.call();
@@ -219,6 +285,7 @@ class _CreateScreenState extends State<CreateScreen> {
           const SizedBox(height: 12),
           if (created != null) ...[_done(created!), const SizedBox(height: 10)],
           if (_onWaybill) ...[_onWaybillBanner(), const SizedBox(height: 10)],
+          if (read != null) ...[_readBanner(read!), const SizedBox(height: 10)],
           if (error != null) ...[_alert(error!), const SizedBox(height: 10)],
           _section('الزبون', Icons.person_rounded, [
             _field(
@@ -674,6 +741,62 @@ class _CreateScreenState extends State<CreateScreen> {
                   label: Text('امسح التالي', style: font(12, w8, brand.main)),
                 ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ما قُرئ: يراجعه التاجر — وما سُمع نصّاً، وما ينقص ليكمله، وتنبيهات القارئ
+  Widget _readBanner(OrderReading r) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      decoration: BoxDecoration(
+        color: brand.softer,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: brand.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SolidIcon(
+            brand: brand,
+            icon: r.transcript != null ? Icons.mic_rounded : Icons.auto_awesome_rounded,
+            size: 32,
+            iconSize: 18,
+            radius: 9,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('قُرئ الطلب — راجعه ثم احفظ', style: font(13, w8, Palette.ink)),
+                if (r.transcript != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text('سمعنا: «${r.transcript}»', style: font(11.5, w5, Palette.slate, height: 1.5)),
+                  ),
+                if (r.missing.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      'أكمل: ${r.missing.join('، ')}',
+                      style: font(12, w8, const Color(0xFFB45309), height: 1.5),
+                    ),
+                  ),
+                for (final w in r.warnings)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(w, style: font(11.5, w6, const Color(0xFFB45309), height: 1.5)),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'إخفاء',
+            onPressed: () => setState(() => read = null),
+            icon: const Icon(Icons.close_rounded, size: 19, color: Palette.muted),
           ),
         ],
       ),

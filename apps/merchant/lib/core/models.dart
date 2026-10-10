@@ -264,6 +264,8 @@ class CreateForm {
     required this.required,
     required this.waybills,
     required this.goods,
+    this.reading = false,
+    this.listening = false,
   });
 
   factory CreateForm.fromJson(Map<String, dynamic> j) => CreateForm(
@@ -274,7 +276,15 @@ class CreateForm {
     required: [for (final r in j['required'] as List) '$r'],
     waybills: j['waybills'] as bool? ?? false,
     goods: j['goods'] as String? ?? 'ملابس',
+    reading: j['reading'] as bool? ?? false,
+    listening: j['listening'] as bool? ?? false,
   );
+
+  /// «إنشاء بالذكاء الاصطناعي»: ميزة القراءة مفعّلةٌ للشركة
+  final bool reading;
+
+  /// «إنشاء بالتسجيل الصوتي» بتسجيلٍ يُسمع على الخادم — وإلّا فمايك لوحة المفاتيح
+  final bool listening;
 
   final List<Choice> governorates;
 
@@ -503,4 +513,39 @@ class Finance {
   final String? account;
   final List<Statement> statements;
   final List<Movement> movements;
+}
+
+/// ما قرأه النظام من رسالةٍ أو لقطة شاشةٍ أو تسجيل (docs/plan/55): يملأ «طلب جديد» ولا يحفظ
+class OrderReading {
+  OrderReading({
+    required this.fields,
+    this.found = const {},
+    this.missing = const [],
+    this.warnings = const [],
+    this.transcript,
+    this.ai = false,
+  });
+
+  factory OrderReading.fromJson(Map<String, dynamic> j) => OrderReading(
+    fields: (j['fields'] as Map? ?? const {}).cast<String, dynamic>(),
+    found: {for (final e in (j['found'] as Map? ?? const {}).entries) '${e.key}': '${e.value}'},
+    // «المنطقة»، «المبلغ» — بأسمائها كما يكتبها النظام
+    missing: [for (final m in j['missing'] as List? ?? const []) '$m'],
+    warnings: [for (final w in j['warnings'] as List? ?? const []) '$w'],
+    transcript: j['transcript'] as String?,
+    ai: j['engine'] == 'ai',
+  );
+
+  /// recipient_name · recipient_phone · recipient_phone_alt · governorate_id · city_id · landmark
+  /// · cod_amount · pieces_count · notes
+  final Map<String, dynamic> fields;
+
+  /// اسم المحافظة والمنطقة كما قُرئتا: {governorate_id: «بغداد»، city_id: «الكرادة»}
+  final Map<String, String> found;
+  final List<String> missing;
+  final List<String> warnings;
+
+  /// ما سُمع من التسجيل نصّاً
+  final String? transcript;
+  final bool ai;
 }

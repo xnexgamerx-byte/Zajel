@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -188,10 +189,52 @@ class Api {
     await _storage.delete(key: _tokenKey);
   }
 
-  Future<Map<String, dynamic>> _send(Future<http.Response> request) async {
+  // ---------------------------------------------------------------- بالذكاء الاصطناعي وبالصوت (docs/plan/55)
+
+  /// قراءة الصورة والتسجيل قد تطول: الذكاء الاصطناعي يقرأ لقطة الشاشة كلّها
+  static const _reading = Duration(seconds: 90);
+
+  /// رسالة الزبون ملصوقةً، أو ما قاله التاجر بمايك لوحة المفاتيح (spoken)
+  Future<OrderReading> readText(String text, {bool spoken = false}) async {
+    if (AppConfig.demo) return Demo.read(spoken: spoken);
+    return OrderReading.fromJson(
+      await _send(
+        http.post(
+          _uri('/merchant/shipments/read'),
+          headers: _headers,
+          body: jsonEncode({'text': text, if (spoken) 'spoken': true}),
+        ),
+        timeout: _reading,
+      ),
+    );
+  }
+
+  /// لقطة شاشةٍ لمحادثة الزبون — تُقرأ على الخادم وتُرمى
+  Future<OrderReading> readImage(Uint8List bytes, String filename) async {
+    if (AppConfig.demo) return Demo.read();
+    return OrderReading.fromJson(await _upload('/merchant/shipments/read', 'image', bytes, filename));
+  }
+
+  /// تسجيلٌ حتى «أوقف»: يصير نصّاً على الخادم ثم يُقرأ منه الطلب
+  Future<OrderReading> listen(Uint8List bytes, String filename) async {
+    if (AppConfig.demo) return Demo.read(heard: true);
+    return OrderReading.fromJson(await _upload('/merchant/shipments/listen', 'audio', bytes, filename));
+  }
+
+  Future<Map<String, dynamic>> _upload(String path, String field, Uint8List bytes, String filename) {
+    final request = http.MultipartRequest('POST', _uri(path))
+      ..headers.addAll({..._headers}..remove('Content-Type'))
+      ..files.add(http.MultipartFile.fromBytes(field, bytes, filename: filename));
+    return _send(request.send().then(http.Response.fromStream), timeout: _reading);
+  }
+
+  Future<Map<String, dynamic>> _send(
+    Future<http.Response> request, {
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
     final http.Response res;
     try {
-      res = await request.timeout(const Duration(seconds: 20));
+      res = await request.timeout(timeout);
     } catch (_) {
       throw ApiError('تعذّر الاتصال بالنظام. تأكّد من الإنترنت وحاول مجدداً.');
     }

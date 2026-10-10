@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceContro
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
 use App\Http\Controllers\Api\Merchant\ProcessingController as MerchantProcessingController;
 use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentController;
+use App\Http\Controllers\OrderListeningController;
+use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Tenant\AppAdController;
 use App\Http\Middleware\IdentifyTenant;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +37,11 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::get('/shipments/form', [MerchantCreateShipmentController::class, 'form'])->name('shipments.form');
             Route::get('/areas', [MerchantCreateShipmentController::class, 'areas'])->name('areas');
             Route::get('/shipments/quote', [MerchantCreateShipmentController::class, 'quote'])->name('shipments.quote');
+            // بالذكاء الاصطناعي وبالصوت (docs/plan/55): قارئ البوابة نفسه — يملأ النموذج ولا يحفظ
+            Route::middleware(['feature:order_reading', 'throttle:30,1,order-reading'])->group(function () {
+                Route::post('/shipments/read', OrderReadingController::class)->name('shipments.read');
+                Route::post('/shipments/listen', OrderListeningController::class)->name('shipments.listen');
+            });
             Route::get('/waybills/check', [MerchantCreateShipmentController::class, 'waybill'])
                 ->middleware(['feature:waybills', 'throttle:60,1'])->name('waybills.check');
             // «للمعالجة» و«المالية» (docs/plan/54)

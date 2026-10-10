@@ -196,6 +196,8 @@ class Demo {
     required: const [],
     waybills: true,
     goods: 'ملابس',
+    reading: true,
+    listening: true,
   );
 
   static List<Choice> areas(String governorate) => [
@@ -222,6 +224,26 @@ class Demo {
     ),
     due: (data['cod_amount'] as int? ?? 0) - 5000,
   );
+
+  /// ما يقرؤه العرض: رسالة زبونٍ وهميّة، أو كلامٌ مسموع
+  static Future<OrderReading> read({bool spoken = false, bool heard = false}) async {
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    return OrderReading(
+      fields: {
+        'recipient_name': heard ? 'مصطفى عادل' : 'علي حسين',
+        'recipient_phone': heard ? '07741077999' : '07712345678',
+        'governorate_id': 1,
+        'city_id': 101,
+        'landmark': heard ? 'قرب الجامع' : 'قرب ساحة كهرمانة',
+        'cod_amount': 25000,
+      },
+      found: const {'governorate_id': 'بغداد', 'city_id': 'الكرادة'},
+      transcript: heard
+          ? 'مصطفى عادل صفر سبعة سبعة أربعة واحد صفر سبعة سبعة تسعة تسعة تسعة بغداد الكرادة قرب الجامع خمسة وعشرين ألف'
+          : null,
+      ai: true,
+    );
+  }
 
   static String waybill(String code) {
     if (!RegExp(r'^9\d{7}$').hasMatch(code)) {

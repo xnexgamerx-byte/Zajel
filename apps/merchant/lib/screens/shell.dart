@@ -8,6 +8,7 @@ import 'create_screen.dart';
 import 'finance_screen.dart';
 import 'home_screen.dart';
 import 'processing_screen.dart';
+import 'reader_sheets.dart';
 import 'scan_screen.dart';
 import 'shipments_screen.dart';
 
@@ -35,6 +36,9 @@ class _ShellState extends State<Shell> {
   /// الوصل المطبوع الممسوح بالزرّ الأوسط — يُكتب عليه «طلب جديد»
   final scanned = ValueNotifier<String?>(null);
 
+  /// ما قرأه الذكاء الاصطناعي أو سُمع — يملأ «طلب جديد» (docs/plan/55)
+  final reading = ValueNotifier<OrderReading?>(null);
+
   Brand get brand => widget.brand;
 
   @override
@@ -42,6 +46,7 @@ class _ShellState extends State<Shell> {
     shipmentsFilter.dispose();
     refresh.dispose();
     scanned.dispose();
+    reading.dispose();
     super.dispose();
   }
 
@@ -50,6 +55,10 @@ class _ShellState extends State<Shell> {
     // «للمعالجة» شاشةٌ وحدها (docs/plan/54): يقرّر التاجر فيها، ثم تُعاد الأرقام
     if (parts.first == 'processing') {
       openProcessing(context, brand, onChanged: () => refresh.value++);
+      return;
+    }
+    if (screen == 'create:ai' || screen == 'create:voice') {
+      _read(voice: screen == 'create:voice');
       return;
     }
     final target = switch (parts.first) {
@@ -69,6 +78,35 @@ class _ShellState extends State<Shell> {
       };
     }
     setState(() => tab = target);
+  }
+
+  /// «إنشاء بالذكاء الاصطناعي» و«بالتسجيل الصوتي»: يُقرأ الطلب ثم يُفتح «طلب جديد» مملوءاً
+  Future<void> _read({required bool voice}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    CreateForm form;
+    try {
+      form = await Api.instance.createForm();
+    } on ApiError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating));
+      return;
+    }
+    if (!mounted) return;
+    if (!form.reading) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('القراءة بالذكاء الاصطناعي غير مفعّلة لشركتك — أدخل الطلب يدوياً.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      setState(() => tab = 2);
+      return;
+    }
+    final result = voice
+        ? await showVoiceReader(context, brand, listening: form.listening)
+        : await showAiReader(context, brand);
+    if (!mounted || result == null) return;
+    reading.value = result;
+    setState(() => tab = 2);
   }
 
   /// الزرّ الأوسط (docs/plan/52): يمسح الوصل المطبوع بالكاميرا ثم يفتح «طلب جديد» عليه.
@@ -103,7 +141,7 @@ class _ShellState extends State<Shell> {
         refresh: refresh,
       ),
       ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh),
-      CreateScreen(brand: brand, onCreated: () => refresh.value++, scanned: scanned, onScan: _scan),
+      CreateScreen(brand: brand, onCreated: () => refresh.value++, scanned: scanned, onScan: _scan, reading: reading),
       FinanceScreen(brand: brand, refresh: refresh),
       _More(brand: brand, session: widget.session, onLogout: widget.onLogout),
     ];
