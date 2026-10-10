@@ -46,7 +46,7 @@ class StaffNavigationTest extends TestCase
         // زرّا Excel وPDF في قائمة الشحنات
         'shipments.export', 'shipments.export.print',
         // يسأله جدول المسح عن كل وصل، ومربّع المسح في شاشات الراجع
-        'shipments.scan.lookup', 'returns.lookup',
+        'shipments.scan.lookup', 'shipments.distribute.lookup', 'returns.lookup',
         // إيصالات التسليم لمندوب الاستلام، من رسالة نجاحه
         'return-batches.print-many',
         // كشف كل رواجع التاجر في مدّة، من «إيصالات الراجع» بعد اختياره
@@ -140,7 +140,7 @@ class StaffNavigationTest extends TestCase
         // لا مال ولا راجع ولا إعدادات؛ ومن التوصيل: المراحل والمسح، والمعالجة في المتابعة
         $this->assertSame(['الرئيسية', 'الشحنات', 'التوصيل', 'التقارير', 'المتابعة'], $labels);
         $delivery = $menus[array_search('التوصيل', $labels, true)];
-        $this->assertSame(['كل مراحل النقل', 'استلام وتوزيع بالمسح'],
+        $this->assertSame(['كل مراحل النقل', 'استلام بالمسح'],   // والتوزيع للمُسنِد وحده (docs/plan/50)
             array_column($delivery['links'], 'label'));
         $review = $menus[array_search('المتابعة', $labels, true)];
         $this->assertSame(['التنبيهات التشغيلية', 'شحنات لم تُسلَّم (للمعالجة)', 'مراسلة الموظفين', 'المحادثات', 'محادثة المناديب', 'طلبات المناديب لتغيير المبلغ', 'رسالتي الثابتة للتاجر'], array_column($review['links'], 'label'));

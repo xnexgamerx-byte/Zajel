@@ -15,6 +15,7 @@ use App\Support\Arabic;
 use App\Support\ScanCode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
@@ -97,6 +98,10 @@ class TransferController extends Controller
                 ->where('status', 'dispatched')
                 ->orderByDesc('departed_at')
                 ->get() : collect(),
+            // طلبات لم تصل مع كشوفها (docs/plan/50): مسحُها في «استلام بالمسح» يُدخلها المخزن
+            'missing'      => Shipment::visibleTo($user)->whereNotNull('missing_at')
+                ->with(['merchant:id,business_name', 'governorate:id,name_ar'])
+                ->orderByDesc('missing_at')->limit(200)->get(),
             'carriers'     => Courier::transferring()->where('status', 'active')->visibleTo($user)
                 ->orderBy('name')->get(['id', 'name', 'phone', 'vehicle_number']),
         ]);
@@ -157,15 +162,58 @@ class TransferController extends Controller
             ->with('print', route('manifests.print', $manifest));
     }
 
-    public function receive(Request $request, Manifest $manifest): RedirectResponse
+    /**
+     * استلام الكشف الوارد بمسح كلّ طلبٍ بوحده (docs/plan/50): قائمة طلباته كلّها، والمسح
+     * يعلّم ما وصل، وما لم يُمسح يُعرف بعينه «لم يصل» بدل أن يُستلم الكيس كلّه.
+     */
+    public function receiveForm(Request $request, Manifest $manifest): View
     {
-        // الاستلام لفرع الوصول: موظّف فرعٍ آخر يرى الكشف ولا يستلمه عنه
-        if ($request->user()->isBranchLimited()
-            && (int) Hub::whereKey($manifest->to_hub_id)->value('branch_id') !== (int) $request->user()->branch_id) {
-            abort(403);
+        $this->assertDestination($request, $manifest);
+        abort_unless(in_array($manifest->status, ['dispatched', 'arrived'], true), 404);
+
+        return view('tenant.transfers.receive', [
+            'manifest'  => $manifest->load(['fromHub:id,name', 'toHub:id,name', 'courier:id,name']),
+            'shipments' => $this->manifestShipments($manifest),
+        ]);
+    }
+
+    /** الوصل الممسوح: أهو من طلبات هذا الكشف؟ */
+    public function lookup(Request $request, Manifest $manifest): JsonResponse
+    {
+        $this->assertDestination($request, $manifest);
+        $scan = ScanCode::read((string) $request->query('code'));
+
+        if (! $scan->usable()) {
+            return response()->json(['error' => 'امسح الوصل أو اكتب رقمه.'], 422);
         }
 
-        $result = $this->receiver->handle($manifest, $request->user());
+        $shipment = $scan->find(Shipment::query()->with('merchant:id,business_name'));
+
+        if (! $shipment) {
+            return response()->json(['error' => $scan->notFound()], 404);
+        }
+
+        return response()->json([
+            'id' => $shipment->id, 'number' => $shipment->number, 'merchant' => $shipment->merchant?->business_name,
+        ]);
+    }
+
+    public function receive(Request $request, Manifest $manifest): RedirectResponse
+    {
+        $this->assertDestination($request, $manifest);
+
+        $data = $request->validate([
+            'shipment_ids'   => ['nullable', 'array', 'max:2000'],
+            'shipment_ids.*' => ['integer'],
+        ], [], ['shipment_ids' => 'الطلبات الممسوحة']);
+
+        // ضغطةٌ بلا مسح لا تُعلن الكشف كلّه مفقوداً
+        if (empty($data['shipment_ids'])) {
+            return back()->withErrors(['shipment_ids' => 'لم تمسح أيّ طلب — امسح ما وصل ثم «استلم الممسوح».']);
+        }
+
+        // يُستلم ما مُسح وحده، وما سواه من طلبات الكشف «لم يصل» بعينه (docs/plan/50)
+        $result = $this->receiver->handle($manifest, $request->user(), shipmentIds: $data['shipment_ids']);
 
         $message = "استُلم الكشف {$manifest->code}: ".Arabic::shipments($result['shipments']).' دخلت مخزنك';
 
@@ -173,11 +221,38 @@ class TransferController extends Controller
             $message .= "، منها {$result['returns']} راجع وصل راجعاً — سلّمه لتاجره من «تسليم الراجع للتاجر»";
         }
 
-        if ($missing = $manifest->refresh()->missingBags()) {
-            $message .= ". وسُجّلت أكياس مفقودة، عددها {$missing} — راجعها فوراً";
+        if ($result['missing']) {
+            $message .= '. ولم تصل '.Arabic::shipments(count($result['missing'])).': '
+                .collect($result['missing'])->take(8)->implode('، ').(count($result['missing']) > 8 ? '…' : '')
+                .' — تظهر في «طلبات لم تصل»';
         }
 
-        return back()->with('success', $message.'.');
+        return redirect()->route('transfers.index')->with('success', $message.'.');
+    }
+
+    /** الاستلام لفرع الوصول: موظّف فرعٍ آخر يرى الكشف ولا يستلمه عنه */
+    private function assertDestination(Request $request, Manifest $manifest): void
+    {
+        if ($request->user()->isBranchLimited()
+            && (int) Hub::whereKey($manifest->to_hub_id)->value('branch_id') !== (int) $request->user()->branch_id) {
+            abort(403);
+        }
+    }
+
+    /**
+     * طلبات الكشف في أكياسه، إلّا ما فُتح كيسه سلفاً.
+     *
+     * @return Collection<int, Shipment>
+     */
+    private function manifestShipments(Manifest $manifest): Collection
+    {
+        $bagIds = $manifest->bags()->whereIn('bags.status', ['sealed', 'in_transit', 'received'])->pluck('bags.id');
+
+        return Shipment::query()
+            ->whereIn('current_bag_id', $bagIds)
+            ->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar'])
+            ->orderBy('id')
+            ->get();
     }
 
     /**

@@ -208,6 +208,8 @@ class HandOverReturns
             ->with(['merchant:id,business_name,code,pickup_courier_id', 'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
             ->returnOnShelf()
             ->awayFromHomeBranch(false)
+            // ما على رفّ هذا الفرع وحده (docs/plan/50)
+            ->onShelfOf($viewer)
             ->when($merchantId, fn ($q) => $q->where('merchant_id', $merchantId))
             // رواجع تجّار مندوب الاستلام هذا: هو من يمرّ بهم
             ->when($pickupCourierId, fn ($q) => $q->whereIn('merchant_id',

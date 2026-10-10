@@ -118,7 +118,8 @@ class ShipmentController extends Controller
             'amount' => (int) $s->cod_amount,
             'at'     => ($s->status_changed_at ?? $s->created_at)?->toIso8601String(),
             'status' => $s->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $s->statusLabel(),
-            'tone'   => $s->status === ShipmentStatus::FailedAttempt ? 'red' : $s->statusColor(),
+            // «للمعالجة» بلون الشركة في التطبيق، والراجع أحمر (docs/plan/50)
+            'tone'   => $s->status === ShipmentStatus::FailedAttempt ? 'urgent' : $s->statusColor(),
             'urgent' => in_array($s->status, [
                 ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed, ShipmentStatus::Returning,
             ], true),

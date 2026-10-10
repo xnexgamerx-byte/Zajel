@@ -36,8 +36,8 @@
             <h2 class="card-title">واصل إليك
                 <span class="num ms-1 text-ink-500">({{ number_format($incoming->count()) }})</span></h2>
             <p class="card-hint">
-                «استلمت الكل» يُدخل الشحنات مخزنك، والراجع يصل راجعاً فيظهر في «تسليم الراجع للتاجر».
-                وإن وصل ناقصاً فحدّد الأكياس الواصلة من «وصل ناقص؟».
+                «استلم بالمسح»: امسح كلّ طلبٍ بوحده فيدخل مخزنك، والراجع يصل راجعاً فيظهر في «تسليم الراجع للتاجر».
+                وما لا يُمسح يُسجَّل «لم يصل» باسمه.
             </p>
         </div>
         @if ($incoming->isEmpty())
@@ -57,13 +57,7 @@
                                 <td class="num font-semibold">{{ number_format($manifest->shipments_count) }}</td>
                                 <td class="num whitespace-nowrap text-ink-500">{{ $manifest->departed_at?->format('Y-m-d H:i') ?? '—' }}</td>
                                 <td class="whitespace-nowrap text-end">
-                                    <form method="POST" action="{{ route('transfers.receive', $manifest) }}" class="inline">
-                                        @csrf
-                                        <button type="submit" class="btn-primary">استلمت الكل</button>
-                                    </form>
-                                    @if ($manifest->status === 'dispatched')
-                                        <a href="{{ route('manifests.inbound') }}" class="btn-ghost">وصل ناقص؟</a>
-                                    @endif
+                                    <a href="{{ route('transfers.receive.form', $manifest) }}" class="btn-primary">استلم بالمسح</a>
                                 </td>
                             </tr>
                         @endforeach
@@ -72,6 +66,33 @@
             </div>
         @endif
     </section>
+
+    {{-- طلبات لم تصل: مُسح كشفها ولم تُمسح هي (docs/plan/50) --}}
+    @if ($missing->isNotEmpty())
+        <section class="card mb-5 overflow-hidden ring-1 ring-bad-200">
+            <div class="border-b border-ink-200 px-5 py-4">
+                <h2 class="card-title text-bad-700">طلبات لم تصل
+                    <span class="num ms-1">({{ number_format($missing->count()) }})</span></h2>
+                <p class="card-hint">لم تُمسح عند استلام كشوفها. إن وُجدت فامسحها في «استلام بالمسح» فتدخل المخزن ويزول وسمها.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="tbl">
+                    <thead><tr><th>رقم الوصل</th><th>صاحب المحل</th><th>الوجهة</th><th>المرحلة</th><th>منذ</th></tr></thead>
+                    <tbody>
+                        @foreach ($missing as $shipment)
+                            <tr>
+                                <td class="whitespace-nowrap"><a href="{{ route('shipments.show', $shipment) }}" class="num font-semibold text-[var(--brand)] hover:underline" dir="ltr">{{ $shipment->number }}</a></td>
+                                <td>{{ $shipment->merchant?->business_name }}</td>
+                                <td class="text-ink-600">{{ $shipment->governorate?->name_ar }}</td>
+                                <td><x-status-badge :status="$shipment->status" :shipment="$shipment" /></td>
+                                <td class="num whitespace-nowrap text-ink-500">{{ $shipment->missing_at?->format('Y-m-d H:i') }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    @endif
 
     {{-- ٢) أرسل إلى فرع --}}
     <section class="card mb-5 overflow-hidden">

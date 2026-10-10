@@ -47,6 +47,7 @@ use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
 use App\Http\Controllers\Tenant\ReviewHoldController;
 use App\Http\Controllers\Tenant\ShipmentExportController;
+use App\Http\Controllers\Tenant\ShipmentDistributeController;
 use App\Http\Controllers\Tenant\ShipmentScanController;
 use App\Http\Controllers\Tenant\ShipmentTrashController;
 use App\Http\Controllers\Tenant\UserGrantController;
@@ -180,6 +181,12 @@ Route::middleware('tenant')->group(function () {
         });
         Route::post('/shipments/scan/receive', [ShipmentScanController::class, 'receive'])
             ->middleware(['staff', 'can:shipments.status'])->name('shipments.scan.receive');
+        // «توزيع بالمسح» لكلّ محافظة: كلّ منطقةٍ مع مندوبها (docs/plan/50)
+        Route::middleware(['staff', 'can:shipments.assign'])->group(function () {
+            Route::get('/shipments/distribute', [ShipmentDistributeController::class, 'index'])->name('shipments.distribute');
+            Route::get('/shipments/distribute/lookup', [ShipmentDistributeController::class, 'lookup'])->name('shipments.distribute.lookup');
+            Route::post('/shipments/distribute', [ShipmentDistributeController::class, 'store'])->name('shipments.distribute.store');
+        });
         Route::middleware(['staff', 'can:shipments.delete'])->group(function () {
             Route::get('/shipments/trash', [ShipmentTrashController::class, 'index'])->name('shipments.trash');
             Route::post('/shipments/trash/{id}/restore', [ShipmentTrashController::class, 'restore'])
@@ -402,6 +409,9 @@ Route::middleware('tenant')->group(function () {
             // النقل بين الفروع بخطوةٍ واحدة: يُرسَل ويُستلَم، والكيس والكشف يُبنيان وحدهما (docs/plan/38)
             Route::get('/transfers', [TransferController::class, 'index'])->name('transfers.index');
             Route::post('/transfers', [TransferController::class, 'send'])->name('transfers.send');
+            // الوارد يُستلم بمسح كلّ طلبٍ بوحده، وما لم يُمسح «لم يصل» (docs/plan/50)
+            Route::get('/transfers/{manifest}/receive', [TransferController::class, 'receiveForm'])->name('transfers.receive.form');
+            Route::get('/transfers/{manifest}/lookup', [TransferController::class, 'lookup'])->name('transfers.lookup');
             Route::post('/transfers/{manifest}/receive', [TransferController::class, 'receive'])->name('transfers.receive');
 
             Route::get('/bags', [BagController::class, 'index'])->name('bags.index');

@@ -171,6 +171,24 @@ class ReturnSortingTest extends TestCase
         });
     }
 
+    /** كلّ فرعٍ رواجعه وحده، والرئيسي بغداد (docs/plan/50): راجعٌ على رفّ البصرة لا يُرى في بغداد قبل أن يصلها */
+    public function test_each_branch_sees_only_the_returns_on_its_own_shelf(): void
+    {
+        $inBasra = $this->returnReceivedInBaghdad($this->baghdadMerchant);
+        Tenancy::runFor($this->company, fn () => $inBasra->forceFill(['hub_id' => $this->basraHub->id])->save());
+        $inBaghdad = $this->returnReceivedInBaghdad($this->basraMerchant);
+
+        $owner = $this->makeUser($this->company);
+
+        // صاحب الشركة بلا فرع: يقف في الرئيسي (بغداد)
+        $this->actingAs($owner)->get($this->host().'/returns/sorting')
+            ->assertOk()->assertSee($inBaghdad->number)->assertDontSeeNumber($inBasra->number);
+
+        // والبصرة ترى ما على رفّها وحده
+        $this->actingAs($this->basraClerk)->get($this->host().'/returns/sorting')
+            ->assertOk()->assertSee($inBasra->number)->assertDontSeeNumber($inBaghdad->number);
+    }
+
     /** شركةٌ بفرعٍ واحد لا تعرف مراكز: راجعها في فرعها بالضرورة. */
     public function test_an_unknown_location_counts_as_here(): void
     {

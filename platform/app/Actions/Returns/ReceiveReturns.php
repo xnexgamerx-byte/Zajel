@@ -89,6 +89,8 @@ class ReceiveReturns
     {
         return Shipment::query()
             ->visibleTo($viewer)
+            // راجعُ مناديب هذا الفرع وحده — والرئيسي بغداد (docs/plan/50)
+            ->withCourierOf($viewer)
             ->with(['merchant:id,business_name,code', 'deliveryCourier:id,name', 'lastFailureReason:id,name_ar'])
             ->where(fn ($q) => static::withCourier($q))
             ->when($courierId, fn ($q) => $q->where('delivery_courier_id', $courierId))

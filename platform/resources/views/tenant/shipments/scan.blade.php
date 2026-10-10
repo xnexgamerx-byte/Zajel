@@ -1,11 +1,12 @@
 @extends('layouts.app')
-@section('title', 'استلام وتوزيع بالمسح')
+@section('title', 'استلام بالمسح')
 
 @section('content')
 <div class="mb-5">
-    <h1 class="page-title">استلام وتوزيع بالمسح</h1>
+    <h1 class="page-title">استلام بالمسح</h1>
     <p class="mt-1 text-sm text-ink-500">
-        امسح الوصولات فتدخل الجدول، ثم فعلٌ واحد لها كلّها. المسح لا يغيّر شيئاً حتى الحفظ.
+        امسح الوصولات فتدخل الجدول، ثم استلمها كلّها في المخزن. المسح لا يغيّر شيئاً حتى الحفظ.
+        وإخراجها مع المناديب من «توزيع بالمسح».
     </p>
 </div>
 
@@ -70,22 +71,14 @@
         @endcan
 
         @can('shipments.assign')
-            <form method="POST" action="{{ route('shipments.assign') }}" class="card space-y-3 p-5" data-scan-form>
-                @csrf
-                <h2 class="card-title">مندوب توصيل للكل</h2>
-                <label class="field-label" for="scan-courier">المندوب</label>
-                <select id="scan-courier" name="courier_id" class="field-input" data-searchable required>
-                    <option value="">اختر المندوب</option>
-                    @foreach ($couriers as $courier)
-                        @php $covers = $courier->zones->pluck('governorate.name_ar')->filter()->unique(); @endphp
-                        <option value="{{ $courier->id }}">
-                            {{ $courier->name }}{{ $covers->isNotEmpty() ? ' — '.$covers->take(3)->implode('، ') : '' }}
-                        </option>
-                    @endforeach
-                </select>
-                <button type="submit" class="btn-primary w-full" disabled>إسناد وإخراج للتوصيل</button>
-                <p class="field-hint">ما لم يُستلم بعد يُسجَّل استلامه ثم يخرج؛ والمسلَّمة والملغاة وما مع مندوبٍ تُتخطّى ويُقال لماذا.</p>
-            </form>
+            {{-- التوزيع صار شاشةً لكلّ محافظة: كلّ منطقةٍ مع مندوبها (docs/plan/50) --}}
+            <a href="{{ route('shipments.distribute') }}" class="card flex items-center justify-between gap-3 p-5 hover:ring-2 hover:ring-[var(--brand-line)]">
+                <div>
+                    <div class="card-title">توزيع بالمسح</div>
+                    <p class="card-hint">لكلّ محافظة: امسح وصولاتها فتتوزّع على مندوب كلّ منطقة.</p>
+                </div>
+                <x-icon name="chevron" class="size-5 shrink-0 text-ink-400 rtl:-scale-x-100" />
+            </a>
         @endcan
     </div>
 </div>

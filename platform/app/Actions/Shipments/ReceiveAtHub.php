@@ -70,6 +70,25 @@ class ReceiveAtHub
 
         // راجعٌ بيد المندوب، ومثله باقي الواصل الجزئي وقديم الاستبدال: يُستلم راجعاً
         if ($status === ShipmentStatus::Returning || $status === ShipmentStatus::PartiallyDelivered) {
+            // راجعٌ «لم يصل» مع كشفه ثم وُجد: يدخل رفّ هذا المخزن راجعاً كما لو وصل في كيسه (docs/plan/50)
+            if ($shipment->missing_at !== null && $shipment->return_received_at !== null) {
+                $shipment->forceFill(['hub_id' => $options['hub_id']])->save();
+                \App\Models\ShipmentEvent::create([
+                    'shipment_id' => $shipment->id,
+                    'from_status' => $status->value,
+                    'to_status'   => $status->value,
+                    'event_type'  => 'return_arrived',
+                    'actor_type'  => 'user',
+                    'actor_id'    => $actor->id,
+                    'actor_name'  => $actor->name,
+                    'hub_id'      => $options['hub_id'],
+                    'note'        => 'وُجد الراجع بعد أن لم يصل مع كشفه',
+                    'ip'          => request()->ip(),
+                ]);
+
+                return null;
+            }
+
             if ($shipment->return_received_at !== null) {
                 // راجعٌ وصل في كيسٍ من فرعٍ آخر: يُستلم كشفه فيصل راجعاً (docs/plan/38)
                 return $shipment->current_bag_id

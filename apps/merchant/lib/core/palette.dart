@@ -8,6 +8,7 @@ class Palette {
   static const muted = Color(0xFF6F86A2);
   static const line = Color(0xFFE6EBF2);
   static const pill = Color(0xFF69758B);
+  static const returnRed = Color(0xFFD92D20);
   static const eye = Color(0xFFEBF0F4);
   static const shadow = Color(0x0F0F2A55);
 }

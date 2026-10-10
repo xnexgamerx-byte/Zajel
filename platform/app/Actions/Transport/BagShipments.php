@@ -145,7 +145,11 @@ class BagShipments
      * فتح الكيس في مركز الوصول: هنا تصير الشحنات «في المخزن» عند المركز
      * الجديد، فالمسؤولية انتقلت وصار الطرد جاهزاً للتوزيع من هنا.
      */
-    public function open(Bag $bag, ?User $actor = null): Bag
+    /**
+     * @param  list<int>|null  $only  الطرود الممسوحة عند الاستلام؛ null = كلّ ما في الكيس.
+     *                                وما لم يُمسح يُوسَم «لم يصل» بعينه (docs/plan/50)
+     */
+    public function open(Bag $bag, ?User $actor = null, ?array $only = null): Bag
     {
         if ($bag->status !== 'received') {
             throw ValidationException::withMessages([
@@ -153,10 +157,20 @@ class BagShipments
             ]);
         }
 
-        return DB::transaction(function () use ($bag, $actor) {
+        return DB::transaction(function () use ($bag, $actor, $only) {
             $change = app(\App\Actions\Shipments\ChangeShipmentStatus::class);
 
             foreach ($bag->shipments()->wherePivotNull('removed_at')->get() as $shipment) {
+                // لم يُمسح عند الباب: خرج من الكيس ولم يدخل المخزن — مفقودٌ بعينه حتى يُعثر عليه
+                if ($only !== null && ! in_array((int) $shipment->id, $only, true)) {
+                    // يُنسب إلى مخزن الوصول — كان ينتظره، وعليه البحث عنه — إلّا الراجع: رفّه رفّ التسليم لتاجره
+                    $shipment->forceFill(['current_bag_id' => null, 'missing_at' => now()]
+                        + ($shipment->status === ShipmentStatus::Returning ? [] : ['hub_id' => $bag->to_hub_id]))->save();
+                    $this->log($shipment, 'shipment_missing', "لم يُمسح عند فتح الكيس {$bag->code} — الطلب لم يصل", $actor);
+
+                    continue;
+                }
+
                 $shipment->forceFill(['current_bag_id' => null])->save();
 
                 /*

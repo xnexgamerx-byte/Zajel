@@ -45,6 +45,20 @@ class Shipment extends Model
     /** كود التسليم لا يُسلسَل إلى أيّ ردٍّ عن غير قصد: يُقرأ باسمه حيث يُعرض عمداً */
     protected $hidden = ['delivery_code'];
 
+    protected static function booted(): void
+    {
+        /*
+        | «لم يصل» (docs/plan/50) يُمحى حين يُعرف مكان الطرد: دخل مخزناً، أو تغيّرت مرحلته —
+        | وسمُه نفسه يُكتب مع خروجه من كيسه بلا تغيير مرحلة، فلا يُمحى في الحفظ نفسه.
+        */
+        static::saving(function (self $shipment) {
+            if ($shipment->missing_at !== null && ! $shipment->isDirty('missing_at')
+                && ($shipment->isDirty('hub_id') || $shipment->isDirty('status'))) {
+                $shipment->missing_at = null;
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -63,6 +77,7 @@ class Shipment extends Model
             'amount_confirmed_at' => 'datetime',
             'cancelled_at'      => 'datetime',
             'courier_settled_at' => 'datetime',
+            'missing_at'        => 'datetime',
             'merchant_settled_at' => 'datetime',
             'review_hold_at'    => 'datetime',
             'reviewed_at'       => 'datetime',
@@ -205,6 +220,46 @@ class Shipment extends Model
      * راجعٌ وصل المخزن ولم يُكيَّس بعد — المادّة التي يُقسَم عليها بين
      * «يُسلَّم هنا» و«يُفرَز لفرع تاجره».
      */
+    /**
+     * رواجع «هنا» (docs/plan/50): على رفّ مراكز فرع الموظّف، والرئيسي (بغداد) لمن لا فرع له.
+     * كان صاحب الشركة يرى راجع الكوت في فرزه قبل أن يصله؛ الآن كلّ فرعٍ رواجعه وحده.
+     * ومكانٌ مجهول (شركةٌ بلا مراكز) يُحسب للرئيسي.
+     */
+    public function scopeOnShelfOf(Builder $q, ?User $user): Builder
+    {
+        if (! $user) {
+            return $q;
+        }
+
+        [$branchId, $isMain] = static::hereBranch($user);
+
+        return $q->where(fn (Builder $w) => $w
+            ->whereIn($q->qualifyColumn('hub_id'), Hub::query()->select('id')->where('branch_id', $branchId ?? 0))
+            ->when($isMain, fn (Builder $m) => $m->orWhereNull($q->qualifyColumn('hub_id'))));
+    }
+
+    /** راجعٌ بيد مندوبٍ من فرع الموظّف — ومندوبٌ بلا فرعٍ للرئيسي */
+    public function scopeWithCourierOf(Builder $q, ?User $user): Builder
+    {
+        if (! $user) {
+            return $q;
+        }
+
+        [$branchId, $isMain] = static::hereBranch($user);
+
+        return $q->whereIn($q->qualifyColumn('delivery_courier_id'), Courier::withTrashed()->select('id')
+            ->where(fn (Builder $c) => $c->where('branch_id', $branchId ?? 0)->when($isMain, fn ($m) => $m->orWhereNull('branch_id'))));
+    }
+
+    /** @return array{0: int|null, 1: bool} فرع الموظّف — أو الرئيسي — وهل هو الرئيسي */
+    public static function hereBranch(User $user): array
+    {
+        $main = Branch::where('is_main', true)->value('id');
+        $branchId = $user->branch_id ?: $main;
+
+        return [$branchId ? (int) $branchId : null, $branchId !== null && (int) $branchId === (int) $main];
+    }
+
     public function scopeReturnOnShelf(Builder $q): Builder
     {
         return $q->where('shipments.status', ShipmentStatus::Returning->value)
@@ -405,12 +460,12 @@ class Shipment extends Model
         };
     }
 
-    /** لون الشارة: «إعادة توصيل» زرقاء كالتوصيل، و«راجع مؤكد» كهرمانية كالمتعثّرة */
+    /** لون الشارة: «إعادة توصيل» زرقاء كالتوصيل، و«راجع مؤكد» حمراء كالراجع (docs/plan/50) */
     public function statusColor(): string
     {
         return match (true) {
             $this->isRedelivery()                 => 'blue',
-            $this->isConfirmedReturnWithCourier() => 'amber',
+            $this->isConfirmedReturnWithCourier() => 'red',
             default                               => $this->status->color(),
         };
     }

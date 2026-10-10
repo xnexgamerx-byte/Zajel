@@ -230,7 +230,7 @@ class MerchantApiTest extends TestCase
         $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=delivered'))->assertOk()
             ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'محمد علي');
         $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=processing'))->assertOk()
-            ->assertJsonPath('data.0.status', 'للمعالجة')->assertJsonPath('data.0.tone', 'red');
+            ->assertJsonPath('data.0.status', 'للمعالجة')->assertJsonPath('data.0.tone', 'urgent');
     }
 
     public function test_the_shipment_list_searches_by_name_and_number(): void

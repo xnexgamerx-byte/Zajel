@@ -61,7 +61,9 @@ final class StaffNavigation
             'delivery' => ['التوصيل', 'truck', [
                 ['shipments.stages', 'كل مراحل النقل', ['shipments.stages'], 'shipments.view'],
                 ['pickups.index', 'طلبات الاستلام', ['pickups.*'], 'pickups.manage'],
-                ['shipments.scan', 'استلام وتوزيع بالمسح', ['shipments.scan'], 'shipments.status'],
+                // الاستلام في المخزن وحده، والتوزيع لكلّ محافظةٍ على مناديب مناطقها (docs/plan/50)
+                ['shipments.scan', 'استلام بالمسح', ['shipments.scan'], 'shipments.status'],
+                ['shipments.distribute', 'توزيع بالمسح', ['shipments.distribute*'], 'shipments.assign'],
                 ['courier-manifests.index', 'كشوف المناديب', ['courier-manifests.*'], 'transport.manage'],
                 // إرسالٌ واستلامٌ بضغطة، والأكياس والكشوف اليدوية من داخلها (docs/plan/38)
                 ['transfers.index', 'النقل بين الفروع (إرسال واستلام)', ['transfers.*', 'bags.*', 'manifests.index', 'manifests.show', 'manifests.inbound'], 'transport.manage'],

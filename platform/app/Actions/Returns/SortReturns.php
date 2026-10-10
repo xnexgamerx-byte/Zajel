@@ -41,6 +41,8 @@ class SortReturns
             ->visibleTo($viewer)
             ->with(['merchant:id,business_name,code,branch_id', 'hub:id,name,branch_id', 'lastFailureReason:id,name_ar'])
             ->returnOnShelf()
+            // ما على رفّ هذا الفرع وحده: راجع الكوت يُفرز في الكوت لا يُرى في بغداد (docs/plan/50)
+            ->onShelfOf($viewer)
             ->awayFromHomeBranch()
             ->orderBy('return_received_at')
             ->get()
@@ -60,6 +62,9 @@ class SortReturns
             ->where('status', 'returning')
             ->whereNotNull('return_received_at')
             ->whereNotNull('current_bag_id')
+            // ما خرج من رفّ هذا الفرع
+            ->when($viewer, fn ($q) => $q->whereIn('current_bag_id', \App\Models\Bag::query()->select('id')
+                ->whereIn('from_hub_id', \App\Models\Hub::query()->select('id')->where('branch_id', Shipment::hereBranch($viewer)[0] ?? 0))))
             ->orderBy('current_bag_id')
             ->get();
     }

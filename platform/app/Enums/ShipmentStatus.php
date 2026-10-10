@@ -56,7 +56,9 @@ enum ShipmentStatus: string
     {
         return match ($this) {
             self::Delivered                              => 'green',
-            self::Returned, self::Cancelled              => 'gray',
+            // الراجع أحمر ليُميَّز من بعيد (docs/plan/50)
+            self::Returning, self::Returned              => 'red',
+            self::Cancelled                              => 'gray',
             self::Lost, self::Damaged                    => 'red',
             self::FailedAttempt, self::Postponed         => 'amber',
             self::OutForDelivery, self::PartiallyDelivered => 'blue',

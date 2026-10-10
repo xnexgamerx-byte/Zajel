@@ -6,6 +6,7 @@
 
 import { initSearchableSelects } from './searchable-select';
 import { initScanTable } from './scan-table';
+import { initScanDistribute } from './scan-distribute';
 import { initScanBox } from './scan-box';
 import { initQuickEntry } from './quick-entry';
 import { initNumberInputs, numberValue } from './number-inputs';
@@ -46,6 +47,10 @@ if (dailyChart) initDailyChart(dailyChart);
 
 const scanTable = document.querySelector('[data-scan-table]');
 if (scanTable) initScanTable(scanTable);
+
+// «توزيع بالمسح»: كلّ منطقةٍ مع مندوبها (docs/plan/50)
+const distribute = document.querySelector('[data-distribute]');
+if (distribute) initScanDistribute(distribute);
 
 // مسح الوصولات في شاشات الراجع: يُعلِّم الطرد في قائمتها أو يقول لماذا لا
 const scanBox = document.querySelector('[data-scan-box]');

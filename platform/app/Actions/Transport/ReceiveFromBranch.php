@@ -26,11 +26,15 @@ class ReceiveFromBranch
 
     /**
      * @param  list<int>|null  $bagIds  الأكياس التي وصلت؛ null = كلّها
-     * @return array{shipments: int, returns: int}
+     * @param  list<int>|null  $shipmentIds  الطلبات الممسوحة واحداً واحداً (docs/plan/50)؛ وما لم يُمسح
+     *                                      «لم يصل» بعينه. null = كلّ ما في الأكياس الواصلة
+     * @return array{shipments: int, returns: int, missing: list<string>}
      */
-    public function handle(Manifest $manifest, User $actor, ?array $bagIds = null, ?string $notes = null): array
+    public function handle(Manifest $manifest, User $actor, ?array $bagIds = null, ?string $notes = null, ?array $shipmentIds = null): array
     {
-        return DB::transaction(function () use ($manifest, $actor, $bagIds, $notes) {
+        $only = $shipmentIds === null ? null : array_values(array_map('intval', $shipmentIds));
+
+        return DB::transaction(function () use ($manifest, $actor, $bagIds, $notes, $only) {
             $manifest = Manifest::query()->lockForUpdate()->findOrFail($manifest->id);
 
             if ($manifest->status === 'dispatched') {
@@ -41,17 +45,20 @@ class ReceiveFromBranch
 
             $shipments = 0;
             $returns = 0;
+            $missing = [];
 
             // الأكياس التي وصلت ولم تُفتح — ومنها ما استُلم قبل هذه الشاشة ولم يُفتح
             foreach ($manifest->bags()->where('bags.status', 'received')->get() as $bag) {
                 $inside = $bag->shipments()->wherePivotNull('removed_at')->get();
-                $returns += $inside->where('status', ShipmentStatus::Returning)->count();
-                $shipments += $inside->count();
+                $arrived = $only === null ? $inside : $inside->filter(fn ($s) => in_array((int) $s->id, $only, true));
+                $returns += $arrived->where('status', ShipmentStatus::Returning)->count();
+                $shipments += $arrived->count();
+                array_push($missing, ...$inside->diff($arrived)->pluck('number')->all());
 
-                $this->bags->open($bag, $actor);
+                $this->bags->open($bag, $actor, $only);
             }
 
-            return ['shipments' => $shipments, 'returns' => $returns];
+            return ['shipments' => $shipments, 'returns' => $returns, 'missing' => $missing];
         });
     }
 }

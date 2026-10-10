@@ -57,6 +57,8 @@
             'blue'  => 'bg-info-50 text-info-700 ring-1 ring-info-200',
             'amber' => 'bg-warn-50 text-warn-700 ring-1 ring-warn-200',
             'green' => 'bg-ok-50 text-ok-700 ring-1 ring-ok-200',
+            // الراجع أحمر (docs/plan/50)
+            'red'   => 'bg-bad-50 text-bad-700 ring-1 ring-bad-200',
             default => 'bg-ink-100 text-aeblack-800',
         };
     @endphp

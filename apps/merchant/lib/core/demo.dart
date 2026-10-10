@@ -55,7 +55,7 @@ class Demo {
     _row(4, 'علي حسين', 'الأعظمية', 60000, 'قيد التوصيل', 'blue', hours: 3),
     _row(5, 'زهراء كريم', 'الكاظمية', 25000, 'مؤجل', 'amber', urgent: true, hours: 20),
     _row(6, 'حسن جبار', 'البياع', 38000, 'واصل', 'green', hours: 26),
-    _row(7, 'مريم سعد', 'المنصور', 52000, 'راجع للتاجر', 'gray', hours: 50),
+    _row(7, 'مريم سعد', 'المنصور', 52000, 'راجع للتاجر', 'red', hours: 50),
     _row(8, 'كرار عادل', 'الدورة', 19000, 'بالمخزن', 'slate', hours: 52),
   ];
 
@@ -166,7 +166,7 @@ class Demo {
     at: s.at,
     status: s.status,
     urgent: s.urgent,
-    tone: s.urgent ? 'red' : (s.status == 'مسلمة' ? 'green' : 'blue'),
+    tone: s.urgent ? 'urgent' : (s.status == 'مسلمة' ? 'green' : 'blue'),
   );
 
   static DateTime _today(int h, int m) {

@@ -166,7 +166,8 @@ class StatusPill extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 4),
     alignment: Alignment.center,
     decoration: BoxDecoration(
-      color: row.urgent ? brand.coral : Palette.pill,
+      // الراجع أحمر ليُميَّز (docs/plan/50)، وما ينتظر قرارك بلون الشركة، والباقي رماديّة
+      color: row.tone == 'red' ? Palette.returnRed : (row.urgent ? brand.coral : Palette.pill),
       borderRadius: BorderRadius.circular(height / 2),
     ),
     child: FittedBox(

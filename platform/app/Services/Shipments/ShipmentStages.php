@@ -75,13 +75,13 @@ final class ShipmentStages
                     'links' => [['processing.index', 'شاشة المعالجة', 'shipments.status']],
                     'hint' => 'بطلب الزبون إلى موعدٍ آخر', 'apply' => $status(ShipmentStatus::Postponed)],
                 // «راجع مؤكد»: لم تُعالَج فتأكّد رجوعها، وما زالت بيد المندوب يسلّمها للمخزن (docs/plan/38)
-                'confirmed_return' => ['label' => 'راجع مؤكد', 'tone' => 'amber',
+                'confirmed_return' => ['label' => 'راجع مؤكد', 'tone' => 'red',
                     'links' => [['returns.incoming', 'استلام الراجع من المندوب', 'returns.manage']],
                     'hint' => 'تأكّد رجوعها بقرار المعالجة، وما زالت بيد المندوب',
                     'apply' => fn (Builder $q) => $q->where('shipments.status', ShipmentStatus::Returning->value)
                         ->whereNull('shipments.return_received_at')->whereNotNull('shipments.return_confirmed_at')],
                 // وما سواه بيد المندوب: باقي الواصل الجزئي وقديم الاستبدال
-                'return_with_courier' => ['label' => 'راجع عند المندوب', 'tone' => 'amber',
+                'return_with_courier' => ['label' => 'راجع عند المندوب', 'tone' => 'red',
                     'links' => [['returns.incoming', 'استلام الراجع من المندوب', 'returns.manage']],
                     'hint' => 'قديم استبدالٍ أو باقي واصلٍ جزئي، وما زال بيده',
                     'apply' => fn (Builder $q) => $q->where(fn (Builder $w) => ReceiveReturns::withCourier($w))
@@ -89,7 +89,7 @@ final class ShipmentStages
                             ->orWhere('shipments.status', '!=', ShipmentStatus::Returning->value))],
             ]],
             'returns' => ['icon' => 'undo', 'label' => 'الراجع', 'hint' => 'عائدةٌ إلى أصحابها', 'stages' => [
-                'return_on_shelf' => ['label' => 'راجع بالمخزن', 'tone' => 'slate',
+                'return_on_shelf' => ['label' => 'راجع بالمخزن', 'tone' => 'red',
                     'links' => [['returns.outgoing', 'تسليم الراجع للتاجر', 'returns.manage'], ['returns.pickup', 'تسليمه لمندوب الاستلام', 'returns.manage']],
                     'hint' => 'استُلمت من المندوب ولم تُسلَّم لتاجرها', 'apply' => fn (Builder $q) => $q->returnOnShelf()],
             ]],
@@ -120,11 +120,11 @@ final class ShipmentStages
                 'in_transit' => ['label' => 'بالطريق بين الفروع', 'tone' => 'blue',
                     'links' => [['transfers.index', 'النقل بين الفروع', 'transport.manage']],
                     'hint' => 'في كيسٍ على كشف نقل', 'apply' => $status(ShipmentStatus::InTransit)],
-                'returns_to_sort' => ['label' => 'رواجع الفروع بالمخزن', 'tone' => 'amber',
+                'returns_to_sort' => ['label' => 'رواجع الفروع بالمخزن', 'tone' => 'red',
                     'links' => [['transfers.index', 'أرسله لفرع تاجره', 'transport.manage'], ['returns.sorting', 'فرز الراجع للفروع', 'returns.manage']],
                     'hint' => 'راجعٌ على رفّنا وتاجره في فرعٍ آخر',
                     'apply' => fn (Builder $q) => $q->returnOnShelf()->awayFromHomeBranch()],
-                'returns_on_the_way' => ['label' => 'رواجع بالطريق لفروعها', 'tone' => 'blue',
+                'returns_on_the_way' => ['label' => 'رواجع بالطريق لفروعها', 'tone' => 'red',
                     'links' => [['transfers.index', 'النقل بين الفروع', 'transport.manage']],
                     'hint' => 'كُيِّست إلى فرع تاجرها',
                     'apply' => fn (Builder $q) => $q->where('shipments.status', ShipmentStatus::Returning->value)

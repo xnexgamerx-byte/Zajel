@@ -177,11 +177,13 @@ class BranchTransferTest extends TestCase
         $this->assertSame(ShipmentStatus::Returning, $return->refresh()->status);
         $this->assertNotNull($return->current_bag_id);
 
-        // البصرة تراه واصلاً إليها، وتستلمه بضغطة
+        // البصرة تراه واصلاً إليها، وتستلمه بمسح كلّ طلبٍ بوحده (docs/plan/50)
         $this->actingAs($this->basraClerk)->get($this->host().'/transfers')
-            ->assertOk()->assertSee($manifest->code)->assertSee('استلمت الكل');
+            ->assertOk()->assertSee($manifest->code)->assertSee('استلم بالمسح');
+        $this->actingAs($this->basraClerk)->get($this->host()."/transfers/{$manifest->id}/receive")
+            ->assertOk()->assertSee($return->number);
 
-        $this->actingAs($this->basraClerk)->post($this->host()."/transfers/{$manifest->id}/receive")
+        $this->actingAs($this->basraClerk)->post($this->host()."/transfers/{$manifest->id}/receive", ['shipment_ids' => [$return->id]])
             ->assertRedirect()
             ->assertSessionHas('success', fn (string $m) => str_contains($m, 'وصل راجعاً'));
 
@@ -213,7 +215,7 @@ class BranchTransferTest extends TestCase
         $this->assertSame(ShipmentStatus::InTransit, $shipment->refresh()->status);
 
         $manifest = Tenancy::runFor($this->company, fn () => Manifest::sole());
-        $this->actingAs($this->basraClerk)->post($this->host()."/transfers/{$manifest->id}/receive")->assertRedirect();
+        $this->actingAs($this->basraClerk)->post($this->host()."/transfers/{$manifest->id}/receive", ['shipment_ids' => [$shipment->id]])->assertRedirect();
 
         $this->assertSame(ShipmentStatus::AtHub, $shipment->refresh()->status);
         $this->assertSame($this->basraHub->id, (int) $shipment->hub_id);
@@ -375,5 +377,39 @@ class BranchTransferTest extends TestCase
 
         // واختيار «إلى» باليد يبقى كما هو
         $this->actingAs($this->baghdadClerk)->get($this->host().'/transfers?to=')->assertOk()->assertViewHas('to', null);
+    }
+
+    /** يُقرأ كلّ طلبٍ بوحده (docs/plan/50): ما لم يُمسح «لم يصل» بعينه، ويزول وسمه حين يُمسح في المخزن */
+    public function test_an_unscanned_shipment_is_flagged_missing_by_itself(): void
+    {
+        $came = $this->atBaghdadHub($this->baghdadMerchant, $this->basra());
+        $lost = $this->atBaghdadHub($this->baghdadMerchant, $this->basra());
+
+        $this->send($this->baghdadClerk, [$came->id, $lost->id])->assertSessionHasNoErrors();
+        $manifest = Tenancy::runFor($this->company, fn () => Manifest::sole());
+
+        // ضغطةٌ بلا مسح لا تُعلن الكشف كلّه مفقوداً
+        $this->actingAs($this->basraClerk)->post($this->host()."/transfers/{$manifest->id}/receive")
+            ->assertSessionHasErrors('shipment_ids');
+        $this->assertSame('dispatched', $manifest->refresh()->status);
+
+        $this->actingAs($this->basraClerk)->post($this->host()."/transfers/{$manifest->id}/receive", ['shipment_ids' => [$came->id]])
+            ->assertRedirect()
+            ->assertSessionHas('success', fn (string $m) => str_contains($m, $lost->number) && str_contains($m, 'لم تصل'));
+
+        $this->assertSame(ShipmentStatus::AtHub, $came->refresh()->status);
+        $this->assertNull($came->missing_at);
+        $this->assertSame(ShipmentStatus::InTransit, $lost->refresh()->status);
+        $this->assertNotNull($lost->missing_at);
+        $this->assertNull($lost->current_bag_id);
+
+        $this->actingAs($this->basraClerk)->get($this->host().'/transfers')
+            ->assertOk()->assertSeeInOrder(['طلبات لم تصل', 'رقم الوصل', $lost->number]);
+
+        // وُجد: مسحه في «استلام بالمسح» يُدخله المخزن ويمحو الوسم
+        $this->actingAs($this->basraClerk)->post($this->host().'/shipments/scan/receive', ['shipment_ids' => [$lost->id]])
+            ->assertRedirect()->assertSessionHas('success', fn (string $m) => str_contains($m, 'استُلمت'));
+        $this->assertSame(ShipmentStatus::AtHub, $lost->refresh()->status);
+        $this->assertNull($lost->missing_at);
     }
 }
