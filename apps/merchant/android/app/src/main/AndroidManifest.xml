@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- النظام نفسه على الإنترنت: بلا هذا لا يصل التطبيق إليه في نسخة التنصيب (النسخة التجريبية تضيفه وحدها) -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- الزرّ الأوسط يمسح باركود الوصل المطبوع بالكاميرا (docs/plan/52) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- «إنشاء بالتسجيل الصوتي» (docs/plan/55) -->
@@ -45,6 +47,15 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- «اتّصل» بالزبون والمندوب، وواتساب الدعم، وصفحة الطباعة في المتصفّح -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>

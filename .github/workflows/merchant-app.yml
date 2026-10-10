@@ -1,0 +1,77 @@
+# تطبيق التاجر (apps/merchant): اختباراته، ثم نسختا تنصيبٍ لأندرويد تُنزَّلان من صفحة التشغيل
+# في GitHub (Actions ← التشغيل ← Artifacts):
+#
+#   zajel-merchant-apk  — على النظام الحقيقي (config/zajel.json)
+#   demo-merchant-apk   — بيانات العرض، بلا نظام
+#
+# تُبنى هنا لا على خادم التطوير: أدوات أندرويد على أجهزة GitHub. والتوقيع توقيع التجربة؛ نسخة
+# المتجر بمفتاحٍ يُحفظ في أسرار المستودع، لا في الملفات.
+
+name: Merchant app
+
+on:
+  push:
+    paths:
+      - 'apps/merchant/**'
+      - '.github/workflows/merchant-app.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: merchant-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/merchant
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.7'
+          cache: true
+
+      - name: Packages
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test --dart-define-from-file=config/demo.json
+
+      - name: APK — the real system
+        run: |
+          flutter build apk --release --dart-define-from-file=config/zajel.json
+          mv build/app/outputs/flutter-apk/app-release.apk zajel-merchant.apk
+
+      - name: APK — demo data
+        run: |
+          flutter build apk --release --dart-define-from-file=config/demo.json
+          mv build/app/outputs/flutter-apk/app-release.apk demo-merchant.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zajel-merchant-apk
+          path: apps/merchant/zajel-merchant.apk
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-merchant-apk
+          path: apps/merchant/demo-merchant.apk
+          retention-days: 14
