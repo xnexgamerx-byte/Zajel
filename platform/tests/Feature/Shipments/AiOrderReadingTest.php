@@ -7,7 +7,6 @@ use App\Enums\UserRole;
 use App\Models\City;
 use App\Models\Company;
 use App\Models\Governorate;
-use App\Models\Merchant;
 use App\Models\User;
 use App\Services\Orders\Ai\ClaudeOrderModel;
 use App\Services\Orders\Ai\OrderModel;
@@ -89,13 +88,13 @@ class AiOrderReadingTest extends TestCase
             ->assertJsonPath('engine', 'ai')
             ->assertJsonPath('fields', [
                 'recipient_phone' => '07701234567',
-                'cod_amount'      => 25_000,
-                'pieces_count'    => 2,
-                'governorate_id'  => $this->governorate('BGD'),
-                'city_id'         => $this->city('الكرادة', 'BGD'),
-                'landmark'        => 'قرب ساحة كهرمانة',
-                'recipient_name'  => 'علي حسين',
-                'notes'           => 'اتصل قبل الوصول',
+                'cod_amount' => 25_000,
+                'pieces_count' => 2,
+                'governorate_id' => $this->governorate('BGD'),
+                'city_id' => $this->city('الكرادة', 'BGD'),
+                'landmark' => 'قرب ساحة كهرمانة',
+                'recipient_name' => 'علي حسين',
+                'notes' => 'اتصل قبل الوصول',
             ])
             ->assertJsonPath('missing', [])
             ->assertJsonPath('found.cod_amount', '25,000 د.ع')
@@ -108,6 +107,22 @@ class AiOrderReadingTest extends TestCase
         $this->assertStringStartsWith('رسالة الزبون:', $content[0]['text']);
         $this->assertContains('بغداد', $schema['properties']['governorate']['enum']);
         $this->assertFalse($schema['additionalProperties']);
+    }
+
+    /** منطقةٌ سُمعت خطأً: يختار النموذج أقربها من قائمة محافظتها (docs/plan/61) */
+    public function test_a_misheard_area_is_matched_to_the_closest_in_its_governorate(): void
+    {
+        $this->model->answers = [
+            ['area' => 'الكراضة الشرقيه'] + $this->answer(),
+            ['area' => 'الكرادة'],
+        ];
+
+        $this->actingAs($this->owner)->postJson($this->host().'/shipments/read', ['text' => 'علي حسين الكراضة', 'spoken' => true])
+            ->assertOk()
+            ->assertJsonPath('fields.city_id', $this->city('الكرادة', 'BGD'));
+
+        $this->assertCount(2, $this->model->calls);
+        $this->assertStringContainsString('الكرادة', $this->model->calls[1][1][0]['text']);
     }
 
     public function test_the_merchants_words_are_sent_as_speech(): void

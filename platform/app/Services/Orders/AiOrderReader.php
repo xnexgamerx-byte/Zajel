@@ -2,10 +2,12 @@
 
 namespace App\Services\Orders;
 
+use App\Models\City;
 use App\Models\Governorate;
 use App\Services\Orders\Ai\OrderModel;
 use App\Services\Orders\Ai\UnreadableByModel;
 use App\Support\Phone;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -117,7 +119,7 @@ final class AiOrderReader
 
     /**
      * @param  array<string, mixed>  $answer
-     * @param  \Illuminate\Support\Collection<int, Governorate>  $governorates
+     * @param  Collection<int, Governorate>  $governorates
      * @return Reading
      */
     private function reading(array $answer, $governorates): array
@@ -155,6 +157,11 @@ final class AiOrderReader
             $fields['governorate_id'] = $governorate->id;
             $found['governorate_id'] = $governorate->name_ar;
         }
+        // منطقةٌ لم تُطابَق حرفاً (سمعها الهاتف خطأً أو كُتبت بإملاءٍ آخر): يختار النموذج أقربها من قائمة محافظتها
+        if (! ($place['city'] ?? null) && $governorate && $area !== '') {
+            $place = ['city' => $this->closestArea($area, $governorate)] + ($place ?? []);
+        }
+
         if (($city = $place['city'] ?? null) && (! $governorate || (int) $city->governorate_id === (int) $governorate->id)) {
             $fields['city_id'] = $city->id;
             $found['city_id'] = $city->name_ar;
@@ -177,13 +184,41 @@ final class AiOrderReader
         }
 
         return [
-            'fields'   => $fields,
-            'found'    => $found,
-            'missing'  => array_values(array_diff_key(OrderReader::REQUIRED, $fields)),
-            'lines'    => array_values(array_filter(array_map('trim', preg_split('/\R/u', $text('text', 3000)) ?: []))),
+            'fields' => $fields,
+            'found' => $found,
+            'missing' => array_values(array_diff_key(OrderReader::REQUIRED, $fields)),
+            'lines' => array_values(array_filter(array_map('trim', preg_split('/\R/u', $text('text', 3000)) ?: []))),
             'warnings' => $warnings,
-            'engine'   => 'ai',
+            'engine' => 'ai',
         ];
+    }
+
+    /**
+     * أقرب منطقةٍ في قائمة المحافظة لما سُمع (docs/plan/61): «الكراده» الكرادة، «حي الجهات» حي الجهاد.
+     * طلبٌ صغير لا يُرسَل إلّا حين لم تُطابَق المنطقة؛ ولا يُقبل إلّا اسمٌ من القائمة حرفياً.
+     */
+    private function closestArea(string $heard, Governorate $governorate): ?City
+    {
+        $cities = City::where('governorate_id', $governorate->id)->where('is_active', true)->get(['id', 'governorate_id', 'name_ar']);
+
+        if ($cities->isEmpty() || $this->model === null) {
+            return null;
+        }
+
+        try {
+            $answer = $this->model->extract(
+                [['type' => 'text', 'text' => 'من قائمة مناطق المحافظة اختر المنطقة التي قصدها المتكلّم أو الكاتب، ولو سُمعت أو كُتبت بإملاءٍ آخر أو بلهجة. '
+                    .'اكتبها كما في القائمة حرفياً، أو "" إن لم تكن أيٌّ منها قريبة.']],
+                [['type' => 'text', 'text' => "ما ورد: {$heard}\nمناطق {$governorate->name_ar}: ".$cities->pluck('name_ar')->implode('، ')]],
+                ['type' => 'object', 'properties' => ['area' => ['type' => 'string']], 'required' => ['area'], 'additionalProperties' => false],
+            );
+        } catch (\Throwable $e) {
+            Log::warning('closest area by the model failed', ['error' => $e::class]);
+
+            return null;
+        }
+
+        return $cities->firstWhere('name_ar', trim((string) ($answer['area'] ?? '')));
     }
 
     /** @param list<string> $governorates @return array<string, mixed> */
@@ -192,19 +227,19 @@ final class AiOrderReader
         $string = ['type' => 'string'];
 
         return [
-            'type'       => 'object',
+            'type' => 'object',
             'properties' => [
-                'is_order'            => ['type' => 'boolean'],
-                'recipient_name'      => $string,
-                'recipient_phone'     => $string,
+                'is_order' => ['type' => 'boolean'],
+                'recipient_name' => $string,
+                'recipient_phone' => $string,
                 'recipient_phone_alt' => $string,
-                'governorate'         => ['type' => 'string', 'enum' => [...$governorates, '']],
-                'area'                => $string,
-                'landmark'            => $string,
-                'cod_amount'          => ['type' => 'integer'],
-                'pieces_count'        => ['type' => 'integer'],
-                'notes'               => $string,
-                'text'                => $string,
+                'governorate' => ['type' => 'string', 'enum' => [...$governorates, '']],
+                'area' => $string,
+                'landmark' => $string,
+                'cod_amount' => ['type' => 'integer'],
+                'pieces_count' => ['type' => 'integer'],
+                'notes' => $string,
+                'text' => $string,
             ],
             'required' => ['is_order', 'recipient_name', 'recipient_phone', 'recipient_phone_alt', 'governorate', 'area',
                 'landmark', 'cod_amount', 'pieces_count', 'notes', 'text'],

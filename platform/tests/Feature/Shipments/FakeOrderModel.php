@@ -12,6 +12,9 @@ class FakeOrderModel implements OrderModel
 
     public array $answer = [];
 
+    /** أجوبةٌ متتابعة: كلّ سؤالٍ يأخذ أوّلها، وإن نفدت فـ $answer */
+    public array $answers = [];
+
     public ?\Throwable $failure = null;
 
     public function extract(array $system, array $content, array $schema): array
@@ -22,6 +25,6 @@ class FakeOrderModel implements OrderModel
             throw $this->failure;
         }
 
-        return $this->answer;
+        return $this->answers !== [] ? array_shift($this->answers) : $this->answer;
     }
 }

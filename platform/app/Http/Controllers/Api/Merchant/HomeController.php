@@ -57,7 +57,8 @@ class HomeController extends Controller
                 'count' => $counts['processing'],
                 'allowed' => (bool) $merchant->can_process,
             ],
-            'attention' => ['count' => $counts['attention']],
+            // وتفاصيلها في قائمة الرئيسية قبل «آخر الشحنات» (docs/plan/61): هي الأهمّ
+            'attention' => ['count' => $counts['attention'], 'items' => $this->attention($merchant->id)],
             'tools' => [
                 'import' => FeatureGate::enabled('excel_import'),
                 'waybills' => FeatureGate::enabled('waybills'),
@@ -83,6 +84,28 @@ class HomeController extends Controller
                 'image' => route('api.app-ads.image', $ad),
                 'link' => $ad->link_url,
             ])->values()->all();
+    }
+
+    /**
+     * «تحتاج انتباهك» بتفاصيلها (docs/plan/61): مؤجَّلةٌ إلى موعدها، أو راجعةٌ لم تصل مخزننا —
+     * ولماذا، وكم محاولة، وإلى متى أُجّلت (لا ملاحظات الموظّفين: قد تكون خاصّة). الأقدم ركوداً أوّلاً: هو الأحوج إلى مكالمة.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function attention(int $merchantId): array
+    {
+        return Shipment::where('merchant_id', $merchantId)
+            ->whereIn('status', array_map(fn ($s) => $s->value, self::ATTENTION))
+            ->with(['city:id,name_ar', 'governorate:id,name_ar', 'lastFailureReason:id,name_ar'])
+            ->orderBy('status_changed_at')->orderBy('id')
+            ->limit(20)
+            ->get()
+            ->map(fn (Shipment $s) => ShipmentController::row($s) + [
+                'reason' => $s->status === ShipmentStatus::Returning ? $s->returnReason() : $s->lastFailureReason?->name_ar,
+                'attempts' => (int) $s->attempts_count,
+                'until' => $s->status === ShipmentStatus::Postponed ? $s->scheduled_at?->toIso8601String() : null,
+            ])
+            ->all();
     }
 
     /**
