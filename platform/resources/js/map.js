@@ -16,9 +16,12 @@ for (const el of document.querySelectorAll('[data-map]')) {
     el.setAttribute('dir', 'ltr');
     const map = L.map(el, { scrollWheelZoom: false }).setView(center, Number(el.dataset.zoom) || 11);
 
+    // خوادم OpenStreetMap تحجب البلاطات بلا Referer («Access blocked»)، وسياسة الموقع same-origin لا
+    // ترسله لغيرها: البلاطات وحدها ترسل عنوان الموقع (النطاق فقط، بلا مسار الصفحة ولا رموزها)
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap',
+        referrerPolicy: 'strict-origin-when-cross-origin',
     }).addTo(map);
 
     points.forEach((point, i) => {
