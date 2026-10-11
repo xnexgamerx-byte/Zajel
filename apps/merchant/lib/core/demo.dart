@@ -528,6 +528,31 @@ class Demo {
     return 'أُلغي الطلب ${r.number}.';
   }
 
+  static LabelsPage labels() => LabelsPage(
+    shipments: [
+      for (final (i, (name, place, amount)) in const [
+        ('مريم سعد', 'بغداد · المنصور', 52000),
+        ('أحمد ناصر', 'بغداد · الشعب', 41000),
+        ('زينب علي', 'النجف · حي الأمير', 30000),
+        ('حسين كاظم', 'بغداد · الدورة', 25000),
+      ].indexed)
+        LabelRow(
+          id: 900 + i,
+          number: 'ZA-2026013${i + 1}',
+          name: name,
+          place: place,
+          amount: amount,
+          at: _ago(30 + i * 15),
+        ),
+    ],
+    sizes: const [
+      Choice('a6', 'ملصق ١٠×١٥'),
+      Choice('80x120', 'ملصق ٨×١٢'),
+      Choice('100x100', 'ملصق ١٠×١٠'),
+      Choice('a4', 'A4 — أربعة في الورقة'),
+    ],
+  );
+
   static ReturnReceiptDetail returnReceipt(int id) {
     final b = _batches.firstWhere((b) => b.id == id, orElse: () => throw ApiError('الإيصال غير موجود.'));
     const people = [

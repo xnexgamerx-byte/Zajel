@@ -14,20 +14,27 @@
       الحرارية لا ترى لوناً، والرماديّ الفاتح يختفي عليها.
     --}}
     <style>
-        @page { size: {{ $size === 'a4' ? 'A4' : '100mm 150mm' }}; margin: 0; }
+        @php [, $w, $h] = $sizes[$size]; @endphp
+        @page { size: {{ $size === 'a4' ? 'A4' : "{$w}mm {$h}mm" }}; margin: 0; }
 
         .sheet { display: grid; background: #fff; }
-        .sheet-a6 { grid-template-columns: 100mm; }
+        .sheet-roll { grid-template-columns: {{ $w }}mm; }
         .sheet-a4 { width: 210mm; grid-template-columns: 105mm 105mm; grid-auto-rows: 148.5mm; }
 
         .label {
-            width: 100mm; height: 150mm; padding: 4mm; overflow: hidden;
+            width: {{ $w }}mm; height: {{ $h }}mm; padding: 4mm; overflow: hidden;
             display: flex; flex-direction: column; gap: 2mm;
             color: #000; font-size: 9.5pt; line-height: 1.35; break-inside: avoid;
         }
-        .sheet-a4 .label { width: 105mm; height: 148.5mm; padding: 5mm; outline: 0.2mm dashed #999; }
-        .sheet-a6 .label { break-after: page; }
+        .sheet-a4 .label { padding: 5mm; outline: 0.2mm dashed #999; }
+        .sheet-roll .label { break-after: page; }
         .sheet-a4 .label:nth-child(4n) { break-after: page; }
+        /* الملصق الأصغر (٨×١٢، ١٠×١٠): خطٌّ وباركود ورمزٌ أصغر ليتّسع كلّه */
+        .compact .label { padding: 3mm; gap: 1.5mm; font-size: 8pt; line-height: 1.3; }
+        .compact .label .barcode { height: 11mm; }
+        .compact .label .qr { width: 16mm; height: 16mm; }
+        .compact .label .small { font-size: 6.5pt; }
+        .compact .label .long-only { display: none; }
 
         .label hr { border: 0; border-top: 0.3mm solid #000; margin: 0; }
         .label .barcode { width: 100%; height: 15mm; image-rendering: pixelated; }
@@ -39,7 +46,7 @@
         @media screen {
             .sheet { margin: 6mm auto; width: max-content; gap: 6mm; background: transparent; }
             .sheet-a4 { gap: 0; background: #fff; box-shadow: 0 1mm 4mm rgb(0 0 0 / 0.15); }
-            .sheet-a6 .label { background: #fff; box-shadow: 0 1mm 4mm rgb(0 0 0 / 0.15); }
+            .sheet-roll .label { background: #fff; box-shadow: 0 1mm 4mm rgb(0 0 0 / 0.15); }
         }
 
         @media print {
@@ -57,19 +64,19 @@
             {{ $shipments->count() === 1 ? 'وصل' : 'وصولات' }}
         </span>
 
-        {{-- المقاس: ملصقٌ حراريّ ١٠×١٥، أو أربعةٌ في ورقة عادية --}}
-        <nav class="tab-nav" aria-label="مقاس الطباعة">
-            <a href="{{ request()->fullUrlWithQuery(['size' => 'a6']) }}"
-               class="tab-link h-10 {{ $size === 'a6' ? 'tab-link-active' : '' }}">ملصق ١٠×١٥</a>
-            <a href="{{ request()->fullUrlWithQuery(['size' => 'a4']) }}"
-               class="tab-link h-10 {{ $size === 'a4' ? 'tab-link-active' : '' }}">A4 — أربعة في الورقة</a>
+        {{-- المقاس: ملصقٌ حراريّ (١٠×١٥، ٨×١٢، ١٠×١٠)، أو أربعةٌ في ورقة عادية --}}
+        <nav class="tab-nav flex-wrap" aria-label="مقاس الطباعة">
+            @foreach ($sizes as $key => [$label])
+                <a href="{{ request()->fullUrlWithQuery(['size' => $key]) }}"
+                   class="tab-link h-10 {{ $size === $key ? 'tab-link-active' : '' }}">{{ $label }}</a>
+            @endforeach
         </nav>
 
         <button type="button" data-print class="btn-primary ms-auto">اطبع</button>
     </div>
 </div>
 
-<main class="sheet sheet-{{ $size }}">
+<main class="sheet {{ $size === 'a4' ? 'sheet-a4' : 'sheet-roll' }} {{ in_array($size, ['80x120', '100x100'], true) ? 'compact' : '' }}">
     @foreach ($shipments as $shipment)
         @php $code = $shipment->barcode ?: $shipment->number; @endphp
         <article class="label">
@@ -148,7 +155,7 @@
                 <img class="qr" src="{{ \App\Support\QrCode::dataUri(\App\Support\Tracking::url($shipment)) }}" alt="">
                 <div class="small">
                     <div class="font-bold">امسح الرمز لتتبّع شحنتك</div>
-                    <div>أو من صفحة التتبّع برقم الوصل وآخر أربعة أرقام من هاتفك</div>
+                    <div class="long-only">أو من صفحة التتبّع برقم الوصل وآخر أربعة أرقام من هاتفك</div>
                 </div>
             </footer>
         </article>

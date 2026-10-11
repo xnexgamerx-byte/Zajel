@@ -130,8 +130,36 @@ void main() {
     expect(find.text('غيّروا عنوان الاستلام رجاءً'), findsOneWidget);
   });
 
+  testWidgets('طباعة الوصولات: المدخلة كلّها محدّدة، يُلغى منها، ثم المقاس', (tester) async {
+    await _open(tester, 'طباعة وصولات الطلبات المدخلة');
+    expect(find.text('المحدّد 4 من 4'), findsOneWidget);
+    expect(find.text('اطبع 4 وصل'), findsOneWidget);
+
+    await tester.tap(find.textContaining('أحمد ناصر'));
+    await tester.pumpAndSettle();
+    expect(find.text('المحدّد 3 من 4'), findsOneWidget);
+    await tester.tap(find.text('تحديد الكل'));
+    await tester.pumpAndSettle();
+    expect(find.text('المحدّد 4 من 4'), findsOneWidget);
+    await tester.tap(find.text('تحديد الكل'));
+    await tester.pumpAndSettle();
+    expect(find.text('حدّد ما تطبعه'), findsOneWidget);
+    await tester.tap(find.text('تحديد الكل'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('اطبع 4 وصل'));
+    await tester.pumpAndSettle();
+    expect(find.text('اختر المقاس'), findsOneWidget);
+    expect(find.text('ملصق ٨×١٢'), findsOneWidget);
+    expect(find.text('A4 — أربعة في الورقة'), findsOneWidget);
+    await tester.tap(find.text('ملصق ٨×١٢'));
+    await tester.tap(find.text('اطبع'));
+    await tester.pumpAndSettle();
+    expect(find.text('في النسخة التجريبية لا تُفتح صفحة الطباعة.'), findsOneWidget);
+  });
+
   testWidgets('وصلات للطباعة: دفترٌ جديد بعدده ومقاسه', (tester) async {
-    await _open(tester, 'وصلات للطباعة');
+    await _open(tester, 'دفاتر وصولاتٍ فارغة للطباعة');
     expect(find.text('90000001–90000050'), findsOneWidget);
     expect(find.textContaining('استُعمل 31 من 50'), findsOneWidget);
 

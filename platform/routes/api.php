@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Merchant\CreateShipmentController as MerchantCreate
 use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceController;
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
 use App\Http\Controllers\Api\Merchant\ImportController as MerchantImportController;
+use App\Http\Controllers\Api\Merchant\LabelController as MerchantLabelController;
 use App\Http\Controllers\Api\Merchant\PickupController as MerchantPickupController;
 use App\Http\Controllers\Api\Merchant\ProcessingController as MerchantProcessingController;
 use App\Http\Controllers\Api\Merchant\ProfileController as MerchantProfileController;
@@ -72,6 +73,9 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::post('/requests', [MerchantRequestController::class, 'store'])->middleware('throttle:20,1')->name('requests.store');
             Route::post('/requests/{merchantRequest}/cancel', [MerchantRequestController::class, 'cancel'])->whereNumber('merchantRequest')
                 ->name('requests.cancel');
+            // طباعة وصولات الطلبات المدخلة (docs/plan/63)
+            Route::get('/labels', [MerchantLabelController::class, 'index'])->name('labels.index');
+            Route::post('/labels', [MerchantLabelController::class, 'store'])->middleware('throttle:30,1')->name('labels.store');
             Route::get('/returns/{batch}', [MerchantRequestController::class, 'batch'])->whereNumber('batch')->name('returns.show');
             Route::post('/returns/{batch}/confirm', [MerchantRequestController::class, 'confirm'])->whereNumber('batch')->name('returns.confirm');
             Route::middleware('feature:conversations')->prefix('support')->name('support.')->group(function () {

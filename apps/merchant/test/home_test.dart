@@ -35,9 +35,11 @@ void main() {
       'المتاح للسحب',
       'قيد المطابقة',
       '1,750,000',
-      'إجمالي الشحنات',
+      // «إنشاء شحنة» قبل الأرقام (docs/plan/63)
       'بالذكاء الاصطناعي',
       'بالتسجيل الصوتي',
+      'طباعة وصولات الطلبات المدخلة',
+      'إجمالي الشحنات',
       'للمعالجة',
       'عرض الكل',
       // «تحتاج انتباهك» أوّلاً بتفاصيلها (docs/plan/61)
@@ -45,10 +47,12 @@ void main() {
       'الزبون طلب التأجيل',
       'طلب جديد',
     ]) {
+      await _reveal(tester, find.textContaining(text));
       expect(find.textContaining(text), findsWidgets, reason: text);
     }
 
     // إخفاء الرصيد بالعين
+    await tester.scrollUntilVisible(find.byIcon(Icons.visibility_outlined), -300, scrollable: _vertical);
     await tester.tap(find.byIcon(Icons.visibility_outlined));
     await tester.pump();
     expect(find.textContaining('1,750,000'), findsNothing);
@@ -185,3 +189,11 @@ String _value(WidgetTester tester, String hint) => tester.widget<TextField>(_hin
 
 /// قائمة الرئيسية العمودية — لا شرائح الإعلانات الأفقية فوقها
 final _vertical = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
+
+/// ينزل في الرئيسية حتى يُبنى ما يُطلب (القائمة تبني ما يظهر وحده)
+Future<void> _reveal(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 20 && finder.evaluate().isEmpty; i++) {
+    await tester.drag(_vertical, const Offset(0, -150));
+    await tester.pumpAndSettle();
+  }
+}

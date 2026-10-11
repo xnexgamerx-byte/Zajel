@@ -128,6 +128,8 @@ Route::middleware('tenant')->group(function () {
     Route::middleware(['signed', 'throttle:30,1'])->prefix('app')->name('app.')->group(function () {
         Route::get('/waybills/{book}/print', [AppLinkController::class, 'waybills'])->whereNumber('book')->name('waybills.print');
         Route::get('/import/template', [AppLinkController::class, 'template'])->name('import.template');
+        // وصولات الشحنات بالمقاس المختار (docs/plan/63)
+        Route::get('/labels/{merchant}', [ShipmentLabelController::class, 'app'])->whereNumber('merchant')->name('labels');
     });
     Route::get('/track', [TrackingController::class, 'form'])->middleware('throttle:30,1,track')->name('track');
     Route::get('/t/{number}/{token}', [TrackingController::class, 'show'])

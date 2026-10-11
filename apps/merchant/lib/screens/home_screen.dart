@@ -553,6 +553,24 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 8),
+          // طباعة الوصولات (docs/plan/63): ظاهرةٌ تحت الإنشاء — ما يُدخل يُطبع ويُلصق قبل أن يأتي المندوب
+          Tap(
+            radius: 14,
+            onTap: () => _open('labels'),
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(14)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.print_rounded, size: 21, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Text('طباعة وصولات الطلبات المدخلة', style: font(14, w8, Colors.white)),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

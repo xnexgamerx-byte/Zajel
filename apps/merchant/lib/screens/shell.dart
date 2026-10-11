@@ -10,6 +10,7 @@ import 'create_screen.dart';
 import 'finance_screen.dart';
 import 'home_screen.dart';
 import 'import_screen.dart';
+import 'labels_screen.dart';
 import 'pickups_screen.dart';
 import 'processing_screen.dart';
 import 'reader_sheets.dart';
@@ -71,6 +72,7 @@ class _ShellState extends State<Shell> {
       'support' => openSupport,
       'waybills' => openWaybills,
       'import' => openImport,
+      'labels' => openLabels,
       _ => null,
     };
     if (tool != null) {
@@ -361,11 +363,12 @@ class _More extends StatelessWidget {
   final void Function(String screen) onOpen;
 
   static const _items = [
+    ('طباعة وصولات الطلبات المدخلة', Icons.print_rounded, 'labels'),
     ('للمعالجة', Icons.schedule_rounded, 'processing'),
     ('طلبات الاستلام', Icons.hail_rounded, 'pickups'),
     ('طلباتي', Icons.assignment_outlined, 'requests'),
     ('الدعم', Icons.headset_mic_outlined, 'support'),
-    ('وصلات للطباعة', Icons.print_outlined, 'waybills'),
+    ('دفاتر وصولاتٍ فارغة للطباعة', Icons.receipt_long_outlined, 'waybills'),
     ('رفع شحنات من ملف', Icons.upload_file_outlined, 'import'),
   ];
 

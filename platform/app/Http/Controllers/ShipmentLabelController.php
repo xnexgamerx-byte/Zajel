@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ShipmentStatus;
+use App\Models\Merchant;
 use App\Models\Shipment;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -20,7 +21,21 @@ use Illuminate\View\View;
 class ShipmentLabelController extends Controller
 {
     /** حدٌّ للدفعة الواحدة: ثلاثمئة ملصق نحو خمسٍ وسبعين ورقة A4 */
-    private const MAX = 300;
+    public const MAX = 300;
+
+    /**
+     * مقاسات الطباعة (docs/plan/63): ملصقات الطابعات الحرارية الشائعة — ومنها مقاسا الوصل المطبوع
+     * مسبقاً — أو أربعةٌ في ورقة A4. [الاسم، العرض، الطول] بالمليمتر للملصق الواحد.
+     */
+    public const SIZES = [
+        'a6' => ['ملصق ١٠×١٥', 100, 150],
+        '80x120' => ['ملصق ٨×١٢', 80, 120],
+        '100x100' => ['ملصق ١٠×١٠', 100, 100],
+        'a4' => ['A4 — أربعة في الورقة', 105, 148.5],
+    ];
+
+    /** ما يُطبع للتاجر: شحناته المدخلة التي لم يستلمها مندوبٌ بعد */
+    public const ENTERED = [ShipmentStatus::Created, ShipmentStatus::PendingPickup];
 
     public function staff(Request $request): View
     {
@@ -33,10 +48,19 @@ class ShipmentLabelController extends Controller
 
         // «وصولات الشحنات الجديدة»: ما لم يُستلَم بعد، ليُلصَق قبل أن يأتي المندوب
         if ($request->query('new')) {
-            $query->whereIn('status', [ShipmentStatus::Created->value, ShipmentStatus::PendingPickup->value]);
+            $query->whereIn('status', array_map(fn (ShipmentStatus $s) => $s->value, self::ENTERED));
         }
 
         return $this->render($request, $query, all: (bool) $request->query('new'));
+    }
+
+    /**
+     * من تطبيق التاجر (docs/plan/63): رابطٌ موقَّعٌ لساعة يحمل التاجر والشحنات والمقاس، يُفتح في متصفّح
+     * الهاتف فيطبع — بلا دخول، ولا يُفتح بغير ما وُقِّع عليه.
+     */
+    public function app(Request $request, Merchant $merchant): View
+    {
+        return $this->render($request, Shipment::query()->where('merchant_id', $merchant->id));
     }
 
     private function render(Request $request, Builder $query, bool $all = false): View
@@ -56,7 +80,8 @@ class ShipmentLabelController extends Controller
 
         return view('labels.print', [
             'shipments' => $shipments,
-            'size'      => $request->query('size') === 'a4' ? 'a4' : 'a6',
+            'size' => array_key_exists((string) $request->query('size'), self::SIZES) ? (string) $request->query('size') : 'a6',
+            'sizes' => self::SIZES,
         ]);
     }
 }

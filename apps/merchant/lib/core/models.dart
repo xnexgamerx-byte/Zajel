@@ -1132,3 +1132,45 @@ class StatementLine {
   final int returnFee;
   final int net;
 }
+
+// ---------------------------------------------------------------- طباعة الوصولات (docs/plan/63)
+
+/// GET /merchant/labels: طلباته المدخلة التي لم يستلمها مندوبٌ بعد، ومقاسات الطباعة
+class LabelsPage {
+  LabelsPage({required this.shipments, required this.sizes});
+
+  factory LabelsPage.fromJson(Map<String, dynamic> j) => LabelsPage(
+    shipments: [for (final s in j['shipments'] as List) LabelRow.fromJson((s as Map).cast())],
+    sizes: [for (final s in j['sizes'] as List) Choice('${(s as Map)['key']}', '${s['label']}')],
+  );
+
+  final List<LabelRow> shipments;
+  final List<Choice> sizes;
+}
+
+class LabelRow {
+  LabelRow({
+    required this.id,
+    required this.number,
+    required this.name,
+    required this.place,
+    required this.amount,
+    this.at,
+  });
+
+  factory LabelRow.fromJson(Map<String, dynamic> j) => LabelRow(
+    id: j['id'] as int,
+    number: '${j['number']}',
+    name: j['name'] as String? ?? '',
+    place: j['place'] as String? ?? '',
+    amount: j['amount'] as int? ?? 0,
+    at: _at(j['at']),
+  );
+
+  final int id;
+  final String number;
+  final String name;
+  final String place;
+  final int amount;
+  final DateTime? at;
+}

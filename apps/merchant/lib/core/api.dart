@@ -269,6 +269,21 @@ class Api {
     return body['message'] as String? ?? 'أُلغي الطلب.';
   }
 
+  /// طباعة الوصولات: الطلبات المدخلة ومقاسات الطباعة
+  Future<LabelsPage> labels() async {
+    if (AppConfig.demo) return Demo.labels();
+    return LabelsPage.fromJson(await _send(http.get(_uri('/merchant/labels'), headers: _headers)));
+  }
+
+  /// رابطٌ موقَّعٌ لساعة: صفحة الطباعة في متصفّح الهاتف بالشحنات المحدّدة والمقاس المختار
+  Future<String> labelsLink(List<int> ids, String size) async {
+    if (AppConfig.demo) return 'https://example.invalid/labels';
+    final body = await _send(
+      http.post(_uri('/merchant/labels'), headers: _headers, body: jsonEncode({'ids': ids, 'size': size})),
+    );
+    return body['url'] as String;
+  }
+
   /// تفاصيل إيصال الراجع: شحناته واحدةً واحدة
   Future<ReturnReceiptDetail> returnReceipt(int id) async {
     if (AppConfig.demo) return Demo.returnReceipt(id);

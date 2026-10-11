@@ -2,6 +2,7 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merchant_app/core/config.dart';
 import 'package:merchant_app/main.dart';
@@ -30,6 +31,9 @@ void main() {
   testWidgets('للمعالجة: بطاقة الرئيسية تفتحها، والتأجيل يُسجَّل ويُخرج الشحنة', (tester) async {
     await _start(tester);
 
+    await _reveal(tester, find.text('للمعالجة'));
+    await tester.ensureVisible(find.text('للمعالجة').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('للمعالجة').first);
     await tester.pumpAndSettle();
 
@@ -106,4 +110,14 @@ void main() {
     expect(find.textContaining('طلبك REQ-261010-7 بانتظار المعالجة'), findsOneWidget);
     expect(find.textContaining('اطلب محاسبة —'), findsNothing);
   });
+}
+
+final _vertical = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
+
+/// ينزل في الرئيسية حتى يُبنى ما يُطلب (القائمة تبني ما يظهر وحده)
+Future<void> _reveal(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 20 && finder.evaluate().isEmpty; i++) {
+    await tester.drag(_vertical, const Offset(0, -150));
+    await tester.pumpAndSettle();
+  }
 }
