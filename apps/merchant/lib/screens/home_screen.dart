@@ -177,9 +177,10 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
           _pad(_balance(d)),
           const SizedBox(height: 10),
-          _pad(_stats(d.stats)),
-          const SizedBox(height: 10),
+          // «إنشاء شحنة» قبل الأرقام: أكثر ما يُفتح التطبيق له
           _pad(_create()),
+          const SizedBox(height: 10),
+          _pad(_stats(d.stats)),
           const SizedBox(height: 10),
           _pad(_alerts(d)),
           const SizedBox(height: 10),

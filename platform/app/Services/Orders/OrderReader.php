@@ -29,6 +29,15 @@ final class OrderReader
     /** رقمٌ عراقيّ: 07 وتسعة، أو 964+ بلا صفر، بمسافاتٍ وشرطاتٍ أو بدونها */
     private const PHONE = '/(?<!\d)(?:(?:\+|00)?964|0)?[\s\-]*7\d(?:[\s\-]?\d){8}(?!\d)/u';
 
+    /** «ارسل لزينب علي…»، «وصّل الى احمد…»: ما بعدها اسم المستلم (بالكلام وحده) */
+    private const SPOKEN_TO = '/^\s*(?:(?:ارسل|ارسلي|أرسل|وصل|وصّل|ودي|دز|دزي|سلم|سلّم)\s*(?:الى|إلى|ل|لـ)\s*|اسمه\s+|اسمها\s+)/u';
+
+    /** سطرٌ كلّه حشو كلام: «زبون»، «طلب جديد»، «عندي طلب» */
+    private const SPOKEN_FILLER = '/^(?:زبون|زبونه|الزبون|طلب|طلبيه|طلب جديد|عندي طلب|اكو طلب|عندي زبون|اوردر|order)$/u';
+
+    /** ما يُقال بين الاسم ومكانه: «من البصرة»، «في الكرادة»، «ساكن الدورة» */
+    private const SPOKEN_AT = ['من', 'في', 'ساكن', 'ساكنه', 'ساكنة', 'يسكن', 'تسكن', 'عنوانه', 'عنوانها', 'بمنطقة', 'بمنطقه'];
+
     private const NAME_LABEL = '/^\s*(?:(?:ال)?[اأإآ]سم(?:\s+(?:الزبون|المستلم|العميل))?|الزبون|المستلم|العميل|اسمي)\s*[:：\-–]?\s*(.+)$/u';
 
     private const NOTE_LABEL = '/^\s*(?:ال)?ملاحظ(?:ة|ه|ات)\s*[:：\-–]?\s*(.+)$/u';
@@ -109,11 +118,19 @@ final class OrderReader
      */
     public function fromSpeech(string $speech): array
     {
-        // اسمٌ قيل بلا «الاسم» متّصلاً بعنوانه («علي حسين بغداد الكرادة…»): يُفصلان سطرين
+        // اسمٌ قيل بلا «الاسم» متّصلاً بعنوانه («علي حسين بغداد الكرادة…»)، أو بعده «من …» («اسمه
+        // مصطفى من البصرة العشار»): يُفصلان سطرين. و«ارسل لزينب» اسمٌ، و«زبون»، «طلب» حشو (docs/plan/63)
         $lines = [];
         foreach (explode("\n", SpokenOrder::normalise($speech)) as $line) {
-            array_push($lines, ...$this->splitSpokenName($line));
+            $line = trim((string) preg_replace(self::SPOKEN_TO, 'الاسم: ', $line));
+            if ($line === '' || preg_match(self::SPOKEN_FILLER, $this->fold($line)) === 1) {
+                continue;
+            }
+            foreach ($this->splitNamedPlace($line) as $part) {
+                array_push($lines, ...$this->splitPieces($part));
+            }
         }
+        $lines = array_merge(...array_map(fn (string $line) => $this->splitSpokenName($line), $lines));
 
         // وفي الكلام أوّل ما قبل الرقم من غير المكان اسمُ الزبون، ولو لم يكن في قائمة الأسماء الأولى:
         // يُعنوَن «الاسم:» فيُقرأ اسماً لا ملاحظة
@@ -123,6 +140,20 @@ final class OrderReader
         }
 
         $reading = $this->fromText(implode("\n", $lines));
+
+        // «الاسم: مصطفى» بكلمةٍ واحدة قد يُقرأ ملاحظة: هو الاسم
+        $labelled = array_key_first(preg_grep(self::NAME_LABEL, $lines) ?: []);
+        if ($named === null && $labelled !== null && ! isset($reading['fields']['recipient_name'])) {
+            preg_match(self::NAME_LABEL, $lines[$labelled], $m);
+            $name = $this->trimValue($m[1]);
+            if ($this->couldBeName($name)) {
+                $reading['fields']['recipient_name'] = $reading['found']['recipient_name'] = $name;
+                if (in_array($reading['fields']['notes'] ?? null, [$name, $lines[$labelled]], true)) {
+                    unset($reading['fields']['notes'], $reading['found']['notes']);
+                }
+                $reading['missing'] = array_values(array_diff($reading['missing'] ?? [], ['الاسم']));
+            }
+        }
 
         // اسمٌ من كلمةٍ واحدة («زينب») لا يُقرأ بعنوانه: يُكتب هنا
         if ($named !== null && ! isset($reading['fields']['recipient_name'])) {
@@ -137,27 +168,95 @@ final class OrderReader
     }
 
     /**
+     * «الاسم: مصطفى من البصرة العشار»، «علي حسين في الكرادة»: اسمٌ ثم «من/في» ومكان — سطرا اسمٍ
+     * وعنوان. ولا يُفصل ما ليس بعده مكانٌ يُعرف («الاسم: علي من الله»).
+     *
+     * @return list<string>
+     */
+    private function splitNamedPlace(string $line): array
+    {
+        $labelled = preg_match(self::NAME_LABEL, $line, $m) === 1;
+        $body = $labelled ? trim($m[1]) : $line;
+        if (preg_match('/\d/', $body)) {
+            return [$line];
+        }
+
+        $words = preg_split('/\s+/u', $body, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        for ($k = 1; $k <= min(4, count($words) - 1); $k++) {
+            if (! in_array($words[$k], self::SPOKEN_AT, true)) {
+                continue;
+            }
+            $name = implode(' ', array_slice($words, 0, $k));
+            $rest = implode(' ', array_slice($words, $k + 1));
+            // «اسمه سجاد من …»: قيل إنه اسم، ولو كانت «حي سجاد» منطقة
+            if ($rest !== '' && $this->couldBeName($name) && ($labelled || ! $this->isPlace($name)) && $this->isPlace($rest)) {
+                return ['الاسم: '.$name, $rest];
+            }
+        }
+
+        return [$line];
+    }
+
+    /** «30 الف قطعتين»: العدد سطره، فلا تُقرأ «قطعتين» نقطةً دالّة */
+    private function splitPieces(string $line): array
+    {
+        $parts = preg_split('/\s+(?=(?:\d+\s*)?(?:قطعه|قطعة|قطعتين|قطع|حبه|حبة|حبتين|حبات)(?:\s|$))/u', $line, 2);
+
+        return array_values(array_filter(array_map('trim', $parts ?: [$line]), fn (string $part) => $part !== ''));
+    }
+
+    /**
      * سطرٌ أوّله اسمٌ وباقيه عنوان: أطول ما في أوّله من كلماتٍ لا مكان فيها وبعدها محافظةٌ أو منطقة.
      *
      * @return list<string>
      */
     private function splitSpokenName(string $line): array
     {
-        if (str_contains($line, ':') || preg_match('/\d/', $line) || ! $this->isPlace($line)) {
+        // «الاسم: زينب علي النجف حي الامير»: الاسم بعنوانه، والمكان بعده
+        $labelled = preg_match(self::NAME_LABEL, $line, $m) === 1;
+        $body = $labelled ? trim($m[1]) : $line;
+        if ((! $labelled && str_contains($line, ':')) || preg_match('/\d/', $body)) {
             return [$line];
         }
 
-        $words = explode(' ', $line);
-        $split = null;
+        // وأيّ القطعتين عنوانٌ أتمّ: محافظةٌ ومنطقة أولى من محافظةٍ وحدها («حسين كاظم | الدورة بغداد»
+        // لا «حسين كاظم الدورة | بغداد»)، وعند التساوي أطول الاسم
+        $words = explode(' ', $body);
+        [$split, $best] = [null, 0];
         for ($k = 1; $k <= min(4, count($words) - 1); $k++) {
             $name = implode(' ', array_slice($words, 0, $k));
             $rest = implode(' ', array_slice($words, $k));
-            if ($this->couldBeName($name) && ! $this->isPlace($name) && $this->isPlace($rest)) {
-                $split = [$name, $rest];
+            if (! $this->couldBeName($name) || (! $labelled && $this->isPlace($name))) {
+                continue;
+            }
+            $place = $this->place($rest);
+            $score = ($place['city'] !== null ? 2 : 0) + ($place['governorate'] !== null ? 1 : 0);
+            // لا يُقطع الاسم على منطقةٍ وحدها: «نور الهدى»، «مصطفى عادل» اسمان وإن كانت «الهدى» و«العادل»
+            // أحياءً — يُقطع حين تُذكر المحافظة بعده
+            if (! $this->saysGovernorate($rest)) {
+                continue;
+            }
+            if ($score > 0 && $score >= $best) {
+                [$split, $best] = [[$labelled ? 'الاسم: '.$name : $name, $rest], $score];
             }
         }
 
         return $split ?? [$line];
+    }
+
+    /** اسم محافظةٍ مذكورٌ بنفسه (لا مستنتجٌ من منطقة) */
+    private function saysGovernorate(string $text): bool
+    {
+        $said = ' '.implode(' ', $this->tokens($text)).' ';
+        foreach (Governorate::offered()->get(['governorates.id', 'governorates.code', 'governorates.name_ar']) as $governorate) {
+            foreach ($this->governorateNames($governorate) as $name) {
+                if (str_contains($said, ' '.$name.' ')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /** @param list<string> $lines */
@@ -208,7 +307,7 @@ final class OrderReader
     }
 
     /**
-     * @param bool $titled لقطة شاشة: في رأسها اسم المحادثة، وهو غالباً اسم الزبون
+     * @param  bool  $titled  لقطة شاشة: في رأسها اسم المحادثة، وهو غالباً اسم الزبون
      * @return Reading
      */
     public function fromText(string $text, bool $titled = false): array
@@ -328,10 +427,10 @@ final class OrderReader
         }
 
         return [
-            'fields'   => $fields,
-            'found'    => $found,
-            'missing'  => array_values(array_diff_key(self::REQUIRED, $fields)),
-            'lines'    => array_values($lines),
+            'fields' => $fields,
+            'found' => $found,
+            'missing' => array_values(array_diff_key(self::REQUIRED, $fields)),
+            'lines' => array_values($lines),
             'warnings' => $warnings,
         ];
     }
@@ -341,7 +440,7 @@ final class OrderReader
      * معاً من واتساب (والسطر بلا بادئةٍ تكملةُ رسالة مُرسله).
      *
      * @return array{0: array<int, string>, 1: array<int, string>, 2: array<int, int>} الأسطر، ومُرسلوها،
-     *     ورقم رسالة كلّ سطر
+     *                                                                                 ورقم رسالة كلّ سطر
      */
     private function clean(string $text): array
     {
@@ -405,8 +504,8 @@ final class OrderReader
      * المبلغ: رقمٌ بعده «الف»، أو بعد كلمة السعر، أو قبل «دينار». و«السعر 25» بلا ألف خمسةٌ
      * وعشرون ألفاً كما يُكتب. والمجموع يُقدَّم، ثم آخر ما ذُكر: الرسالة الأخيرة تصحّح ما قبلها.
      *
-     * @param array<int, string> $lines
-     * @param int $loneFrom أوّل سطرٍ يُقبل فيه رقمٌ وحده مبلغاً
+     * @param  array<int, string>  $lines
+     * @param  int  $loneFrom  أوّل سطرٍ يُقبل فيه رقمٌ وحده مبلغاً
      */
     private function price(array $lines, int $loneFrom = 0): ?int
     {
@@ -494,8 +593,8 @@ final class OrderReader
      * ساحة كهرمانة»). وإن لم تُذكر المحافظة عُرفت من منطقتها، إلّا منطقةً يتكرّر اسمها في
      * أكثر من محافظة: تُترك ويُقال ذلك.
      *
-     * @param array<int, string> $lines
-     * @param ?int $title سطر رأس المحادثة
+     * @param  array<int, string>  $lines
+     * @param  ?int  $title  سطر رأس المحادثة
      * @return array{governorate: ?Governorate, city: ?object{id: int, governorate_id: int, name_ar: string}, warning: ?string,
      *     landmark: string, lines: list<int>}
      */
@@ -551,6 +650,7 @@ final class OrderReader
             $areas[$c] = ['city' => $city, 'tokens' => $cityTokens, 'own' => $own, 'plain' => $plain];
             if ($plain) {
                 $index['='.$cityTokens[0]][] = [$c, 0];
+
                 continue;
             }
             foreach ($own as $k) {
@@ -613,23 +713,23 @@ final class OrderReader
                     $said = array_slice($tokens, $from, $length);
                     $first = array_key_first(array_filter($area['tokens'], fn (string $t) => ! isset($generic[$t]))) ?? 0;
                     $match = [
-                        'city'     => $area['city'],
-                        'line'     => $i,
-                        'from'     => $from,
-                        'length'   => $length,
-                        'said'     => implode(' ', $said),
-                        'key'      => implode(' ', array_map(fn (int $o) => $area['tokens'][$o], $covered)),
-                        'whole'    => $coverage >= 1,
-                        'exact'    => $start === 0 && $length === count($area['tokens']),
-                        'fuzzy'    => $said !== array_slice($area['tokens'], $start, $length),
-                        'plain'    => false,
-                        'chars'    => $chars,
-                        'span'     => array_sum(array_map('mb_strlen', $said)),
-                        'prefix'   => $start <= $first,
-                        'left'     => count($needed) - count($covered),
+                        'city' => $area['city'],
+                        'line' => $i,
+                        'from' => $from,
+                        'length' => $length,
+                        'said' => implode(' ', $said),
+                        'key' => implode(' ', array_map(fn (int $o) => $area['tokens'][$o], $covered)),
+                        'whole' => $coverage >= 1,
+                        'exact' => $start === 0 && $length === count($area['tokens']),
+                        'fuzzy' => $said !== array_slice($area['tokens'], $start, $length),
+                        'plain' => false,
+                        'chars' => $chars,
+                        'span' => array_sum(array_map('mb_strlen', $said)),
+                        'prefix' => $start <= $first,
+                        'left' => count($needed) - count($covered),
                         // ما بعد «قرب» وأخواتها نقطةٌ دالّة لا منطقة
                         'landmark' => array_intersect(array_slice($tokens, 0, $from), self::LANDMARK_TOKENS) !== [],
-                        'tokens'   => $area['tokens'],
+                        'tokens' => $area['tokens'],
                     ];
                     $key = $c.'@'.$i;
                     if (! isset($matches[$key]) || $this->rank($match) < $this->rank($matches[$key])) {
@@ -675,7 +775,7 @@ final class OrderReader
      * ترتيب ما طابق من المناطق: لا بعد «قرب»، ثم ما يميّز الاسم كلّه، ثم بلا خطأ نقطة، ثم الأطول،
      * ثم الاسم بحروفه كلّها، ثم أوّل الاسم، ثم الأقلّ نقصاً — ثم الأسبق في الرسالة.
      *
-     * @param array<string, mixed> $m
+     * @param  array<string, mixed>  $m
      * @return list<int|bool>
      */
     private function rank(array $m, bool $where = true): array
@@ -732,10 +832,10 @@ final class OrderReader
      * بلا هاتفٍ ولا مبلغٍ ولا عددٍ إن كُتبت في السطر نفسه. وأرقام البيت باقية: «محلة 905 زقاق 12
      * دار 4» عنوانٌ كامل.
      *
-     * @param array<int, string> $lines
-     * @param list<int> $addressLines
-     * @param list<string> $governorateNames
-     * @param list<string> $cityWords كلمات اسم المنطقة مطويّةً: ما لاصق اسمها منها يُحذف معه
+     * @param  array<int, string>  $lines
+     * @param  list<int>  $addressLines
+     * @param  list<string>  $governorateNames
+     * @param  list<string>  $cityWords  كلمات اسم المنطقة مطويّةً: ما لاصق اسمها منها يُحذف معه
      * @return array{0: string, 1: list<int>}
      */
     private function landmark(array $lines, array $addressLines, array $governorateNames, ?string $cityNeedle, array $cityWords): array
@@ -780,6 +880,7 @@ final class OrderReader
                                 $t++;
                             }
                         }
+
                         continue 2;
                     }
                 }

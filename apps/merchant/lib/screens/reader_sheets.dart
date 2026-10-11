@@ -12,6 +12,7 @@ import '../core/api.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/transcript.dart';
 import '../widgets/bits.dart';
 
 /// «إنشاء بالذكاء الاصطناعي» و«إنشاء بالتسجيل الصوتي» (docs/plan/55): قارئ البوابة نفسه على
@@ -111,7 +112,14 @@ Widget _button(
   ),
 );
 
-Widget _box(TextEditingController controller, String hint, {int lines = 5, bool autofocus = false}) => Container(
+Widget _box(
+  TextEditingController controller,
+  String hint, {
+  int lines = 5,
+  bool autofocus = false,
+  bool readOnly = false,
+  ValueChanged<String>? onChanged,
+}) => Container(
   decoration: BoxDecoration(
     color: const Color(0xFFF6F8FB),
     borderRadius: BorderRadius.circular(12),
@@ -120,6 +128,8 @@ Widget _box(TextEditingController controller, String hint, {int lines = 5, bool 
   child: TextField(
     controller: controller,
     autofocus: autofocus,
+    readOnly: readOnly,
+    onChanged: onChanged,
     minLines: lines,
     maxLines: lines + 3,
     maxLength: 5000,
@@ -482,9 +492,12 @@ class _DictationSheetState extends State<_DictationSheet> {
   String? error;
   String? locale;
 
-  /// ما ثبت من الكلام، وما يُسمع الآن ولم يثبت بعد
-  String committed = '';
-  String partial = '';
+  /// ما ثبت من الكلام وما يُسمع الآن — لا يُمحى ما قيل حين يقطع السامع الكلام (docs/plan/63)
+  final transcript = Transcript();
+
+  /// إعاداتٌ متتالية لم يبدأ فيها السماع: بعدها يُقال للتاجر بدل الدوران بلا نهاية
+  int failures = 0;
+  Timer? restart;
 
   @override
   void initState() {
@@ -495,6 +508,7 @@ class _DictationSheetState extends State<_DictationSheet> {
   @override
   void dispose() {
     wanted = false;
+    restart?.cancel();
     if (ready) unawaited(speech.cancel());
     text.dispose();
     super.dispose();
@@ -505,26 +519,46 @@ class _DictationSheetState extends State<_DictationSheet> {
       final ok = await speech.initialize(
         onStatus: (status) {
           if (!mounted) return;
-          final stopped = status == 'done' || status == 'notListening';
-          if (stopped) {
-            _commit();
+          if (status == 'listening') {
+            failures = 0;
+            setState(() => listening = true);
+            return;
+          }
+          if (status == 'done' || status == 'notListening') {
+            // السكتة أوقفت السامع: ما سُمع يثبت، ويُعاد السماع ما دام لم يُضغط «أوقف»
+            transcript.commit();
+            _show();
             setState(() => listening = false);
-            // السكتة أوقفت السامع: يُعاد ما دام لم يُضغط «أوقف»
-            if (wanted) Future.delayed(const Duration(milliseconds: 250), _listen);
+            _again();
           }
         },
         onError: (e) {
           if (!mounted) return;
-          // «لم يُسمع شيء» سكتةٌ لا خطأ: يُعاد السماع
-          if (e.errorMsg == 'error_no_match' || e.errorMsg == 'error_speech_timeout') return;
-          if (e.permanent) setState(() => (wanted = false, listening = false, error = 'تعذّر السماع — جرّب ثانيةً.'));
+          transcript.commit();
+          _show();
+          // الإذن مرفوض: لا فائدة من الإعادة
+          if (e.errorMsg == 'error_permission' || e.errorMsg == 'error_insufficient_permissions') {
+            setState(() => (wanted = false, listening = false, error = 'اسمح للتطبيق بالمايك من إعدادات الهاتف.'));
+            return;
+          }
+          // «لم يُسمع شيء»، «السامع مشغول»، انقطاعٌ قصير: يُعاد السماع
+          setState(() => listening = false);
+          _again();
         },
       );
       if (!mounted) return;
       if (ok) {
         final locales = await speech.locales();
         final ids = locales.map((l) => l.localeId).toSet();
-        locale = ['ar_IQ', 'ar-IQ', 'ar_SA', 'ar-SA', 'ar'].firstWhere(ids.contains, orElse: () => 'ar_IQ');
+        locale = [
+          'ar_IQ',
+          'ar-IQ',
+          'ar_SA',
+          'ar-SA',
+          'ar_AE',
+          'ar-AE',
+          'ar',
+        ].firstWhere(ids.contains, orElse: () => 'ar_IQ');
       }
       setState(() => ready = ok);
     } catch (_) {
@@ -532,56 +566,73 @@ class _DictationSheetState extends State<_DictationSheet> {
     }
   }
 
-  void _commit() {
-    if (partial.trim().isEmpty) return;
-    committed = '${committed.trim()} ${partial.trim()}'.trim();
-    partial = '';
-    _show();
-  }
-
   void _show() {
-    final shown = '$committed ${partial.trim()}'.trim();
+    final shown = transcript.text;
+    if (text.text == shown) return;
     text.value = TextEditingValue(
       text: shown,
       selection: TextSelection.collapsed(offset: shown.length),
     );
   }
 
+  /// إعادة السماع بعد سكتةٍ أو خطأ عابر: مرّةً واحدة في كلّ مرّة، وبعد أن يتحرّر السامع
+  void _again() {
+    if (!wanted || !mounted) return;
+    restart?.cancel();
+    restart = Timer(const Duration(milliseconds: 350), () async {
+      if (!wanted || !mounted) return;
+      if (speech.isListening) return;
+      if (++failures > 6) {
+        setState(() => (wanted = false, error = 'توقّف السماع — اضغط المايك ثانيةً.'));
+        return;
+      }
+      await _listen();
+    });
+  }
+
   Future<void> _listen() async {
     if (!wanted || !mounted || speech.isListening) return;
     setState(() => (listening = true, error = null));
-    await speech.listen(
-      onResult: (r) {
-        if (!mounted) return;
-        partial = r.recognizedWords;
-        if (r.finalResult) _commit();
-        _show();
-        setState(() {});
-      },
-      listenOptions: SpeechListenOptions(
-        localeId: locale,
-        listenMode: ListenMode.dictation,
-        partialResults: true,
-        cancelOnError: false,
-        listenFor: const Duration(minutes: 2),
-        pauseFor: const Duration(seconds: 8),
-        contextualPhrases: _phrases,
-      ),
-    );
+    try {
+      await speech.listen(
+        onResult: (r) {
+          if (!mounted) return;
+          transcript.hear(r.recognizedWords, isFinal: r.finalResult);
+          _show();
+          setState(() {});
+        },
+        listenOptions: SpeechListenOptions(
+          localeId: locale,
+          listenMode: ListenMode.dictation,
+          partialResults: true,
+          cancelOnError: false,
+          // أطول ما يسمح به الهاتف: السامع يقف بعد سكتةٍ أيّاً كان، ويُعاد وحده
+          listenFor: const Duration(minutes: 5),
+          pauseFor: const Duration(seconds: 30),
+          contextualPhrases: _phrases,
+        ),
+      );
+    } catch (_) {
+      if (mounted) setState(() => listening = false);
+      _again();
+    }
   }
 
   Future<void> _toggle() async {
     if (wanted) {
       wanted = false;
+      restart?.cancel();
       await speech.stop();
-      _commit();
+      transcript.commit();
+      _show();
       setState(() => listening = false);
       return;
     }
-    // ما كُتب باليد بعد آخر سماعٍ يبقى، والكلام الجديد يُكمَل بعده
-    committed = text.text.trim();
-    partial = '';
+    // ما في المربّع (وما كُتب باليد) يبقى، والكلام الجديد يُكمَل بعده
+    transcript.start(text.text);
+    failures = 0;
     wanted = true;
+    HapticFeedback.mediumImpact();
     await _listen();
   }
 
@@ -659,7 +710,8 @@ class _DictationSheetState extends State<_DictationSheet> {
         ),
         const SizedBox(height: 10),
         // ما يُسمع يُكتب هنا حيّاً — ويُصحَّح باليد قبل القراءة
-        _box(text, 'ما تقوله يظهر هنا…', lines: 4),
+        // يُكتب فيه حيّاً وهو يسمع، ويُصحَّح باليد بعد «أوقف»
+        _box(text, 'ما تقوله يظهر هنا…', lines: 4, readOnly: wanted, onChanged: (value) => transcript.edited(value)),
         const SizedBox(height: 8),
         Text(
           'تكلّم قريباً من الهاتف في مكانٍ هادئ، وقل الأرقام رقماً رقماً.',
