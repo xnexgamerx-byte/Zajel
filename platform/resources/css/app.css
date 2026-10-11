@@ -789,6 +789,7 @@ summary:focus-visible,
         /* البطاقة العائمة بجانب الشريط؛ السكربت يضع أعلاها بمحاذاة زرّها */
         .submenu {
             position: fixed;
+            z-index: 50;
             inset-inline-start: calc(var(--rail) + 0.25rem);
             top: 0.5rem;
             width: max-content;
@@ -1242,3 +1243,12 @@ summary:focus-visible,
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
 }
 .leaflet-container { font-family: inherit; }
+
+/*
+ * طبقات Leaflet مرفوعةٌ إلى 400–1000: بلا سياقٍ خاصٍّ بها تعلو قوائم الشريط المنسدلة. العزل يحبسها
+ * داخل الخريطة فتبقى تحت كل ما يطفو فوق الصفحة.
+ */
+[data-map] { isolation: isolate; z-index: 0; }
+
+/* شرائط بيضاء بين صفوف البلاطات على شاشاتٍ مكبَّرة (125%، 150%): تداخلٌ بنصف بكسل يخفيها */
+.leaflet-container .leaflet-tile { width: 256.5px !important; height: 256.5px !important; }

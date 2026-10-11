@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Courier\ActionController as CourierActionController;
 use App\Http\Controllers\Courier\CashController as CourierCashController;
 use App\Http\Controllers\Courier\ChatController as CourierChatAppController;
+use App\Http\Controllers\Courier\LocationController as CourierLocationController;
 use App\Http\Controllers\Courier\PickupController as CourierPickupController;
 use App\Http\Controllers\Courier\ShareController as CourierShareController;
 use App\Http\Controllers\Courier\TaskController;
@@ -623,6 +624,9 @@ Route::middleware('tenant')->group(function () {
             Route::get('/shares', [CourierShareController::class, 'index'])->name('shares');
             Route::post('/shares/{share}/object', [CourierShareController::class, 'object'])->name('shares.object');
             Route::post('/payouts/{payout}/confirm', [CourierShareController::class, 'confirm'])->whereNumber('payout')->name('payouts.confirm');
+
+            // موقع الهاتف ما دامت الشاشة مفتوحة (docs/plan/62)
+            Route::post('/location', CourierLocationController::class)->middleware('throttle:30,1')->name('location');
 
             Route::get('/', [TaskController::class, 'index'])->name('tasks');
             Route::get('/search', [TaskController::class, 'search'])->name('search');

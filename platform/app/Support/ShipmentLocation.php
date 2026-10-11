@@ -2,12 +2,14 @@
 
 namespace App\Support;
 
+use App\Enums\ShipmentStatus;
+use App\Models\Courier;
 use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 
 /**
- * أين الشحنة الآن على الخريطة (docs/plan/61): آخر موقعٍ أرسله هاتف المندوب مع حدثٍ عليها وهي
+ * أين الشحنة الآن على الخريطة (docs/plan/61، 62): وهي في الطريق، حيث هاتف مندوبها الآن؛ وإلّا آخر موقعٍ أرسله هاتفه مع حدثٍ عليها وهي
  * بيده — وإلّا فتقريبياً مركز محافظتها. الدقيق وحده يُعرض للزبون؛ والتقريبيّ للتاجر بعلامته.
  */
 final class ShipmentLocation
@@ -15,6 +17,15 @@ final class ShipmentLocation
     /** @return ?array{lat: float, lng: float, exact: bool, at: ?string} */
     public static function of(Shipment $shipment): ?array
     {
+        // في الطريق إلى الزبون: حيث هاتف مندوبها الآن، لا حيث آخر حدثٍ عليها (docs/plan/62)
+        if ($shipment->status === ShipmentStatus::OutForDelivery && $shipment->delivery_courier_id) {
+            $live = CourierLocation::live(Courier::query()->find($shipment->delivery_courier_id, ['id', 'last_lat', 'last_lng', 'last_seen_at']));
+
+            if ($live) {
+                return $live;
+            }
+        }
+
         $event = ShipmentEvent::query()->where('shipment_id', $shipment->id)
             ->whereNotNull('lat')->whereNotNull('lng')->latest('id')->first(['lat', 'lng', 'created_at']);
 

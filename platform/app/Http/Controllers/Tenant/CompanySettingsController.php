@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Merchant;
+use App\Support\CourierLocation;
 use App\Support\DeliveryDeadline;
 use App\Support\MerchantHours;
 use App\Support\MerchantNotice;
@@ -62,6 +63,8 @@ class CompanySettingsController extends Controller
             'payout_offered.*' => ['string', Rule::in(array_keys(Merchant::PAYOUT_METHODS))],
             // إشعار التاجر بتغيّر مبلغ وصله (docs/plan/61)
             'notify_amount_change' => ['sometimes', 'boolean'],
+            // إلزام المندوب بتفعيل موقع هاتفه (docs/plan/62)
+            'courier_require_location' => ['sometimes', 'boolean'],
         ], [
             'payout_offered.min' => 'اترك طريقة دفعٍ واحدةً على الأقل للتجّار.',
             'primary_color.regex' => 'اللون بصيغة #RRGGBB.',
@@ -104,6 +107,7 @@ class CompanySettingsController extends Controller
             'deadline_hours' => DeliveryDeadline::hours($company),
             'payout_offered' => implode(',', array_keys(PayoutMethods::offered($company))),
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
+            'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
         ];
 
         $settings = $company->settings ?? [];
@@ -118,6 +122,9 @@ class CompanySettingsController extends Controller
         }
         if (array_key_exists('notify_amount_change', $data)) {
             data_set($settings, 'notify.amount_change', (bool) $data['notify_amount_change']);
+        }
+        if (array_key_exists('courier_require_location', $data)) {
+            data_set($settings, 'courier.require_location', (bool) $data['courier_require_location']);
         }
         if (isset($data['deadline_hours'])) {
             data_set($settings, 'delivery.deadline_hours', (int) $data['deadline_hours']);
@@ -146,6 +153,7 @@ class CompanySettingsController extends Controller
             'deadline_hours' => DeliveryDeadline::hours($company),
             'payout_offered' => implode(',', array_keys(PayoutMethods::offered($company))),
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
+            'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
         ];
 
         // ما تغيّر وحده، وبمَن غيّره: رقمُ دعمٍ تبدّل يُسأل عنه يوم يشكو تاجر

@@ -156,6 +156,19 @@
             </label>
         </div>
 
+        {{-- موقع هاتف المندوب (docs/plan/62): مُلزمٌ ما لم يُطفأ --}}
+        <div class="rounded-xl border border-ink-200 p-4">
+            <input type="hidden" name="courier_require_location" value="0">
+            <label class="flex items-start gap-3">
+                <input type="checkbox" name="courier_require_location" value="1" class="mt-1 size-4"
+                       @checked(old('courier_require_location', \App\Support\CourierLocation::required($company)))>
+                <span>
+                    <span class="card-title block">المندوب لا يعمل إلّا وموقع هاتفه مفعّل</span>
+                    <span class="card-hint">شاشته تُغطّى حتى يسمح بالموقع، وهاتفه يرسل مكانه كلّ دقيقة ما دامت مفتوحة — فتراه في «تتبّع المناديب» حيث هو.</span>
+                </span>
+            </label>
+        </div>
+
         {{-- طرق دفع مستحقّات التجّار في «طلب محاسبة» من بوابتهم (docs/plan/44) --}}
         <fieldset class="rounded-xl border border-ink-200 p-4">
             <legend class="card-title px-1">طرق الدفع للتجّار</legend>

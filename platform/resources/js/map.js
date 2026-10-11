@@ -24,25 +24,45 @@ for (const el of document.querySelectorAll('[data-map]')) {
         referrerPolicy: 'strict-origin-when-cross-origin',
     }).addTo(map);
 
-    points.forEach((point, i) => {
-        // التقريبيّون عند مركز المحافظة نفسه: يُفرَّقون قليلاً حتى لا يغطّي أحدهم الآخر
-        const spread = point.exact ? [0, 0] : [Math.sin(i * 2.4) * 0.012, Math.cos(i * 2.4) * 0.012];
-        const colour = point.stale ? '#d97706' : brand;
-        const marker = L.circleMarker([point.lat + spread[0], point.lng + spread[1]], {
-            radius: point.exact ? 9 : 8,
-            color: colour,
-            weight: 3,
-            fillColor: colour,
-            fillOpacity: point.exact ? 0.9 : 0.1,
-        }).addTo(map);
+    const layer = L.layerGroup().addTo(map);
+    const draw = (list) => {
+        layer.clearLayers();
+        list.forEach((point, i) => {
+            // التقريبيّون عند مركز المحافظة نفسه: يُفرَّقون قليلاً حتى لا يغطّي أحدهم الآخر
+            const spread = point.exact ? [0, 0] : [Math.sin(i * 2.4) * 0.012, Math.cos(i * 2.4) * 0.012];
+            const colour = point.stale ? '#d97706' : brand;
+            const marker = L.circleMarker([point.lat + spread[0], point.lng + spread[1]], {
+                radius: point.exact ? 9 : 8,
+                color: colour,
+                weight: 3,
+                fillColor: colour,
+                fillOpacity: point.exact ? 0.9 : 0.1,
+            }).addTo(layer);
 
-        if (point.name) {
-            marker.bindTooltip(point.name, { permanent: true, direction: 'top', offset: [0, -8], className: 'map-label' });
-        }
-        if (point.note) {
-            marker.bindPopup(`<b>${escape(point.name || '')}</b><br>${escape(point.note)}`);
-        }
-    });
+            if (point.name) {
+                marker.bindTooltip(point.name, { permanent: true, direction: 'top', offset: [0, -8], className: 'map-label' });
+            }
+            if (point.note) {
+                marker.bindPopup(`<b>${escape(point.name || '')}</b><br>${escape(point.note)}`);
+            }
+        });
+    };
+    draw(points);
+
+    // المواقع تتجدّد وحدها (docs/plan/62): الصفحة نفسها تُقرأ كلّ دقيقة وتُعاد النقاط، بلا تحريك الخريطة
+    const every = Number(el.dataset.refresh || 0);
+    if (every > 0) {
+        setInterval(async () => {
+            if (document.visibilityState !== 'visible' || map._popup?.isOpen()) return;
+            try {
+                const html = await (await fetch(window.location.href, { headers: { Accept: 'text/html' }, credentials: 'same-origin' })).text();
+                const fresh = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-map]');
+                if (fresh?.dataset.points) draw(JSON.parse(fresh.dataset.points));
+            } catch {
+                // الشبكة انقطعت: تبقى النقاط كما هي حتى المرّة القادمة
+            }
+        }, every * 1000);
+    }
 
     if (el.dataset.fit !== undefined && points.length) {
         map.fitBounds(points.map((p) => [p.lat, p.lng]), { padding: [40, 40], maxZoom: 15 });

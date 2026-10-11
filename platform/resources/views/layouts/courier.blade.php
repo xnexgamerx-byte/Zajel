@@ -105,5 +105,29 @@
     </div>
 </nav>
 
+{{--
+  موقع الهاتف (docs/plan/62): يُرسل ما دامت الشاشة مفتوحة، حدّث المندوب شيئاً أو لم يحدّث. والشركة
+  تُلزم به افتراضاً: الموقع مقفولٌ فالشاشة مغطّاة بما يقول كيف يُفتح.
+--}}
+<div data-courier-location data-url="{{ route('courier.location') }}"
+     data-required="{{ \App\Support\CourierLocation::required($company) ? '1' : '0' }}" hidden></div>
+<div id="location-gate" data-location-gate hidden role="alertdialog" aria-modal="true" aria-labelledby="location-gate-title"
+     class="fixed inset-0 z-50 grid place-items-center bg-aeblack-950/75 p-5">
+    <div class="card w-full max-w-sm p-6 text-center">
+        <span class="mx-auto mb-3 grid size-14 place-items-center rounded-full bg-brand-soft text-[var(--brand)]">
+            <x-icon name="pin" class="size-7"/>
+        </span>
+        <h2 id="location-gate-title" class="text-lg font-extrabold">فعّل الموقع لتكمل</h2>
+        <p data-location-reason class="mt-2 text-sm text-ink-600">
+            الشركة تتابع موقعك أثناء العمل، والشاشة لا تعمل والموقع مقفول.
+        </p>
+        <ol class="mt-4 list-decimal space-y-1.5 ps-5 text-start text-sm text-ink-700">
+            <li>شغّل «الموقع» (GPS) من أعلى شاشة الهاتف.</li>
+            <li>اسمح لهذا الموقع بمعرفة مكانك: القفل بجانب العنوان ← الأذونات ← الموقع ← سماح.</li>
+        </ol>
+        <button type="button" data-location-retry class="btn-primary mt-5 w-full">فعّلته — أعد المحاولة</button>
+    </div>
+</div>
+
 </body>
 </html>
