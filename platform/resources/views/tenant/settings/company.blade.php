@@ -156,6 +156,15 @@
             </label>
         </div>
 
+        {{-- صورٌ كثيرة مرّةً واحدة في تطبيق التاجر (docs/plan/63) --}}
+        <div class="rounded-xl border border-ink-200 p-4">
+            <label for="reading_batch_max" class="card-title block">أكثر الصور في قراءةٍ واحدة من تطبيق التاجر</label>
+            <p class="card-hint mb-2">يختار التاجر حتى هذا العدد من لقطات الشاشة مرّةً واحدة، فتُقرأ كلّها وتُراجع قبل الإنشاء.</p>
+            <input id="reading_batch_max" type="number" name="reading_batch_max" min="1" max="{{ \App\Support\BatchReading::LIMIT }}" step="1"
+                   value="{{ old('reading_batch_max', \App\Support\BatchReading::max($company)) }}" class="field-input w-32">
+            @error('reading_batch_max') <p class="field-error">{{ $message }}</p> @enderror
+        </div>
+
         {{-- موقع هاتف المندوب (docs/plan/62): مُلزمٌ ما لم يُطفأ --}}
         <div class="rounded-xl border border-ink-200 p-4">
             <input type="hidden" name="courier_require_location" value="0">

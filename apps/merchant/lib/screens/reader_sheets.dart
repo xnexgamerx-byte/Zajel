@@ -14,6 +14,8 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../core/transcript.dart';
 import '../widgets/bits.dart';
+import '../widgets/page.dart' show toast;
+import 'batch_screen.dart';
 
 /// «إنشاء بالذكاء الاصطناعي» و«إنشاء بالتسجيل الصوتي» (docs/plan/55): قارئ البوابة نفسه على
 /// الخادم — يعود بما يملأ «طلب جديد»، ولا يُحفظ شيءٌ حتى يراجعه التاجر ويضغط «احفظ».
@@ -273,8 +275,54 @@ class _AiSheetState extends State<_AiSheet> {
           ),
         ],
       ),
+      const SizedBox(height: 8),
+      // صورٌ كثيرة مرّةً واحدة (docs/plan/63): كلّ لقطةٍ طلب، تُقرأ معاً وتُراجع ثم تُنشأ كلّها
+      _button(
+        brand,
+        'صور كثيرة مرّة واحدة',
+        icon: Icons.collections_outlined,
+        outlined: true,
+        busy: busy == 'many',
+        onTap: busy == null ? _readMany : null,
+      ),
     ],
   );
+
+  Future<void> _readMany() async {
+    final navigator = Navigator.of(context);
+    final rootContext = navigator.context;
+    setState(() => (busy = 'many', error = null));
+    int max;
+    try {
+      max = (await Api.instance.createForm()).batchMax;
+    } on ApiError {
+      max = 30;
+    }
+    final List<PickedImage> images;
+    if (AppConfig.demo) {
+      images = [for (var i = 0; i < 5; i++) PickedImage(Uint8List(0), 'demo-$i.jpg')];
+    } else {
+      final List<XFile> picked;
+      try {
+        // بعرض ١٢٨٠: القارئ يقرأ على ١٢٠٠ أصلاً، فتُرفع ثلاثون معاً سريعاً بلا خسارة في القراءة
+        picked = await ImagePicker().pickMultiImage(limit: max < 2 ? 2 : max, maxWidth: 1280, imageQuality: 82);
+      } on PlatformException {
+        if (mounted) setState(() => (busy = null, error = 'تعذّر فتح الصور. اسمح للتطبيق بها من إعدادات الهاتف.'));
+        return;
+      }
+      if (picked.isEmpty) {
+        if (mounted) setState(() => busy = null);
+        return;
+      }
+      final chosen = picked.take(max).toList();
+      images = [for (final x in chosen) PickedImage(await x.readAsBytes(), x.name)];
+      if (picked.length > max && mounted) {
+        toast(context, 'الحدّ $max صورة في المرّة — أُخذت الأولى منها.', bad: true);
+      }
+    }
+    navigator.pop();
+    if (rootContext.mounted) await openBatch(rootContext, brand, images);
+  }
 }
 
 // ------------------------------------------------------------------ بالتسجيل الصوتي

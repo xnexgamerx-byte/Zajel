@@ -41,6 +41,49 @@ String _value(WidgetTester tester, String hint) => tester.widget<TextField>(_hin
 void main() {
   setUpAll(_loadCairo);
 
+  testWidgets('صور كثيرة مرّة واحدة: تُرفع وتُقرأ معاً، والناقص يُكمَل، ثم تُنشأ كلّها', (tester) async {
+    await _start(tester);
+
+    await tester.tap(find.text('بالذكاء الاصطناعي'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('صور كثيرة مرّة واحدة'));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 60));
+    }
+    expect(find.text('قراءة الصور'), findsOneWidget);
+    // تُرفع وتُقرأ أوّلاً بأوّل
+    expect(
+      find.textContaining('يُرفع').evaluate().isNotEmpty || find.textContaining('تُقرأ').evaluate().isNotEmpty,
+      isTrue,
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('تم الرفع ✓'), findsOneWidget);
+    expect(find.textContaining('قُرئت كلّها (5)'), findsOneWidget);
+    expect(find.textContaining('علي حسين'), findsOneWidget);
+    expect(find.text('ينقص: المنطقة — اضغط لتكمله'), findsOneWidget);
+    expect(find.text('1 تحتاج تكملة — اضغط على الطلب الأحمر.'), findsOneWidget);
+    expect(find.text('أنشئ الكل (4)'), findsOneWidget);
+
+    // الناقص يُكمَل من الورقة
+    await tester.tap(find.text('ينقص: المنطقة — اضغط لتكمله'));
+    await tester.pumpAndSettle();
+    expect(find.text('أكمل الطلب'), findsOneWidget);
+    await tester.tap(find.text('اختر المنطقة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الأعظمية').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('احفظ'));
+    await tester.pumpAndSettle();
+    expect(find.text('ينقص: المنطقة — اضغط لتكمله'), findsNothing);
+
+    await tester.tap(find.text('أنشئ الكل (5)'));
+    await tester.pumpAndSettle();
+    expect(find.text('أُنشئت 5 شحنة.'), findsOneWidget);
+    expect(find.textContaining('أُنشئت ✓'), findsNWidgets(5));
+  });
+
   testWidgets('بالذكاء الاصطناعي: رسالة الزبون تملأ «طلب جديد» للمراجعة', (tester) async {
     await _start(tester);
 

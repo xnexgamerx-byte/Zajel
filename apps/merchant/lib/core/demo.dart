@@ -226,6 +226,8 @@ class Demo {
     goods: 'ملابس',
     reading: true,
     listening: true,
+    batchMax: 30,
+    batchParallel: 4,
   );
 
   static List<Choice> areas(String governorate) => [
@@ -270,6 +272,29 @@ class Demo {
           ? 'مصطفى عادل صفر سبعة سبعة أربعة واحد صفر سبعة سبعة تسعة تسعة تسعة بغداد الكرادة قرب الجامع خمسة وعشرين ألف'
           : null,
       ai: true,
+    );
+  }
+
+  /// دفعة صورٍ في العرض: زبائن مختلفون، وواحدٌ بلا منطقة ليُرى كيف يُكمَل
+  static OrderReading readBatch(int i) {
+    const people = [
+      ('علي حسين', '07712345678', '101', 'الكرادة', 25000),
+      ('زينب علي', '07809876543', '102', 'زيونة', 30000),
+      ('مصطفى عادل', '07741077999', null, null, 41000),
+      ('نور الهدى', '07711112222', '106', 'الدورة', 35000),
+      ('سجاد كريم', '07501234567', '100', 'المنصور', 20000),
+    ];
+    final (name, phone, city, area, amount) = people[i % people.length];
+    return OrderReading(
+      fields: {
+        'recipient_name': name,
+        'recipient_phone': phone,
+        'governorate_id': 1,
+        'city_id': ?city,
+        'cod_amount': amount,
+      },
+      found: {'governorate_id': 'بغداد', 'city_id': ?area},
+      missing: [if (city == null) 'المنطقة'],
     );
   }
 

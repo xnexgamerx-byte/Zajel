@@ -90,6 +90,31 @@ class MerchantAppReadingTest extends TestCase
         $this->getJson($this->api('/merchant/shipments/form'), $headers)->assertJsonPath('listening', true);
     }
 
+    /** صورٌ كثيرة مرّةً واحدة (docs/plan/63): حدّها من «بيانات الشركة»، وكم تُقرأ معاً */
+    public function test_the_batch_size_comes_from_the_company_and_reads_run_side_by_side(): void
+    {
+        $this->setFeature($this->company, Feature::OrderReading);
+        $headers = $this->headers();
+
+        $form = $this->getJson($this->api('/merchant/shipments/form'), $headers)->assertOk()
+            ->assertJsonPath('batch_max', 30)->json();
+        $this->assertGreaterThanOrEqual(2, $form['batch_parallel']);
+        $this->assertLessThanOrEqual(8, $form['batch_parallel']);
+
+        $this->company->forceFill(['settings' => array_replace_recursive($this->company->refresh()->settings ?? [], ['reading' => ['batch_max' => 12]])])->save();
+        $this->getJson($this->api('/merchant/shipments/form'), $headers)->assertJsonPath('batch_max', 12);
+
+        // دفعةٌ كاملة لا يردّها حدّ الطلبات: ثلاثون قراءةً متتالية
+        for ($i = 0; $i < 30; $i++) {
+            $this->postJson($this->api('/merchant/shipments/read'), ['text' => 'علي 07712345678 بغداد الكرادة 25 الف'], $headers)->assertOk();
+        }
+
+        // والحدّ في «بيانات الشركة»
+        $host = 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain');
+        $this->actingAs($this->makeUser($this->company))->get($host.'/settings/company')->assertOk()
+            ->assertSee('أكثر الصور في قراءةٍ واحدة')->assertSee('value="12"', false);
+    }
+
     public function test_a_pasted_message_fills_the_form_with_the_area_names(): void
     {
         $this->setFeature($this->company, Feature::OrderReading);

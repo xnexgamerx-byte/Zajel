@@ -50,7 +50,8 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::get('/areas', [MerchantCreateShipmentController::class, 'areas'])->name('areas');
             Route::get('/shipments/quote', [MerchantCreateShipmentController::class, 'quote'])->name('shipments.quote');
             // بالذكاء الاصطناعي وبالصوت (docs/plan/55): قارئ البوابة نفسه — يملأ النموذج ولا يحفظ
-            Route::middleware(['feature:order_reading', 'throttle:30,1,order-reading'])->group(function () {
+            // والحدّ يتّسع لدفعة صورٍ كاملة (docs/plan/63): خمسون صورة ومراجعتها في الدقيقة
+            Route::middleware(['feature:order_reading', 'throttle:120,1,order-reading'])->group(function () {
                 Route::post('/shipments/read', OrderReadingController::class)->name('shipments.read');
                 Route::post('/shipments/listen', OrderListeningController::class)->name('shipments.listen');
             });

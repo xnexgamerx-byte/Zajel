@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Merchant;
+use App\Support\BatchReading;
 use App\Support\CourierLocation;
 use App\Support\DeliveryDeadline;
 use App\Support\MerchantHours;
@@ -65,6 +66,8 @@ class CompanySettingsController extends Controller
             'notify_amount_change' => ['sometimes', 'boolean'],
             // إلزام المندوب بتفعيل موقع هاتفه (docs/plan/62)
             'courier_require_location' => ['sometimes', 'boolean'],
+            // أكثر الصور في دفعة القراءة من تطبيق التاجر (docs/plan/63)
+            'reading_batch_max' => ['nullable', 'integer', 'between:1,'.BatchReading::LIMIT],
         ], [
             'payout_offered.min' => 'اترك طريقة دفعٍ واحدةً على الأقل للتجّار.',
             'primary_color.regex' => 'اللون بصيغة #RRGGBB.',
@@ -108,6 +111,7 @@ class CompanySettingsController extends Controller
             'payout_offered' => implode(',', array_keys(PayoutMethods::offered($company))),
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
             'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
+            'reading_batch_max' => BatchReading::max($company),
         ];
 
         $settings = $company->settings ?? [];
@@ -122,6 +126,9 @@ class CompanySettingsController extends Controller
         }
         if (array_key_exists('notify_amount_change', $data)) {
             data_set($settings, 'notify.amount_change', (bool) $data['notify_amount_change']);
+        }
+        if (isset($data['reading_batch_max'])) {
+            data_set($settings, 'reading.batch_max', (int) $data['reading_batch_max']);
         }
         if (array_key_exists('courier_require_location', $data)) {
             data_set($settings, 'courier.require_location', (bool) $data['courier_require_location']);
@@ -154,6 +161,7 @@ class CompanySettingsController extends Controller
             'payout_offered' => implode(',', array_keys(PayoutMethods::offered($company))),
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
             'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
+            'reading_batch_max' => BatchReading::max($company),
         ];
 
         // ما تغيّر وحده، وبمَن غيّره: رقمُ دعمٍ تبدّل يُسأل عنه يوم يشكو تاجر

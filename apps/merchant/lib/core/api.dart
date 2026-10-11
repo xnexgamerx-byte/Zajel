@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -415,6 +416,30 @@ class Api {
     return OrderReading.fromJson(await _upload('/merchant/shipments/read', 'image', bytes, filename));
   }
 
+  /// صورةٌ من دفعة صور (docs/plan/63): كالصورة الواحدة، ويُبلَّغ كم رُفع منها — [sent] من ٠ إلى ١
+  Future<OrderReading> readImageTracked(
+    Uint8List bytes,
+    String filename, {
+    required void Function(double sent) sent,
+    int demo = 0,
+  }) async {
+    if (AppConfig.demo) {
+      for (var i = 1; i <= 4; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        sent(i / 4);
+      }
+      return Demo.readBatch(demo);
+    }
+    final form = http.MultipartRequest('POST', _uri('/merchant/shipments/read'))
+      ..headers.addAll({..._headers}..remove('Content-Type'))
+      ..files.add(http.MultipartFile.fromBytes('image', bytes, filename: filename));
+    final body = await form.finalize().toBytes();
+    final request = _Tracked(form.url, body, sent)
+      ..headers.addAll(form.headers)
+      ..contentLength = body.length;
+    return OrderReading.fromJson(await _send(request.send().then(http.Response.fromStream), timeout: _reading));
+  }
+
   /// تسجيلٌ حتى «أوقف»: يصير نصّاً على الخادم ثم يُقرأ منه الطلب
   Future<OrderReading> listen(Uint8List bytes, String filename) async {
     if (AppConfig.demo) return Demo.read(heard: true);
@@ -460,5 +485,29 @@ class Api {
     }
 
     return body;
+  }
+}
+
+/// طلبٌ يُرسَل قطعاً بقدر ما يأخذ الاتصال منه، فيُعرف كم رُفع فعلاً (لا كم وُضع في الذاكرة)
+class _Tracked extends http.BaseRequest {
+  _Tracked(Uri url, this.body, this.sent) : super('POST', url);
+
+  final List<int> body;
+  final void Function(double) sent;
+
+  @override
+  http.ByteStream finalize() {
+    super.finalize();
+    return http.ByteStream(_chunks());
+  }
+
+  Stream<List<int>> _chunks() async* {
+    const size = 32 * 1024;
+    if (body.isEmpty) sent(1);
+    for (var i = 0; i < body.length; i += size) {
+      final end = math.min(i + size, body.length);
+      yield body.sublist(i, end);
+      sent(end / body.length);
+    }
   }
 }

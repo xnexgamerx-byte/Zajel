@@ -296,6 +296,8 @@ class CreateForm {
     required this.goods,
     this.reading = false,
     this.listening = false,
+    this.batchMax = 30,
+    this.batchParallel = 4,
   });
 
   factory CreateForm.fromJson(Map<String, dynamic> j) => CreateForm(
@@ -308,7 +310,13 @@ class CreateForm {
     goods: j['goods'] as String? ?? 'ملابس',
     reading: j['reading'] as bool? ?? false,
     listening: j['listening'] as bool? ?? false,
+    batchMax: j['batch_max'] as int? ?? 30,
+    batchParallel: j['batch_parallel'] as int? ?? 4,
   );
+
+  /// صورٌ كثيرة مرّةً واحدة (docs/plan/63): أكثرها من «بيانات الشركة»، وكم تُقرأ معاً (نوى الخادم)
+  final int batchMax;
+  final int batchParallel;
 
   /// «إنشاء بالذكاء الاصطناعي»: ميزة القراءة مفعّلةٌ للشركة
   final bool reading;

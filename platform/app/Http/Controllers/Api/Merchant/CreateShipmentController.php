@@ -11,11 +11,14 @@ use App\Http\Requests\Api\AppShipmentRequest;
 use App\Models\City;
 use App\Models\Governorate;
 use App\Models\Merchant;
+use App\Models\Shipment;
 use App\Models\WaybillBook;
 use App\Services\Orders\Speech\SpeechToText;
 use App\Services\PricingService;
+use App\Support\BatchReading;
 use App\Support\FeatureGate;
 use App\Support\ShipmentFields;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -37,15 +40,18 @@ class CreateShipmentController extends Controller
             'governorates' => Governorate::offered()->get(['id', 'name_ar'])
                 ->map(fn ($g) => ['id' => $g->id, 'name' => $g->name_ar])->values(),
             // محافظة التاجر أوّلاً: أغلب طلباته إليها
-            'home'     => $merchant->governorate_id,
-            'sizes'    => collect(\App\Models\Shipment::SIZES)->map(fn ($l, $v) => ['value' => $v, 'label' => $l])->values(),
-            'types'    => collect(\App\Models\Shipment::TYPES)->map(fn ($l, $v) => ['value' => $v, 'label' => $l])->values(),
+            'home' => $merchant->governorate_id,
+            'sizes' => collect(Shipment::SIZES)->map(fn ($l, $v) => ['value' => $v, 'label' => $l])->values(),
+            'types' => collect(Shipment::TYPES)->map(fn ($l, $v) => ['value' => $v, 'label' => $l])->values(),
             'required' => ShipmentFields::required(),
             'waybills' => FeatureGate::enabled(Feature::Waybills),
             // بطاقتا «بالذكاء الاصطناعي» و«بالتسجيل الصوتي»: القراءة ميزةٌ للشركة، والسماع مفتاحٌ على الخادم
-            'reading'   => $reading = FeatureGate::enabled(Feature::OrderReading),
+            'reading' => $reading = FeatureGate::enabled(Feature::OrderReading),
             'listening' => $reading && app(SpeechToText::class)->available(),
-            'goods'    => $goods && ! in_array($merchant->goods_type, ['general', 'other'], true) ? $goods : 'ملابس',
+            // صورٌ كثيرة مرّةً واحدة (docs/plan/63): حدّها من الشركة، وكم تُقرأ معاً
+            'batch_max' => BatchReading::max(app(TenantContext::class)->company()),
+            'batch_parallel' => BatchReading::parallel(),
+            'goods' => $goods && ! in_array($merchant->goods_type, ['general', 'other'], true) ? $goods : 'ملابس',
         ]);
     }
 
@@ -68,9 +74,9 @@ class CreateShipmentController extends Controller
         $merchant = $request->attributes->get('merchant');
         $data = $request->validate([
             'governorate_id' => ['required', 'integer'],
-            'city_id'        => ['nullable', 'integer'],
-            'cod_amount'     => ['nullable', 'integer', 'min:0', 'max:100000000'],
-            'size'           => ['nullable', 'in:'.implode(',', array_keys(\App\Models\Shipment::SIZES))],
+            'city_id' => ['nullable', 'integer'],
+            'cod_amount' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'size' => ['nullable', 'in:'.implode(',', array_keys(Shipment::SIZES))],
         ]);
 
         if (! Governorate::offered()->whereKey($data['governorate_id'])->exists()) {
@@ -89,9 +95,9 @@ class CreateShipmentController extends Controller
 
         return response()->json([
             'delivery_fee' => (int) $quote['delivery_fee'] + (int) $quote['extra_fee'],
-            'cod_fee'      => (int) $quote['cod_fee'],
-            'fees'         => (int) $totals['total_fees'],
-            'due'          => (int) $totals['merchant_due'],
+            'cod_fee' => (int) $quote['cod_fee'],
+            'fees' => (int) $totals['total_fees'],
+            'due' => (int) $totals['merchant_due'],
         ]);
     }
 
@@ -141,8 +147,8 @@ class CreateShipmentController extends Controller
 
         return response()->json([
             'shipment' => ShipmentController::row($shipment) + [
-                'due'     => (int) $shipment->merchant_due,
-                'fees'    => (int) $shipment->total_fees,
+                'due' => (int) $shipment->merchant_due,
+                'fees' => (int) $shipment->total_fees,
                 'waybill' => $shipment->waybill_book_id ? $shipment->barcode : null,
             ],
         ], 201);

@@ -22,7 +22,7 @@ return [
      | العملة — دينار عراقي بلا كسور. كل المبالغ BIGINT بالدينار الصحيح.
      */
     'currency' => [
-        'code'   => 'IQD',
+        'code' => 'IQD',
         'symbol' => 'د.ع',
     ],
 
@@ -43,7 +43,7 @@ return [
     | حين لا مدير، ثم تُحذف كلمة المرور من الإعدادات.
     */
     'bootstrap_admin' => [
-        'phone'    => env('ZAJEL_ADMIN_PHONE'),
+        'phone' => env('ZAJEL_ADMIN_PHONE'),
         'password' => env('ZAJEL_ADMIN_PASSWORD'),
     ],
 
@@ -53,8 +53,8 @@ return [
     | كما كان. المفتاح في .env لا في المستودع.
     */
     'ai' => [
-        'key'     => env('ANTHROPIC_API_KEY'),
-        'model'   => env('ZAJEL_AI_MODEL', 'claude-opus-5-5'),
+        'key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ZAJEL_AI_MODEL', 'claude-opus-5-5'),
         'timeout' => (float) env('ZAJEL_AI_TIMEOUT', 40),
     ],
 
@@ -64,10 +64,10 @@ return [
     | بلا مفتاحٍ يسمع المتصفّح كما كان.
     */
     'speech' => [
-        'provider'   => env('ZAJEL_SPEECH_PROVIDER'),
+        'provider' => env('ZAJEL_SPEECH_PROVIDER'),
         'elevenlabs' => ['key' => env('ELEVENLABS_API_KEY'), 'model' => env('ZAJEL_ELEVENLABS_MODEL', 'scribe_v1')],
-        'openai'     => ['key' => env('OPENAI_API_KEY'), 'model' => env('ZAJEL_OPENAI_SPEECH_MODEL', 'gpt-4o-transcribe')],
-        'timeout'    => (float) env('ZAJEL_SPEECH_TIMEOUT', 40),
+        'openai' => ['key' => env('OPENAI_API_KEY'), 'model' => env('ZAJEL_OPENAI_SPEECH_MODEL', 'gpt-4o-transcribe')],
+        'timeout' => (float) env('ZAJEL_SPEECH_TIMEOUT', 40),
     ],
 
     /*
@@ -75,6 +75,8 @@ return [
     | منها شيء. وبلا البرنامج تبقى قراءة النصّ الملصوق وحدها.
     */
     'ocr' => [
+        // صورٌ تُقرأ معاً من تطبيق التاجر (docs/plan/63): نوى الخادم ما لم تُحدَّد
+        'parallel' => (int) env('ZAJEL_OCR_PARALLEL', 0),
         'binary' => env('ZAJEL_OCR_BINARY', 'tesseract'),
     ],
 ];
