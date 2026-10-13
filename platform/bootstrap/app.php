@@ -1,16 +1,18 @@
 <?php
 
+use App\Http\Middleware\AuthenticatePartner;
 use App\Http\Middleware\EnsureApiUser;
-use App\Http\Middleware\EnsurePlatformUser;
-use App\Http\Middleware\EnsureMainBranch;
 use App\Http\Middleware\EnsureCourier;
 use App\Http\Middleware\EnsureFeature;
+use App\Http\Middleware\EnsureMainBranch;
 use App\Http\Middleware\EnsureMerchant;
+use App\Http\Middleware\EnsurePlatformUser;
 use App\Http\Middleware\EnsureStaff;
-use App\Http\Middleware\IdentifyPlatform;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
+use App\Http\Middleware\IdentifyPlatform;
 use App\Http\Middleware\IdentifyTenant;
 use App\Http\Middleware\NormaliseDigits;
+use App\Http\Middleware\RequirePartnerAbility;
 use App\Http\Middleware\SecurityHeaders;
 use App\Support\ExpiredForm;
 use Illuminate\Foundation\Application;
@@ -19,6 +21,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Session\TokenMismatchException;
+use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -74,16 +77,19 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $middleware->alias([
-            'staff'         => EnsureStaff::class,
-            'merchant'      => EnsureMerchant::class,
-            'courier'       => EnsureCourier::class,
+            'staff' => EnsureStaff::class,
+            'merchant' => EnsureMerchant::class,
+            'courier' => EnsureCourier::class,
             'platform-user' => EnsurePlatformUser::class,
-            'main-branch'   => EnsureMainBranch::class,
+            'main-branch' => EnsureMainBranch::class,
             // ميزةٌ تفتحها المنصّة لكل شركةٍ وحدها: feature:order_reading (docs/plan/35)
-            'feature'       => EnsureFeature::class,
+            'feature' => EnsureFeature::class,
             // رمز تطبيقٍ لحسابٍ ما زال قائماً في هذه الشركة (docs/plan/48)
-            'api-user'      => EnsureApiUser::class,
-            'abilities'     => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'api-user' => EnsureApiUser::class,
+            'abilities' => CheckAbilities::class,
+            // مفتاح ربط شريكٍ (docs/plan/64): لا جلسة ولا كلمة مرور
+            'partner.key' => AuthenticatePartner::class,
+            'partner.can' => RequirePartnerAbility::class,
         ]);
 
         // زائر لوحة النواة يُعاد إلى دخولها لا إلى دخول شركة لا وجود لها. ومن أرسل نموذجاً

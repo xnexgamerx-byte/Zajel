@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
+use App\Support\ScanCode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -36,9 +37,9 @@ class Shipment extends Model
      * التوصيل بما تكتبه التسعيرة لحجمه (PriceList::sizeFee — docs/plan/38).
      */
     public const SIZES = [
-        'normal'  => 'عادي',
-        'medium'  => 'متوسط',
-        'large'   => 'كبير',
+        'normal' => 'عادي',
+        'medium' => 'متوسط',
+        'large' => 'كبير',
         'special' => 'خاص',
     ];
 
@@ -62,30 +63,30 @@ class Shipment extends Model
     protected function casts(): array
     {
         return [
-            'status'            => ShipmentStatus::class,
+            'status' => ShipmentStatus::class,
             'status_changed_at' => 'datetime',
-            'scheduled_at'      => 'datetime',
-            'picked_up_at'      => 'datetime',
-            'assigned_at'       => 'datetime',
-            'redelivery_at'     => 'datetime',
+            'scheduled_at' => 'datetime',
+            'picked_up_at' => 'datetime',
+            'assigned_at' => 'datetime',
+            'redelivery_at' => 'datetime',
             'return_confirmed_at' => 'datetime',
-            'delivered_at'      => 'datetime',
-            'returned_at'       => 'datetime',
+            'delivered_at' => 'datetime',
+            'returned_at' => 'datetime',
             'return_received_at' => 'datetime',
-            'amount_confirmed'  => 'boolean',
+            'amount_confirmed' => 'boolean',
             'courier_commission_fixed' => 'boolean',
             'amount_confirmed_at' => 'datetime',
-            'cancelled_at'      => 'datetime',
+            'cancelled_at' => 'datetime',
             'courier_settled_at' => 'datetime',
-            'missing_at'        => 'datetime',
+            'missing_at' => 'datetime',
             'merchant_settled_at' => 'datetime',
-            'review_hold_at'    => 'datetime',
-            'reviewed_at'       => 'datetime',
-            'is_fragile'        => 'boolean',
-            'allow_open'        => 'boolean',
-            'is_invoiced'       => 'boolean',
-            'is_forced'         => 'boolean',
-            'fee_prepaid'       => 'boolean',
+            'review_hold_at' => 'datetime',
+            'reviewed_at' => 'datetime',
+            'is_fragile' => 'boolean',
+            'allow_open' => 'boolean',
+            'is_invoiced' => 'boolean',
+            'is_forced' => 'boolean',
+            'fee_prepaid' => 'boolean',
             'duplicate_cleared_at' => 'datetime',
         ];
     }
@@ -115,6 +116,12 @@ class Shipment extends Model
     public function hub(): BelongsTo
     {
         return $this->belongsTo(Hub::class);
+    }
+
+    /** الشريك الذي معه الطرد الآن (docs/plan/64)؛ null = عندنا */
+    public function partner(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class);
     }
 
     /** الكيس الذي فيه الآن — فارغ على الرفّ أو بيد المندوب. */
@@ -305,7 +312,7 @@ class Shipment extends Model
         }
 
         // رمز QR الوصل في خانة البحث: رابط التتبّع، ورقم الوصل منه
-        $scan = \App\Support\ScanCode::read($term);
+        $scan = ScanCode::read($term);
 
         if ($scan->isLink()) {
             $term = $scan->code;
@@ -454,9 +461,9 @@ class Shipment extends Model
     {
         return match (true) {
             $this->isRedelivery() && $this->status === ShipmentStatus::AtHub => 'إعادة توصيل — بالمخزن',
-            $this->isRedelivery()               => 'إعادة توصيل',
+            $this->isRedelivery() => 'إعادة توصيل',
             $this->isConfirmedReturnWithCourier() => 'راجع مؤكد',
-            default                             => $this->status->label(),
+            default => $this->status->label(),
         };
     }
 
@@ -464,9 +471,9 @@ class Shipment extends Model
     public function statusColor(): string
     {
         return match (true) {
-            $this->isRedelivery()                 => 'blue',
+            $this->isRedelivery() => 'blue',
             $this->isConfirmedReturnWithCourier() => 'red',
-            default                               => $this->status->color(),
+            default => $this->status->color(),
         };
     }
 
