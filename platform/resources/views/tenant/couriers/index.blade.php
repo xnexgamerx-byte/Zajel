@@ -77,6 +77,9 @@
                         <td class="px-4 py-3">
                             <a href="{{ route('couriers.show', $courier) }}"
                                class="font-semibold text-[var(--brand)] hover:underline">{{ $courier->name }}</a>
+                            @if ($courier->is_intermediary)
+                                <span class="chip chip-info">شركة وسيطة</span>
+                            @endif
                             @if ($courier->branch)
                                 <div class="text-xs text-ink-500">{{ $courier->branch->name }}</div>
                             @endif

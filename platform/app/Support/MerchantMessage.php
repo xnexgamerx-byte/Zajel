@@ -60,7 +60,7 @@ final class MerchantMessage
             '{العنوان}' => $address !== '' ? $address : '—',
             '{المبلغ}'  => number_format((int) $shipment->cod_amount).' د.ع',
             '{السبب}'   => $shipment->lastFailureReason?->name_ar ?? 'لم يُحدَّد',
-            '{المندوب}' => (string) ($shipment->deliveryCourier?->name ?? '—'),
+            '{المندوب}' => (string) ($shipment->deliveryCourier?->merchantFacingName() ?? '—'),
             '{الموظف}'  => (string) $user->name,
             '{الشركة}'  => (string) (Tenancy::company()?->name ?? ''),
         ]);

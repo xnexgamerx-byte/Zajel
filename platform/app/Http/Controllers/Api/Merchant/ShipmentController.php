@@ -61,7 +61,7 @@ class ShipmentController extends Controller
 
         $shipment->load([
             'governorate:id,name_ar', 'city:id,name_ar', 'lastFailureReason:id,name_ar,category',
-            'deliveryCourier:id,name', 'pickupCourier:id,name',
+            'deliveryCourier:id,name,is_intermediary', 'pickupCourier:id,name',
             'events' => fn ($q) => $q->whereIn('event_type', ShipmentEvent::MERCHANT_EVENTS)->orderBy('id'),
         ]);
 
@@ -81,7 +81,7 @@ class ShipmentController extends Controller
             'tracking_url' => Tracking::url($shipment),
             // تتبّعه الآن (docs/plan/59): من معه الطرد، وآخر ما جرى عليه ومتى
             'tracking' => [
-                'courier' => $shipment->status->isOpen() ? ($shipment->deliveryCourier?->name ?? $shipment->pickupCourier?->name) : null,
+                'courier' => $shipment->status->isOpen() ? ($shipment->deliveryCourier?->merchantFacingName() ?? $shipment->pickupCourier?->name) : null,
                 'status' => $shipment->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $shipment->statusLabel(),
                 'at' => ($shipment->status_changed_at ?? $shipment->created_at)?->toIso8601String(),
                 // على الخريطة ما دامت لم تُحسم (docs/plan/61): دقيقٌ من هاتف المندوب، أو تقريبيٌّ بمحافظتها

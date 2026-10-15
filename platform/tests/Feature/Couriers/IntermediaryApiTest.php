@@ -17,8 +17,10 @@ use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Support\MerchantMessage;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
@@ -80,12 +82,12 @@ class IntermediaryApiTest extends TestCase
     private function ship(string $name, ?Courier $courier = null, array $extra = []): Shipment
     {
         return Tenancy::runFor($this->company, function () use ($name, $courier, $extra) {
-            $shipment = app(CreateShipment::class)->handle([
+            $shipment = app(CreateShipment::class)->handle(array_merge([
                 'merchant_id' => $this->makeMerchant($this->company, 'M'.random_int(1000, 9999))->id,
                 'recipient_name' => $name, 'recipient_phone' => '07801234567',
                 'governorate_id' => Governorate::where('code', 'BSR')->firstOrFail()->id,
                 'address' => 'البصرة، العشار', 'cod_amount' => 40_000,
-            ] + $extra, $this->staff);
+            ], $extra), $this->staff);
 
             app(SendOutForDelivery::class)->handle(collect([$shipment->refresh()]), $courier ?? $this->agent, $this->staff);
 
@@ -382,5 +384,37 @@ class IntermediaryApiTest extends TestCase
 
         Tenancy::runFor($this->company, fn () => $plain->forceFill(['is_intermediary' => true])->save());
         $this->assertTrue(Tenancy::runFor($this->company, fn () => $plain->refresh()->is_intermediary));
+    }
+
+    public function test_the_merchant_never_sees_the_intermediary_name_but_sees_a_normal_courier(): void
+    {
+        $merchant = $this->makeMerchant($this->company, 'MX1');
+        $merchantUser = Tenancy::runFor($this->company, fn () => User::create([
+            'name' => 'تاجر', 'phone' => $this->phoneFrom($this->company->slug.'merchant-x', '0779'),
+            'password' => 'password', 'role' => UserRole::Merchant, 'merchant_id' => $merchant->id, 'is_active' => true,
+        ]));
+        $normal = $this->courier('مندوب بغداد');
+
+        $viaAgent = $this->ship('علي', null, ['merchant_id' => $merchant->id]);
+        $viaNormal = $this->ship('زينب', $normal, ['merchant_id' => $merchant->id]);
+
+        $headers = ['Accept' => 'application/json'];
+        $sign = fn () => Sanctum::actingAs($merchantUser, ['merchant']);
+        $host = 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain').'/api/v1/merchant/shipments/';
+
+        $sign();
+        $this->getJson($host.$viaAgent->id, $headers)->assertOk()
+            ->assertJsonPath('tracking.courier', 'شريك التوصيل')
+            ->assertDontSee('وسيط الجنوب');
+
+        $sign();
+        $this->getJson($host.$viaNormal->id, $headers)->assertOk()
+            ->assertJsonPath('tracking.courier', 'مندوب بغداد');
+
+        // الرسالة التي تُكتب للتاجر بمتغيّر المندوب: تأخذ الاسم نفسه
+        Tenancy::runFor($this->company, function () use ($viaAgent, $merchantUser) {
+            $text = MerchantMessage::for($viaAgent->refresh(), $merchantUser);
+            $this->assertStringNotContainsString('وسيط الجنوب', $text);
+        });
     }
 }

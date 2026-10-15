@@ -88,6 +88,15 @@ class Courier extends Model
         };
     }
 
+    /**
+     * الاسم الذي يُعرض للتاجر: الشركة الوسيطة تبقى «شريك التوصيل» بلا اسمها (docs/plan/64)،
+     * فلا يعرف التاجر من يوصل شحنته خارج بغداد، ولا يتّصل بهم خلف ظهرنا.
+     */
+    public function merchantFacingName(): string
+    {
+        return $this->is_intermediary ? 'شريك التوصيل' : $this->name;
+    }
+
     public function partnerLabel(): ?string
     {
         return match ($this->partner_centre_type) {
