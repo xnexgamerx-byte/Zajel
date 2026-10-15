@@ -160,7 +160,6 @@ final class StaffNavigation
                 ['merchants.index', 'التجّار', ['merchants.*'], 'settings.merchants'],
                 ['couriers.index', 'المندوبون', ['couriers.index', 'couriers.show', 'couriers.create', 'couriers.edit'], 'settings.couriers'],
                 ['zones.index', 'مناطق المندوبين', ['zones.*'], 'settings.zones'],
-                ['partners.index', 'الشركاء ومفاتيح الربط', ['partners.*', 'partner-reports.*'], 'settings.company'],
                 ['users.index', 'المستخدمون', ['users.*'], 'settings.users'],
                 ['permissions.index', 'الصلاحيات والمراتب', ['permissions.index', 'permissions.ranks.*'], 'settings.permissions'],
                 ['permissions.grants.index', 'صلاحية إضافية لموظّف', ['permissions.grants.*'], 'settings.permissions'],

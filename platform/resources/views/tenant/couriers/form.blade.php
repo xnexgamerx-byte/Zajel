@@ -67,6 +67,19 @@
                     <p class="mt-1 text-xs text-ink-500">مندوب الاستلام لا يُسنَد إليه توصيل والعكس.</p>
                     @error('type') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
+                {{-- الشركة الوسيطة مندوبٌ عندنا (docs/plan/64): تُسلَّم لها الشحنات وتُحاسَب ككلّ مندوب، ويحدّثها نظامها --}}
+                <div class="sm:col-span-3">
+                    <input type="hidden" name="is_intermediary" value="0">
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="checkbox" name="is_intermediary" value="1" class="mt-1"
+                               @checked(old('is_intermediary', $courier->is_intermediary ?? false))>
+                        <span>
+                            <span class="font-semibold">شركة وسيطة</span>
+                            <span class="block text-xs text-ink-500">شركة توصيلٍ تستلم شحناتنا للمحافظات. تُسند لها وتُحاسَب ككلّ مندوب، وتُعطى مفتاح ربطٍ من صفحتها ليحدّث نظامها الحالات.</span>
+                        </span>
+                    </label>
+                    @error('is_intermediary') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
                 <div>
                     <label class="field-label" for="vehicle_type">وسيلة النقل</label>
                     <select id="vehicle_type" name="vehicle_type" class="field-input" required>

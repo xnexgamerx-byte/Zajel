@@ -25,7 +25,7 @@ class Courier extends Model
 
     protected function casts(): array
     {
-        return ['is_available' => 'boolean', 'last_seen_at' => 'datetime'];
+        return ['is_available' => 'boolean', 'is_intermediary' => 'boolean', 'last_seen_at' => 'datetime'];
     }
 
     public function user(): BelongsTo
@@ -117,6 +117,12 @@ class Courier extends Model
             && CitySetting::where('city_id', $shipment->city_id)->where('is_peripheral', true)->exists();
 
         return (int) (($peripheral ? $setting->courier_fee_peripheral : null) ?? $setting->courier_fee ?? 0);
+    }
+
+    /** مفاتيح ربط المندوب الوسيط بنظامه (docs/plan/64) */
+    public function apiKeys(): HasMany
+    {
+        return $this->hasMany(CourierApiKey::class);
     }
 
     public function zones(): HasMany

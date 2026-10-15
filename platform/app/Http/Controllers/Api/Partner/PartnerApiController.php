@@ -2,71 +2,104 @@
 
 namespace App\Http\Controllers\Api\Partner;
 
-use App\Actions\Partners\PartnerStatusUpdate;
+use App\Actions\Shipments\ChangeShipmentStatus;
+use App\Actions\Shipments\CourierOutcomeRules;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
-use App\Models\PartnerKey;
-use App\Models\PartnerReport;
+use App\Models\Courier;
+use App\Models\CourierApiKey;
+use App\Models\FailureReason;
 use App\Models\Shipment;
-use App\Support\Partners\PartnerPolicy;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
+use App\Models\ShipmentEvent;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * واجهة الشريك (docs/plan/64): يقرأ الطرود المسلَّمة له ويسجّل حالاتها — وهذا كل شيء.
- * لا مبالغ ولا أجور ولا تعديل على الطلب ولا تاجر ولا شيء من كشوفنا.
+ * واجهة الشركة الوسيطة (docs/plan/64): الوسيط مندوبٌ عندنا، ونظامه يفعل ما يفعله المندوب
+ * بشحنةٍ بيده — يقرأها، ويسجّل ما جرى عند الباب، ويكتب أين وصلت — ولا شيء غيره.
+ *
+ * لا يرى التاجر ولا الأجور ولا الكشوف، ولا يغيّر المبلغ ولا العنوان ولا يُرجع شحنة: الإرجاع
+ * قرار الكول سنتر بعد المحاولة الفاشلة، كما هو مع كل مندوب.
  */
 class PartnerApiController extends Controller
 {
-    /** ما يُقبل من الحقول في طلب تحديث الحالة، والباقي يُرفض لا يُتجاهل */
-    private const STATUS_FIELDS = ['status', 'note', 'lat', 'lng'];
+    /** ما يسجّله الوسيط على شحنةٍ «قيد التوصيل» عنده — ما يسجّله المندوب نفسه إلّا الواصل الجزئي */
+    private const ACTIONS = [
+        'delivered' => ShipmentStatus::Delivered,
+        'failed_attempt' => ShipmentStatus::FailedAttempt,
+        'postponed' => ShipmentStatus::Postponed,
+    ];
 
-    /** حالاتٌ تُرفق بسبب مكتوب: التأجيل والفشل والرجوع */
-    private const NEEDS_NOTE = ['failed_attempt', 'postponed', 'returning'];
+    /** ما يُقبل من الحقول في كل طلب، والباقي يُرفض لا يُتجاهل: لا مبلغ ولا عنوان ولا حالة غير هذه */
+    private const STATUS_FIELDS = ['action', 'reason_id', 'note', 'delivery_code', 'lat', 'lng'];
+
+    private const TRACK_FIELDS = ['note', 'lat', 'lng'];
+
+    public function __construct(protected ChangeShipmentStatus $change) {}
 
     public function me(Request $request): JsonResponse
     {
-        /** @var PartnerKey $key */
-        $key = $request->attributes->get('partner_key');
+        $courier = $this->courier($request);
+        $key = $this->key($request);
 
-        $held = $this->held($key)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+        $counts = $this->held($courier)->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+        $count = fn (ShipmentStatus ...$s) => (int) collect($s)->sum(fn ($x) => $counts[$x->value] ?? 0);
 
         return response()->json([
-            'partner' => $key->partner->name,
-            'key' => $key->name,
-            'abilities' => $key->abilities,
-            'expires_at' => $key->expires_at->toIso8601String(),
+            'courier' => ['name' => $courier->name, 'code' => $courier->code],
+            'key' => ['name' => $key->name, 'abilities' => $key->abilities, 'expires_at' => $key->expires_at->toIso8601String()],
             'held' => [
-                'total' => (int) $held->sum(),
-                'by_status' => $held,
+                'total' => (int) $counts->sum(),
+                'to_deliver' => $count(ShipmentStatus::OutForDelivery),
+                'awaiting_our_decision' => $count(ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed),
+                'to_return' => $count(ShipmentStatus::Returning, ShipmentStatus::PartiallyDelivered),
             ],
-            'pending_reports' => PartnerReport::query()->where('partner_key_id', $key->id)->pending()->count(),
         ]);
+    }
+
+    /** أسباب عدم التسليم: نظام الوسيط يربط أسبابه بأرقامها */
+    public function reasons(Request $request): JsonResponse
+    {
+        $reasons = FailureReason::availableFor($this->courier($request)->company_id)
+            ->get(['id', 'name_ar', 'requires_note', 'allows_reschedule']);
+
+        return response()->json(['data' => $reasons->map(fn (FailureReason $r) => [
+            'id' => $r->id,
+            'name' => $r->name_ar,
+            'requires_note' => (bool) $r->requires_note,
+            'for_postponed' => (bool) $r->allows_reschedule,
+        ])->values()]);
     }
 
     public function index(Request $request): JsonResponse
     {
-        /** @var PartnerKey $key */
-        $key = $request->attributes->get('partner_key');
         $data = $request->validate([
-            'barcode' => ['nullable', 'string', 'max:40'],
             'number' => ['nullable', 'string', 'max:40'],
+            'barcode' => ['nullable', 'string', 'max:60'],
             'status' => ['nullable', 'string', 'max:30'],
+            'changed_since' => ['nullable', 'date'],
+            'page' => ['nullable', 'integer', 'min:1', 'max:100000'],
         ]);
 
-        $query = $this->held($key)->with(['governorate:id,name_ar', 'city:id,name_ar'])->orderByDesc('status_changed_at');
+        $query = $this->held($this->courier($request))
+            ->with(['governorate:id,name_ar', 'city:id,name_ar'])
+            ->orderByDesc('status_changed_at')->orderByDesc('id');
 
-        if (filled($data['barcode'] ?? null)) {
-            $query->where('barcode', $data['barcode']);
-        }
         if (filled($data['number'] ?? null)) {
             $query->where('number', $data['number']);
         }
+        if (filled($data['barcode'] ?? null)) {
+            $query->where('barcode', $data['barcode']);
+        }
         if (filled($data['status'] ?? null)) {
-            $status = PartnerPolicy::parse($data['status']);
-            $query->where('status', $status?->value ?? '__none__');
+            $query->where('status', $data['status']);
+        }
+        if (filled($data['changed_since'] ?? null)) {
+            $query->where('status_changed_at', '>=', $data['changed_since']);
         }
 
         $page = $query->paginate(50);
@@ -79,80 +112,144 @@ class PartnerApiController extends Controller
 
     public function show(Request $request, string $number): JsonResponse
     {
-        /** @var PartnerKey $key */
-        $key = $request->attributes->get('partner_key');
+        $shipment = $this->held($this->courier($request))
+            ->with(['governorate:id,name_ar', 'city:id,name_ar'])
+            ->where('number', $number)->first();
 
-        $shipment = $this->held($key)->with(['governorate:id,name_ar', 'city:id,name_ar'])->where('number', $number)->first();
-
-        if ($shipment === null) {
-            return response()->json(['message' => 'الشحنة غير موجودة عندكم.'], 404);
-        }
-
-        return response()->json(['data' => $this->resource($shipment)]);
+        return $shipment
+            ? response()->json(['data' => $this->resource($shipment)])
+            : $this->notHere();
     }
 
-    public function status(Request $request, string $number, PartnerStatusUpdate $update): JsonResponse
+    /** ما جرى عند الباب: واصل، أو لم يُسلَّم، أو تأجّل — بشروط المندوب نفسها */
+    public function status(Request $request, string $number): JsonResponse
     {
-        /** @var PartnerKey $key */
-        $key = $request->attributes->get('partner_key');
-
-        $unknown = array_diff(array_keys($request->all()), self::STATUS_FIELDS);
-        if ($unknown !== []) {
-            throw ValidationException::withMessages([
-                'fields' => 'حقولٌ غير مسموحة: '.implode('، ', $unknown).'. المسموح: الحالة والملاحظة والموقع.',
-            ]);
-        }
+        $this->rejectUnknown($request, self::STATUS_FIELDS);
 
         $data = $request->validate([
-            'status' => ['required', 'string', 'max:30'],
+            'action' => ['required', 'string', Rule::in(array_keys(self::ACTIONS))],
+            'reason_id' => ['nullable', 'integer'],
             'note' => ['nullable', 'string', 'max:500'],
+            'delivery_code' => ['nullable', 'string', 'max:10'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
         ]);
 
-        if (in_array($data['status'], self::NEEDS_NOTE, true) && blank($data['note'] ?? null)) {
-            throw ValidationException::withMessages(['note' => 'اكتب سبب هذه الحالة في الملاحظة.']);
-        }
+        $courier = $this->courier($request);
+        $key = $this->key($request);
+        $to = self::ACTIONS[$data['action']];
 
-        try {
-            $result = $update->handle($key, $number, $data);
-        } catch (ModelNotFoundException) {
-            return response()->json(['message' => 'الشحنة غير موجودة عندكم.'], 404);
-        }
+        $shipment = DB::transaction(function () use ($number, $courier, $key, $to, $data) {
+            $shipment = Shipment::query()->where('number', $number)
+                ->where('delivery_courier_id', $courier->id)->lockForUpdate()->first();
 
-        if ($result['report'] !== null) {
-            return response()->json([
-                'message' => 'أُرسل التسليم لمراجعتنا، ولا يُحسب قبل موافقتنا.',
-                'report' => ['id' => $result['report']->id, 'status' => 'pending'],
-                'data' => $this->resource($result['shipment']->refresh()),
-            ], 202);
+            if ($shipment === null) {
+                return null;
+            }
+
+            if ($shipment->status !== ShipmentStatus::OutForDelivery) {
+                throw ValidationException::withMessages([
+                    'action' => "الشحنة «{$shipment->status->label()}» الآن، لا «قيد التوصيل»: لا يُسجَّل عليها شيء من نظامكم.",
+                ]);
+            }
+
+            $errors = CourierOutcomeRules::errors($shipment, $to, [
+                'failure_reason_id' => $data['reason_id'] ?? null,
+                'note' => $data['note'] ?? null,
+                'delivery_code' => $data['delivery_code'] ?? null,
+            ], null);
+
+            if ($errors) {
+                throw ValidationException::withMessages(self::apiFields($errors));
+            }
+
+            return $this->change->handle($shipment, $to, null, array_filter([
+                'actor_type' => 'courier',
+                'actor_name' => $this->actorName($courier, $key),
+                'courier_id' => $courier->id,
+                'failure_reason_id' => $to === ShipmentStatus::Delivered ? null : ($data['reason_id'] ?? null),
+                'note' => filled($data['note'] ?? null) ? trim($data['note']) : null,
+                'lat' => $data['lat'] ?? null,
+                'lng' => $data['lng'] ?? null,
+            ], fn ($v) => $v !== null));
+        });
+
+        if ($shipment === null) {
+            return $this->notHere();
         }
 
         return response()->json([
-            'message' => 'سُجّلت الحالة.',
-            'data' => $this->resource($result['shipment']->refresh()),
+            'message' => "سُجِّلت الشحنة {$shipment->number}: {$shipment->status->label()}.",
+            'data' => $this->resource($shipment->load(['governorate:id,name_ar', 'city:id,name_ar'])),
         ]);
     }
 
-    /** طرودٌ عند شريك هذا المفتاح الآن، لا كل ما مرّ عليه */
-    private function held(PartnerKey $key)
+    /** أين وصلت الشحنة عندكم (فرعٌ، مخزن، خطّ نقل) — بلا تغيير حالة، ويراه التاجر في مسارها */
+    public function track(Request $request, string $number): JsonResponse
     {
-        return Shipment::query()
-            ->where('partner_id', $key->partner_id)
-            ->whereIn('status', array_map(fn (ShipmentStatus $s) => $s->value, PartnerPolicy::HELD));
+        $this->rejectUnknown($request, self::TRACK_FIELDS);
+
+        $data = $request->validate([
+            'note' => ['required', 'string', 'max:200'],
+            'lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'lng' => ['nullable', 'numeric', 'between:-180,180'],
+        ]);
+
+        $courier = $this->courier($request);
+        $shipment = $this->held($courier)->where('number', $number)->first();
+
+        if ($shipment === null) {
+            return $this->notHere();
+        }
+
+        ShipmentEvent::create([
+            'shipment_id' => $shipment->id,
+            'from_status' => $shipment->status->value,
+            'to_status' => $shipment->status->value,
+            'event_type' => 'tracking',
+            'actor_type' => 'courier',
+            'actor_name' => $this->actorName($courier, $this->key($request)),
+            'courier_id' => $courier->id,
+            'note' => trim($data['note']),
+            'lat' => $data['lat'] ?? null,
+            'lng' => $data['lng'] ?? null,
+            'ip' => $request->ip(),
+        ]);
+
+        return response()->json(['message' => 'سُجِّل موقع الشحنة.'], 201);
     }
 
-    /** ما يراه الشريك من الطرد: هويته، والمستلم للتوصيل، وأين هو، وما ينتقل إليه من نظامه */
+    /**
+     * ما بيد هذا المندوب الوسيط الآن: ما يوصّله، وما ينتظر قرارنا بعد محاولته، وراجعٌ لم يُعِده
+     * إلينا بعد. لا ما سُلِّم وانتهى، ولا شحنات غيره.
+     */
+    private function held(Courier $courier): Builder
+    {
+        return Shipment::query()
+            ->where('delivery_courier_id', $courier->id)
+            ->where(fn (Builder $q) => $q
+                ->whereIn('status', [ShipmentStatus::OutForDelivery->value, ShipmentStatus::FailedAttempt->value, ShipmentStatus::Postponed->value])
+                ->orWhere(fn (Builder $r) => $r
+                    ->whereIn('status', [ShipmentStatus::Returning->value, ShipmentStatus::PartiallyDelivered->value])
+                    ->whereNull('return_received_at')));
+    }
+
+    /** ما يراه الوسيط من الشحنة: ما يراه المندوب في شاشته، بلا تاجرٍ ولا أجور */
     private function resource(Shipment $shipment): array
     {
         $status = $shipment->status;
+        $toReturn = in_array($status, [ShipmentStatus::Returning, ShipmentStatus::PartiallyDelivered], true);
 
         return [
             'number' => $shipment->number,
             'barcode' => $shipment->barcode,
+            'type' => $shipment->type,
             'status' => $status->value,
-            'status_label' => $status->label(),
+            'status_label' => $shipment->statusLabel(),
             'status_changed_at' => $shipment->status_changed_at?->toIso8601String(),
+            // المبلغ الذي يُقبض من الزبون عند التسليم، كما على الوصل
+            'amount_to_collect' => $toReturn ? 0 : (int) $shipment->cod_amount,
+            'needs_delivery_code' => filled($shipment->delivery_code),
             'recipient' => [
                 'name' => $shipment->recipient_name,
                 'phone' => $shipment->recipient_phone,
@@ -165,7 +262,52 @@ class PartnerApiController extends Controller
                 'landmark' => $shipment->landmark,
             ],
             'pieces' => (int) $shipment->pieces_count,
-            'next_statuses' => array_map(fn (ShipmentStatus $s) => $s->value, PartnerPolicy::next($status)),
+            'description' => $shipment->description,
+            'notes' => $shipment->notes,
+            'is_fragile' => (bool) $shipment->is_fragile,
+            'allow_open' => (bool) $shipment->allow_open,
+            'return_to_us' => $toReturn,
+            'actions' => $status === ShipmentStatus::OutForDelivery ? array_keys(self::ACTIONS) : [],
         ];
+    }
+
+    private function rejectUnknown(Request $request, array $allowed): void
+    {
+        $unknown = array_diff(array_keys($request->all()), $allowed);
+
+        if ($unknown !== []) {
+            throw ValidationException::withMessages([
+                'fields' => 'حقولٌ غير مسموحة: '.implode('، ', $unknown).'. المسموح: '.implode('، ', $allowed).'.',
+            ]);
+        }
+    }
+
+    /** أسماء حقول المندوب بأسماء حقول الواجهة */
+    private static function apiFields(array $errors): array
+    {
+        return collect($errors)->mapWithKeys(fn ($message, $field) => [
+            ['failure_reason_id' => 'reason_id', 'collected_amount' => 'action'][$field] ?? $field => $message,
+        ])->all();
+    }
+
+    private function actorName(Courier $courier, CourierApiKey $key): string
+    {
+        return $courier->name.' — ربط آلي ('.$key->name.')';
+    }
+
+    private function notHere(): JsonResponse
+    {
+        // لا نكشف إن كانت الشحنة موجودةً عند غيركم
+        return response()->json(['message' => 'الشحنة ليست عندكم.'], 404);
+    }
+
+    private function courier(Request $request): Courier
+    {
+        return $request->attributes->get('partner_courier');
+    }
+
+    private function key(Request $request): CourierApiKey
+    {
+        return $request->attributes->get('partner_key');
     }
 }

@@ -13,6 +13,7 @@
                 · فرعيّ تحت <a href="{{ route('couriers.show', $courier->parent) }}" class="font-medium text-[var(--brand)] hover:underline">{{ $courier->parent->name }}</a>
             @endif
             @if ($courier->partnerLabel()) · {{ $courier->partnerLabel() }} @endif
+            @if ($courier->is_intermediary) · <span class="chip chip-info">شركة وسيطة</span> @endif
         </p>
     </div>
     <div class="flex gap-2">
@@ -117,6 +118,10 @@
     </div>
 
     <div class="space-y-5">
+        @if ($courier->is_intermediary)
+            @include('tenant.couriers._api_keys')
+        @endif
+
         @if ($courier->subs->isNotEmpty())
             <section class="card p-5">
                 <div class="mb-4 flex items-center justify-between gap-3">

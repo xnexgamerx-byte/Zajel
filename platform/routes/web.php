@@ -48,6 +48,7 @@ use App\Http\Controllers\Tenant\CompanyLogoController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ControlController;
 use App\Http\Controllers\Tenant\ConversationController;
+use App\Http\Controllers\Tenant\CourierApiKeyController;
 use App\Http\Controllers\Tenant\CourierChatController;
 use App\Http\Controllers\Tenant\CourierController;
 use App\Http\Controllers\Tenant\CourierManifestController;
@@ -67,7 +68,6 @@ use App\Http\Controllers\Tenant\MerchantRequestController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\MyCashBoxController;
 use App\Http\Controllers\Tenant\OperationalAlertController;
-use App\Http\Controllers\Tenant\PartnerController;
 use App\Http\Controllers\Tenant\PassedThroughController;
 use App\Http\Controllers\Tenant\PermissionController;
 use App\Http\Controllers\Tenant\PickupAgentController;
@@ -291,24 +291,6 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/permissions/exceptions', [UserGrantController::class, 'index'])->name('permissions.grants.index');
                 Route::post('/permissions/exceptions', [UserGrantController::class, 'store'])->name('permissions.grants.store');
                 Route::delete('/permissions/exceptions/{grant}', [UserGrantController::class, 'destroy'])->name('permissions.grants.destroy');
-            });
-
-            // الشركاء الموزّعون ومفاتيح ربطهم (docs/plan/64)
-            Route::middleware('can:settings.company')->group(function () {
-                Route::get('/partners', [PartnerController::class, 'index'])->name('partners.index');
-                Route::post('/partners', [PartnerController::class, 'store'])->name('partners.store');
-                Route::get('/partners/{partner}', [PartnerController::class, 'show'])->whereNumber('partner')->name('partners.show');
-                Route::post('/partners/{partner}/keys', [PartnerController::class, 'storeKey'])->whereNumber('partner')->name('partners.keys.store');
-                Route::post('/partners/{partner}/keys/{key}/revoke', [PartnerController::class, 'revokeKey'])
-                    ->whereNumber(['partner', 'key'])->name('partners.keys.revoke');
-            });
-            Route::middleware('can:shipments.status')->group(function () {
-                Route::post('/partners/{partner}/handover', [PartnerController::class, 'handover'])->whereNumber('partner')->name('partners.handover');
-                Route::post('/partners/{partner}/receive-back', [PartnerController::class, 'receiveBack'])->whereNumber('partner')->name('partners.receive-back');
-            });
-            Route::middleware('can:money.confirm_amount')->group(function () {
-                Route::post('/partner-reports/{report}/approve', [PartnerController::class, 'approve'])->whereNumber('report')->name('partner-reports.approve');
-                Route::post('/partner-reports/{report}/reject', [PartnerController::class, 'reject'])->whereNumber('report')->name('partner-reports.reject');
             });
 
             Route::middleware('can:settings.zones')->group(function () {
@@ -567,6 +549,11 @@ Route::middleware('tenant')->group(function () {
         Route::middleware('staff')->group(function () {
             Route::resource('merchants', MerchantController::class)->except(['destroy'])->middleware('can:settings.merchants');
             Route::resource('couriers', CourierController::class)->except(['destroy'])->middleware('can:settings.couriers');
+            // مفاتيح ربط المندوب الوسيط بنظامه (docs/plan/64): مفتاحٌ يدخل النظام، فلصاحب إعدادات الشركة
+            Route::middleware('can:settings.company')->scopeBindings()->group(function () {
+                Route::post('/couriers/{courier}/api-keys', [CourierApiKeyController::class, 'store'])->name('couriers.api-keys.store');
+                Route::post('/couriers/{courier}/api-keys/{apiKey}/revoke', [CourierApiKeyController::class, 'revoke'])->name('couriers.api-keys.revoke');
+            });
             Route::resource('users', UserController::class)->except(['destroy', 'show'])
                 ->middleware('can:settings.users');
             Route::resource('branches', BranchController::class)->except(['destroy', 'show'])

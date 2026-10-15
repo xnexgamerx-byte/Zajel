@@ -31,15 +31,18 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
     Route::get('/company', [AuthController::class, 'company'])->name('company');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1')->name('login');
 
-    // واجهة الشركاء الموزّعين (docs/plan/64): مفتاح ربط بصلاحيات محدودة، لا جلسة ولا تاجر
+    // واجهة الشركة الوسيطة (docs/plan/64): مندوبٌ عندنا يحدّث شحناته من نظامه بمفتاح ربط
     Route::prefix('partner')->name('partner.')->middleware('partner.key')->group(function () {
         Route::get('/me', [PartnerApiController::class, 'me'])->name('me');
-        Route::get('/shipments', [PartnerApiController::class, 'index'])
-            ->middleware('partner.can:shipments.read')->name('shipments.index');
-        Route::get('/shipments/{number}', [PartnerApiController::class, 'show'])
-            ->middleware('partner.can:shipments.read')->name('shipments.show');
-        Route::post('/shipments/{number}/status', [PartnerApiController::class, 'status'])
-            ->middleware(['partner.can:shipments.status', 'throttle:120,1'])->name('shipments.status');
+        Route::middleware('partner.can:shipments.read')->group(function () {
+            Route::get('/reasons', [PartnerApiController::class, 'reasons'])->name('reasons');
+            Route::get('/shipments', [PartnerApiController::class, 'index'])->name('shipments.index');
+            Route::get('/shipments/{number}', [PartnerApiController::class, 'show'])->name('shipments.show');
+        });
+        Route::middleware('partner.can:shipments.status')->group(function () {
+            Route::post('/shipments/{number}/status', [PartnerApiController::class, 'status'])->name('shipments.status');
+            Route::post('/shipments/{number}/track', [PartnerApiController::class, 'track'])->name('shipments.track');
+        });
     });
 
     Route::middleware(['auth:sanctum', 'api-user', 'throttle:120,1'])->group(function () {

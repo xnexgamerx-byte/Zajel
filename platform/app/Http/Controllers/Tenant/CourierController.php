@@ -96,6 +96,8 @@ class CourierController extends Controller
                 ->latest('id')->limit(50)->get(),
             'transactions' => Transaction::forAccount('courier', $courier->id)
                 ->latest('id')->limit(30)->get(),
+            // مفاتيح ربط الشركة الوسيطة (docs/plan/64)
+            'apiKeys'      => $courier->is_intermediary ? $courier->apiKeys()->latest('id')->get() : collect(),
         ]);
     }
 

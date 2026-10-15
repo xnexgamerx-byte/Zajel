@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\PartnerKey;
+use App\Models\CourierApiKey;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,7 +12,7 @@ class RequirePartnerAbility
 {
     public function handle(Request $request, Closure $next, string $ability): Response
     {
-        /** @var PartnerKey $key */
+        /** @var CourierApiKey $key */
         $key = $request->attributes->get('partner_key');
 
         if ($key === null || ! $key->allows($ability)) {

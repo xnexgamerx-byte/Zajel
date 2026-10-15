@@ -55,6 +55,7 @@ class ShipmentEvent extends Model
         'reviewed'         => 'إجازة بعد المراجعة',
         'prepaid_fee'      => 'قبض أجرة مقدّماً',
         'ticket'           => 'طلب تغيير المبلغ',
+        'tracking'         => 'موقع عند الشركة الوسيطة',
     ];
 
     /**
@@ -65,6 +66,7 @@ class ShipmentEvent extends Model
     public const MERCHANT_EVENTS = [
         'status_change', 'forced_status',
         'return_received', 'return_sorted', 'return_departed', 'return_arrived', 'return_confirmed',
+        'tracking',
     ];
 
     /** خطوات الراجع بكلام التاجر: بلا أرقام أكياسنا وكشوفنا */
@@ -126,6 +128,11 @@ class ShipmentEvent extends Model
     /** عنوان السطر في مسار الشحنة عند التاجر */
     public function merchantHeadline(): string
     {
+        // موقعها عند الشركة الوسيطة كما كتبه نظامها: «وصلت فرع البصرة» (docs/plan/64)
+        if ($this->event_type === 'tracking') {
+            return (string) $this->note;
+        }
+
         return self::MERCHANT_WORDING[$this->event_type] ?? $this->toLabel();
     }
 

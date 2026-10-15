@@ -144,17 +144,17 @@ class ChangeShipmentStatus
 
         return DB::transaction(function () use ($shipment, $from, $to, $actor, $options) {
             $attributes = [
-                'status' => $to,
+                'status'            => $to,
                 'status_changed_at' => now(),
             ];
 
             match ($to) {
-                ShipmentStatus::PickedUp => $attributes['picked_up_at'] = now(),
+                ShipmentStatus::PickedUp      => $attributes['picked_up_at'] = now(),
                 ShipmentStatus::Delivered,
                 ShipmentStatus::PartiallyDelivered => $attributes['delivered_at'] = now(),
-                ShipmentStatus::Returned => $attributes['returned_at'] = now(),
-                ShipmentStatus::Cancelled => $attributes['cancelled_at'] = now(),
-                default => null,
+                ShipmentStatus::Returned      => $attributes['returned_at'] = now(),
+                ShipmentStatus::Cancelled     => $attributes['cancelled_at'] = now(),
+                default                       => null,
             };
 
             // طرد في المخزن قُرّر إرجاعه لم يغادر أصلاً: استلامه من المندوب
@@ -282,24 +282,24 @@ class ChangeShipmentStatus
             $shipment->fill($attributes)->save();
 
             ShipmentEvent::create([
-                'shipment_id' => $shipment->id,
-                'from_status' => $from->value,
-                'to_status' => $to->value,
-                'event_type' => empty($options['force']) ? 'status_change' : 'forced_status',
-                'actor_type' => $options['actor_type'] ?? ($actor ? 'user' : 'system'),
-                'actor_id' => $actor?->id,
-                'actor_name' => $options['actor_name'] ?? $actor?->name,
+                'shipment_id'       => $shipment->id,
+                'from_status'       => $from->value,
+                'to_status'         => $to->value,
+                'event_type'        => empty($options['force']) ? 'status_change' : 'forced_status',
+                'actor_type'        => $options['actor_type'] ?? ($actor ? 'user' : 'system'),
+                'actor_id'          => $actor?->id,
+                'actor_name'        => $options['actor_name'] ?? $actor?->name,
                 // مندوب الحدث وحده بلا إسناد: مندوب النقل بين الفروع على «بالطريق» (RunManifest)
-                'courier_id' => $options['event_courier_id'] ?? $options['courier_id'] ?? $shipment->delivery_courier_id,
-                'hub_id' => $options['hub_id'] ?? $shipment->hub_id,
+                'courier_id'        => $options['event_courier_id'] ?? $options['courier_id'] ?? $shipment->delivery_courier_id,
+                'hub_id'            => $options['hub_id'] ?? $shipment->hub_id,
                 'failure_reason_id' => $options['failure_reason_id'] ?? null,
-                'amount' => $attributes['collected_amount'] ?? null,
-                'note' => empty($options['force'])
+                'amount'            => $attributes['collected_amount'] ?? null,
+                'note'              => empty($options['force'])
                     ? ($options['note'] ?? null)
                     : 'واصل إجباري — '.$options['forced_reason'],
-                'lat' => $options['lat'] ?? null,
-                'lng' => $options['lng'] ?? null,
-                'ip' => request()->ip(),
+                'lat'               => $options['lat'] ?? null,
+                'lng'               => $options['lng'] ?? null,
+                'ip'                => request()->ip(),
             ]);
 
             $shipment->refresh();
@@ -314,8 +314,8 @@ class ChangeShipmentStatus
             match ($to) {
                 ShipmentStatus::Delivered,
                 ShipmentStatus::PartiallyDelivered => $this->ledger->recordDelivery($shipment, $actor),
-                ShipmentStatus::Returned => $this->ledger->recordReturn($shipment, $actor),
-                default => null,
+                ShipmentStatus::Returned           => $this->ledger->recordReturn($shipment, $actor),
+                default                            => null,
             };
 
             return $shipment->refresh();

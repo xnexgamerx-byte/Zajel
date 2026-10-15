@@ -1,0 +1,386 @@
+<?php
+
+namespace Tests\Feature\Couriers;
+
+use App\Actions\Returns\ReceiveReturns;
+use App\Actions\Settlements\BuildCourierSettlement;
+use App\Actions\Shipments\ChangeShipmentStatus;
+use App\Actions\Shipments\CreateShipment;
+use App\Actions\Shipments\SendOutForDelivery;
+use App\Enums\ShipmentStatus;
+use App\Enums\UserRole;
+use App\Models\Company;
+use App\Models\Courier;
+use App\Models\CourierApiKey;
+use App\Models\FailureReason;
+use App\Models\Governorate;
+use App\Models\Shipment;
+use App\Models\ShipmentEvent;
+use App\Models\User;
+use App\Support\Tenancy\Tenancy;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+/**
+ * الشركة الوسيطة مندوبٌ عندنا (docs/plan/64): نسلّمها الشحنات كأيّ مندوب، ونظامها يسجّل ما يسجّله
+ * المندوب بشروطه نفسها، والمال على حسابها كمندوب يُسوّى بكشف المندوب.
+ */
+class IntermediaryApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private Company $company;
+
+    private User $staff;
+
+    private Courier $agent;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seedReference();
+        $this->company = $this->makeCompany('zajel', 'الزاجل');
+        $this->staff = $this->makeUser($this->company);
+        $this->agent = $this->courier('وسيط الجنوب', intermediary: true);
+    }
+
+    private function courier(string $name, bool $intermediary = false): Courier
+    {
+        return Tenancy::runFor($this->company, fn () => Courier::create([
+            'code' => 'C'.random_int(100, 999), 'name' => $name, 'phone' => '0772'.random_int(1_000_000, 9_999_999),
+            'type' => 'delivery', 'status' => 'active', 'is_intermediary' => $intermediary,
+            'commission_per_delivery' => 6_000, 'commission_per_return' => 2_000,
+        ]));
+    }
+
+    private function host(): string
+    {
+        return 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain');
+    }
+
+    private function url(string $path): string
+    {
+        return $this->host().'/api/v1/partner'.$path;
+    }
+
+    private function key(?Courier $courier = null, array $abilities = [CourierApiKey::READ, CourierApiKey::STATUS], ?array $ips = null, ?\DateTimeInterface $expires = null): string
+    {
+        return Tenancy::runFor($this->company, fn () => CourierApiKey::issue(
+            $courier ?? $this->agent, 'نظامهم', $abilities, $expires ? now()->setTimestamp($expires->getTimestamp()) : now()->addMonths(6), $ips, $this->staff,
+        ))['token'];
+    }
+
+    private function auth(string $token): array
+    {
+        return ['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'];
+    }
+
+    /** شحنةٌ للبصرة أُسندت لمندوب (الوسيط افتراضاً) كما يُسند أيّ مندوب */
+    private function ship(string $name, ?Courier $courier = null, array $extra = []): Shipment
+    {
+        return Tenancy::runFor($this->company, function () use ($name, $courier, $extra) {
+            $shipment = app(CreateShipment::class)->handle([
+                'merchant_id' => $this->makeMerchant($this->company, 'M'.random_int(1000, 9999))->id,
+                'recipient_name' => $name, 'recipient_phone' => '07801234567',
+                'governorate_id' => Governorate::where('code', 'BSR')->firstOrFail()->id,
+                'address' => 'البصرة، العشار', 'cod_amount' => 40_000,
+            ] + $extra, $this->staff);
+
+            app(SendOutForDelivery::class)->handle(collect([$shipment->refresh()]), $courier ?? $this->agent, $this->staff);
+
+            return $shipment->refresh();
+        });
+    }
+
+    private function fresh(Shipment $shipment): Shipment
+    {
+        return Tenancy::runFor($this->company, fn () => $shipment->refresh());
+    }
+
+    private function reason(): FailureReason
+    {
+        return FailureReason::availableFor($this->company->id)->where('requires_note', false)->firstOrFail();
+    }
+
+    public function test_the_intermediary_sees_only_what_is_assigned_to_it_and_no_merchant_or_fees(): void
+    {
+        $token = $this->key();
+        $mine = $this->ship('علي');
+        $other = $this->ship('زينب', $this->courier('مندوب بغداد'));
+
+        $this->getJson($this->url('/me'), $this->auth($token))->assertOk()
+            ->assertJsonPath('courier.name', 'وسيط الجنوب')
+            ->assertJsonPath('held.total', 1)
+            ->assertJsonPath('held.to_deliver', 1);
+
+        $row = $this->getJson($this->url('/shipments'), $this->auth($token))->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.number', $mine->number)
+            ->assertJsonPath('data.0.status', 'out_for_delivery')
+            ->assertJsonPath('data.0.amount_to_collect', 40_000)
+            ->assertJsonPath('data.0.recipient.name', 'علي')
+            ->assertJsonPath('data.0.actions', ['delivered', 'failed_attempt', 'postponed'])
+            ->json('data.0');
+
+        foreach (['merchant', 'merchant_id', 'delivery_fee', 'total_fees', 'merchant_due', 'cod_fee', 'courier_commission', 'delivery_code', 'id'] as $hidden) {
+            $this->assertArrayNotHasKey($hidden, $row);
+        }
+
+        // شحنة مندوبٍ آخر: الجواب نفسه لغير الموجود، لا قراءة ولا تسجيل
+        $this->getJson($this->url('/shipments/'.$other->number), $this->auth($token))->assertNotFound();
+        $this->postJson($this->url('/shipments/'.$other->number.'/status'), ['action' => 'delivered'], $this->auth($token))->assertNotFound();
+        $this->postJson($this->url('/shipments/'.$other->number.'/track'), ['note' => 'x'], $this->auth($token))->assertNotFound();
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($other)->status);
+    }
+
+    public function test_delivered_from_their_system_is_cash_on_the_intermediary_settled_like_any_courier(): void
+    {
+        $token = $this->key();
+        $shipment = $this->ship('علي');
+
+        $this->postJson($this->url('/shipments/'.$shipment->number.'/status'), ['action' => 'delivered'], $this->auth($token))
+            ->assertOk()->assertJsonPath('data.status', 'delivered')->assertJsonPath('data.actions', []);
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $shipment->refresh();
+            $this->assertSame(ShipmentStatus::Delivered, $shipment->status);
+            $this->assertSame(40_000, (int) $shipment->collected_amount);
+            $this->assertSame(6_000, (int) $shipment->courier_commission);
+
+            $agent = $this->agent->refresh();
+            $this->assertSame(40_000, (int) $agent->cash_in_hand);
+            $this->assertSame(34_000, $agent->netDue());
+
+            $event = ShipmentEvent::where('shipment_id', $shipment->id)->where('to_status', 'delivered')->firstOrFail();
+            $this->assertSame('courier', $event->actor_type);
+            $this->assertStringContainsString('ربط آلي', $event->actor_name);
+            $this->assertSame($this->agent->id, $event->courier_id);
+
+            // كشف المندوب نفسه يحاسبه: ما قبضه ناقص أجرته
+            $settlement = app(BuildCourierSettlement::class)->handle($agent, $this->staff);
+            $this->assertSame(1, $settlement->shipments_count ?? $settlement->lines()->count());
+        });
+
+        // ولا يُسجَّل مرّتين
+        $this->postJson($this->url('/shipments/'.$shipment->number.'/status'), ['action' => 'delivered'], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('action');
+    }
+
+    public function test_the_amount_and_anything_beyond_the_courier_fields_is_refused(): void
+    {
+        $token = $this->key();
+        $shipment = $this->ship('علي');
+
+        foreach ([['collected_amount' => 1_000], ['cod_amount' => 1_000], ['status' => 'returning'], ['address' => 'غيره']] as $extra) {
+            $this->postJson($this->url('/shipments/'.$shipment->number.'/status'), ['action' => 'delivered'] + $extra, $this->auth($token))
+                ->assertUnprocessable()->assertJsonValidationErrors('fields');
+        }
+
+        foreach (['returning', 'returned', 'cancelled', 'partially_delivered', 'at_hub'] as $action) {
+            $this->postJson($this->url('/shipments/'.$shipment->number.'/status'), ['action' => $action], $this->auth($token))
+                ->assertUnprocessable()->assertJsonValidationErrors('action');
+        }
+
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+        $this->assertSame(0, (int) Tenancy::runFor($this->company, fn () => $this->agent->refresh()->cash_in_hand));
+    }
+
+    public function test_not_delivered_needs_our_reason_and_then_waits_for_our_decision_then_returns_to_us(): void
+    {
+        $token = $this->key();
+        $shipment = $this->ship('علي');
+        $url = $this->url('/shipments/'.$shipment->number.'/status');
+
+        $this->postJson($url, ['action' => 'failed_attempt'], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('reason_id');
+        $this->postJson($url, ['action' => 'failed_attempt', 'reason_id' => 999_999], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('reason_id');
+
+        $reasons = $this->getJson($this->url('/reasons'), $this->auth($token))->assertOk()->json('data');
+        $this->assertNotEmpty($reasons);
+
+        $reason = $this->reason();
+        $this->postJson($url, ['action' => 'failed_attempt', 'reason_id' => $reason->id, 'note' => 'الهاتف مغلق'], $this->auth($token))
+            ->assertOk()->assertJsonPath('data.status', 'failed_attempt')->assertJsonPath('data.actions', []);
+
+        $this->assertSame($reason->id, (int) $this->fresh($shipment)->last_failure_reason_id);
+        $this->getJson($this->url('/me'), $this->auth($token))->assertJsonPath('held.awaiting_our_decision', 1);
+
+        // القرار لنا: الكول سنتر يقرّر الإرجاع، فيظهر عندهم «أرجعوه إلينا» حتى نستلمه
+        $this->postJson($url, ['action' => 'postponed', 'reason_id' => $reason->id], $this->auth($token))->assertUnprocessable();
+        Tenancy::runFor($this->company, fn () => app(ChangeShipmentStatus::class)->handle($shipment->refresh(), ShipmentStatus::Returning, $this->staff));
+
+        $this->getJson($this->url('/shipments/'.$shipment->number), $this->auth($token))->assertOk()
+            ->assertJsonPath('data.return_to_us', true)->assertJsonPath('data.amount_to_collect', 0);
+
+        Tenancy::runFor($this->company, fn () => app(ReceiveReturns::class)->handle([$shipment->id], $this->staff));
+        $this->getJson($this->url('/shipments/'.$shipment->number), $this->auth($token))->assertNotFound();
+        $this->getJson($this->url('/me'), $this->auth($token))->assertJsonPath('held.total', 0);
+    }
+
+    public function test_a_delivery_code_is_required_and_cannot_be_guessed(): void
+    {
+        $token = $this->key();
+        $shipment = $this->ship('علي');
+        Tenancy::runFor($this->company, fn () => $shipment->forceFill(['delivery_code' => '4821'])->save());
+        $url = $this->url('/shipments/'.$shipment->number.'/status');
+
+        $this->getJson($this->url('/shipments/'.$shipment->number), $this->auth($token))
+            ->assertJsonPath('data.needs_delivery_code', true)->assertJsonMissingPath('data.delivery_code');
+
+        $this->postJson($url, ['action' => 'delivered'], $this->auth($token))->assertUnprocessable()->assertJsonValidationErrors('delivery_code');
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson($url, ['action' => 'delivered', 'delivery_code' => '000'.$i], $this->auth($token))->assertUnprocessable();
+        }
+        // بعد خمس محاولاتٍ خاطئة يُقفل حتى الكود الصحيح
+        $this->postJson($url, ['action' => 'delivered', 'delivery_code' => '4821'], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('delivery_code');
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+    }
+
+    public function test_tracking_notes_show_in_the_merchants_timeline_without_changing_the_status(): void
+    {
+        $token = $this->key();
+        $shipment = $this->ship('علي');
+
+        $this->postJson($this->url('/shipments/'.$shipment->number.'/track'), ['note' => 'وصلت فرع البصرة'], $this->auth($token))
+            ->assertCreated();
+        $this->postJson($this->url('/shipments/'.$shipment->number.'/track'), ['note' => 'x', 'status' => 'delivered'], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('fields');
+        $this->postJson($this->url('/shipments/'.$shipment->number.'/track'), [], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('note');
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $this->assertSame(ShipmentStatus::OutForDelivery, $shipment->refresh()->status);
+            $event = ShipmentEvent::where('shipment_id', $shipment->id)->where('event_type', 'tracking')->sole();
+            $this->assertSame('وصلت فرع البصرة', $event->merchantHeadline());
+            $this->assertContains('tracking', ShipmentEvent::MERCHANT_EVENTS);
+        });
+    }
+
+    public function test_keys_are_hashed_and_dead_keys_wrong_couriers_and_wrong_ips_are_refused(): void
+    {
+        $token = $this->key();
+        $key = Tenancy::runFor($this->company, fn () => CourierApiKey::query()->latest('id')->firstOrFail());
+        $this->assertSame(CourierApiKey::hash($token), $key->token_hash);
+        $this->assertStringNotContainsString($token, json_encode($key->toArray()));
+
+        $this->getJson($this->url('/me'))->assertUnauthorized();
+        $this->getJson($this->url('/me'), $this->auth('zjp_'.str_repeat('a', 40)))->assertUnauthorized();
+        $this->getJson($this->url('/me'), $this->auth($token))->assertOk();
+
+        // مندوبٌ لم يعد وسيطاً، أو أُوقف، يُرفض مفتاحه فوراً
+        Tenancy::runFor($this->company, fn () => $this->agent->forceFill(['is_intermediary' => false])->save());
+        $this->getJson($this->url('/me'), $this->auth($token))->assertUnauthorized();
+        Tenancy::runFor($this->company, fn () => $this->agent->forceFill(['is_intermediary' => true, 'status' => 'suspended'])->save());
+        $this->getJson($this->url('/me'), $this->auth($token))->assertUnauthorized();
+        Tenancy::runFor($this->company, fn () => $this->agent->forceFill(['status' => 'active'])->save());
+
+        Tenancy::runFor($this->company, fn () => $key->revoke());
+        $this->getJson($this->url('/me'), $this->auth($token))->assertUnauthorized();
+
+        $expired = $this->key(expires: now()->subMinute());
+        $this->getJson($this->url('/me'), $this->auth($expired))->assertUnauthorized();
+
+        $fenced = $this->key(ips: ['203.0.113.10']);
+        $this->getJson($this->url('/me'), $this->auth($fenced))->assertForbidden();
+        $this->getJson($this->url('/me'), $this->auth($fenced) + ['REMOTE_ADDR' => '203.0.113.10'])->assertOk();
+    }
+
+    public function test_a_key_from_another_company_does_not_work_here(): void
+    {
+        $other = $this->makeCompany('barq', 'البرق');
+        $otherStaff = $this->makeUser($other);
+        $foreign = Tenancy::runFor($other, function () use ($otherStaff) {
+            $courier = Courier::create(['code' => 'C9', 'name' => 'وسيط', 'phone' => '07729999999', 'type' => 'delivery', 'status' => 'active', 'is_intermediary' => true]);
+
+            return CourierApiKey::issue($courier, 'k', array_keys(CourierApiKey::ABILITIES), now()->addMonth(), null, $otherStaff)['token'];
+        });
+
+        $this->getJson($this->url('/me'), $this->auth($foreign))->assertUnauthorized();
+        $this->getJson('http://barq.'.config('zajel.tenant_domain').'/api/v1/partner/me', $this->auth($foreign))->assertOk();
+    }
+
+    public function test_a_read_only_key_cannot_record_anything(): void
+    {
+        $token = $this->key(abilities: [CourierApiKey::READ]);
+        $shipment = $this->ship('علي');
+
+        $this->getJson($this->url('/shipments'), $this->auth($token))->assertOk();
+        $this->postJson($this->url('/shipments/'.$shipment->number.'/status'), ['action' => 'delivered'], $this->auth($token))->assertForbidden();
+        $this->postJson($this->url('/shipments/'.$shipment->number.'/track'), ['note' => 'x'], $this->auth($token))->assertForbidden();
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+    }
+
+    public function test_guessing_keys_is_throttled_per_address(): void
+    {
+        for ($i = 0; $i < 20; $i++) {
+            $this->getJson($this->url('/me'), $this->auth('zjp_guess'.$i))->assertUnauthorized();
+        }
+
+        $this->getJson($this->url('/me'), $this->auth('zjp_guess'))->assertStatus(429);
+        // حتى المفتاح الصحيح من العنوان نفسه ينتظر الدقيقة
+        $this->getJson($this->url('/me'), $this->auth($this->key()))->assertStatus(429);
+    }
+
+    public function test_the_owner_issues_a_key_on_the_intermediary_page_and_sees_it_once(): void
+    {
+        $page = $this->host().'/couriers/'.$this->agent->id;
+
+        $this->actingAs($this->staff)->get($page)->assertOk()->assertSee('ربط نظام الشركة الوسيطة');
+
+        $this->actingAs($this->staff)->post($page.'/api-keys', [
+            'name' => 'نظامهم الرئيسي',
+            'abilities' => ['shipments.read', 'shipments.status', 'money.pay'],
+            'expires_at' => now()->addMonths(3)->toDateString(),
+        ])->assertSessionHasErrors('abilities.2');
+
+        $response = $this->actingAs($this->staff)->post($page.'/api-keys', [
+            'name' => 'نظامهم الرئيسي',
+            'abilities' => ['shipments.read', 'shipments.status'],
+            'expires_at' => now()->addMonths(3)->toDateString(),
+            'allowed_ips' => '203.0.113.10, 203.0.113.11',
+        ])->assertRedirect($page)->assertSessionHas('api_token');
+
+        $token = (string) session('api_token');
+        $this->assertStringStartsWith('zjp_', $token);
+
+        $this->actingAs($this->staff)->get($page)->assertOk()->assertSee($token)->assertSee('نظامهم الرئيسي');
+        $this->actingAs($this->staff)->get($page)->assertOk()->assertDontSee($token)->assertSee('نظامهم الرئيسي');
+
+        $key = Tenancy::runFor($this->company, fn () => CourierApiKey::query()->latest('id')->firstOrFail());
+        $this->assertSame(['203.0.113.10', '203.0.113.11'], $key->allowed_ips);
+
+        // مفتاح مندوبٍ آخر لا يُلغى من صفحة هذا، والإلغاء من صفحته يقفله
+        $plain = $this->courier('مندوب بغداد');
+        $this->actingAs($this->staff)->post($this->host().'/couriers/'.$plain->id.'/api-keys/'.$key->id.'/revoke')->assertNotFound();
+        $this->actingAs($this->staff)->post($page.'/api-keys/'.$key->id.'/revoke')->assertRedirect($page);
+        $this->assertNotNull(Tenancy::runFor($this->company, fn () => $key->refresh()->revoked_at));
+
+        // مندوبٌ عادي لا مفاتيح له
+        $this->actingAs($this->staff)->post($this->host().'/couriers/'.$plain->id.'/api-keys', [
+            'name' => 'x', 'abilities' => ['shipments.read'], 'expires_at' => now()->addMonth()->toDateString(),
+        ])->assertNotFound();
+    }
+
+    public function test_only_the_company_settings_holder_issues_keys(): void
+    {
+        $ops = $this->makeUser($this->company, UserRole::Operations);
+
+        $this->actingAs($ops)->post($this->host().'/couriers/'.$this->agent->id.'/api-keys', [
+            'name' => 'x', 'abilities' => ['shipments.read'], 'expires_at' => now()->addMonth()->toDateString(),
+        ])->assertForbidden();
+        $this->assertSame(0, Tenancy::runFor($this->company, fn () => CourierApiKey::count()));
+    }
+
+    public function test_the_courier_form_marks_an_intermediary(): void
+    {
+        $plain = $this->courier('شركة الشمال');
+        $form = $this->actingAs($this->staff)->get($this->host().'/couriers/'.$plain->id.'/edit')->assertOk()->assertSee('شركة وسيطة');
+        $this->assertNotNull($form);
+
+        Tenancy::runFor($this->company, fn () => $plain->forceFill(['is_intermediary' => true])->save());
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => $plain->refresh()->is_intermediary));
+    }
+}
