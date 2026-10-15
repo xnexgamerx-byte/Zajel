@@ -87,6 +87,8 @@ class SendOutForDelivery
             $status === ShipmentStatus::OutForDelivery    => (int) $shipment->delivery_courier_id === (int) $courier->id
                 ? 'معه سلفاً'
                 : 'مع '.($shipment->deliveryCourier?->name ?? 'مندوبٍ آخر'),
+            // بالطريق إلى الشركة الوسيطة: مندوبها يخرجها، لا يُعاد إسنادها من عندنا
+            $status === ShipmentStatus::InTransit && $shipment->deliveryCourier?->is_intermediary => 'مع الشركة الوسيطة',
             in_array($status, [ShipmentStatus::Created, ShipmentStatus::PendingPickup], true) => null,
             ! $status->canMoveTo(ShipmentStatus::OutForDelivery) => $status->label(),
             // وباقي الواصل الجزئي راجعٌ لتاجره (الوثيقة ٢٤)

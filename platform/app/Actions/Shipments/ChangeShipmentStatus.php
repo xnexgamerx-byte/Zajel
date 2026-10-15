@@ -4,6 +4,7 @@ namespace App\Actions\Shipments;
 
 use App\Enums\ShipmentStatus;
 use App\Models\Branch;
+use App\Models\Courier;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
@@ -20,6 +21,14 @@ use Illuminate\Validation\ValidationException;
  */
 class ChangeShipmentStatus
 {
+    /** حالاتٌ يكون فيها الطرد عندنا ولم يخرج بعد: منها يُسلَّم للشركة الوسيطة «بالطريق» */
+    private const HANDOVER_FROM = [
+        ShipmentStatus::PickedUp,
+        ShipmentStatus::AtHub,
+        ShipmentStatus::FailedAttempt,
+        ShipmentStatus::Postponed,
+    ];
+
     public function __construct(protected Ledger $ledger) {}
 
     public function handle(
@@ -53,6 +62,15 @@ class ChangeShipmentStatus
         $from = $shipment->status;
 
         /*
+        | الشركة الوسيطة مندوبٌ عندنا، لكن طردها لا يخرج «قيد التوصيل» عندنا: يُسلَّم لها
+        | «بالطريق بين الفروع» من بالمخزن أو بعد استلامه أو بعد محاولةٍ فاشلة، ثم يخرج «قيد
+        | التوصيل» حين يخرجه مندوبها — فيقوله نظامها عبر الربط (docs/plan/64).
+        */
+        if ($to === ShipmentStatus::OutForDelivery && $this->isIntermediaryHandover($shipment, $from, $options)) {
+            $to = ShipmentStatus::InTransit;
+        }
+
+        /*
         | الاستبدال (الوثيقة ٣١): يُسلَّم الجديد ويُستلم القديم. يُحسب شحنةً واصلةً بأجرة التوصيل
         | وعمولة المندوب كاملتين، والقديم راجعٌ جزئيّ لتاجره بلا أجرة راجعٍ ولا عمولة إرجاع —
         | فهو «واصل جزئي» (الوثيقة ٢٤) أيّاً كان من سجّله: المندوب، أو الموظّف، أو الجملة.
@@ -64,6 +82,17 @@ class ChangeShipmentStatus
 
         if ($from === $to) {
             return $shipment;
+        }
+
+        /*
+        | الطرد عند الشركة الوسيطة لا يعود إلى مخزننا بتغيير حالة: يعود راجعاً حين يُستلم
+        | (ReceiveReturns)، أو بقرارٍ إجباريٍّ مكتوب. فلا يمرّ الاستلام اليدوي ولا الجماعي.
+        */
+        if ($from === ShipmentStatus::InTransit && $to === ShipmentStatus::AtHub
+            && empty($options['force']) && $this->isWithIntermediary($shipment, $options)) {
+            throw ValidationException::withMessages([
+                'status' => "الشحنة {$shipment->number} مع الشركة الوسيطة: تعود إلينا راجعةً فقط.",
+            ]);
         }
 
         /*
@@ -97,7 +126,7 @@ class ChangeShipmentStatus
                     'status' => "الشحنة في حالة نهائية «{$from->label()}» فلا تُفتَح بالإجبار.",
                 ]);
             }
-        } elseif (! $from->canMoveTo($to)) {
+        } elseif (! $from->canMoveTo($to) && ! $this->isIntermediaryHandover($shipment, $from, $options, $to)) {
             throw ValidationException::withMessages([
                 'status' => "انتقال غير مسموح: من «{$from->label()}» إلى «{$to->label()}».",
             ]);
@@ -320,5 +349,29 @@ class ChangeShipmentStatus
 
             return $shipment->refresh();
         });
+    }
+
+    /**
+     * هل هذا الانتقال تسليمٌ للشركة الوسيطة؟ المندوب هو المختار، أو مندوب الطرد إن لم يُختر.
+     *
+     * - بلا $to: يُسأل عن الخروج «قيد التوصيل» فيُحوَّل إلى «بالطريق» إن كان المندوب وسيطاً.
+     * - مع $to: يُسمح بالانتقال إلى «بالطريق» من حالات التسليم وحدها، لا ما يخرج من الوسيط نفسه.
+     */
+    private function isIntermediaryHandover(Shipment $shipment, ShipmentStatus $from, array $options, ?ShipmentStatus $to = null): bool
+    {
+        if (! in_array($from, self::HANDOVER_FROM, true) || ($to !== null && $to !== ShipmentStatus::InTransit)) {
+            return false;
+        }
+
+        return $this->isWithIntermediary($shipment, $options);
+    }
+
+    /** المندوب المختار أو مندوب الطرد شركةٌ وسيطة */
+    private function isWithIntermediary(Shipment $shipment, array $options): bool
+    {
+        $courierId = $options['courier_id'] ?? $shipment->delivery_courier_id;
+
+        return $courierId !== null
+            && Courier::query()->whereKey($courierId)->where('is_intermediary', true)->exists();
     }
 }

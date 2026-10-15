@@ -112,6 +112,11 @@ class ReceiveAtHub
             return 'بالمخزن سلفاً';
         }
 
+        // مع الشركة الوسيطة بالطريق: لا تعود إلى مخزننا بمسحة، وإنما بالراجع حين تعود إلينا
+        if ($status === ShipmentStatus::InTransit && $shipment->deliveryCourier?->is_intermediary) {
+            return 'مع الشركة الوسيطة: تعود إلينا راجعةً فقط';
+        }
+
         if (! $status->canMoveTo(ShipmentStatus::AtHub)) {
             return $status->label();
         }

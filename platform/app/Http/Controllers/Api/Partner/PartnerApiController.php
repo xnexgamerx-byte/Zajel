@@ -27,11 +27,21 @@ use Illuminate\Validation\ValidationException;
  */
 class PartnerApiController extends Controller
 {
-    /** ما يسجّله الوسيط على شحنةٍ «قيد التوصيل» عنده — ما يسجّله المندوب نفسه إلّا الواصل الجزئي */
+    /**
+     * ما يسجّله الوسيط على شحنته، وما الحالة التي يجب أن تكون فيها قبله.
+     * «خرجت للتوصيل» أوّل خطوة: تصله «بالطريق» من عندنا، ثم يخرجها مندوبه فيقوله نظامه.
+     */
     private const ACTIONS = [
-        'delivered' => ShipmentStatus::Delivered,
-        'failed_attempt' => ShipmentStatus::FailedAttempt,
-        'postponed' => ShipmentStatus::Postponed,
+        'out_for_delivery' => ['to' => ShipmentStatus::OutForDelivery, 'from' => ShipmentStatus::InTransit],
+        'delivered' => ['to' => ShipmentStatus::Delivered, 'from' => ShipmentStatus::OutForDelivery],
+        'failed_attempt' => ['to' => ShipmentStatus::FailedAttempt, 'from' => ShipmentStatus::OutForDelivery],
+        'postponed' => ['to' => ShipmentStatus::Postponed, 'from' => ShipmentStatus::OutForDelivery],
+    ];
+
+    /** ما يُسجَّل على الشحنة في كل حالة */
+    private const ACTIONS_BY_STATUS = [
+        'in_transit' => ['out_for_delivery'],
+        'out_for_delivery' => ['delivered', 'failed_attempt', 'postponed'],
     ];
 
     /** ما يُقبل من الحقول في كل طلب، والباقي يُرفض لا يُتجاهل: لا مبلغ ولا عنوان ولا حالة غير هذه */
@@ -54,6 +64,7 @@ class PartnerApiController extends Controller
             'key' => ['name' => $key->name, 'abilities' => $key->abilities, 'expires_at' => $key->expires_at->toIso8601String()],
             'held' => [
                 'total' => (int) $counts->sum(),
+                'to_dispatch' => $count(ShipmentStatus::InTransit),
                 'to_deliver' => $count(ShipmentStatus::OutForDelivery),
                 'awaiting_our_decision' => $count(ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed),
                 'to_return' => $count(ShipmentStatus::Returning, ShipmentStatus::PartiallyDelivered),
@@ -137,9 +148,10 @@ class PartnerApiController extends Controller
 
         $courier = $this->courier($request);
         $key = $this->key($request);
-        $to = self::ACTIONS[$data['action']];
+        $action = self::ACTIONS[$data['action']];
+        $to = $action['to'];
 
-        $shipment = DB::transaction(function () use ($number, $courier, $key, $to, $data) {
+        $shipment = DB::transaction(function () use ($number, $courier, $key, $to, $action, $data) {
             $shipment = Shipment::query()->where('number', $number)
                 ->where('delivery_courier_id', $courier->id)->lockForUpdate()->first();
 
@@ -147,9 +159,9 @@ class PartnerApiController extends Controller
                 return null;
             }
 
-            if ($shipment->status !== ShipmentStatus::OutForDelivery) {
+            if ($shipment->status !== $action['from']) {
                 throw ValidationException::withMessages([
-                    'action' => "الشحنة «{$shipment->status->label()}» الآن، لا «قيد التوصيل»: لا يُسجَّل عليها شيء من نظامكم.",
+                    'action' => "الشحنة «{$shipment->status->label()}» الآن، ولا يُسجَّل عليها هذا من نظامكم.",
                 ]);
             }
 
@@ -220,15 +232,20 @@ class PartnerApiController extends Controller
     }
 
     /**
-     * ما بيد هذا المندوب الوسيط الآن: ما يوصّله، وما ينتظر قرارنا بعد محاولته، وراجعٌ لم يُعِده
-     * إلينا بعد. لا ما سُلِّم وانتهى، ولا شحنات غيره.
+     * ما بيد هذا المندوب الوسيط الآن: ما وصله «بالطريق» وينتظر خروجه، وما يوصّله، وما ينتظر قرارنا
+     * بعد محاولته، وراجعٌ لم يُعِده إلينا بعد. لا ما سُلِّم وانتهى، ولا شحنات غيره.
      */
     private function held(Courier $courier): Builder
     {
         return Shipment::query()
             ->where('delivery_courier_id', $courier->id)
             ->where(fn (Builder $q) => $q
-                ->whereIn('status', [ShipmentStatus::OutForDelivery->value, ShipmentStatus::FailedAttempt->value, ShipmentStatus::Postponed->value])
+                ->whereIn('status', [
+                    ShipmentStatus::InTransit->value,
+                    ShipmentStatus::OutForDelivery->value,
+                    ShipmentStatus::FailedAttempt->value,
+                    ShipmentStatus::Postponed->value,
+                ])
                 ->orWhere(fn (Builder $r) => $r
                     ->whereIn('status', [ShipmentStatus::Returning->value, ShipmentStatus::PartiallyDelivered->value])
                     ->whereNull('return_received_at')));
@@ -267,7 +284,7 @@ class PartnerApiController extends Controller
             'is_fragile' => (bool) $shipment->is_fragile,
             'allow_open' => (bool) $shipment->allow_open,
             'return_to_us' => $toReturn,
-            'actions' => $status === ShipmentStatus::OutForDelivery ? array_keys(self::ACTIONS) : [],
+            'actions' => self::ACTIONS_BY_STATUS[$status->value] ?? [],
         ];
     }
 

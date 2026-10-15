@@ -6,6 +6,8 @@ use App\Actions\Returns\ReceiveReturns;
 use App\Actions\Settlements\BuildCourierSettlement;
 use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Actions\Shipments\CreateShipment;
+use App\Actions\Shipments\ProcessFailedAttempt;
+use App\Actions\Shipments\ReceiveAtHub;
 use App\Actions\Shipments\SendOutForDelivery;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
@@ -20,6 +22,7 @@ use App\Models\User;
 use App\Support\MerchantMessage;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -79,9 +82,9 @@ class IntermediaryApiTest extends TestCase
     }
 
     /** شحنةٌ للبصرة أُسندت لمندوب (الوسيط افتراضاً) كما يُسند أيّ مندوب */
-    private function ship(string $name, ?Courier $courier = null, array $extra = []): Shipment
+    private function ship(string $name, ?Courier $courier = null, array $extra = [], bool $push = true): Shipment
     {
-        return Tenancy::runFor($this->company, function () use ($name, $courier, $extra) {
+        return Tenancy::runFor($this->company, function () use ($name, $courier, $extra, $push) {
             $shipment = app(CreateShipment::class)->handle(array_merge([
                 'merchant_id' => $this->makeMerchant($this->company, 'M'.random_int(1000, 9999))->id,
                 'recipient_name' => $name, 'recipient_phone' => '07801234567',
@@ -89,7 +92,15 @@ class IntermediaryApiTest extends TestCase
                 'address' => 'البصرة، العشار', 'cod_amount' => 40_000,
             ], $extra), $this->staff);
 
-            app(SendOutForDelivery::class)->handle(collect([$shipment->refresh()]), $courier ?? $this->agent, $this->staff);
+            $courier ??= $this->agent;
+            app(SendOutForDelivery::class)->handle(collect([$shipment->refresh()]), $courier, $this->staff);
+
+            // الوسيط يخرج الطرد من نظامه بعد أن يصله «بالطريق»، كما يحدث عنده
+            if ($push && $courier->is_intermediary) {
+                app(ChangeShipmentStatus::class)->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, null, [
+                    'actor_type' => 'courier', 'courier_id' => $courier->id,
+                ]);
+            }
 
             return $shipment->refresh();
         });
@@ -416,5 +427,99 @@ class IntermediaryApiTest extends TestCase
             $text = MerchantMessage::for($viaAgent->refresh(), $merchantUser);
             $this->assertStringNotContainsString('وسيط الجنوب', $text);
         });
+    }
+
+    public function test_handing_over_leaves_the_parcel_in_transit_until_their_system_takes_it_out(): void
+    {
+        $token = $this->key();
+        $shipment = $this->ship('علي', null, [], push: false);
+
+        $this->assertSame(ShipmentStatus::InTransit, $this->fresh($shipment)->status);
+        $this->assertSame($this->agent->id, (int) $this->fresh($shipment)->delivery_courier_id);
+        $this->assertSame(0, Tenancy::runFor($this->company, fn () => (int) $this->agent->refresh()->cash_in_hand));
+
+        $this->getJson($this->url('/me'), $this->auth($token))
+            ->assertJsonPath('held.to_dispatch', 1)
+            ->assertJsonPath('held.to_deliver', 0);
+
+        $this->getJson($this->url('/shipments/'.$shipment->number), $this->auth($token))->assertOk()
+            ->assertJsonPath('data.status', 'in_transit')
+            ->assertJsonPath('data.actions', ['out_for_delivery']);
+
+        // لا يُسلَّم قبل أن يخرج من نظامه
+        $url = $this->url('/shipments/'.$shipment->number.'/status');
+        $this->postJson($url, ['action' => 'delivered'], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('action');
+
+        $this->postJson($url, ['action' => 'out_for_delivery'], $this->auth($token))->assertOk()
+            ->assertJsonPath('data.status', 'out_for_delivery')
+            ->assertJsonPath('data.actions', ['delivered', 'failed_attempt', 'postponed']);
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $event = ShipmentEvent::where('shipment_id', $shipment->id)->where('to_status', 'out_for_delivery')->sole();
+            $this->assertSame('in_transit', $event->from_status);
+            $this->assertStringContainsString('ربط آلي', (string) $event->actor_name);
+        });
+    }
+
+    public function test_a_parcel_with_the_intermediary_cannot_go_to_another_courier_or_be_taken_back_at_our_hub(): void
+    {
+        $shipment = $this->ship('علي', null, [], push: false);
+        $other = $this->courier('مندوب بغداد');
+
+        $given = Tenancy::runFor($this->company, fn () => app(SendOutForDelivery::class)
+            ->handle(collect([$this->fresh($shipment)]), $other, $this->staff));
+        $this->assertSame('مع الشركة الوسيطة', $given['skipped'][$shipment->number] ?? null);
+
+        $scanned = Tenancy::runFor($this->company, fn () => app(ReceiveAtHub::class)->handle([$shipment->id], $this->staff));
+        $this->assertSame('مع الشركة الوسيطة: تعود إلينا راجعةً فقط', $scanned['skipped'][$shipment->number] ?? null);
+
+        $this->assertSame(ShipmentStatus::InTransit, $this->fresh($shipment)->status);
+        $this->assertSame($this->agent->id, (int) $this->fresh($shipment)->delivery_courier_id);
+    }
+
+    public function test_a_parcel_sent_back_to_the_intermediary_is_in_transit_again_and_follows_the_same_path(): void
+    {
+        $token = $this->key();
+        $shipment = $this->ship('علي');
+        $url = $this->url('/shipments/'.$shipment->number.'/status');
+
+        $this->postJson($url, ['action' => 'failed_attempt', 'reason_id' => $this->reason()->id, 'note' => 'لا يرد'], $this->auth($token))->assertOk();
+
+        // الكول سنتر يقرّر إعادة التوصيل: يعود إلى الوسيط «بالطريق» لا «قيد التوصيل»
+        $status = Tenancy::runFor($this->company, fn () => app(ProcessFailedAttempt::class)
+            ->handle($this->fresh($shipment), 'redeliver', $this->staff));
+        $this->assertSame(ShipmentStatus::InTransit, $status);
+        $this->assertSame(ShipmentStatus::InTransit, $this->fresh($shipment)->status);
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $processed = ShipmentEvent::where('shipment_id', $shipment->id)->where('event_type', 'processed')->sole();
+            $this->assertSame('in_transit', $processed->to_status, 'السجلّ يكتب ما وصلت إليه الشحنة فعلاً');
+        });
+
+        $this->postJson($url, ['action' => 'out_for_delivery'], $this->auth($token))->assertOk();
+        $this->postJson($url, ['action' => 'delivered'], $this->auth($token))->assertOk()->assertJsonPath('data.status', 'delivered');
+    }
+
+    public function test_a_normal_courier_still_takes_the_parcel_straight_out_for_delivery(): void
+    {
+        $normal = $this->courier('مندوب بغداد');
+
+        $shipment = $this->ship('زينب', $normal);
+
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+    }
+
+    public function test_a_manual_or_bulk_move_back_to_the_shelf_is_refused_while_the_intermediary_holds_it(): void
+    {
+        $shipment = $this->ship('علي', null, [], push: false);
+
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $this->expectException(ValidationException::class);
+
+            app(ChangeShipmentStatus::class)->handle($shipment->refresh(), ShipmentStatus::AtHub, $this->staff);
+        });
+
+        $this->assertSame(ShipmentStatus::InTransit, $this->fresh($shipment)->status);
     }
 }

@@ -61,7 +61,8 @@ class ProcessFailedAttempt
                 'return'    => [ShipmentStatus::Returning, $options],
             };
 
-            $this->change->handle($shipment, $to, $actor, $options);
+            // قد يصير «بالطريق» بدل ما طُلب إن كان مندوبها وسيطاً: يُسجَّل ما وصلت إليه فعلاً
+            $to = $this->change->handle($shipment, $to, $actor, $options)->status;
 
             ShipmentEvent::create([
                 'shipment_id' => $shipment->id,
