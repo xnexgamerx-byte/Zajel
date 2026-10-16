@@ -1,0 +1,231 @@
+import 'dart:convert';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+
+import 'config.dart';
+import 'demo.dart';
+import 'models.dart';
+
+/// خطأٌ يُعرض للمندوب كما كتبه النظام («كود التسليم غير صحيح.»)
+class ApiError implements Exception {
+  ApiError(this.message, {this.unauthorised = false, this.notFound = false, this.fields = const {}});
+
+  final String message;
+
+  /// أخطاء النموذج بحقولها: {delivery_code: «كود التسليم غير صحيح.»}
+  final Map<String, String> fields;
+
+  /// انتهى الدخول (رمزٌ أُبطل أو حسابٌ أُوقف): يعود إلى شاشة الدخول
+  final bool unauthorised;
+
+  /// شحنةٌ ليست بيده (أو لا وجود لها — الجواب واحد)
+  final bool notFound;
+
+  @override
+  String toString() => message;
+}
+
+/// واجهة المندوب في النظام (routes/api.php ← /api/v1/courier، docs/plan/66): الشركة من عنوانها،
+/// والدخول برمزٍ محفوظٍ في خزنة الجهاز المشفّرة. القواعد كلّها في النظام؛ التطبيق يعرض ويسأل.
+class Api {
+  Api._();
+
+  static final instance = Api._();
+
+  static const _storage = FlutterSecureStorage();
+  static const _tokenKey = 'courier_token';
+
+  String? _token;
+
+  Uri _uri(String path) => Uri.parse('${AppConfig.apiUrl}/api/v1$path');
+
+  Map<String, String> get _headers => {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+  };
+
+  Future<bool> restore() async {
+    if (AppConfig.demo) return false;
+    _token = await _storage.read(key: _tokenKey);
+    return _token != null;
+  }
+
+  Future<Session> login(String username, String password) async {
+    if (AppConfig.demo) return Demo.session;
+    final body = await _send(
+      http.post(
+        _uri('/login'),
+        headers: _headers,
+        body: jsonEncode({'username': username, 'password': password, 'app': 'courier', 'device': 'phone'}),
+      ),
+    );
+    _token = body['token'] as String;
+    await _storage.write(key: _tokenKey, value: _token);
+    return Session.fromJson(body);
+  }
+
+  Future<Session> me() async {
+    if (AppConfig.demo) return Demo.session;
+    return Session.fromJson(await _send(http.get(_uri('/me'), headers: _headers)));
+  }
+
+  Future<void> logout() async {
+    if (_token != null && !AppConfig.demo) {
+      try {
+        await http.post(_uri('/logout'), headers: _headers);
+      } catch (_) {
+        // بلا شبكة: يُنسى الرمز هنا، ويبقى ساري المدة على الخادم حتى يُبطله الخروج التالي
+      }
+    }
+    _token = null;
+    _reasons = null;
+    await _storage.delete(key: _tokenKey);
+  }
+
+  // ---------------------------------------------------------------- الشاشات
+
+  Future<HomeData> home() async {
+    if (AppConfig.demo) return Demo.home();
+    return HomeData.fromJson(await _send(http.get(_uri('/courier/home'), headers: _headers)));
+  }
+
+  /// «مهامي»: delivery أو returns، ويُبحث برقم الوصل أو الاسم أو الهاتف
+  Future<TaskList> tasks({String kind = 'delivery', String q = ''}) async {
+    if (AppConfig.demo) return Demo.tasks(kind, q);
+    final uri = _uri('/courier/tasks').replace(queryParameters: {'kind': kind, if (q.isNotEmpty) 'q': q});
+    return TaskList.fromJson(await _send(http.get(uri, headers: _headers)));
+  }
+
+  Future<ShipmentDetail> shipment(int id) async {
+    if (AppConfig.demo) return Demo.shipment(id);
+    final body = await _send(http.get(_uri('/courier/shipments/$id'), headers: _headers));
+    return ShipmentDetail.fromJson((body['data'] as Map).cast());
+  }
+
+  /// الماسح: رقم الوصل أو باركوده أو رابط QR — ويعود رقم الشحنة إن كانت بيده
+  Future<int> find(String code) async {
+    if (AppConfig.demo) return Demo.find(code);
+    final uri = _uri('/courier/shipments/find').replace(queryParameters: {'q': code});
+    final body = await _send(http.get(uri, headers: _headers));
+    return (body['data'] as Map)['id'] as int;
+  }
+
+  Future<CashPage> cash() async {
+    if (AppConfig.demo) return Demo.cash();
+    return CashPage.fromJson(await _send(http.get(_uri('/courier/cash'), headers: _headers)));
+  }
+
+  // ---------------------------------------------------------------- عند الباب
+
+  /// الأسباب لا تتغيّر في الجلسة: تُحفظ أوّل مرّة
+  List<Reason>? _reasons;
+
+  Future<List<Reason>> reasons() async {
+    if (AppConfig.demo) return Demo.reasons;
+    if (_reasons != null) return _reasons!;
+    final body = await _send(http.get(_uri('/courier/reasons'), headers: _headers));
+    return _reasons = [for (final r in body['data'] as List) Reason.fromJson((r as Map).cast())];
+  }
+
+  /// delivered · partially_delivered · failed_attempt · postponed — والمبلغ لا يُرسَل أبداً:
+  /// الواصل بمبلغ الشحنة، والجزئي بما اعتمده الكول سنتر (docs/plan/66)
+  Future<Outcome> act(
+    int id,
+    String action, {
+    int? reasonId,
+    String? note,
+    String? code,
+    double? lat,
+    double? lng,
+  }) async {
+    if (AppConfig.demo) return Demo.act(id, action, reasonId: reasonId, note: note, code: code);
+    final body = await _send(
+      http.post(
+        _uri('/courier/shipments/$id/act'),
+        headers: _headers,
+        body: jsonEncode({
+          'action': action,
+          'failure_reason_id': ?reasonId,
+          if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+          if (code != null && code.isNotEmpty) 'delivery_code': code,
+          'lat': ?lat,
+          'lng': ?lng,
+        }),
+      ),
+    );
+    return Outcome(body['message'] as String? ?? 'سُجِّلت.', ShipmentDetail.fromJson((body['data'] as Map).cast()));
+  }
+
+  /// «الزبون يريد يدفع غير المبلغ؟» — price (السعر تغيّر) أو partial (أخذ جزءاً وأرجع الباقي)
+  Future<(String, Ticket)> openTicket(
+    int id, {
+    required String kind,
+    required int amount,
+    required String reason,
+  }) async {
+    if (AppConfig.demo) return Demo.openTicket(id, kind, amount, reason);
+    final body = await _send(
+      http.post(
+        _uri('/courier/shipments/$id/ticket'),
+        headers: _headers,
+        body: jsonEncode({'kind': kind, 'requested_amount': amount, 'reason': reason}),
+      ),
+    );
+    return (body['message'] as String? ?? 'أُرسل طلبك إلى الكول سنتر.', Ticket.fromJson((body['data'] as Map).cast()));
+  }
+
+  /// موقع الهاتف والتطبيق مفتوح — يُرمى بصمت إن لم يصل
+  Future<void> location(double lat, double lng, double accuracy) async {
+    if (AppConfig.demo) return;
+    await _send(
+      http.post(
+        _uri('/courier/location'),
+        headers: _headers,
+        body: jsonEncode({'lat': lat, 'lng': lng, 'accuracy': accuracy}),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> _send(
+    Future<http.Response> request, {
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final http.Response res;
+    try {
+      res = await request.timeout(timeout);
+    } catch (_) {
+      // بلا شبكة لا يُسجَّل شيء (docs/plan/66 §القرار ٢): خطأٌ واضح، والمندوب يعيد
+      throw ApiError('تعذّر الاتصال بالنظام. تأكّد من الإنترنت وحاول مجدداً — لم يُسجَّل شيء.');
+    }
+
+    Map<String, dynamic> body;
+    try {
+      body = res.body.isEmpty ? <String, dynamic>{} : jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {
+      body = {};
+    }
+
+    if (res.statusCode == 401) {
+      _token = null;
+      await _storage.delete(key: _tokenKey);
+      throw ApiError(body['message'] as String? ?? 'انتهى دخولك. سجّل الدخول من جديد.', unauthorised: true);
+    }
+
+    if (res.statusCode >= 400) {
+      final errors = body['errors'] as Map<String, dynamic>?;
+      final first = errors?.values.whereType<List>().expand((e) => e).firstOrNull;
+      throw ApiError(
+        (first ?? body['message'] ?? 'حدث خطأ. حاول مجدداً.').toString(),
+        notFound: res.statusCode == 404,
+        fields: {
+          for (final e in (errors ?? const {}).entries)
+            if (e.value is List && (e.value as List).isNotEmpty) e.key: '${(e.value as List).first}',
+        },
+      );
+    }
+
+    return body;
+  }
+}
