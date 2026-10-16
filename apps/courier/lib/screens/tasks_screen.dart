@@ -59,7 +59,7 @@ class _TasksScreenState extends State<TasksScreen> {
       if (!mounted || kind != widget.kind.value) return;
       setState(() => (data = d, error = null));
       if (kind == 'returns' && search.text.isEmpty) returns = d.count;
-      if (kind == 'delivery' && returns == null) {
+      if (kind == 'delivery') {
         final r = await Api.instance.tasks(kind: 'returns');
         if (mounted) setState(() => returns = r.count);
       }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/config.dart';
@@ -25,8 +27,12 @@ class Shell extends StatefulWidget {
   State<Shell> createState() => _ShellState();
 }
 
-class _ShellState extends State<Shell> {
+class _ShellState extends State<Shell> with WidgetsBindingObserver {
   int tab = 0;
+
+  /// الشحنات تصل من الموقع في أي وقت: والتطبيق مفتوحٌ يعيد قراءتها كلّ دقائق، وحين يُفتح من الخلفية
+  Timer? _poll;
+  static const _every = Duration(seconds: 20);
 
   /// سُجّلت شحنةٌ أو طُلب تغيير مبلغ: تُعاد الرئيسية و«مهامي» و«حسابي» بأرقامها
   final refresh = ValueNotifier<int>(0);
@@ -40,14 +46,35 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     LocationShare.instance.start();
+    WidgetsBinding.instance.addObserver(this);
+    _startPolling();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _poll?.cancel();
     LocationShare.instance.stop();
     refresh.dispose();
     tasksKind.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      refresh.value++;
+      _startPolling();
+    } else {
+      _poll?.cancel();
+      _poll = null;
+    }
+  }
+
+  /// تحت الاختبار أو بالعرض لا نظام يُسأل: لا مؤقّت
+  void _startPolling() {
+    if (AppConfig.demo || AppConfig.testing || _poll != null) return;
+    _poll = Timer.periodic(_every, (_) => refresh.value++);
   }
 
   /// الشحنة فوق الشريط — وعند الرجوع تُعاد الأرقام
