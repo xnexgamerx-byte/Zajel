@@ -38,13 +38,16 @@
 |---|---|---|
 | `GET /courier/home` | لوحة الرئيسية كلها في طلب واحد | |
 | `GET /courier/tasks?kind=delivery\|returns&q=` | مهامي مجمّعة | |
-| `GET /courier/shipments/{id}` | تفاصيل الشحنة | **الكود لا يُعاد أبداً** — يُطلب فقط |
-| `POST /courier/shipments/{id}/act` | `action` = delivered \| partially_delivered \| failed_attempt \| postponed، مع `reason_id` و`note` و`delivery_code` و`lat/lng` | القواعد من `CourierOutcomeRules` نفسها |
+| `GET /courier/shipments/{id}` | تفاصيل الشحنة، ومعها `actions` (ما يُسجَّل عليها الآن) و`partial_amount` | **الكود لا يُعاد أبداً** — يُطلب فقط (`needs_code`) |
+| `GET /courier/shipments/find?q=` | الماسح والبحث: رقم الوصل أو باركوده أو رابط QR | شحنته فقط، وغيرها 404 |
+| `POST /courier/shipments/{id}/act` | `action` = delivered \| partially_delivered \| failed_attempt \| postponed، مع `failure_reason_id` و`note` و`delivery_code` و`lat/lng` | القواعد من `CourierOutcomeRules` نفسها؛ `collected_amount` مرفوض (422) |
 | `POST /courier/shipments/{id}/ticket` · `GET …/ticket` | طلب تغيير المبلغ وحالته | |
 | `GET /courier/reasons` | أسباب عدم التسليم بأرقامها | |
 | `GET /courier/cash` | حساب المندوب | |
 | `GET /courier/pickups` · `POST /courier/pickups/{id}/complete` | الاستلام (لمندوب الاستلام فقط) | مرحلة لاحقة |
 | `POST /courier/location` | موقع الهاتف (`lat/lng/accuracy`) | يُرسَل والتطبيق مفتوح فقط، مثل الموقع |
+
+الحدود: `act` ستون طلباً في الدقيقة، وفتح تذكرة عشرون، والموقع ثلاثون — فوق حدّ الـAPI العام.
 
 ## الربط بالموقع: القواعد واحدة لا نسختان
 
@@ -61,12 +64,16 @@
   ما تحتاجه الشاشة المفتوحة.
 - الأرقام تُفتح بالاتصال المباشر (`tel:`) ولا تُنسخ. والخريطة تُفتح بتطبيق الخرائط في الهاتف.
 - الحدود نفسها: محاولات الدخول، وطلبات المندوب، والكود بخمس محاولات.
-- حساب الشركة الوسيطة (`is_intermediary`) سيُمنع من تطبيق المندوب في الدخول؛ يعمل بالواجهة التي في docs/plan/64. (هذا المنع ليس مطبّقاً اليوم، ويُكتب في المرحلة الأولى.)
+- حساب الشركة الوسيطة (`is_intermediary`) ممنوع من تطبيق المندوب: في الدخول (`AuthController`) وفي كل طلب
+  (`EnsureCourier` يردّ 403 على `api/*`)؛ يعمل بمفتاح الربط في docs/plan/64. والمندوب الموقوف أو المستخدم
+  غير المرتبط بمندوب لا يأخذ رمزاً أصلاً.
 
 ## المراحل
 
-**المرحلة ١ — الواجهة البرمجية:** الطلبات أعلاه، واستخراج منطق الإجراء، واختبارات PHP لكل طلب، ومنها
+**المرحلة ١ — الواجهة البرمجية (تمّت):** الطلبات أعلاه، واستخراج منطق الإجراء، واختبارات PHP لكل طلب، ومنها
 اختبار التطابق بين الموقع والـAPI، واختبارات الحدود (شحنة غيره، حساب موقوف، رمز منتهٍ، تطبيق غير مناسب).
+المنطق في `App\Actions\Couriers\RecordCourierOutcome` (يستدعيه `Courier\ActionController` و`Api\Courier\ShipmentController`)،
+والاختبارات في `tests/Feature/Api/CourierApiTest.php`.
 
 **المرحلة ٢ — التطبيق:** مجلد `apps/courier` بنسخ ملفات التصميم من تطبيق التاجر (الألوان، الخط، الأجزاء المشتركة)
 **لا تعديل على `apps/merchant`** حتى لا يتعارض مع تعديلاتك عليه. وضع تجريبي ببيانات وهمية كالتاجر لاختبار الشاشات.

@@ -24,6 +24,11 @@ class EnsureCourier
             abort(403, 'حسابك موقوف. راجع الشركة.');
         }
 
+        // الشركة الوسيطة تعمل بمفتاح الربط (docs/plan/64)، لا بتطبيق المندوب (docs/plan/66)
+        if ($courier->is_intermediary && $request->is('api/*')) {
+            abort(403, 'حساب الشركة الوسيطة يعمل بمفتاح الربط، لا بتطبيق المندوب.');
+        }
+
         $request->attributes->set('courier', $courier);
         view()->share('courier', $courier);
 

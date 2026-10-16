@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\User;
 use App\Support\Username;
@@ -80,6 +81,18 @@ class AuthController extends Controller
                 throw ValidationException::withMessages([
                     'username' => 'لم يُفتح لمتجرك الدخول إلى البوابة. راجع شركة التوصيل.',
                 ]);
+            }
+        }
+
+        // مندوبٌ موقوف، أو شركةٌ وسيطة تعمل بمفتاح الربط (docs/plan/64): لا يدخل تطبيق المندوب
+        if ($user->role === UserRole::Courier) {
+            $courier = Courier::find($user->courier_id);
+
+            if (! $courier || $courier->status !== 'active') {
+                throw ValidationException::withMessages(['username' => 'حسابك موقوف أو غير مرتبط بمندوب. راجع الشركة.']);
+            }
+            if ($courier->is_intermediary) {
+                throw ValidationException::withMessages(['username' => 'حساب الشركة الوسيطة يعمل بمفتاح الربط، لا بتطبيق المندوب.']);
             }
         }
 

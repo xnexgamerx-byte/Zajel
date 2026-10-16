@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Courier\HomeController as CourierHomeController;
+use App\Http\Controllers\Api\Courier\ShipmentController as CourierShipmentController;
+use App\Http\Controllers\Api\Courier\TaskController as CourierTaskController;
 use App\Http\Controllers\Api\Merchant\CreateShipmentController as MerchantCreateShipmentController;
 use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceController;
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
@@ -14,6 +17,7 @@ use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentCont
 use App\Http\Controllers\Api\Merchant\SupportController as MerchantSupportController;
 use App\Http\Controllers\Api\Merchant\WaybillController as MerchantWaybillController;
 use App\Http\Controllers\Api\Partner\PartnerApiController;
+use App\Http\Controllers\Courier\LocationController as CourierLocationController;
 use App\Http\Controllers\OrderListeningController;
 use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Tenant\AppAdController;
@@ -50,6 +54,23 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('/app-ads/{ad}/image', [AppAdController::class, 'image'])->whereNumber('ad')
             ->middleware('feature:app_ads')->name('app-ads.image');
+
+        // تطبيق المندوب (docs/plan/66): شاشات المندوب في الموقع نفسها، بالقواعد نفسها (RecordCourierOutcome)
+        Route::prefix('courier')->name('courier.')->middleware(['abilities:courier', 'courier'])->group(function () {
+            Route::get('/home', [CourierHomeController::class, 'home'])->name('home');
+            Route::get('/cash', [CourierHomeController::class, 'cash'])->name('cash');
+            Route::get('/tasks', [CourierTaskController::class, 'index'])->name('tasks');
+            Route::get('/reasons', [CourierShipmentController::class, 'reasons'])->name('reasons');
+            Route::get('/shipments/find', [CourierShipmentController::class, 'find'])->name('shipments.find');
+            Route::get('/shipments/{shipment}', [CourierShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.show');
+            Route::post('/shipments/{shipment}/act', [CourierShipmentController::class, 'act'])->whereNumber('shipment')
+                ->middleware('throttle:60,1')->name('shipments.act');
+            Route::get('/shipments/{shipment}/ticket', [CourierShipmentController::class, 'ticket'])->whereNumber('shipment')->name('shipments.ticket');
+            Route::post('/shipments/{shipment}/ticket', [CourierShipmentController::class, 'openTicket'])->whereNumber('shipment')
+                ->middleware('throttle:20,1')->name('shipments.ticket.store');
+            // موقع الهاتف ما دام التطبيق مفتوحاً (docs/plan/62) — المتحكّم نفسه الذي في الموقع
+            Route::post('/location', CourierLocationController::class)->middleware('throttle:30,1')->name('location');
+        });
 
         Route::prefix('merchant')->name('merchant.')->middleware(['abilities:merchant', 'merchant'])->group(function () {
             Route::get('/home', MerchantHomeController::class)->name('home');
