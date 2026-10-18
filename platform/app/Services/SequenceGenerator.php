@@ -31,11 +31,11 @@ class SequenceGenerator
                     'key'        => $key,
                     'prefix'     => $this->defaultPrefix($key),
                     'next_value' => 2,
-                    'pad'        => 6,
+                    'pad'        => $this->defaultPad($key),
                     'updated_at' => now(),
                 ]);
 
-                return $this->format($this->defaultPrefix($key), 1, 6);
+                return $this->format($this->defaultPrefix($key), 1, $this->defaultPad($key));
             }
 
             DB::table('sequences')
@@ -70,7 +70,7 @@ class SequenceGenerator
                     'key'        => $key,
                     'prefix'     => $this->defaultPrefix($key),
                     'next_value' => $count + 1,
-                    'pad'        => 6,
+                    'pad'        => $this->defaultPad($key),
                     'updated_at' => now(),
                 ]);
 
@@ -88,6 +88,11 @@ class SequenceGenerator
     protected function format(string $prefix, int $value, int $pad): string
     {
         return $prefix.str_pad((string) $value, $pad, '0', STR_PAD_LEFT);
+    }
+
+    protected function defaultPad(string $key): int
+    {
+        return in_array($key, ['collection_batch', 'profit_withdrawal'], true) ? 4 : 6;
     }
 
     protected function defaultPrefix(string $key): string
@@ -109,6 +114,9 @@ class SequenceGenerator
             'merchant_request'    => '',
             'shipment_ticket'     => 'TK',
             'courier_return_receipt' => 'RC',
+            // «وجبات التحصيل والأرباح» وسحب الأرباح: COL-0001 وWD-0001 كما يُقال
+            'collection_batch'    => 'COL-',
+            'profit_withdrawal'   => 'WD-',
             default               => '',
         };
     }

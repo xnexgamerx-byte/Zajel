@@ -97,6 +97,8 @@ final class StaffNavigation
             // الصورة الكاملة: موقف الشركة وتدقيق حساباتها — وحساب الفروع في «الفروع»
             'position' => ['الموقف المالي', 'bank', [
                 ['money.position', 'الموقف المالي', ['money.position'], 'money.view'],
+                // قسم المدير للأرباح: وجبات التحصيل، وتقريرها، وسحب الأرباح
+                ['profits.index', 'العوائد', ['profits.*'], 'money.profits'],
                 ['money.position.history', 'تاريخ الموقف المالي', ['money.position.history'], 'money.view'],
                 ['money.reconcile', 'تدقيق الحسابات', ['money.reconcile'], 'money.view'],
                 ['money.accountants', 'قبض ودفع الموظّفين', ['money.accountants'], 'money.view'],

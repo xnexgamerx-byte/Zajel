@@ -59,6 +59,9 @@ use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController
 use App\Http\Controllers\Tenant\DocScanController;
 use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\FinancialPositionController;
+use App\Http\Controllers\Tenant\ProfitsController;
+use App\Http\Controllers\Tenant\CollectionBatchController;
+use App\Http\Controllers\Tenant\ProfitWithdrawalController;
 use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\GovernorateSettingController;
 use App\Http\Controllers\Tenant\HomeLayoutController;
@@ -531,6 +534,34 @@ Route::middleware('tenant')->group(function () {
             });
             Route::post('/branch-accounts/deposits', [BranchAccountController::class, 'storeDeposit'])
                 ->middleware('can:money.cash')->name('branch-accounts.deposits.store');
+
+            // «العوائد» تحت «الموقف المالي»: وجبات التحصيل والأرباح، وتقريرها، وسحب الأرباح
+            Route::middleware('can:money.profits')->prefix('profits')->name('profits.')->group(function () {
+                Route::get('/', [ProfitsController::class, 'index'])->name('index');
+                Route::get('/report', [ProfitsController::class, 'report'])->name('report');
+                Route::get('/batches', [CollectionBatchController::class, 'index'])->name('batches.index');
+                Route::get('/batches/create', [CollectionBatchController::class, 'create'])->name('batches.create');
+                Route::post('/batches', [CollectionBatchController::class, 'store'])->name('batches.store');
+                Route::whereNumber(['batch', 'item', 'cost'])->group(function () {
+                    Route::get('/batches/{batch}', [CollectionBatchController::class, 'show'])->name('batches.show');
+                    Route::get('/batches/{batch}/print', [CollectionBatchController::class, 'print'])->name('batches.print');
+                    Route::delete('/batches/{batch}', [CollectionBatchController::class, 'destroy'])->name('batches.destroy');
+                    Route::post('/batches/{batch}/items', [CollectionBatchController::class, 'addItems'])->name('batches.items.add');
+                    Route::delete('/batches/{batch}/items/{item}', [CollectionBatchController::class, 'removeItem'])->name('batches.items.remove');
+                    Route::post('/batches/{batch}/items/{item}/received', [CollectionBatchController::class, 'received'])->name('batches.items.received');
+                    Route::post('/batches/{batch}/costs', [CollectionBatchController::class, 'addCosts'])->name('batches.costs.add');
+                    Route::delete('/batches/{batch}/costs/{cost}', [CollectionBatchController::class, 'removeCost'])->name('batches.costs.remove');
+                    Route::post('/batches/{batch}/remainders', [CollectionBatchController::class, 'remainder'])->name('batches.remainders');
+                    Route::post('/batches/{batch}/approve', [CollectionBatchController::class, 'approve'])->name('batches.approve');
+                });
+                // سحب الأرباح للشركة كلّها: من الفرع الرئيسي، ولصاحب الشركة أو من يُمنح بعينه
+                Route::middleware('main-branch')->group(function () {
+                    Route::get('/withdrawals', [ProfitWithdrawalController::class, 'index'])->name('withdrawals.index');
+                    Route::post('/withdrawals', [ProfitWithdrawalController::class, 'store'])->middleware('can:money.withdraw')->name('withdrawals.store');
+                    Route::post('/withdrawals/{withdrawal}/cancel', [ProfitWithdrawalController::class, 'cancel'])
+                        ->middleware('can:money.withdraw')->whereNumber('withdrawal')->name('withdrawals.cancel');
+                });
+            });
 
             Route::middleware('can:money.expenses')->group(function () {
                 Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses.index');

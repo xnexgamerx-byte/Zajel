@@ -57,6 +57,7 @@ class CashMovement extends Model
             'adjustment'       => 'تسوية جرد',
             'branch_remittance_out' => 'تسديدٌ لفرع',
             'branch_remittance_in'  => 'مسدَّدٌ من فرع',
+            'profit_withdrawal'     => 'سحب أرباح',
             default            => $category,
         };
     }

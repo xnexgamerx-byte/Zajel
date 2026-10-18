@@ -100,6 +100,13 @@ class RecordExpense
                 throw ValidationException::withMessages(['status' => "المصروف {$expense->number} ملغى سلفاً."]);
             }
 
+            // مصروفٌ محسوبٌ على وجبة تحصيل: صافي ربحها قائمٌ عليه
+            if ($batch = \App\Models\CollectionBatchCost::with('batch:id,number')->where('expense_id', $expense->id)->first()?->batch) {
+                throw ValidationException::withMessages([
+                    'status' => "المصروف {$expense->number} محسوبٌ على وجبة التحصيل {$batch->number}: أخرِجه منها أولاً.",
+                ]);
+            }
+
             // المدفوع حركةٌ ماليّة: يُلغى في يومه وحده، وبعده يُصحَّح بحركةٍ جديدة (docs/plan/38)
             if ($expense->status === 'paid' && ! \App\Actions\Money\UndoWithinDay::open($expense->paid_at)) {
                 throw ValidationException::withMessages([

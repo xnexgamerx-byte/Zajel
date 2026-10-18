@@ -58,6 +58,8 @@ class StaffNavigationTest extends TestCase
         'home.customize',
         // الأكياس والكشوف اليدوية و«وصل ناقص؟» من داخل «النقل بين الفروع»
         'bags.index', 'manifests.index', 'manifests.inbound',
+        // خانات «العوائد»: سجل الوجبات وإنشاؤها وتقرير الأرباح وسحبها، من شريطها
+        'profits.batches.index', 'profits.batches.create', 'profits.report', 'profits.withdrawals.index',
     ];
 
     private Company $company;

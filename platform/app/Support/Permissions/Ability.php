@@ -58,7 +58,7 @@ class Ability
     public const SHIPMENTS_TOTALS = 'shipments.totals';
 
     /** ما لا يُعطى بالدور: لصاحب الشركة، ولمن يُمنح بعينه */
-    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE];
+    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE, self::MONEY_WITHDRAW];
 
     // التوصيل · الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
@@ -79,6 +79,12 @@ class Ability
     public const MONEY_PAY = 'money.pay';
 
     public const MONEY_CONFIRM_AMOUNT = 'money.confirm_amount';
+
+    /** «العوائد»: وجبات التحصيل والأرباح — إنشاؤها واعتمادها وتصحيحها، وتقارير الأرباح */
+    public const MONEY_PROFITS = 'money.profits';
+
+    /** تسجيل سحب الأرباح من الشركة: لصاحبها، ولمن يُمنح بعينه */
+    public const MONEY_WITHDRAW = 'money.withdraw';
 
     // التقارير
     public const REPORTS_VIEW = 'reports.view';
@@ -169,6 +175,8 @@ class Ability
                 self::MONEY_SETTLE => 'محاسبة المندوبين ومندوبي الاستلام',
                 self::MONEY_PAY => 'دفع كشوف التجّار',
                 self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
+                self::MONEY_PROFITS => 'العوائد: وجبات التحصيل والأرباح',
+                self::MONEY_WITHDRAW => 'تسجيل سحب الأرباح',
             ]],
             'reports' => ['label' => 'التقارير', 'abilities' => [
                 self::REPORTS_VIEW => 'التقارير',
@@ -293,7 +301,7 @@ class Ability
             // والمحاسب يعدّل أجور التاجر والمندوب (docs/plan/53) — وغيره بمرتبةٍ أو صلاحيةٍ استثنائية
             UserRole::Accountant => [
                 self::SHIPMENTS_VIEW, self::SHIPMENTS_EXPORT, self::SHIPMENTS_TOTALS, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
-                self::CONTROL_DUPLICATES, self::SHIPMENTS_OVERRIDE,
+                self::CONTROL_DUPLICATES, self::SHIPMENTS_OVERRIDE, self::MONEY_PROFITS,
             ],
 
             default => [],

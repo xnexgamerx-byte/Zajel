@@ -49,6 +49,7 @@ class AuditLog extends Model
         'shipment_restored'        => 'استُرجعت شحنة ممسوحة',
         'settlement_draft_deleted' => 'حُذف كشفٌ مسودّة',
         'settlement_draft_edited'  => 'عُدِّل كشفٌ مسودّة',
+        'collection_batch_deleted' => 'حُذفت وجبة تحصيل مسودّة',
         'login_changed'            => 'تغيّر اسم الدخول أو كلمة المرور',
         'feature_enabled'          => 'فُتحت ميزة',
         'feature_disabled'         => 'أُغلقت ميزة',

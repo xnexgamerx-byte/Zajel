@@ -52,6 +52,13 @@ class UndoWithinDay
             $settlement = CourierSettlement::query()->lockForUpdate()->findOrFail($settlement->id);
             $this->guardSettlement($settlement->status, $settlement->confirmed_at, $settlement->code, $reason);
 
+            // كشفٌ محسوبٌ في وجبة تحصيل: أرباحها قائمةٌ عليه
+            if ($batch = \App\Models\CollectionBatchItem::with('batch:id,number')->where('courier_settlement_id', $settlement->id)->first()?->batch) {
+                throw ValidationException::withMessages([
+                    'settlement' => "الكشف {$settlement->code} محسوبٌ في وجبة التحصيل {$batch->number}: أخرِجه منها أولاً (والمعتمدة لا يُخرج منها).",
+                ]);
+            }
+
             $this->reverseAll('courier_settlement', $settlement->id, $actor, "حذف الكشف {$settlement->code} — {$reason}");
             $this->freeShipments('courier_settlement_id', 'courier_settled_at', $settlement->id, "أُلغي كشف المندوب {$settlement->code}", $actor);
             $this->markCancelled($settlement, $actor, $reason);
