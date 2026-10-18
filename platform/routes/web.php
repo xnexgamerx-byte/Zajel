@@ -52,7 +52,7 @@ use App\Http\Controllers\Tenant\CourierApiKeyController;
 use App\Http\Controllers\Tenant\CourierChatController;
 use App\Http\Controllers\Tenant\CourierController;
 use App\Http\Controllers\Tenant\CourierManifestController;
-use App\Http\Controllers\Tenant\CourierReturnController;
+use App\Http\Controllers\Tenant\CourierReturnReceiptController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
 use App\Http\Controllers\Tenant\CourierTrackingController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
@@ -250,8 +250,6 @@ Route::middleware('tenant')->group(function () {
                 // الوصل الممسوح في شاشات الراجع: هل هو من قائمتها، وإلّا فلماذا
                 Route::get('/returns/lookup', [ReturnController::class, 'lookup'])->name('returns.lookup');
                 Route::post('/returns/receive', [ReturnController::class, 'receive'])->name('returns.receive');
-                // كشوفات رواجع المندوبين: مرجع ما رجع مع كلّ مندوب، وأين صار، وهل حوسب عليه
-                Route::get('/returns/couriers', [CourierReturnController::class, 'index'])->name('returns.couriers');
                 Route::get('/returns/sorting', [ReturnController::class, 'sorting'])->name('returns.sorting');
                 Route::post('/returns/sorting', [ReturnController::class, 'sort'])->name('returns.sort');
                 Route::get('/returns/handover', [ReturnController::class, 'outgoing'])->name('returns.outgoing');
@@ -264,6 +262,10 @@ Route::middleware('tenant')->group(function () {
 
                 // دفعات الراجع: كل تسليمٍ بإيصاله
                 Route::get('/return-batches', [ReturnBatchController::class, 'index'])->name('return-batches.index');
+                // إيصالات راجع المندوبين: كلّ استلامٍ لراجع مندوبٍ بالمخزن إيصالٌ برقم
+                Route::get('/courier-return-receipts', [CourierReturnReceiptController::class, 'index'])->name('courier-return-receipts.index');
+                Route::get('/courier-return-receipts/{receipt}/print', [CourierReturnReceiptController::class, 'print'])
+                    ->whereNumber('receipt')->name('courier-return-receipts.print');
                 Route::get('/return-batches/print', [ReturnBatchController::class, 'printMany'])->name('return-batches.print-many');
                 Route::get('/return-batches/merchant', [ReturnBatchController::class, 'merchantReturns'])->name('return-batches.merchant');
                 Route::get('/return-batches/{batch}/print', [ReturnBatchController::class, 'print'])->whereNumber('batch')->name('return-batches.print');

@@ -173,16 +173,10 @@ class Shipment extends Model
         return $this->belongsTo(ReturnBatch::class);
     }
 
-    /** كشف المندوب الذي حوسب فيه عليها (بعد إقفاله) */
-    public function courierSettlement(): BelongsTo
+    /** إيصال استلام راجعها من المندوب */
+    public function courierReturnReceipt(): BelongsTo
     {
-        return $this->belongsTo(CourierSettlement::class);
-    }
-
-    /** من استلم راجعها من المندوب بالمخزن */
-    public function returnReceivedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'return_received_by_user_id');
+        return $this->belongsTo(CourierReturnReceipt::class);
     }
 
     public function events(): HasMany

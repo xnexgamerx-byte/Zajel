@@ -108,6 +108,7 @@ class SequenceGenerator
             'merchant_advance'    => 'AD',
             'merchant_request'    => '',
             'shipment_ticket'     => 'TK',
+            'courier_return_receipt' => 'RC',
             default               => '',
         };
     }

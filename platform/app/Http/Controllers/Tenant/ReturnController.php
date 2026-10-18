@@ -103,7 +103,10 @@ class ReturnController extends Controller
             return back()->withErrors(['shipment_ids' => 'لم تُستلم أي شحنة — قد تكون مُستلمة سلفاً.']);
         }
 
-        return back()->with('success', "استُلم الراجع من المندوب، عدد الشحنات {$received->count()}.");
+        $receipts = $received->map(fn ($s) => $s->courierReturnReceipt?->number)->filter()->unique()->implode('، ');
+
+        return back()->with('success', "استُلم الراجع من المندوب، عدد الشحنات {$received->count()}."
+            .($receipts !== '' ? " الإيصال: {$receipts} — تجده في «إيصالات راجع المندوبين»." : ''));
     }
 
     /** فرز الراجع للفروع: ما على رفٍّ غير رفّ تاجره، وما في الطريق إليه. */

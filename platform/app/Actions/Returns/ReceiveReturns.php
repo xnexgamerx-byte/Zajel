@@ -4,10 +4,12 @@ namespace App\Actions\Returns;
 
 use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Enums\ShipmentStatus;
+use App\Models\CourierReturnReceipt;
 use App\Models\Hub;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Services\SequenceGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +26,7 @@ use Illuminate\Support\Facades\DB;
  */
 class ReceiveReturns
 {
-    public function __construct(protected ChangeShipmentStatus $change) {}
+    public function __construct(protected ChangeShipmentStatus $change, protected SequenceGenerator $sequences) {}
 
     /** @return Collection<int, Shipment> */
     public function handle(array $shipmentIds, ?User $actor = null, ?string $note = null): Collection
@@ -78,6 +80,22 @@ class ReceiveReturns
                     'note'        => $note ?: 'استُلم الراجع من المندوب',
                     'ip'          => request()->ip(),
                 ]);
+            }
+
+            // لكلّ مندوبٍ إيصاله (إيصالات راجع المندوبين): ما سلّمه في هذا الاستلام ومن استلمه
+            foreach ($shipments->groupBy(fn (Shipment $s) => (int) $s->delivery_courier_id) as $courierId => $group) {
+                $receipt = CourierReturnReceipt::create([
+                    'number'              => $this->sequences->next('courier_return_receipt'),
+                    'courier_id'          => $courierId ?: null,
+                    'shipments_count'     => $group->count(),
+                    'cod_total'           => (int) $group->sum('cod_amount'),
+                    'note'                => $note,
+                    'received_at'         => now(),
+                    'received_by_user_id' => $actor?->id,
+                ]);
+
+                Shipment::whereIn('id', $group->pluck('id'))->update(['courier_return_receipt_id' => $receipt->id]);
+                $group->each(fn (Shipment $s) => $s->setAttribute('courier_return_receipt_id', $receipt->id)->setRelation('courierReturnReceipt', $receipt));
             }
 
             return $shipments;
