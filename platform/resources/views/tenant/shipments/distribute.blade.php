@@ -72,9 +72,26 @@
     <form method="POST" action="{{ route('shipments.distribute.store') }}" class="card h-fit space-y-3 p-5" data-distribute-form>
         @csrf
         <input type="hidden" name="governorate_id" value="{{ $governorate->id }}">
+        <fieldset class="space-y-2">
+            <legend class="field-label">نوع التوزيع</legend>
+            <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                <label class="flex cursor-pointer items-center gap-2">
+                    <input type="radio" name="mode" value="own" class="accent-[var(--brand)]" data-distribute-mode @checked($mode === 'own')>
+                    مندوبو الشركة
+                </label>
+                <label class="flex cursor-pointer items-center gap-2">
+                    <input type="radio" name="mode" value="partner" class="accent-[var(--brand)]" data-distribute-mode @checked($mode === 'partner')>
+                    توزيع إلى مندوب شركة أخرى
+                </label>
+            </div>
+        </fieldset>
         <h2 class="card-title">المناطق ومناديبها</h2>
-        <p class="card-hint">
+        <p class="card-hint" data-hint="own" @if ($mode === 'partner') hidden @endif>
             كلّ منطقةٍ تظهر هنا حين يُمسح أوّل وصلٍ لها، ومعها مندوبها من «مناطق المناديب» — وتبدّله من القائمة.
+        </p>
+        <p class="card-hint" data-hint="partner" @if ($mode !== 'partner') hidden @endif>
+            اختر لكلّ منطقةٍ مندوب الشركة الأخرى. الشحنة تُسجَّل بالطريق إليه، وشركته تُخرجها من عندها.
+            @if ($partners->isEmpty()) <span class="font-semibold text-bad-700">لا مندوب شركةٍ أخرى مربوط بعد: أضفه من المناديب بخيار «شركة وسيطة».</span> @endif
         </p>
         <div class="space-y-3" data-areas>
             <p class="text-sm text-ink-500" data-areas-empty>لا مناطق بعد.</p>
@@ -86,9 +103,16 @@
                 <option value="{{ $courier->id }}">{{ $courier->name }}{{ $courier->covers ? '' : ' (خارج المحافظة)' }}</option>
             @endforeach
         </template>
+        <template data-partner-options>
+            <option value="">اختر مندوب الشركة الأخرى</option>
+            @foreach ($partners as $partner)
+                <option value="{{ $partner->id }}">{{ $partner->name }}</option>
+            @endforeach
+        </template>
         @error('courier') <p class="field-error">{{ $message }}</p> @enderror
         <button type="submit" class="btn-primary w-full" disabled>وزّع على المناديب</button>
-        <p class="field-hint">ما لم يُستلم بعد يُسجَّل استلامه ثم يخرج؛ والمسلَّمة والملغاة وما مع مندوبٍ تُتخطّى ويُقال لماذا.</p>
+        <p class="field-hint" data-hint="own" @if ($mode === 'partner') hidden @endif>ما لم يُستلم بعد يُسجَّل استلامه ثم يخرج؛ والمسلَّمة والملغاة وما مع مندوبٍ تُتخطّى ويُقال لماذا.</p>
+        <p class="field-hint" data-hint="partner" @if ($mode !== 'partner') hidden @endif>تُسجَّل بالطريق إلى الشركة الأخرى ولا تُعاد إسنادها من عندنا؛ والمسلَّمة والملغاة وما مع مندوبٍ تُتخطّى.</p>
     </form>
 </div>
 @else

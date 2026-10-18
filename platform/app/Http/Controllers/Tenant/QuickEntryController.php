@@ -10,6 +10,8 @@ use App\Models\City;
 use App\Models\Courier;
 use App\Models\Governorate;
 use App\Models\Merchant;
+use App\Models\Shipment;
+use App\Models\WaybillBook;
 use App\Support\Arabic;
 use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
@@ -87,6 +89,7 @@ class QuickEntryController extends Controller
         }
 
         $shipments = [];
+        $typedNumbers = [];
         $errors = [];
         $required = \App\Support\ShipmentFields::required();
 
@@ -128,6 +131,20 @@ class QuickEntryController extends Controller
                 $errors[$at('amount')] = 'المبلغ بالألف: 25 لخمسةٍ وعشرين ألفاً، و0 للمدفوع مسبقاً.';
             }
 
+            // رقم الوصل الذي يكتبه الموظّف اختيارياً يصير رقم الشحنة: حروفٌ وأرقامٌ بلا مسافات،
+            // لم يُستعمل لشحنةٍ ولا لوصلٍ مطبوع، ولا يتكرّر في الجدول نفسه
+            $number = filled($row['number'] ?? null)
+                ? strtoupper((string) preg_replace('/\s+/u', '', Phone::latinDigits((string) $row['number'])))
+                : null;
+
+            if ($number !== null && ! preg_match('/^[A-Z0-9]{3,20}$/', $number)) {
+                $errors[$at('number')] = 'رقم الوصل حروفٌ وأرقامٌ بلا مسافات، من 3 إلى 20 خانة.';
+            } elseif ($number !== null && (in_array($number, $typedNumbers, true) || $this->numberUsed($number))) {
+                $errors[$at('number')] = 'هذا الرقم مستعملٌ لشحنةٍ أو وصلٍ مطبوع — اتركه فارغاً ليُولَّد.';
+            } elseif ($number !== null) {
+                $typedNumbers[] = $number;
+            }
+
             // أقرب نقطة دالّة اختيارية: حرفٌ واحد أو لا شيء
             $landmark = (string) ($row['landmark'] ?? '');
 
@@ -147,6 +164,7 @@ class QuickEntryController extends Controller
                 'landmark'           => mb_substr($landmark, 0, 255),
                 'cod_amount'         => $amount,
                 'merchant_reference' => filled($row['merchant_reference'] ?? null) ? mb_substr($row['merchant_reference'], 0, 60) : null,
+                'number'             => $number,
                 'notes'              => filled($row['notes'] ?? null) ? mb_substr($row['notes'], 0, 2000) : null,
                 'type'               => ! empty($row['exchange']) ? 'exchange' : 'delivery',
                 // «مقدّماً؟» معلَّمةً تُلزم، وغير معلَّمةٍ تتبع التاجر (يُحاسَب مقدّماً)
@@ -172,12 +190,18 @@ class QuickEntryController extends Controller
             foreach ($shipments as $data) {
                 $shipment = $create->handle($data, $request->user());
 
-                // سلّمها التاجر في المكتب وتخرج مع المندوب مباشرة — إلّا المعلَّقة للمراجعة
-                if ($courier && ! $shipment->isHeldForReview()) {
+                // سلّمها التاجر في المكتب: تخرج مع مندوبها مباشرة، أو تدخل المخزن لتُوزَّع منه لاحقاً
+                // (الافتراضي) — إلّا المعلَّقة للمراجعة
+                if (! $shipment->isHeldForReview()) {
                     $change->handle($shipment, ShipmentStatus::PickedUp, $request->user(), ['note' => 'إدخال سريع']);
-                    $change->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, $request->user(), [
-                        'courier_id' => $courier->id, 'note' => 'إدخال سريع',
-                    ]);
+
+                    if ($courier) {
+                        $change->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, $request->user(), [
+                            'courier_id' => $courier->id, 'note' => 'إدخال سريع',
+                        ]);
+                    } else {
+                        $change->handle($shipment->refresh(), ShipmentStatus::AtHub, $request->user(), ['note' => 'إدخال سريع إلى المخزن']);
+                    }
                 }
 
                 $created[] = $shipment;
@@ -194,7 +218,7 @@ class QuickEntryController extends Controller
             ->withInput($request->only(['merchant_id', 'governorate_id']))
             ->with('success', 'أُنشئت '.Arabic::shipments(count($created)).': '.$numbers->first()
                 .($numbers->count() > 1 ? ' … '.$numbers->last() : '')
-                .($courier ? " وخرجت مع {$courier->name}." : '.'))
+                .($courier ? " وخرجت مع {$courier->name}." : ' ودخلت المخزن، ووزّعها من صفحة التوزيع.'))
             ->with('created_ids', collect($created)->pluck('id')->all());
     }
 
@@ -214,5 +238,13 @@ class QuickEntryController extends Controller
         $value = (float) $text;
 
         return $value >= self::THOUSANDS_CEILING ? null : (int) round($value * 1000);
+    }
+
+    /** رقمٌ مستعملٌ لشحنةٍ (محذوفةً أو لا) أو لوصلٍ من دفتر مطبوع */
+    private function numberUsed(string $number): bool
+    {
+        return Shipment::withTrashed()
+            ->where(fn ($q) => $q->where('number', $number)->orWhere('barcode', $number))
+            ->exists() || WaybillBook::forCode($number) !== null;
     }
 }

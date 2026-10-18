@@ -3,6 +3,7 @@
 namespace App\Actions\Waybills;
 
 use App\Models\Merchant;
+use App\Models\Shipment;
 use App\Models\User;
 use App\Models\WaybillBook;
 use App\Services\SequenceGenerator;
@@ -30,6 +31,16 @@ class IssueWaybillBook
 
             if ($from + $size - 1 > WaybillBook::MAX_SERIAL) {
                 throw ValidationException::withMessages(['size' => 'نفدت أرقام الوصولات المطبوعة لهذه الشركة.']);
+            }
+
+            // أرقام الدفتر تُقرأ كأرقام وصولات: لا تتداخل مع شحنةٍ كُتب رقمها يدوياً في الإدخال السريع
+            $codes = collect(range($from, $from + $size - 1))->map(fn (int $serial) => WaybillBook::codeFor($serial))->all();
+            $taken = Shipment::withTrashed()
+                ->where(fn ($q) => $q->whereIn('number', $codes)->orWhereIn('barcode', $codes))
+                ->value('number');
+
+            if ($taken) {
+                throw ValidationException::withMessages(['size' => "أرقام هذا الدفتر تتداخل مع الشحنة {$taken}، فلم يُصدر."]);
             }
 
             return WaybillBook::create([

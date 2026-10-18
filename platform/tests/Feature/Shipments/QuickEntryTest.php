@@ -111,7 +111,8 @@ class QuickEntryTest extends TestCase
             $this->assertSame('الزبون', $first->recipient_name);
             $this->assertSame('قرب ساحة كهرمانة', $first->landmark);
             $this->assertSame('', $first->address);
-            $this->assertSame(ShipmentStatus::Created, $first->status);
+            // بلا مندوب: تدخل المخزن لتُوزَّع منه (لا تبقى عند التاجر)
+            $this->assertSame(ShipmentStatus::AtHub, $first->status);
 
             $this->assertSame(40_000, (int) $second->cod_amount);
             $this->assertSame('07801112233', $second->recipient_phone);
@@ -241,5 +242,68 @@ class QuickEntryTest extends TestCase
             ->assertOk()->assertSee('على مستوى المحافظة')->assertSee('data-quick-template', false);
 
         Tenancy::runFor($this->company, fn () => $this->assertSame(0, Shipment::count()));
+    }
+
+    /** الرقم المكتوب في خانة «رقم الوصل» يصير رقم الشحنة وباركودها */
+    public function test_a_typed_waybill_number_becomes_the_shipment_number(): void
+    {
+        $this->actingAs($this->owner)
+            ->post($this->host().'/shipments/quick', [
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
+                'rows' => [$this->row(['number' => '480201'])],
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', fn ($message) => str_contains($message, '480201'));
+
+        Tenancy::runFor($this->company, function () {
+            $shipment = Shipment::where('number', '480201')->firstOrFail();
+            $this->assertSame('480201', $shipment->barcode);
+        });
+    }
+
+    /** رقمٌ مستعملٌ لا يُقبل: لا شحنة جديدة ولا تكرار في الأرقام */
+    public function test_a_number_already_in_use_refuses_the_table_and_saves_nothing(): void
+    {
+        $this->actingAs($this->owner)->post($this->host().'/shipments/quick', [
+            'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'rows' => [$this->row(['number' => '480201'])],
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($this->owner)
+            ->post($this->host().'/shipments/quick', [
+                'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
+                'rows' => [$this->row(['number' => '480201']), $this->row(['number' => '480202']), $this->row(['number' => '480202'])],
+            ])
+            ->assertSessionHasErrors(['rows.0.number', 'rows.2.number']);
+
+        Tenancy::runFor($this->company, fn () => $this->assertSame(1, Shipment::count()));
+    }
+
+    /** الأرقام المولّدة تتخطّى ما كُتب يدوياً: لا تداخل بين المكتوب والمُولَّد */
+    public function test_generated_numbers_skip_a_number_typed_for_later(): void
+    {
+        $this->actingAs($this->owner)->post($this->host().'/shipments/quick', [
+            'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
+            'rows' => [$this->row(), $this->row(['number' => '000003'])],
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($this->owner)->post($this->host().'/shipments/quick', [
+            'mode' => 'merchant', 'merchant_id' => $this->merchant->id,
+            'rows' => [$this->row(), $this->row()],
+        ])->assertSessionHasNoErrors();
+
+        Tenancy::runFor($this->company, function () {
+            $numbers = Shipment::orderBy('id')->pluck('number')->all();
+            $this->assertSame(['000001', '000003', '000002', '000004'], $numbers);
+        });
+    }
+
+    /** بلا مندوب تدخل الشحنة المخزن، وبمندوبٍ تخرج معه مباشرةً */
+    public function test_without_a_courier_the_table_goes_into_the_warehouse(): void
+    {
+        $this->actingAs($this->owner)->post($this->host().'/shipments/quick', [
+            'mode' => 'merchant', 'merchant_id' => $this->merchant->id, 'rows' => [$this->row()],
+        ])->assertSessionHasNoErrors();
+
+        Tenancy::runFor($this->company, fn () => $this->assertSame(ShipmentStatus::AtHub, Shipment::firstOrFail()->status));
     }
 }

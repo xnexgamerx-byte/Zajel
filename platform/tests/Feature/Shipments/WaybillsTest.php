@@ -356,4 +356,15 @@ class WaybillsTest extends TestCase
             ->assertOk()->assertSee($basraBook->firstCode())->assertDontSee($baghdadBook->firstCode().'–');
         $this->actingAs($clerk)->get($this->host()."/waybill-books/{$baghdadBook->id}/print")->assertNotFound();
     }
+
+    /** دفترٌ لا يُصدر إن كانت أرقامه مكتوبةً لشحنةٍ بيد الموظّف */
+    public function test_a_book_does_not_issue_over_a_number_typed_for_a_shipment(): void
+    {
+        Tenancy::runFor($this->company, fn () => app(\App\Actions\Shipments\CreateShipment::class)->handle(
+            $this->written(['number' => '90000002']), $this->owner,
+        ));
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->book(null, 3);
+    }
 }

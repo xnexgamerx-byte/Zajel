@@ -65,7 +65,13 @@
     </td>
     <td class="w-28 px-1 py-2">
         <input name="rows[{{ $i }}][merchant_reference]" value="{{ $old('merchant_reference') }}" class="{{ $cell }} text-left" dir="ltr"
-               aria-label="رقم الوصل عند التاجر">
+               aria-label="رقم طلب التاجر">
+    </td>
+    <td class="w-28 px-1 py-2">
+        <input name="rows[{{ $i }}][number]" value="{{ $old('number') }}" class="{{ $cell }} text-left" dir="ltr"
+               placeholder="تلقائي" aria-label="رقم الوصل"
+               @if ($err('number')) aria-invalid="true" title="{{ $err('number') }}" @endif>
+        @if ($err('number')) <p class="field-error text-xs">{{ $err('number') }}</p> @endif
     </td>
     <td class="min-w-36 px-1 py-2">
         <input name="rows[{{ $i }}][notes]" value="{{ $old('notes') }}" class="{{ $cell }}" aria-label="ملاحظات">

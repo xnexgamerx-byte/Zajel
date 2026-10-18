@@ -62,9 +62,9 @@
 
         @can('shipments.assign')
             <div>
-                <label class="field-label" for="courier_id">تخرج مع مندوب توصيل (اختياري)</label>
+                <label class="field-label" for="courier_id">تخرج إلى (اختياري)</label>
                 <select id="courier_id" name="courier_id" class="field-input" data-searchable>
-                    <option value="">تبقى عند التاجر حتى تُستلم</option>
+                    <option value="">المخزن — تُوزَّع من هناك على المناديب</option>
                     @foreach ($couriers as $courier)
                         <option value="{{ $courier->id }}" @selected((int) old('courier_id') === $courier->id)>{{ $courier->name }}</option>
                     @endforeach
@@ -89,7 +89,8 @@
                         @if ($mode === 'merchant')<th>المحافظة *</th>@endif
                         <th>المنطقة *</th>
                         <th>أقرب نقطة دالّة</th>
-                        <th>رقم الوصل</th>
+                        <th>رقم طلب التاجر</th>
+                        <th title="اتركه فارغاً ليُولَّد رقمٌ تلقائي">رقم الوصل</th>
                         <th>ملاحظات</th>
                         <th class="whitespace-nowrap">استبدال</th>
                         <th class="whitespace-nowrap" title="مدفوع التوصيل مقدّماً: لا تُخصم أجرته من المبلغ — ولمن يُحاسَب مقدّماً تكون كذلك وحدها">مقدّماً</th>

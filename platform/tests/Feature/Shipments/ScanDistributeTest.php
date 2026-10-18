@@ -146,4 +146,54 @@ class ScanDistributeTest extends TestCase
             'governorate_id' => $this->baghdad()->id, 'courier' => [$a->id => ''],
         ])->assertSessionHasErrors('courier');
     }
+
+    /** مندوب شركةٍ أخرى (وسيطة) يُختار في توزيعه وحده، والشحنة تسير إليه بالطريق */
+    public function test_partner_mode_hands_the_shipment_to_another_companys_courier(): void
+    {
+        $a = $this->shipment('الكرادة');
+        $partner = $this->partner();
+
+        $this->actingAs($this->owner)->post($this->host().'/shipments/distribute', [
+            'governorate_id' => $this->baghdad()->id, 'mode' => 'partner', 'courier' => [$a->id => $partner->id],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        Tenancy::runFor($this->company, function () use ($a, $partner) {
+            $a->refresh();
+            $this->assertSame([ShipmentStatus::InTransit, $partner->id], [$a->status, $a->delivery_courier_id]);
+        });
+    }
+
+    /** كلّ نوعٍ يقبل مناديبه وحده */
+    public function test_each_mode_takes_only_its_own_couriers(): void
+    {
+        $a = $this->shipment('الكرادة');
+        $partner = $this->partner();
+
+        $this->actingAs($this->owner)->post($this->host().'/shipments/distribute', [
+            'governorate_id' => $this->baghdad()->id, 'mode' => 'partner', 'courier' => [$a->id => $this->karrada->id],
+        ])->assertSessionHasErrors('courier');
+
+        $this->actingAs($this->owner)->post($this->host().'/shipments/distribute', [
+            'governorate_id' => $this->baghdad()->id, 'mode' => 'own', 'courier' => [$a->id => $partner->id],
+        ])->assertSessionHasErrors('courier');
+
+        $this->assertSame(ShipmentStatus::Created, Tenancy::runFor($this->company, fn () => $a->refresh()->status));
+    }
+
+    private function partner(): Courier
+    {
+        return Tenancy::runFor($this->company, fn () => Courier::create([
+            'code' => 'P1', 'name' => 'مندوب شركة الوسيط', 'phone' => $this->phoneFrom('P1', '0773'),
+            'type' => 'delivery', 'status' => 'active', 'is_intermediary' => true,
+            'branch_id' => Branch::where('code', 'B1')->value('id'),
+        ]));
+    }
+
+    public function test_the_screen_offers_the_partner_mode_beside_our_couriers(): void
+    {
+        $this->partner();
+
+        $this->actingAs($this->owner)->get($this->host().'/shipments/distribute')
+            ->assertOk()->assertSee('توزيع إلى مندوب شركة أخرى')->assertSee('مندوب شركة الوسيط');
+    }
 }

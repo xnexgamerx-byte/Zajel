@@ -15,11 +15,16 @@ export function initScanDistribute(root) {
     const form = root.querySelector('[data-distribute-form]');
     const areasBox = root.querySelector('[data-areas]');
     const areasEmpty = root.querySelector('[data-areas-empty]');
-    const options = root.querySelector('[data-courier-options]');
+    const ownOptions = root.querySelector('[data-courier-options]');
+    const partnerOptions = root.querySelector('[data-partner-options]');
     const rows = new Map();
     const areas = new Map();
     const money = new Intl.NumberFormat('en-US');
     const tones = { green: 'chip-ok', blue: 'chip-info', amber: 'chip-warn', red: 'chip-bad', gray: 'chip-mute', slate: 'chip-mute' };
+
+    /** مندوبو الشركة أو مندوب شركةٍ أخرى: الخيار الذي اختاره الموظّف فوق الجدول */
+    const currentMode = () => (form.querySelector('input[name="mode"]:checked')?.value === 'partner' ? 'partner' : 'own');
+    const optionsFor = () => (currentMode() === 'partner' ? partnerOptions : ownOptions);
 
     const say = (text, bad = false) => {
         message.textContent = text;
@@ -62,8 +67,8 @@ export function initScanDistribute(root) {
         const select = document.createElement('select');
         select.className = 'field-input';
         select.setAttribute('aria-label', `مندوب ${data.area}`);
-        select.append(options.content.cloneNode(true));
-        if (data.suggested) select.value = String(data.suggested);
+        select.append(optionsFor().content.cloneNode(true));
+        if (data.suggested && currentMode() === 'own') select.value = String(data.suggested);
         select.addEventListener('change', () => { box.classList.toggle('ring-2', !select.value); });
 
         box.append(head, select);
@@ -155,6 +160,7 @@ export function initScanDistribute(root) {
             const url = new URL(root.dataset.lookup, location.href);
             url.searchParams.set('number', number);
             url.searchParams.set('governorate', root.dataset.governorate);
+            url.searchParams.set('mode', currentMode());
             const response = await fetch(url, { headers: { Accept: 'application/json' } });
             const data = await response.json();
 
@@ -182,6 +188,16 @@ export function initScanDistribute(root) {
         }
     });
     root.querySelector('[data-scan-add]')?.addEventListener('click', scan);
+
+    // تبديل النوع يُعيد قائمة كلّ منطقةٍ إلى مناديب النوع الجديد، فلا يبقى مندوبٌ من النوع الآخر
+    form.querySelectorAll('input[name="mode"]').forEach((radio) => radio.addEventListener('change', () => {
+        const partner = currentMode() === 'partner';
+        root.querySelectorAll('[data-hint]').forEach((hint) => { hint.hidden = hint.dataset.hint === 'partner' ? !partner : partner; });
+        areas.forEach((area) => {
+            area.select.replaceChildren(optionsFor().content.cloneNode(true));
+            area.box.classList.remove('ring-2', 'ring-bad-200');
+        });
+    }));
 
     root.querySelector('[data-scan-clear]')?.addEventListener('click', () => {
         rows.clear();

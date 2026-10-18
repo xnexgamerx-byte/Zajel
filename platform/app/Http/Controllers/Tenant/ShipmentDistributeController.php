@@ -36,7 +36,9 @@ class ShipmentDistributeController extends Controller
         return view('tenant.shipments.distribute', [
             'governorates' => $governorates,
             'governorate'  => $governorate,
-            'couriers'     => $this->couriers($request, $governorate?->id),
+            'mode'         => $this->mode($request->query('mode')),
+            'couriers'     => $this->couriers($request, $governorate?->id, partners: false),
+            'partners'     => $this->couriers($request, $governorate?->id, partners: true),
         ]);
     }
 
@@ -69,6 +71,7 @@ class ShipmentDistributeController extends Controller
         }
 
         $phone = (string) $shipment->recipient_phone;
+        $partner = $this->mode($request->query('mode')) === 'partner';
 
         return response()->json([
             'id'        => $shipment->id,
@@ -80,7 +83,8 @@ class ShipmentDistributeController extends Controller
             'area_id'   => (int) $shipment->city_id,
             'area'      => $shipment->city?->name_ar ?? 'بلا منطقة',
             'courier'   => $shipment->deliveryCourier?->name,
-            'suggested' => $this->suggest($request, $shipment),
+            // مندوب شركةٍ أخرى لا يُقترح من مناطق مناديبنا
+            'suggested' => $partner ? null : $this->suggest($request, $shipment),
             'phone'     => str_repeat('•', max(0, mb_strlen($phone) - 3)).mb_substr($phone, -3),
             'url'       => route('shipments.show', $shipment),
         ]);
@@ -90,11 +94,13 @@ class ShipmentDistributeController extends Controller
     {
         $data = $request->validate([
             'governorate_id' => ['required', 'integer'],
+            'mode'           => ['nullable', 'in:own,partner'],
             'courier'        => ['required', 'array', 'min:1', 'max:500'],
             'courier.*'      => ['nullable', 'integer'],
         ], [], ['courier' => 'الوصولات']);
 
-        $back = redirect()->route('shipments.distribute', ['governorate' => $data['governorate_id']]);
+        $mode = $this->mode($data['mode'] ?? null);
+        $back = redirect()->route('shipments.distribute', ['governorate' => $data['governorate_id'], 'mode' => $mode]);
 
         // لكلّ وصلٍ مندوبه: [رقم الشحنة => رقم المندوب]
         $plan = collect($data['courier'])->mapWithKeys(fn ($c, $id) => [(int) $id => (int) $c]);
@@ -103,7 +109,9 @@ class ShipmentDistributeController extends Controller
             return $back->withErrors(['courier' => 'اختر مندوباً لكلّ منطقة قبل التوزيع.']);
         }
 
+        // مندوبو الشركة لا يُسنَدون لمندوب شركةٍ أخرى والعكس: كلٌّ في قائمته
         $couriers = Courier::delivering()->active()->visibleTo($request->user())
+            ->where('is_intermediary', $mode === 'partner')
             ->whereIn('id', $plan->unique()->values())->get()->keyBy('id');
 
         // ما لا يراه لا يوزَّع باسمه، وما وجهته محافظةٌ أخرى لا يدخل هذا التوزيع
@@ -137,7 +145,11 @@ class ShipmentDistributeController extends Controller
             $skipped['#'.$missing] = 'ليست من هذه المحافظة';
         }
 
-        $message = $moved ? 'وُزّعت '.Arabic::shipments($moved).' على مناديبها.' : 'لم تُوزَّع أيّ شحنة.';
+        $message = $moved
+            ? ($mode === 'partner'
+                ? 'أُرسلت '.Arabic::shipments($moved).' إلى مندوب شركةٍ أخرى.'
+                : 'وُزّعت '.Arabic::shipments($moved).' على مناديبها.')
+            : 'لم تُوزَّع أيّ شحنة.';
 
         if ($skipped) {
             $message .= ' تُخطّيت '.count($skipped).': '.collect($skipped)->take(6)
@@ -145,6 +157,12 @@ class ShipmentDistributeController extends Controller
         }
 
         return $moved ? $back->with('success', $message) : $back->withErrors(['courier' => $message]);
+    }
+
+    /** توزيعٌ على مندوبي الشركة، أو إلى مندوب شركةٍ أخرى (شركة وسيطة) */
+    private function mode(?string $mode): string
+    {
+        return $mode === 'partner' ? 'partner' : 'own';
     }
 
     /** محافظة فرع الموظّف — والرئيسي بغداد في الغالب — ليفتح توزيعه هو أوّلاً */
@@ -160,13 +178,14 @@ class ShipmentDistributeController extends Controller
      *
      * @return Collection<int, Courier>
      */
-    private function couriers(Request $request, ?int $governorateId): Collection
+    private function couriers(Request $request, ?int $governorateId, bool $partners): Collection
     {
         $covering = $governorateId
             ? CourierZone::where('governorate_id', $governorateId)->pluck('courier_id')->unique()
             : collect();
 
-        return Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')->get(['id', 'name'])
+        return Courier::delivering()->active()->where('is_intermediary', $partners)->visibleTo($request->user())
+            ->orderBy('name')->get(['id', 'name'])
             ->each(fn (Courier $c) => $c->setAttribute('covers', $covering->contains($c->id)))
             ->sortByDesc('covers')->values();
     }
@@ -176,7 +195,7 @@ class ShipmentDistributeController extends Controller
     {
         $zones = CourierZone::where('governorate_id', $shipment->governorate_id)
             ->where(fn ($q) => $q->whereNull('city_id')->when($shipment->city_id, fn ($w) => $w->orWhere('city_id', $shipment->city_id)))
-            ->whereHas('courier', fn ($c) => $c->delivering()->active()->visibleTo($request->user()))
+            ->whereHas('courier', fn ($c) => $c->delivering()->active()->where('is_intermediary', false)->visibleTo($request->user()))
             ->orderByRaw('case when city_id is null then 1 else 0 end')
             ->orderBy('id')
             ->first(['courier_id']);

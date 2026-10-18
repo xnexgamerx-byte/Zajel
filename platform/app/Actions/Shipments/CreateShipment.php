@@ -11,6 +11,7 @@ use App\Services\DuplicateDetector;
 use App\Services\PricingService;
 use App\Services\SequenceGenerator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * إنشاء شحنة: رقم وصل + تسعير + أول حدث في السجلّ — كلّها في معاملة واحدة.
@@ -38,6 +39,34 @@ class CreateShipment
         }
 
         return $notes === '' ? $fixed : "{$notes} — {$fixed}";
+    }
+
+    /**
+     * رقم الوصل: المكتوب يُعتمد إن كان حرّاً (لا رقم شحنةٍ ولا باركود، محذوفةً كانت أو لا)،
+     * وإلّا يُولَّد التالي الذي لم يُستعمل — فلا يتداخل مكتوبٌ مع مُولَّد.
+     */
+    private function numberFor(?string $typed): string
+    {
+        if ($typed !== null) {
+            if ($this->numberTaken($typed)) {
+                throw ValidationException::withMessages(['number' => "الرقم {$typed} مستعملٌ لشحنةٍ أخرى."]);
+            }
+
+            return $typed;
+        }
+
+        do {
+            $number = $this->sequences->next('shipment');
+        } while ($this->numberTaken($number));
+
+        return $number;
+    }
+
+    private function numberTaken(string $number): bool
+    {
+        return Shipment::withTrashed()
+            ->where(fn ($q) => $q->where('number', $number)->orWhere('barcode', $number))
+            ->exists();
     }
 
     public function handle(array $data, ?User $actor = null): Shipment
@@ -72,7 +101,8 @@ class CreateShipment
             ['total_fees' => $totalFees, 'merchant_due' => $merchantDue] =
                 PricingService::totals($cod, $feesPaidBy, $deliveryFee, $extraFee, $codFee, $discount);
 
-            $number = $this->sequences->next('shipment');
+            // المكتوب في الإدخال السريع يصير رقم الوصل، وإلّا يُولَّد التالي الذي لم يُستعمل
+            $number = $this->numberFor($data['number'] ?? null);
 
             $shipment = Shipment::create([
                 'branch_id'           => $data['branch_id'] ?? $merchant->branch_id ?? $actor?->branch_id,
