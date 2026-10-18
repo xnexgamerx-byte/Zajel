@@ -268,7 +268,7 @@ class ExchangeTest extends TestCase
             ->assertJson(['error' => "{$shipment->number}: قديم استبدالٍ لم يُستلم من المندوب بعد — يُستلم أوّلاً من «استلام الراجع من المندوب»."]);
 
         $this->actingAs($this->owner)->post($this->host().'/returns/receive', ['shipment_ids' => [$shipment->id]])
-            ->assertSessionHas('success', 'استُلم الراجع من المندوب، عدد الشحنات 1.');
+            ->assertSessionHas('success', 'استُلم الراجع من المندوب، عدد الشحنات 1. الإيصال: RC000001 — تجده في «إيصالات راجع المندوبين».');
 
         $received = $this->fresh($shipment);
         $this->assertSame(ShipmentStatus::Returning, $received->status);
