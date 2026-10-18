@@ -79,6 +79,7 @@ final class StaffNavigation
                 ['returns.outgoing', 'تسليم الراجع للتاجر', ['returns.outgoing'], 'returns.manage'],
                 ['returns.pickup', 'تسليم الراجع لمندوب الاستلام', ['returns.pickup'], 'returns.manage'],
                 ['return-batches.index', 'إيصالات الراجع', ['return-batches.*'], 'returns.manage'],
+                ['returns.couriers', 'كشوفات رواجع المندوبين', ['returns.couriers'], 'returns.manage'],
             ]],
             // مال اليوم: ما يدخل الصندوق وما يُدفع، والمحاسبة مع المناديب والتجّار
             'money' => ['الحسابات المالية', 'cash', [
