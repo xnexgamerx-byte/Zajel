@@ -178,56 +178,13 @@
             </label>
         </div>
 
-        {{-- الاعتماد المزدوج لوجبات التحصيل (docs/plan/68 §٧) --}}
-        <div class="rounded-xl border border-ink-200 p-4">
-            <input type="hidden" name="dual_approval" value="0">
-            <label class="flex items-start gap-3">
-                <input type="checkbox" name="dual_approval" value="1" class="mt-1 size-4"
-                       @checked(old('dual_approval', (bool) $company->setting('finance.dual_approval')))>
-                <span>
-                    <span class="card-title block">يعتمد وجبة التحصيل غيرُ من أنشأها</span>
-                    <span class="card-hint">من جمع النقد وعدّه لا يعتمد وجبته بنفسه: يعتمدها محاسبٌ آخر أو صاحب الشركة.</span>
-                </span>
-            </label>
-        </div>
-
-        {{-- إدارة الأرباح (docs/plan/68 ق٨ وق٩ وق١٠): ما يُحجز من النقد قبل السحب، ودورة التسوية، وحدّ الاعتماد --}}
-        <fieldset class="rounded-xl border border-ink-200 p-4">
-            <legend class="card-title px-1">إدارة الأرباح</legend>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                    <label class="field-label" for="reserve_fixed">احتياطي تشغيلي ثابت (د.ع)</label>
-                    <input id="reserve_fixed" type="number" name="reserve_fixed" min="0" step="1" class="field-input text-left" dir="ltr"
-                           value="{{ old('reserve_fixed', $company->setting('finance.reserve_fixed')) }}">
-                    @error('reserve_fixed') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="field-label" for="reserve_days">أو أيامٌ من متوسّط المصروف اليومي</label>
-                    <input id="reserve_days" type="number" name="reserve_days" min="0" max="90" step="1" class="field-input text-left" dir="ltr"
-                           value="{{ old('reserve_days', $company->setting('finance.reserve_days')) }}">
-                    @error('reserve_days') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="field-label" for="merchant_cycle_days">دورة تسوية التجّار (أيام)</label>
-                    <input id="merchant_cycle_days" type="number" name="merchant_cycle_days" min="1" max="60" step="1" class="field-input text-left" dir="ltr"
-                           value="{{ old('merchant_cycle_days', $company->setting('finance.merchant_cycle_days', 7)) }}">
-                    @error('merchant_cycle_days') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="field-label" for="withdrawal_approval_over">سحب الأرباح فوق هذا المبلغ يعتمده غيرُ طالبه (د.ع)</label>
-                    <input id="withdrawal_approval_over" type="number" name="withdrawal_approval_over" min="0" step="1" class="field-input text-left" dir="ltr"
-                           value="{{ old('withdrawal_approval_over', $company->setting('finance.withdrawal_approval_over')) }}">
-                    @error('withdrawal_approval_over') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="field-label" for="custody_age_days">لا تُقفَل فترةٌ وعهدةُ مندوبٍ أقدم من (أيام)</label>
-                    <input id="custody_age_days" type="number" name="custody_age_days" min="1" max="60" step="1" class="field-input text-left" dir="ltr"
-                           value="{{ old('custody_age_days', $company->setting('finance.custody_age_days', 7)) }}">
-                    @error('custody_age_days') <p class="field-error">{{ $message }}</p> @enderror
-                </div>
+        {{-- الإعدادات المالية انتقلت إلى صفحتها (docs/plan/68 §١٣) --}}
+        @can('finance.settings')
+            <div class="rounded-xl border border-ink-200 p-4 text-sm">
+                <span class="card-title block">الاعتماد المزدوج والاحتياطي وحدود السحب وعتبات التنبيهات</span>
+                <span class="card-hint">في <a href="{{ route('finance.settings') }}" class="text-[var(--brand)] hover:underline">الإعدادات المالية</a> تحت «إدارة الأرباح».</span>
             </div>
-            <p class="card-hint mt-2">الاحتياطي يُحجز من النقد قبل «المتاح للسحب»: الأكبر من المبلغ الثابت وأيام المصروف. والدورة تفصل مستحقّات التجّار الحالية عن المتأخّرة. وحدّ الاعتماد فارغاً أو صفراً: يعتمد صاحب الصلاحية سحبه بنفسه.</p>
-        </fieldset>
+        @endcan
 
         {{-- طرق دفع مستحقّات التجّار في «طلب محاسبة» من بوابتهم (docs/plan/44) --}}
         <fieldset class="rounded-xl border border-ink-200 p-4">

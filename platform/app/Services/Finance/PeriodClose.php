@@ -150,9 +150,9 @@ class PeriodClose
 
         $add('interbranch', 'الجاري بين الفروع متقاصّ (1400)', ($journal['interbranch']['status'] ?? 'ok') === 'ok', $journal['interbranch']['detail'] ?? 'لا قيد بين الفروع.');
 
-        $balanced = ($journal['balanced']['status'] ?? 'ok') === 'ok' && ($journal['chain']['status'] ?? 'ok') === 'ok';
-        $add('balanced', 'ميزان المراجعة متوازن وسلسلة البصمات سليمة', $balanced,
-            $balanced ? 'متوازن، ولا قيد عُدِّل خارج النظام.' : trim(($journal['balanced']['detail'] ?? '').' '.($journal['chain']['detail'] ?? '')));
+        $failing = collect(['balanced', 'chain', 'audit_chain'])->filter(fn ($k) => ($journal[$k]['status'] ?? 'ok') !== 'ok');
+        $add('balanced', 'ميزان المراجعة متوازن وسلسلتا البصمات سليمتان', $failing->isEmpty(),
+            $failing->isEmpty() ? 'متوازن، ولا قيد ولا سطر تدقيقٍ عُدِّل خارج النظام.' : $failing->map(fn ($k) => $journal[$k]['detail'])->implode(' '));
 
         if (($journal['initialized']['status'] ?? null) === 'note') {
             $add('initialized', 'الدفتر مبنيٌّ من التاريخ', false, 'لم يكتمل بناء الدفتر بعد: انتظره دقائق ثم أعد المراجعة.');
@@ -380,7 +380,8 @@ class PeriodClose
             'auditable_type' => FinancialPeriod::class,
             'auditable_id'   => $period->id,
             'new_values'     => array_filter(['number' => $period->number, 'from' => $period->from_date?->toDateString(),
-                'to' => $period->to_date?->toDateString(), 'status' => $period->status, 'reason' => $reason]),
+                'to' => $period->to_date?->toDateString(), 'status' => $period->status]),
+            'reason'         => $reason === null ? null : mb_substr($reason, 0, 255),
             'ip'             => request()->ip(),
         ]);
     }

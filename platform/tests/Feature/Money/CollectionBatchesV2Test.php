@@ -354,7 +354,7 @@ class CollectionBatchesV2Test extends TestCase
 
     public function test_dual_approval_is_a_company_setting(): void
     {
-        $this->actingAs($this->owner)->get($this->host().'/settings/company')->assertOk()->assertSee('يعتمد وجبة التحصيل غيرُ من أنشأها');
+        $this->actingAs($this->owner)->get($this->host().'/finance/settings')->assertOk()->assertSee('من أنشأ وجبة التحصيل لا يعتمدها');
     }
 
     public function test_attachments_are_uploaded_and_downloaded_from_the_batch(): void

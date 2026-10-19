@@ -98,14 +98,16 @@ final class StaffNavigation
             'position' => ['إدارة الأرباح', 'bank', [
                 ['money.position', 'الموقف المالي', ['money.position'], 'money.view'],
                 // قسم المدير للأرباح: لوحتها من دفتر القيود، ووجبات التحصيل، وتقريرها، وسحب الأرباح
-                ['profits.index', 'لوحة الأرباح', ['profits.index', 'profits.export', 'profits.batches.*', 'profits.report', 'profits.withdrawals.*', 'profits.couriers.*'], 'money.profits'],
+                ['profits.index', 'لوحة الأرباح', ['profits.index', 'profits.export', 'profits.batches.*', 'profits.report', 'profits.withdrawals.*', 'profits.couriers.*'], 'profits.view'],
                 // النقد في الصناديق والعهد والطريق، والمتوقَّع أربعة عشر يوماً (docs/plan/68 §١١)
-                ['profits.cash', 'الموقف النقدي', ['profits.cash'], 'money.profits'],
+                ['profits.cash', 'الموقف النقدي', ['profits.cash'], 'profits.view'],
                 // دفتر القيود: الميزان ومطابقته، وتتبّع أي رقمٍ إلى قيده (docs/plan/68)
-                ['finance.trial-balance', 'ميزان المراجعة', ['finance.trial-balance'], 'money.profits'],
-                ['finance.ledger', 'دفتر القيود', ['finance.ledger', 'finance.entries.*'], 'money.profits'],
+                ['finance.trial-balance', 'ميزان المراجعة', ['finance.trial-balance'], 'profits.view'],
+                ['finance.ledger', 'دفتر القيود', ['finance.ledger', 'finance.entries.*'], 'profits.view'],
                 // إقفال الفترات: المراجعة والإعداد والاعتماد والتقرير بنسخه (docs/plan/68 §٩)
-                ['finance.periods.index', 'إقفال الفترات', ['finance.periods.*'], 'money.profits'],
+                ['finance.periods.index', 'إقفال الفترات', ['finance.periods.*'], 'profits.view'],
+                // الاعتماد المزدوج والاحتياطي والحدود وعتبات التنبيهات (docs/plan/68 §١٣)
+                ['finance.settings', 'الإعدادات المالية', ['finance.settings'], 'finance.settings'],
                 ['money.position.history', 'تاريخ الموقف المالي', ['money.position.history'], 'money.view'],
                 ['money.reconcile', 'تدقيق الحسابات', ['money.reconcile'], 'money.view'],
                 ['money.accountants', 'قبض ودفع الموظّفين', ['money.accountants'], 'money.view'],

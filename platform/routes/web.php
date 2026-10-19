@@ -62,6 +62,8 @@ use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\ProfitsController;
 use App\Http\Controllers\Tenant\FinanceLedgerController;
+use App\Http\Controllers\Tenant\FinanceSettingsController;
+use App\Http\Controllers\Tenant\FinancialAlertController;
 use App\Http\Controllers\Tenant\FinancialPeriodController;
 use App\Http\Controllers\Tenant\CollectionBatchController;
 use App\Http\Controllers\Tenant\CourierFinanceController;
@@ -334,6 +336,15 @@ Route::middleware('tenant')->group(function () {
             // «التنبيهات التشغيلية» (docs/plan/39): ما مرّ عليه آخر موعدٍ للتوصيل ولم يُحسم
             Route::get('/operational-alerts', [OperationalAlertController::class, 'index'])
                 ->middleware('can:shipments.view')->name('operations.alerts');
+            // التنبيهات المالية (docs/plan/68 §١٢): تبويبٌ فيها لمن يرى الأرباح
+            Route::middleware('can:profits.view')->prefix('/operational-alerts/finance')->name('finance.alerts.')->group(function () {
+                Route::post('/scan', [FinancialAlertController::class, 'scan'])->name('scan');
+                Route::whereNumber('alert')->group(function () {
+                    Route::post('/{alert}/take', [FinancialAlertController::class, 'take'])->name('take');
+                    Route::post('/{alert}/resolve', [FinancialAlertController::class, 'resolve'])->name('resolve');
+                    Route::post('/{alert}/ignore', [FinancialAlertController::class, 'ignore'])->name('ignore');
+                });
+            });
 
             Route::middleware('can:control.review')->group(function () {
                 Route::get('/control/review', [ReviewHoldController::class, 'index'])->name('control.review');
@@ -540,10 +551,15 @@ Route::middleware('tenant')->group(function () {
                 ->middleware('can:money.cash')->name('branch-accounts.deposits.store');
 
             // دفتر القيود (docs/plan/68): الميزان ومطابقته وسطور القيود — للشركة كلّها
-            Route::middleware(['can:money.profits', 'main-branch'])->prefix('finance')->name('finance.')->group(function () {
+            Route::middleware(['can:profits.view', 'main-branch'])->prefix('finance')->name('finance.')->group(function () {
                 Route::get('/trial-balance', [FinanceLedgerController::class, 'trialBalance'])->name('trial-balance');
                 Route::get('/ledger', [FinanceLedgerController::class, 'lines'])->name('ledger');
                 Route::get('/entries/{entry}', [FinanceLedgerController::class, 'entry'])->whereNumber('entry')->name('entries.show');
+                // الإعدادات المالية (docs/plan/68 §١٣): لصاحب الشركة
+                Route::middleware('can:finance.settings')->group(function () {
+                    Route::get('/settings', [FinanceSettingsController::class, 'edit'])->name('settings');
+                    Route::put('/settings', [FinanceSettingsController::class, 'update'])->name('settings.update');
+                });
                 // إقفال الفترات (docs/plan/68 §٩)
                 Route::get('/periods', [FinancialPeriodController::class, 'index'])->name('periods.index');
                 Route::get('/periods/review', [FinancialPeriodController::class, 'review'])->name('periods.review');
@@ -558,30 +574,30 @@ Route::middleware('tenant')->group(function () {
             });
 
             // «العوائد» تحت «الموقف المالي»: وجبات التحصيل والأرباح، وتقريرها، وسحب الأرباح
-            Route::middleware('can:money.profits')->prefix('profits')->name('profits.')->group(function () {
+            Route::middleware('can:profits.view')->prefix('profits')->name('profits.')->group(function () {
                 Route::get('/', [ProfitsController::class, 'index'])->name('index');
                 Route::get('/report', [ProfitsController::class, 'report'])->name('report');
                 Route::get('/export', [ProfitsController::class, 'export'])->name('export');
                 Route::get('/cash', CashPositionController::class)->name('cash');
                 Route::get('/batches', [CollectionBatchController::class, 'index'])->name('batches.index');
-                Route::get('/batches/create', [CollectionBatchController::class, 'create'])->name('batches.create');
-                Route::post('/batches', [CollectionBatchController::class, 'store'])->name('batches.store');
+                Route::get('/batches/create', [CollectionBatchController::class, 'create'])->middleware('can:batches.prepare')->name('batches.create');
+                Route::post('/batches', [CollectionBatchController::class, 'store'])->middleware('can:batches.prepare')->name('batches.store');
                 Route::get('/batches/export', [CollectionBatchController::class, 'export'])->name('batches.export');
                 Route::get('/couriers/{courier}', [CourierFinanceController::class, 'show'])->whereNumber('courier')->name('couriers.show');
                 Route::whereNumber(['batch', 'item', 'cost', 'file'])->group(function () {
                     Route::get('/batches/{batch}', [CollectionBatchController::class, 'show'])->name('batches.show');
                     Route::get('/batches/{batch}/print', [CollectionBatchController::class, 'print'])->name('batches.print');
-                    Route::delete('/batches/{batch}', [CollectionBatchController::class, 'destroy'])->name('batches.destroy');
-                    Route::post('/batches/{batch}/items', [CollectionBatchController::class, 'addItems'])->name('batches.items.add');
-                    Route::delete('/batches/{batch}/items/{item}', [CollectionBatchController::class, 'removeItem'])->name('batches.items.remove');
-                    Route::post('/batches/{batch}/items/{item}/received', [CollectionBatchController::class, 'received'])->name('batches.items.received');
-                    Route::post('/batches/{batch}/items/{item}/resolve', [CollectionBatchController::class, 'resolve'])->name('batches.items.resolve');
-                    Route::post('/batches/{batch}/files', [CollectionBatchController::class, 'upload'])->name('batches.files.store');
+                    Route::delete('/batches/{batch}', [CollectionBatchController::class, 'destroy'])->middleware('can:batches.prepare')->name('batches.destroy');
+                    Route::post('/batches/{batch}/items', [CollectionBatchController::class, 'addItems'])->middleware('can:batches.prepare')->name('batches.items.add');
+                    Route::delete('/batches/{batch}/items/{item}', [CollectionBatchController::class, 'removeItem'])->middleware('can:batches.prepare')->name('batches.items.remove');
+                    Route::post('/batches/{batch}/items/{item}/received', [CollectionBatchController::class, 'received'])->middleware('can:batches.prepare')->name('batches.items.received');
+                    Route::post('/batches/{batch}/items/{item}/resolve', [CollectionBatchController::class, 'resolve'])->middleware('can:batches.prepare')->name('batches.items.resolve');
+                    Route::post('/batches/{batch}/files', [CollectionBatchController::class, 'upload'])->middleware('can:batches.prepare')->name('batches.files.store');
                     Route::get('/batches/{batch}/files/{file}', [CollectionBatchController::class, 'file'])->name('batches.files.show');
-                    Route::post('/batches/{batch}/costs', [CollectionBatchController::class, 'addCosts'])->name('batches.costs.add');
-                    Route::delete('/batches/{batch}/costs/{cost}', [CollectionBatchController::class, 'removeCost'])->name('batches.costs.remove');
-                    Route::post('/batches/{batch}/remainders', [CollectionBatchController::class, 'remainder'])->name('batches.remainders');
-                    Route::post('/batches/{batch}/approve', [CollectionBatchController::class, 'approve'])->name('batches.approve');
+                    Route::post('/batches/{batch}/costs', [CollectionBatchController::class, 'addCosts'])->middleware('can:batches.prepare')->name('batches.costs.add');
+                    Route::delete('/batches/{batch}/costs/{cost}', [CollectionBatchController::class, 'removeCost'])->middleware('can:batches.prepare')->name('batches.costs.remove');
+                    Route::post('/batches/{batch}/remainders', [CollectionBatchController::class, 'remainder'])->middleware('can:batches.prepare')->name('batches.remainders');
+                    Route::post('/batches/{batch}/approve', [CollectionBatchController::class, 'approve'])->middleware('can:batches.approve')->name('batches.approve');
                 });
                 // سحب الأرباح للشركة كلّها: من الفرع الرئيسي، ولصاحب الشركة أو من يُمنح بعينه
                 Route::middleware('main-branch')->group(function () {

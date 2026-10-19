@@ -4,6 +4,10 @@
 @section('content')
 @php($approved = $batch->isApproved())
 @php($open = $batch->isOpen())
+{{-- الإعداد والاعتماد صلاحيتان (docs/plan/68 §١٣): من يرى الوجبة ولا يُعدّها يقرؤها فقط --}}
+@php($canPrepare = auth()->user()->can('batches.prepare'))
+@php($canApprove = auth()->user()->can('batches.approve'))
+@php($editable = ! $batch->isCancelled() && $canPrepare)
 @php($pending = $items->where('status', 'pending_cash')->count())
 @php($unresolved = $items->filter(fn ($i) => ! $i->isRemainder() && $i->discrepancy() < 0 && $i->resolution === null)->count())
 @include('tenant.profits._tabs', ['title' => 'وجبة التحصيل '.$batch->number])
@@ -131,7 +135,7 @@
                                 <td class="num font-semibold">{{ number_format($item->received_cash) }}</td>
                                 <td>—</td>
                                 <td>
-                                    @if ($open)
+                                    @if ($open && $canPrepare)
                                         <form method="POST" action="{{ route('profits.batches.items.remove', [$batch, $item]) }}" data-confirm="يُخرج هذا التحصيل من الوجبة؟">
                                             @csrf @method('DELETE')
                                             <button class="btn-ghost py-1 text-xs">إخراج</button>
@@ -152,7 +156,7 @@
                                 <td class="num">{{ number_format($item->courier_commissions) }}</td>
                                 <td class="num">{{ number_format($item->expected_cash) }}</td>
                                 <td>
-                                    @if ($batch->isCancelled())
+                                    @if (! $editable)
                                         <span class="num">{{ number_format($item->received_cash) }}</span>
                                     @else
                                         <form method="POST" action="{{ route('profits.batches.items.received', [$batch, $item]) }}" class="flex flex-wrap items-center gap-1">
@@ -174,12 +178,12 @@
                                         <div class="num mt-1 text-xs text-ink-500">عُدَّ {{ $item->counted_at->format('Y-m-d H:i') }}</div>
                                     @endif
                                     @if ($item->discrepancy() < 0)
-                                        @if ($open)
+                                        @if ($open && $canPrepare)
                                             <form method="POST" action="{{ route('profits.batches.items.resolve', [$batch, $item]) }}" class="mt-2 flex flex-wrap items-center gap-1">
                                                 @csrf
                                                 <select name="resolution" class="field-input w-36 py-1 text-xs" aria-label="معالجة العجز">
                                                     <option value="courier_debt" @selected($item->resolution === 'courier_debt')>ذمّة على المندوب</option>
-                                                    @can('money.write_off')<option value="written_off" @selected($item->resolution === 'written_off')>شطب العجز</option>@endcan
+                                                    @can('batches.write_off')<option value="written_off" @selected($item->resolution === 'written_off')>شطب العجز</option>@endcan
                                                 </select>
                                                 <input name="resolution_reason" maxlength="255" value="{{ $item->resolution_reason }}" placeholder="السبب" class="field-input w-32 py-1 text-xs" aria-label="سبب المعالجة">
                                                 <button class="btn-ghost py-1 text-xs">{{ $item->resolution ? 'تغيير' : 'عالِج العجز' }}</button>
@@ -196,7 +200,7 @@
                                 </td>
                                 <td @class(['num font-semibold', 'text-bad-700' => $item->discrepancy() < 0, 'text-info-700' => $item->discrepancy() > 0])>{{ number_format($item->discrepancy()) }}</td>
                                 <td>
-                                    @if ($open)
+                                    @if ($open && $canPrepare)
                                         <form method="POST" action="{{ route('profits.batches.items.remove', [$batch, $item]) }}" data-confirm="يُخرج الكشف {{ $item->settlement?->code }} من الوجبة؟ يعود لوجبةٍ أخرى.">
                                             @csrf @method('DELETE')
                                             <button class="btn-ghost py-1 text-xs">إخراج</button>
@@ -256,14 +260,14 @@
                         <td>{{ $cost->expense?->description }}</td>
                         <td class="num font-semibold">{{ number_format($cost->amount) }}</td>
                         <td>
-                            @unless ($batch->isCancelled())
+                            @if ($editable)
                                 <form method="POST" action="{{ route('profits.batches.costs.remove', [$batch, $cost]) }}" class="flex items-center gap-1"
                                       data-confirm="يُخرج المصروف {{ $cost->expense?->number }} من الوجبة؟">
                                     @csrf @method('DELETE')
                                     @if ($approved)<input name="reason" required maxlength="255" placeholder="سبب التصحيح" class="field-input w-36 py-1" aria-label="سبب التصحيح">@endif
                                     <button class="btn-ghost py-1 text-xs">إخراج</button>
                                 </form>
-                            @endunless
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -272,7 +276,7 @@
             </tbody>
         </table>
     </div>
-    @if ($expenses->isNotEmpty() && ! $batch->isCancelled())
+    @if ($expenses->isNotEmpty() && $editable)
         <form method="POST" action="{{ route('profits.batches.costs.add', $batch) }}" class="border-t border-ink-100 p-4">
             @csrf
             <div class="mb-2 text-xs font-semibold text-ink-600">مصروفات المدّة {{ $batch->branch ? 'للفرع' : '' }} لم تُحسب على وجبة:</div>
@@ -294,7 +298,7 @@
     @endif
 </section>
 
-@if ($open)
+@if ($open && $canPrepare)
     @if ($addable->isNotEmpty())
         <section class="card mb-5 overflow-hidden">
             <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">إضافة كشوف مُقفَلة لم تدخل وجبة</h2>
@@ -367,19 +371,20 @@
             <li class="px-5 py-4 text-ink-500">لا مرفق. أرفق ورقة العدّ الموقَّعة أو إيصال تسليم العجز.</li>
         @endforelse
     </ul>
-    @unless ($batch->isCancelled())
+    @if ($editable)
         <form method="POST" action="{{ route('profits.batches.files.store', $batch) }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2 border-t border-ink-100 p-4">
             @csrf
             <input type="file" name="file" required accept=".jpg,.jpeg,.png,.webp,.pdf" class="field-input max-w-xs" aria-label="الملف">
             <button class="btn-ghost">أرفق</button>
             <span class="text-xs text-ink-500">صورة أو PDF حتى ٥ م.ب.</span>
         </form>
-    @endunless
+    @endif
 </section>
 
-@if ($open)
+@if ($open && ($canApprove || $canPrepare))
     {{-- الاعتماد أو الإلغاء: آخر الصفحة، بعد أن يُرى كل شيء --}}
     <section class="card mb-5 grid gap-4 p-5 md:grid-cols-2">
+        @if ($canApprove)
         <div>
             <h2 class="mb-2 text-sm font-bold">اعتماد الوجبة</h2>
             <ul class="mb-3 space-y-1 text-xs">
@@ -394,12 +399,14 @@
             <form method="POST" action="{{ route('profits.batches.approve', $batch) }}" class="flex flex-wrap items-center gap-2"
                   data-confirm="اعتماد الوجبة {{ $batch->number }} بصافي ربح {{ number_format($batch->net_profit) }} د.ع و{{ $batch->reconciliationLabel() }}؟ تُكتب حركات الفروق، وبعدها كل تصحيحٍ يُكتب بسببه.">
                 @csrf
-                @if ($unresolved && auth()->user()->can('money.write_off'))
+                @if ($unresolved && auth()->user()->can('batches.approve_exception'))
                     <input name="exception" maxlength="255" placeholder="سبب الاعتماد باستثناء (يصير العجز ذمّة)" class="field-input min-w-56 flex-1" aria-label="سبب الاستثناء">
                 @endif
                 <button class="btn-primary" @disabled($pending || $items->isEmpty())><x-icon name="check" class="size-4"/> اعتماد بعد المطابقة</button>
             </form>
         </div>
+        @endif
+        @if ($canPrepare)
         <div>
             <h2 class="mb-2 text-sm font-bold">إلغاء الوجبة</h2>
             <p class="mb-3 text-xs text-ink-500">لا يتغيّر شيءٌ في المال: الكشوف المُقفَلة ونقدها في الصندوق كما هي، وتدخل كشوفها ومصروفاتها وجبةً أخرى. والوجبة تبقى بسجلّها.</p>
@@ -410,6 +417,7 @@
                 <button class="btn-ghost text-bad-700">إلغاء الوجبة</button>
             </form>
         </div>
+        @endif
     </section>
 @endif
 

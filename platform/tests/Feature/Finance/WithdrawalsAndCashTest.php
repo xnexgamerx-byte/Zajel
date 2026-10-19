@@ -267,15 +267,27 @@ class WithdrawalsAndCashTest extends TestCase
         $this->actingAs($this->owner)->get($this->host().'/profits/cash')->assertOk()->assertSee('حساب مصرفي — مصرف الرافدين');
     }
 
-    public function test_finance_settings_are_saved_from_company_settings(): void
+    public function test_finance_settings_have_their_own_page_for_the_owner_and_are_audited(): void
     {
-        $this->actingAs($this->owner)->get($this->host().'/settings/company')->assertOk()->assertSee('إدارة الأرباح')->assertSee('دورة تسوية التجّار');
-        $this->actingAs($this->owner)->put($this->host().'/settings/company', [
-            'primary_color' => '#0D9488', 'reserve_fixed' => 25_000, 'reserve_days' => 3, 'merchant_cycle_days' => 10, 'withdrawal_approval_over' => 500_000,
+        $this->actingAs($this->owner)->get($this->host().'/settings/company')->assertOk()->assertSee('الإعدادات المالية');
+        $this->actingAs($this->owner)->get($this->host().'/finance/settings')->assertOk()->assertSee('دورة تسوية التجّار')->assertSee('مهلة تسليم المندوب نقده');
+        $this->actingAs($this->owner)->put($this->host().'/finance/settings', [
+            'dual_approval' => '1', 'reserve_fixed' => 25_000, 'reserve_days' => 3, 'merchant_cycle_days' => 10, 'withdrawal_approval_over' => 500_000,
+            'cash_handover_hours' => 12, 'cost_ratio_max' => 80, 'margin_min' => 5,
         ])->assertSessionHasNoErrors();
 
         $finance = Tenancy::runFor($this->company, fn () => $this->company->refresh()->setting('finance'));
-        $this->assertSame([25_000, 3, 10, 500_000], [$finance['reserve_fixed'], $finance['reserve_days'], $finance['merchant_cycle_days'], $finance['withdrawal_approval_over']]);
+        $this->assertSame([25_000, 3, 10, 500_000, 12, 80, 5, true], [$finance['reserve_fixed'], $finance['reserve_days'], $finance['merchant_cycle_days'],
+            $finance['withdrawal_approval_over'], $finance['cash_handover_hours'], $finance['cost_ratio_max'], $finance['margin_min'], $finance['dual_approval']]);
+
+        $log = Tenancy::runFor($this->company, fn () => \App\Models\AuditLog::where('action', 'finance_settings_updated')->latest('id')->first());
+        $this->assertSame(12, $log->new_values['cash_handover_hours']);
+        $this->assertSame(24, $log->old_values['cash_handover_hours']);
+
+        // المحاسب يرى الأرباح ولا يغيّر إعداداتها
+        $accountant = $this->makeUser($this->company, \App\Enums\UserRole::Accountant);
+        $this->actingAs($accountant)->get($this->host().'/finance/settings')->assertForbidden();
+        $this->actingAs($accountant)->put($this->host().'/finance/settings', ['reserve_fixed' => 0])->assertForbidden();
     }
 
     public function test_the_cash_position_separates_its_categories_and_forecasts_only_with_history(): void

@@ -6,7 +6,7 @@
         <h1 class="page-title">{{ $title }}</h1>
         @isset($lead)<p class="mt-1 max-w-3xl text-sm text-ink-500">{{ $lead }}</p>@endisset
     </div>
-    <a href="{{ route('profits.batches.create') }}" class="btn-primary"><x-icon name="plus" class="size-4"/> إنشاء وجبة تحصيل</a>
+    @can('batches.prepare')<a href="{{ route('profits.batches.create') }}" class="btn-primary"><x-icon name="plus" class="size-4"/> إنشاء وجبة تحصيل</a>@endcan
 </div>
 <nav class="tab-nav mb-5" aria-label="العوائد">
     @foreach (array_filter([

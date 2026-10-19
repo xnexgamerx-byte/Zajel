@@ -21,6 +21,7 @@
         'overdue'   => ['تجاوزت موعد التوصيل', number_format($counts['overdue'])],
         'unscanned' => ['لم تُمسح عند نقطة انتقال', number_format($counts['unscanned'])],
         'unsettled' => $money ? ['تحصيلات لم تُسوَّ', number_format($counts['unsettled']).' د.ع'] : null,
+        'finance'   => $finance ? ['التنبيهات المالية', number_format($counts['finance']).($counts['critical'] ? ' · الحرجة: '.number_format($counts['critical']) : '')] : null,
     ]) as $key => [$label, $badge])
         <a href="{{ route('operations.alerts', ['tab' => $key]) }}" @class(['tab-link', 'tab-link-active' => $tab === $key])
            @if ($tab === $key) aria-current="page" @endif>
@@ -152,6 +153,8 @@
             <div class="border-t border-ink-100 px-4 py-3">{{ $shipments->links() }}</div>
         @endif
     </div>
+@elseif ($tab === 'finance')
+    @include('tenant.operations._finance-alerts')
 @else
     <p class="mb-3 text-xs text-ink-600">
         مبالغ شحناتٍ سُلّمت قبل أكثر من {{ Arabic::hours($hours) }} وما زالت بيد المندوب — حسب فرعه، أقدمها أوّلاً.

@@ -17,7 +17,7 @@
     </div>
     @if ($openItem)
         <a href="{{ route('profits.batches.show', $openItem->batch) }}" class="btn-ghost">في الوجبة المفتوحة {{ $openItem->batch->number }}</a>
-    @elseif ($figures['unsettled_n'] > 0)
+    @elseif ($figures['unsettled_n'] > 0 && auth()->user()->can('batches.prepare'))
         <a href="{{ route('profits.batches.create', ['mode' => 'couriers', 'courier' => $courier->id, 'branch_id' => $courier->branch_id]) }}" class="btn-primary">وجبة تحصيل لهذا المندوب</a>
     @endif
 </div>

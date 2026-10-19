@@ -9,6 +9,7 @@ use App\Models\CashMovement;
 use App\Models\ProfitWithdrawal;
 use App\Models\User;
 use App\Services\CashBook;
+use App\Services\Finance\FinancialAlerts;
 use App\Services\Finance\PostingRules;
 use App\Services\Finance\ProfitDashboard;
 use App\Services\SequenceGenerator;
@@ -29,6 +30,12 @@ use Illuminate\Validation\ValidationException;
  */
 class RecordProfitWithdrawal
 {
+    /** @var array{User, int, int}|null طلبٌ رُفض لأنه فوق المتاح: يُنبَّه عنه بعد خروج المعاملة */
+    protected ?array $over = null;
+
+    /** عمق الاستدعاء: الطلب داخل handle لا يُنبِّه، يُنبِّه handle بعد خروج معاملته */
+    protected int $depth = 0;
+
     public function __construct(protected CashBook $cash, protected SequenceGenerator $sequences) {}
 
     /** المتاح للسحب الآن للشركة كلّها */
@@ -52,7 +59,7 @@ class RecordProfitWithdrawal
 
     public function request(int $amount, Carbon $on, CashBox $box, ?string $beneficiary, ?string $reason, User $actor, ?string $key = null): ProfitWithdrawal
     {
-        return DB::transaction(function () use ($amount, $on, $box, $beneficiary, $reason, $actor, $key) {
+        return $this->reportingOver(fn () => DB::transaction(function () use ($amount, $on, $box, $beneficiary, $reason, $actor, $key) {
             $this->lockCompany($actor);
 
             if ($key && ($same = ProfitWithdrawal::where('idempotency_key', $key)->first())) {
@@ -63,6 +70,8 @@ class RecordProfitWithdrawal
             $free = $available - $this->committed();
 
             if ($amount < 1 || $amount > $free) {
+                $this->over = $amount > $free ? [$actor, $amount, $free] : null;
+
                 throw ValidationException::withMessages(['amount' => $this->tooMuch($free)]);
             }
 
@@ -91,7 +100,7 @@ class RecordProfitWithdrawal
             $this->audit($withdrawal, $actor, 'profit_withdrawal_requested', $reason);
 
             return $withdrawal;
-        });
+        }));
     }
 
     public function approve(ProfitWithdrawal $withdrawal, User $actor): ProfitWithdrawal
@@ -166,7 +175,7 @@ class RecordProfitWithdrawal
             throw ValidationException::withMessages(['cash_box_id' => 'اختر الصندوق أو الحساب المصرفي الذي يخرج منه السحب.']);
         }
 
-        return DB::transaction(function () use ($amount, $on, $box, $beneficiary, $reason, $actor, $key) {
+        return $this->reportingOver(fn () => DB::transaction(function () use ($amount, $on, $box, $beneficiary, $reason, $actor, $key) {
             $withdrawal = $this->request($amount, $on, $box, $beneficiary, $reason, $actor, $key);
 
             if ($withdrawal->status === 'requested') {
@@ -174,7 +183,34 @@ class RecordProfitWithdrawal
             }
 
             return $withdrawal->status === 'approved' ? $this->pay($withdrawal, $actor) : $withdrawal;
-        });
+        }));
+    }
+
+    /**
+     * محاولة سحبٍ فوق المتاح تنبيهٌ حرجٌ فوري (docs/plan/68 §١٢-٧). يُكتب بعد خروج معاملة
+     * الطلب من أعلى استدعاء، وإلّا ألغاه رفض الطلب نفسه.
+     *
+     * @template T
+     * @param  callable(): T  $run
+     * @return T
+     */
+    protected function reportingOver(callable $run): mixed
+    {
+        $this->depth++;
+
+        try {
+            return $run();
+        } catch (ValidationException $e) {
+            if ($this->over !== null && $this->depth === 1) {
+                [$actor, $amount, $free] = $this->over;
+                $this->over = null;
+                app(FinancialAlerts::class)->withdrawalOverAvailable($actor, $amount, $free);
+            }
+
+            throw $e;
+        } finally {
+            $this->depth--;
+        }
     }
 
     /**
@@ -253,8 +289,9 @@ class RecordProfitWithdrawal
             'auditable_id'   => $withdrawal->id,
             'new_values'     => array_filter([
                 'number' => $withdrawal->number, 'amount' => (int) $withdrawal->amount, 'status' => $withdrawal->status,
-                'reason' => $reason, 'available_before' => $withdrawal->available_before, 'available_after' => $withdrawal->available_after,
+                'available_before' => $withdrawal->available_before, 'available_after' => $withdrawal->available_after,
             ], fn ($v) => $v !== null),
+            'reason'         => $reason === null ? null : mb_substr($reason, 0, 255),
             'ip'             => request()->ip(),
         ]);
     }

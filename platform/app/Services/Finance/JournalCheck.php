@@ -3,6 +3,7 @@
 namespace App\Services\Finance;
 
 use App\Support\Arabic;
+use App\Support\Audit\AuditChain;
 use App\Support\Finance\Accounts as A;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Support\Facades\DB;
@@ -112,6 +113,11 @@ class JournalCheck
 
         $broken = $this->journal->brokenAt($companyId);
         $add('chain', 'سلسلة البصمات سليمة', $broken === null, (int) $broken, $broken ? "انكسرت عند القيد رقم {$broken}: عُدِّل أو حُذف قيدٌ خارج النظام." : 'لا قيد عُدِّل أو حُذف.');
+
+        // وسجلّ التدقيق بسلسلته (docs/plan/68 §١٣)
+        $audit = AuditChain::brokenAt($companyId);
+        $add('audit_chain', 'سلسلة سجلّ التدقيق سليمة', $audit === null, (int) $audit,
+            $audit ? "انكسرت عند السطر رقم {$audit}: عُدِّل أو حُذف من سجلّ التدقيق خارج النظام." : 'لا سطر عُدِّل أو حُذف من سجلّ التدقيق.');
 
         return $checks;
     }

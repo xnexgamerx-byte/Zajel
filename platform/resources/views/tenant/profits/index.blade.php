@@ -214,7 +214,7 @@
         <div class="text-xs font-medium text-ink-500">وجباتٌ فيها عجزٌ لم يُعالَج</div>
         <div class="num mt-1 text-2xl font-bold text-bad-700">{{ number_format($differences) }}</div>
     </a>
-    <a href="{{ route('profits.batches.create') }}" class="card block p-4 hover:shadow">
+    <a href="{{ auth()->user()->can('batches.prepare') ? route('profits.batches.create') : route('profits.batches.index', ['status' => 'open']) }}" class="card block p-4 hover:shadow">
         <div class="text-xs font-medium text-ink-500">كشوف مناديب مُقفَلة لم تدخل وجبة</div>
         <div class="num mt-1 text-2xl font-bold text-ink-900">{{ number_format($waiting['count']) }}</div>
         <div class="mt-1 text-xs text-ink-500">نقدها <span class="num">{{ number_format($waiting['cash']) }}</span> د.ع</div>

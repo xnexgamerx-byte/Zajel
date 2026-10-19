@@ -162,7 +162,7 @@ class JournalTest extends TestCase
         $checks = $this->checks();
         ksort($checks);
         $expected = array_fill_keys(['balanced', 'coverage_transaction', 'coverage_cash_movement', 'boxes', 'custody', 'commissions',
-            'merchants', 'unbooked', 'clearing', 'transfers', 'unmapped', 'interbranch', 'bridge', 'outside', 'chain'], 'ok');
+            'merchants', 'unbooked', 'clearing', 'transfers', 'unmapped', 'interbranch', 'bridge', 'outside', 'chain', 'audit_chain'], 'ok');
         ksort($expected);
         $this->assertSame($expected, $checks);
 

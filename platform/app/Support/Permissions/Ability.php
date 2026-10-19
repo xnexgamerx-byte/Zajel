@@ -58,7 +58,10 @@ class Ability
     public const SHIPMENTS_TOTALS = 'shipments.totals';
 
     /** ما لا يُعطى بالدور: لصاحب الشركة، ولمن يُمنح بعينه */
-    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE, self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::MONEY_WRITE_OFF, self::PERIODS_CLOSE];
+    public const OWNER_ONLY = [
+        self::SHIPMENTS_OVERRIDE, self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::PERIODS_CLOSE,
+        self::BATCHES_WRITE_OFF, self::BATCHES_APPROVE_EXCEPTION, self::FINANCE_SETTINGS,
+    ];
 
     // التوصيل · الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
@@ -80,11 +83,26 @@ class Ability
 
     public const MONEY_CONFIRM_AMOUNT = 'money.confirm_amount';
 
-    /** «العوائد»: وجبات التحصيل والأرباح — إنشاؤها واعتمادها وتصحيحها، وتقارير الأرباح */
-    public const MONEY_PROFITS = 'money.profits';
+    /**
+     * لوحة الأرباح وتقاريرها، والوجبات والموقف النقدي ودفتر القيود للقراءة (docs/plan/68 §١٣).
+     * وصاحب الفرع يراها لفرعه وحده.
+     */
+    public const PROFITS_VIEW = 'profits.view';
 
-    /** شطب عجز مندوبٍ في وجبة تحصيل، واعتماد وجبةٍ باستثناءٍ موثّق: لصاحب الشركة */
-    public const MONEY_WRITE_OFF = 'money.write_off';
+    /** إنشاء وجبة التحصيل واستلام النقد وعدّه وتكاليفها ومرفقاتها: للمحاسب */
+    public const BATCHES_PREPARE = 'batches.prepare';
+
+    /** اعتماد الوجبة، وبه تُكتب قيودها */
+    public const BATCHES_APPROVE = 'batches.approve';
+
+    /** شطب عجز مندوبٍ في الوجبة: لصاحب الشركة */
+    public const BATCHES_WRITE_OFF = 'batches.write_off';
+
+    /** اعتماد وجبةٍ فيها عجزٌ لم يُعالَج، باستثناءٍ موثّق: لصاحب الشركة */
+    public const BATCHES_APPROVE_EXCEPTION = 'batches.approve_exception';
+
+    /** الإعدادات المالية: الاحتياطي والحدود والدورة وعتبات التنبيهات — لصاحب الشركة */
+    public const FINANCE_SETTINGS = 'finance.settings';
 
     /** طلب سحبٍ من أرباح الشركة (docs/plan/68 §١٠): لصاحبها، ولمن يُمنح بعينه */
     public const WITHDRAWALS_REQUEST = 'withdrawals.request';
@@ -149,7 +167,7 @@ class Ability
         self::SETTINGS_PERMISSIONS, self::SETTINGS_BRANCHES,
         self::SETTINGS_PRICING, self::SETTINGS_COMPANY,
         // السحب من أرباح الشركة كلّها: من الفرع الرئيسي وحده (docs/plan/68 §١٣)
-        self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::PERIODS_PREPARE, self::PERIODS_CLOSE,
+        self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::PERIODS_PREPARE, self::PERIODS_CLOSE, self::FINANCE_SETTINGS,
     ];
 
     /** @var array<int, string>|null */
@@ -189,12 +207,18 @@ class Ability
                 self::MONEY_SETTLE => 'محاسبة المندوبين ومندوبي الاستلام',
                 self::MONEY_PAY => 'دفع كشوف التجّار',
                 self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
-                self::MONEY_PROFITS => 'العوائد: وجبات التحصيل والأرباح',
+            ]],
+            'profits' => ['label' => 'إدارة الأرباح', 'abilities' => [
+                self::PROFITS_VIEW => 'لوحة الأرباح وتقاريرها والوجبات ودفتر القيود (عرض)',
+                self::BATCHES_PREPARE => 'إنشاء وجبات التحصيل واستلام النقد',
+                self::BATCHES_APPROVE => 'اعتماد وجبات التحصيل',
+                self::BATCHES_WRITE_OFF => 'شطب عجز المناديب',
+                self::BATCHES_APPROVE_EXCEPTION => 'اعتماد وجبةٍ باستثناءٍ موثّق',
                 self::WITHDRAWALS_REQUEST => 'طلب سحب الأرباح',
                 self::WITHDRAWALS_APPROVE => 'اعتماد سحب الأرباح ودفعه',
                 self::PERIODS_PREPARE => 'إعداد إقفال الفترات',
                 self::PERIODS_CLOSE => 'اعتماد إقفال الفترات',
-                self::MONEY_WRITE_OFF => 'شطب عجز المناديب واعتماد الوجبة باستثناء',
+                self::FINANCE_SETTINGS => 'الإعدادات المالية',
             ]],
             'reports' => ['label' => 'التقارير', 'abilities' => [
                 self::REPORTS_VIEW => 'التقارير',
@@ -319,7 +343,9 @@ class Ability
             // والمحاسب يعدّل أجور التاجر والمندوب (docs/plan/53) — وغيره بمرتبةٍ أو صلاحيةٍ استثنائية
             UserRole::Accountant => [
                 self::SHIPMENTS_VIEW, self::SHIPMENTS_EXPORT, self::SHIPMENTS_TOTALS, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
-                self::CONTROL_DUPLICATES, self::SHIPMENTS_OVERRIDE, self::MONEY_PROFITS, self::PERIODS_PREPARE,
+                self::CONTROL_DUPLICATES, self::SHIPMENTS_OVERRIDE,
+                // اعتماد الوجبة بقي للمحاسب كما كان؛ والاعتماد المزدوج يمنعه من اعتماد ما أنشأه
+                self::PROFITS_VIEW, self::BATCHES_PREPARE, self::BATCHES_APPROVE, self::PERIODS_PREPARE,
             ],
 
             default => [],

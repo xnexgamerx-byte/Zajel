@@ -66,3 +66,16 @@ Schedule::command('finance:journal-check')
     ->dailyAt('01:40')
     ->timezone('Asia/Baghdad')
     ->withoutOverlapping();
+
+/*
+| التنبيهات المالية (docs/plan/68 §١٢): فحص الحسابات كل ساعة، وسلسلتا البصمات كل ليلة بعد المطابقة.
+*/
+Schedule::command('finance:alerts')
+    ->hourly()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+Schedule::command('finance:alerts --daily')
+    ->dailyAt('01:50')
+    ->timezone('Asia/Baghdad')
+    ->withoutOverlapping();

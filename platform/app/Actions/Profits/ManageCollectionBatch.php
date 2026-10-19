@@ -4,6 +4,7 @@ namespace App\Actions\Profits;
 
 use App\Actions\Settlements\BuildCourierSettlement;
 use App\Actions\Settlements\ConfirmCourierSettlement;
+use App\Models\AuditLog;
 use App\Models\CashBox;
 use App\Models\CashMovement;
 use App\Models\CollectionBatch;
@@ -234,7 +235,7 @@ class ManageCollectionBatch
             throw ValidationException::withMessages(['resolution' => 'اختر: ذمّة على المندوب أو شطب.']);
         }
 
-        if ($resolution === 'written_off' && ! $actor->can('money.write_off')) {
+        if ($resolution === 'written_off' && ! $actor->can('batches.write_off')) {
             throw ValidationException::withMessages(['resolution' => 'شطب العجز لصاحب الشركة أو من يُمنح صلاحيته.']);
         }
 
@@ -370,7 +371,7 @@ class ManageCollectionBatch
             $unresolved = $items->filter(fn (CollectionBatchItem $i) => ! $i->isRemainder() && $i->discrepancy() < 0 && $i->resolution === null);
 
             if ($unresolved->isNotEmpty()) {
-                if (blank($exception) || ! $actor->can('money.write_off')) {
+                if (blank($exception) || ! $actor->can('batches.approve_exception')) {
                     throw ValidationException::withMessages(['batch' => 'عجزٌ لم يُعالَج عند '.$unresolved->count()
                         .' من المناديب: اختر لكلٍّ ذمّةً عليه أو شطباً، أو اعتمد باستثناءٍ موثّق (صاحب الشركة).']);
                 }
@@ -788,6 +789,19 @@ class ManageCollectionBatch
             'before'              => $before,
             'after'               => $after,
             'reason'              => $reason,
+        ]);
+
+        // ونسخةٌ في سجلّ التدقيق العام، فيدخل حدث الوجبة سلسلة البصمات (docs/plan/68 §١٣)
+        AuditLog::create([
+            'user_id'        => $actor->id,
+            'user_name'      => $actor->name,
+            'action'         => 'collection_batch',
+            'auditable_type' => CollectionBatch::class,
+            'auditable_id'   => $batch->id,
+            'new_values'     => array_filter(['number' => $batch->number, 'event' => $action, 'subject' => $subject,
+                'before' => $before, 'after' => $after], fn ($v) => $v !== null),
+            'reason'         => $reason === null ? null : mb_substr($reason, 0, 255),
+            'ip'             => request()->ip(),
         ]);
     }
 }

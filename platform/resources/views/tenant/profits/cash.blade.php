@@ -28,7 +28,7 @@
             <span class="chip chip-mute me-1">٢</span> منه نقدٌ لم تُطابَق وجبته بعد — جزءٌ من الصناديق لا يُضاف إليها:
             <div>في وجباتٍ مفتوحة <a href="{{ route('profits.batches.index', ['status' => 'open']) }}" class="num font-semibold text-[var(--brand)] hover:underline">{{ number_format($c['unreconciled']['in_batches']) }}</a>
                 ({{ \App\Support\Arabic::count($c['unreconciled']['batches'], ['وجبة واحدة', 'وجبتين', 'وجبات', 'وجبة']) }})</div>
-            <div>وفي كشوفٍ مُقفَلة لم تدخل وجبة <a href="{{ route('profits.batches.create') }}" class="num font-semibold text-[var(--brand)] hover:underline">{{ number_format($c['unreconciled']['unbatched']) }}</a>
+            <div>وفي كشوفٍ مُقفَلة لم تدخل وجبة <a href="{{ auth()->user()->can('batches.prepare') ? route('profits.batches.create') : route('profits.batches.index') }}" class="num font-semibold text-[var(--brand)] hover:underline">{{ number_format($c['unreconciled']['unbatched']) }}</a>
                 ({{ \App\Support\Arabic::count($c['unreconciled']['unbatched_count'], ['كشف واحد', 'كشفان', 'كشوف', 'كشفاً']) }})</div>
         </div>
     </section>

@@ -3,6 +3,7 @@
 namespace App\Actions\Cash;
 
 use App\Exceptions\InsufficientCash;
+use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\BranchRemittance;
 use App\Models\CashBox;
@@ -55,6 +56,16 @@ class RemitBetweenBranches
             $this->cash->out($fresh, 'branch_remittance_out', $amount,
                 "تسديدٌ إلى {$to->name} — {$remittance->number}", $actor, 'branch_remittance', $remittance->id);
 
+            AuditLog::create([
+                'user_id'        => $actor?->id,
+                'user_name'      => $actor?->name,
+                'action'         => 'branch_remittance_sent',
+                'auditable_type' => BranchRemittance::class,
+                'auditable_id'   => $remittance->id,
+                'new_values'     => ['number' => $remittance->number, 'from' => $from->name, 'to' => $to->name, 'amount' => $amount],
+                'ip'             => request()->ip(),
+            ]);
+
             return $remittance;
         });
     }
@@ -88,6 +99,19 @@ class RemitBetweenBranches
 
             $this->cash->in($box, 'branch_remittance_in', $receivedAmount,
                 "مسدَّدٌ من {$remittance->fromBranch?->name} — {$remittance->number}", $actor, 'branch_remittance', $remittance->id);
+
+            // تسوية الفروع في سجلّ التدقيق، والفرق بسببه (docs/plan/68 §١٣)
+            AuditLog::create([
+                'user_id'        => $actor?->id,
+                'user_name'      => $actor?->name,
+                'action'         => 'branch_remittance_received',
+                'auditable_type' => BranchRemittance::class,
+                'auditable_id'   => $remittance->id,
+                'old_values'     => ['amount' => (int) $remittance->amount],
+                'new_values'     => ['number' => $remittance->number, 'received_amount' => $receivedAmount],
+                'reason'         => $remittance->difference_note,
+                'ip'             => request()->ip(),
+            ]);
 
             return $remittance->refresh();
         });
