@@ -92,7 +92,7 @@ class SequenceGenerator
 
     protected function defaultPad(string $key): int
     {
-        return in_array($key, ['collection_batch', 'profit_withdrawal'], true) ? 4 : 6;
+        return in_array($key, ['collection_batch', 'profit_withdrawal', 'financial_period'], true) ? 4 : 6;
     }
 
     protected function defaultPrefix(string $key): string
@@ -117,6 +117,7 @@ class SequenceGenerator
             // «وجبات التحصيل والأرباح» وسحب الأرباح: COL-0001 وWD-0001 كما يُقال
             'collection_batch'    => 'COL-',
             'profit_withdrawal'   => 'WD-',
+            'financial_period'    => 'FP-',
             default               => '',
         };
     }

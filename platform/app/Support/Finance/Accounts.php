@@ -21,6 +21,8 @@ final class Accounts
 
     public const OUTSIDE_COURIER = '1290';
 
+    public const INTERBRANCH = '1400';
+
     public const SHIPMENT_CLEARING = '1900';
 
     public const CASH_BRIDGE = '1950';
@@ -43,6 +45,8 @@ final class Accounts
 
     public const OPENING = '3100';
 
+    public const RETAINED = '3200';
+
     public const DRAWINGS = '3300';
 
     public const DELIVERY_REVENUE = '4100';
@@ -53,6 +57,8 @@ final class Accounts
 
     public const COUNT_DIFFERENCES = '4210';
 
+    public const INTERNAL_REVENUE = '4900';
+
     public const COURIER_COMMISSIONS = '5100';
 
     public const PICKUP_SHARES = '5110';
@@ -60,6 +66,8 @@ final class Accounts
     public const OPERATING_EXPENSES = '5200';
 
     public const WRITE_OFFS = '5300';
+
+    public const INTERNAL_COST = '5900';
 
     /**
      * [الاسم، النوع، الجانب الطبيعي]. النوع: asset | liability | equity | revenue | expense | bridge.
@@ -73,6 +81,8 @@ final class Accounts
         self::IN_TRANSIT         => ['نقد بالطريق بين الفروع', 'asset', 'debit'],
         self::SHORTAGES          => ['عجز عهدة على المناديب', 'asset', 'debit'],
         self::OUTSIDE_COURIER    => ['تحصيلٌ بلا مندوب مسجَّل', 'asset', 'debit'],
+        // جارٍ بين الفروع: يتقاصّ إلى صفرٍ على مستوى الشركة (§٦)
+        self::INTERBRANCH        => ['حسابٌ جارٍ بين الفروع', 'asset', 'debit'],
         self::SHIPMENT_CLEARING  => ['وسيط الشحنات', 'bridge', 'debit'],
         self::CASH_BRIDGE        => ['وسيط النقد', 'bridge', 'debit'],
         self::BOX_TRANSFERS      => ['مناقلات بين الصناديق', 'bridge', 'debit'],
@@ -84,15 +94,19 @@ final class Accounts
         self::EXPENSES_DUE       => ['مصروفات مستحقّة غير مدفوعة', 'liability', 'credit'],
         self::EXCESS_CASH        => ['زيادات نقدية معلّقة', 'liability', 'credit'],
         self::OPENING            => ['رأس المال والأرصدة الافتتاحية', 'equity', 'credit'],
+        self::RETAINED           => ['أرباح فتراتٍ مُقفَلة', 'equity', 'credit'],
         self::DRAWINGS           => ['مسحوبات الأرباح', 'equity', 'debit'],
         self::DELIVERY_REVENUE   => ['إيراد أجور التوصيل', 'revenue', 'credit'],
         self::RETURN_REVENUE     => ['إيراد أجور الراجع', 'revenue', 'credit'],
         self::OTHER_INCOME       => ['إيرادات أخرى (خصومات المناديب)', 'revenue', 'credit'],
         self::COUNT_DIFFERENCES  => ['فروقات جرد الصناديق (صافي)', 'revenue', 'credit'],
+        // داخليّان بين الفروع: عمولة الفرع الموصِّل لفرعه وعلى فرع الإنشاء، يتقاصّان في مجموع الشركة
+        self::INTERNAL_REVENUE   => ['عمولات توصيلٍ من الفروع (داخلي)', 'revenue', 'credit'],
         self::COURIER_COMMISSIONS => ['عمولات المناديب', 'expense', 'debit'],
         self::PICKUP_SHARES      => ['حصص مندوبي الاستلام', 'expense', 'debit'],
         self::OPERATING_EXPENSES => ['مصروفات تشغيلية', 'expense', 'debit'],
         self::WRITE_OFFS         => ['عجز نقدي مشطوب', 'expense', 'debit'],
+        self::INTERNAL_COST      => ['عمولات توصيلٍ للفروع (داخلي)', 'expense', 'debit'],
     ];
 
     public const TYPES = [

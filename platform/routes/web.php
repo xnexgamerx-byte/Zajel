@@ -62,6 +62,7 @@ use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\ProfitsController;
 use App\Http\Controllers\Tenant\FinanceLedgerController;
+use App\Http\Controllers\Tenant\FinancialPeriodController;
 use App\Http\Controllers\Tenant\CollectionBatchController;
 use App\Http\Controllers\Tenant\CourierFinanceController;
 use App\Http\Controllers\Tenant\ProfitWithdrawalController;
@@ -543,6 +544,17 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/trial-balance', [FinanceLedgerController::class, 'trialBalance'])->name('trial-balance');
                 Route::get('/ledger', [FinanceLedgerController::class, 'lines'])->name('ledger');
                 Route::get('/entries/{entry}', [FinanceLedgerController::class, 'entry'])->whereNumber('entry')->name('entries.show');
+                // إقفال الفترات (docs/plan/68 §٩)
+                Route::get('/periods', [FinancialPeriodController::class, 'index'])->name('periods.index');
+                Route::get('/periods/review', [FinancialPeriodController::class, 'review'])->name('periods.review');
+                Route::post('/periods', [FinancialPeriodController::class, 'store'])->middleware('can:periods.prepare')->name('periods.store');
+                Route::whereNumber(['period', 'version'])->group(function () {
+                    Route::get('/periods/{period}', [FinancialPeriodController::class, 'show'])->name('periods.show');
+                    Route::get('/periods/{period}/reports/{version}', [FinancialPeriodController::class, 'report'])->name('periods.report');
+                    Route::post('/periods/{period}/approve', [FinancialPeriodController::class, 'approve'])->middleware('can:periods.close')->name('periods.approve');
+                    Route::post('/periods/{period}/cancel', [FinancialPeriodController::class, 'cancel'])->middleware('can:periods.prepare')->name('periods.cancel');
+                    Route::post('/periods/{period}/reissue', [FinancialPeriodController::class, 'reissue'])->middleware('can:periods.prepare')->name('periods.reissue');
+                });
             });
 
             // «العوائد» تحت «الموقف المالي»: وجبات التحصيل والأرباح، وتقريرها، وسحب الأرباح

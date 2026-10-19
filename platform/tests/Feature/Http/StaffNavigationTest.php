@@ -62,6 +62,8 @@ class StaffNavigationTest extends TestCase
         'profits.batches.index', 'profits.batches.create', 'profits.report', 'profits.withdrawals.index',
         // زرّا Excel في سجل الوجبات ولوحة الأرباح
         'profits.batches.export', 'profits.export', 'profits.withdrawals.export',
+        // مراجعة ما قبل الإقفال من «إقفال الفترات»
+        'finance.periods.review',
     ];
 
     private Company $company;

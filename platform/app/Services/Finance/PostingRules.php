@@ -233,6 +233,8 @@ class PostingRules
             ], 'shipment', $shipment->id, "تحصيل الشحنة {$shipment->number} بلا مندوب مسجَّل", null, $force);
         }
 
+        $this->recognizeBranchCommission($shipment, $bound, $at, $force);
+
         // رصيدٌ دائن في الوسيط = أجورٌ احتفظت بها الشركة
         $revenue = -$this->balance($companyId, $shipment->id, A::SHIPMENT_CLEARING);
         if ($revenue === 0) {
@@ -245,6 +247,36 @@ class PostingRules
             ['account' => A::SHIPMENT_CLEARING, ($revenue > 0 ? 'debit' : 'credit') => abs($revenue)] + $dims,
             ['account' => $account, ($revenue > 0 ? 'credit' : 'debit') => abs($revenue)] + $dims,
         ], 'shipment', $shipment->id, "أجور الشحنة {$shipment->number}", null, $force);
+    }
+
+    /**
+     * عمولة الفرع الموصِّل (§٦، ق٦): إيرادٌ داخليّ له (4900) ومصروفٌ داخليّ على فرع الإنشاء (5900)،
+     * يقابلهما الجاري بين الفروع (1400) — فيتقاصّ الأربعة في مجموع الشركة. ويُكتب الفرق وحده.
+     */
+    protected function recognizeBranchCommission(Shipment $shipment, int $bound, CarbonInterface $at, bool $force): void
+    {
+        $owner = $shipment->branch_id;
+        $deliverer = $shipment->delivery_branch_id;
+        $target = $shipment->delivered_at !== null && $deliverer && $owner && (int) $deliverer !== (int) $owner
+            ? (int) $shipment->branch_commission : 0;
+
+        $diff = $target + $this->balance((int) $shipment->company_id, $shipment->id, A::INTERNAL_REVENUE);
+        if ($diff === 0) {
+            return;
+        }
+
+        // الرصيد السابق قد يكون على فرعين آخرين إن تغيّر الفرع الموصِّل: الفرق يُكتب على الحاليّ
+        $deliverer = $deliverer ?: $owner;
+        [$more, $less] = $diff > 0 ? ['debit', 'credit'] : ['credit', 'debit'];
+        $amount = abs($diff);
+        $dims = ['shipment_id' => $shipment->id];
+
+        $this->journal->post((int) $shipment->company_id, "ibc:{$shipment->id}:{$bound}", 'branch_commission', $at, [
+            ['account' => A::INTERNAL_COST, $more => $amount, 'branch_id' => $owner] + $dims,
+            ['account' => A::INTERBRANCH, $less => $amount, 'branch_id' => $owner] + $dims,
+            ['account' => A::INTERBRANCH, $more => $amount, 'branch_id' => $deliverer] + $dims,
+            ['account' => A::INTERNAL_REVENUE, $less => $amount, 'branch_id' => $deliverer] + $dims,
+        ], 'shipment', $shipment->id, "عمولة توصيل الشحنة {$shipment->number} بين الفروع", null, $force);
     }
 
     /** رصيد حسابٍ لشحنة: مدين − دائن */

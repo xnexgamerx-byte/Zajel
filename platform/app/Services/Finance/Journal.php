@@ -17,6 +17,9 @@ use LogicException;
  *     يكسر السلسلة ويظهر في الفحص.
  *
  * والقفل على رأس دفتر الشركة يرتّب القيود ويمنع تزاحم اثنين على الرقم نفسه.
+ *
+ * وما تاريخه في فترةٍ مُقفَلة يُكتب بتاريخ اليوم ويحمل الفترة التي يمسّها (adjusts_period_id):
+ * تقرير الفترة المُقفَلة لا يتغيّر، وتعديلاتها تظهر بعده وتُصدَر بها نسخةٌ ثانية.
  */
 class Journal
 {
@@ -80,6 +83,13 @@ class Journal
 
             $number = (int) $head->last_number + 1;
             $day = $date->copy()->timezone(config('app.timezone'))->toDateString();
+
+            // فترةٌ مُقفَلة لا يُكتب قيدٌ بتاريخها: ما يمسّها يُكتب اليوم ويُشير إليها (§٩)
+            $adjusts = DB::table('financial_periods')->where('company_id', $companyId)->where('status', 'closed')
+                ->where('from_date', '<=', $day)->where('to_date', '>=', $day)->value('id');
+            if ($adjusts) {
+                $day = now()->timezone(config('app.timezone'))->toDateString();
+            }
             $hash = hash('sha256', implode('|', [
                 $head->last_hash, $number, $key, $day,
                 json_encode(array_map(fn ($l) => [$l['account'], (int) $l['debit'], (int) $l['credit']], $lines)),
@@ -92,6 +102,7 @@ class Journal
                 'event'              => mb_substr($event, 0, 40),
                 'source_type'        => $sourceType,
                 'source_id'          => $sourceId,
+                'adjusts_period_id'  => $adjusts ?: null,
                 'idempotency_key'    => $key,
                 'description'        => $description === null ? null : mb_substr($description, 0, 255),
                 'amount'             => $debit,

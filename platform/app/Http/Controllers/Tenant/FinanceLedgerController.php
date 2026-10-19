@@ -123,6 +123,7 @@ class FinanceLedgerController extends Controller
             'expense'           => ['المصروف', route('expenses.index')],
             'profit_withdrawal' => ['سحب الأرباح', route('profits.withdrawals.index')],
             'shipment'          => ['الشحنة', route('shipments.show', $id)],
+            'financial_period'  => ['إقفال الفترة', route('finance.periods.show', $id)],
             default             => ['—', null],
         };
     }

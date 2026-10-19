@@ -89,6 +89,9 @@ final class ProfitDashboard
         $s = $this->scope;
 
         return JournalLine::query()->toBase()
+            // قيد الإقفال يُصفّي الإيرادات والتكاليف إلى 3200: ليس ربحاً ولا خسارة، فلا يدخل اللوحة
+            ->whereNotIn('journal_lines.journal_entry_id', DB::table('journal_entries')->where('company_id', Tenancy::id())
+                ->where('event', 'period_close')->select('id'))
             ->when($from, fn ($q) => $q->where('journal_lines.entry_date', '>=', $from->toDateString()))
             ->when($to, fn ($q) => $q->where('journal_lines.entry_date', '<=', $to->toDateString()))
             ->when($s['branch'], fn ($q, $id) => $q->where('journal_lines.branch_id', $id))

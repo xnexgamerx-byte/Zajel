@@ -219,6 +219,12 @@
                            value="{{ old('withdrawal_approval_over', $company->setting('finance.withdrawal_approval_over')) }}">
                     @error('withdrawal_approval_over') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
+                <div>
+                    <label class="field-label" for="custody_age_days">لا تُقفَل فترةٌ وعهدةُ مندوبٍ أقدم من (أيام)</label>
+                    <input id="custody_age_days" type="number" name="custody_age_days" min="1" max="60" step="1" class="field-input text-left" dir="ltr"
+                           value="{{ old('custody_age_days', $company->setting('finance.custody_age_days', 7)) }}">
+                    @error('custody_age_days') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
             </div>
             <p class="card-hint mt-2">الاحتياطي يُحجز من النقد قبل «المتاح للسحب»: الأكبر من المبلغ الثابت وأيام المصروف. والدورة تفصل مستحقّات التجّار الحالية عن المتأخّرة. وحدّ الاعتماد فارغاً أو صفراً: يعتمد صاحب الصلاحية سحبه بنفسه.</p>
         </fieldset>

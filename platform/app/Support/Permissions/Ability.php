@@ -58,7 +58,7 @@ class Ability
     public const SHIPMENTS_TOTALS = 'shipments.totals';
 
     /** ما لا يُعطى بالدور: لصاحب الشركة، ولمن يُمنح بعينه */
-    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE, self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::MONEY_WRITE_OFF];
+    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE, self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::MONEY_WRITE_OFF, self::PERIODS_CLOSE];
 
     // التوصيل · الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
@@ -91,6 +91,12 @@ class Ability
 
     /** اعتماد السحب ودفعه من الصندوق: لصاحب الشركة، ولمن يُمنح بعينه */
     public const WITHDRAWALS_APPROVE = 'withdrawals.approve';
+
+    /** إعداد إقفال الفترة بمراجعة أرقامها وفحوصها (docs/plan/68 §٩): للمحاسب */
+    public const PERIODS_PREPARE = 'periods.prepare';
+
+    /** اعتماد الإقفال: بعده لا يُكتب قيدٌ بتاريخ الفترة — لصاحب الشركة، ولمن يُمنح بعينه */
+    public const PERIODS_CLOSE = 'periods.close';
 
     // التقارير
     public const REPORTS_VIEW = 'reports.view';
@@ -143,7 +149,7 @@ class Ability
         self::SETTINGS_PERMISSIONS, self::SETTINGS_BRANCHES,
         self::SETTINGS_PRICING, self::SETTINGS_COMPANY,
         // السحب من أرباح الشركة كلّها: من الفرع الرئيسي وحده (docs/plan/68 §١٣)
-        self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE,
+        self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::PERIODS_PREPARE, self::PERIODS_CLOSE,
     ];
 
     /** @var array<int, string>|null */
@@ -186,6 +192,8 @@ class Ability
                 self::MONEY_PROFITS => 'العوائد: وجبات التحصيل والأرباح',
                 self::WITHDRAWALS_REQUEST => 'طلب سحب الأرباح',
                 self::WITHDRAWALS_APPROVE => 'اعتماد سحب الأرباح ودفعه',
+                self::PERIODS_PREPARE => 'إعداد إقفال الفترات',
+                self::PERIODS_CLOSE => 'اعتماد إقفال الفترات',
                 self::MONEY_WRITE_OFF => 'شطب عجز المناديب واعتماد الوجبة باستثناء',
             ]],
             'reports' => ['label' => 'التقارير', 'abilities' => [
@@ -311,7 +319,7 @@ class Ability
             // والمحاسب يعدّل أجور التاجر والمندوب (docs/plan/53) — وغيره بمرتبةٍ أو صلاحيةٍ استثنائية
             UserRole::Accountant => [
                 self::SHIPMENTS_VIEW, self::SHIPMENTS_EXPORT, self::SHIPMENTS_TOTALS, ...$money, self::REPORTS_VIEW, self::REPORTS_FINANCIAL,
-                self::CONTROL_DUPLICATES, self::SHIPMENTS_OVERRIDE, self::MONEY_PROFITS,
+                self::CONTROL_DUPLICATES, self::SHIPMENTS_OVERRIDE, self::MONEY_PROFITS, self::PERIODS_PREPARE,
             ],
 
             default => [],

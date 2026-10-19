@@ -73,6 +73,7 @@ class CompanySettingsController extends Controller
             'reserve_days' => ['nullable', 'integer', 'between:0,90'],
             'merchant_cycle_days' => ['nullable', 'integer', 'between:1,60'],
             'withdrawal_approval_over' => ['nullable', 'integer', 'min:0', 'max:100000000000'],
+            'custody_age_days' => ['nullable', 'integer', 'between:1,60'],
             // أكثر الصور في دفعة القراءة من تطبيق التاجر (docs/plan/63)
             'reading_batch_max' => ['nullable', 'integer', 'between:1,'.BatchReading::LIMIT],
         ], [
@@ -83,7 +84,7 @@ class CompanySettingsController extends Controller
             'support_hours' => 'ساعات الدعم', 'waybill_terms' => 'شروط الوصل المطبوع', 'primary_color' => 'اللون',
             'merchant_from' => 'بداية ساعات المراسلة', 'merchant_to' => 'نهاية ساعات المراسلة', 'deadline_hours' => 'آخر موعد للتوصيل',
             'reserve_fixed' => 'الاحتياطي الثابت', 'reserve_days' => 'أيام الاحتياطي', 'merchant_cycle_days' => 'دورة تسوية التجّار',
-            'withdrawal_approval_over' => 'حدّ اعتماد السحب',
+            'withdrawal_approval_over' => 'حدّ اعتماد السحب', 'custody_age_days' => 'حدّ عمر العهدة',
         ]);
 
         // لا طريقة دفعٍ للتجّار تُترك فارغة: التاجر لا يطلب حسابه بلا طريقة
@@ -121,7 +122,7 @@ class CompanySettingsController extends Controller
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
             'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
             'dual_approval' => $company->setting('finance.dual_approval') ? '1' : '0',
-            'finance' => json_encode(array_intersect_key((array) $company->setting('finance', []), array_flip(['reserve_fixed', 'reserve_days', 'merchant_cycle_days', 'withdrawal_approval_over']))),
+            'finance' => json_encode(array_intersect_key((array) $company->setting('finance', []), array_flip(['reserve_fixed', 'reserve_days', 'merchant_cycle_days', 'withdrawal_approval_over', 'custody_age_days']))),
             'reading_batch_max' => BatchReading::max($company),
         ];
 
@@ -144,7 +145,7 @@ class CompanySettingsController extends Controller
         if (array_key_exists('courier_require_location', $data)) {
             data_set($settings, 'courier.require_location', (bool) $data['courier_require_location']);
         }
-        foreach (['reserve_fixed', 'reserve_days', 'merchant_cycle_days', 'withdrawal_approval_over'] as $key) {
+        foreach (['reserve_fixed', 'reserve_days', 'merchant_cycle_days', 'withdrawal_approval_over', 'custody_age_days'] as $key) {
             if (array_key_exists($key, $data)) {
                 data_set($settings, "finance.{$key}", $data[$key] === null ? null : (int) $data[$key]);
             }
@@ -181,7 +182,7 @@ class CompanySettingsController extends Controller
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
             'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
             'dual_approval' => $company->setting('finance.dual_approval') ? '1' : '0',
-            'finance' => json_encode(array_intersect_key((array) $company->setting('finance', []), array_flip(['reserve_fixed', 'reserve_days', 'merchant_cycle_days', 'withdrawal_approval_over']))),
+            'finance' => json_encode(array_intersect_key((array) $company->setting('finance', []), array_flip(['reserve_fixed', 'reserve_days', 'merchant_cycle_days', 'withdrawal_approval_over', 'custody_age_days']))),
             'reading_batch_max' => BatchReading::max($company),
         ];
 

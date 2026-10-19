@@ -7,6 +7,7 @@
     @foreach ([
         ['finance.trial-balance', 'ميزان المراجعة والمطابقة', ['finance.trial-balance']],
         ['finance.ledger', 'دفتر القيود', ['finance.ledger', 'finance.entries.*']],
+        ['finance.periods.index', 'إقفال الفترات', ['finance.periods.*']],
     ] as [$route, $label, $patterns])
         <a href="{{ route($route) }}" @class(['tab-link', 'tab-link-active' => request()->routeIs(...$patterns)])
            @if (request()->routeIs(...$patterns)) aria-current="page" @endif>{{ $label }}</a>

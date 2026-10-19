@@ -97,6 +97,12 @@ class JournalCheck
         $add('unbooked', 'شحنات مغلقة بلا إيراد في الدفتر', $unbooked === 0, $unbooked,
             $unbooked ? Arabic::shipments($unbooked).' سُلِّمت أو رجعت بأجورٍ ولم تُقيَّد في حساب تاجرها — تظهر في «تدقيق الحسابات».' : 'كل شحنةٍ مغلقة لها إيرادها.', true);
 
+        // الجاري بين الفروع يتقاصّ على مستوى الشركة، والداخليّان يتساويان (§٦)
+        $interbranch = $balance(A::INTERBRANCH);
+        $internal = $balance(A::INTERNAL_REVENUE) + $balance(A::INTERNAL_COST);
+        $add('interbranch', 'الجاري بين الفروع متقاصّ', $interbranch === 0 && $internal === 0, $interbranch + $internal,
+            'عمولة الفرع الموصِّل إيرادٌ لفرعه ومصروفٌ على فرع الإنشاء: مجموعهما في الشركة صفر.');
+
         $bridge = $balance(A::CASH_BRIDGE);
         $add('bridge', 'نقدٌ تحرّك خارج الصناديق', $bridge === 0, $bridge,
             'تسليم مندوبٍ أو دفعٌ لتاجر أو سحبٌ سُجِّل بلا صندوق (دفعٌ إلكتروني، أو لا صندوق مفعّل). موجبه نقدٌ خرج من الدفاتر، وسالبه نقدٌ دخل بلا صندوق.', true);

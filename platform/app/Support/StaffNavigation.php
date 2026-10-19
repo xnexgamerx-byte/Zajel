@@ -104,6 +104,8 @@ final class StaffNavigation
                 // دفتر القيود: الميزان ومطابقته، وتتبّع أي رقمٍ إلى قيده (docs/plan/68)
                 ['finance.trial-balance', 'ميزان المراجعة', ['finance.trial-balance'], 'money.profits'],
                 ['finance.ledger', 'دفتر القيود', ['finance.ledger', 'finance.entries.*'], 'money.profits'],
+                // إقفال الفترات: المراجعة والإعداد والاعتماد والتقرير بنسخه (docs/plan/68 §٩)
+                ['finance.periods.index', 'إقفال الفترات', ['finance.periods.*'], 'money.profits'],
                 ['money.position.history', 'تاريخ الموقف المالي', ['money.position.history'], 'money.view'],
                 ['money.reconcile', 'تدقيق الحسابات', ['money.reconcile'], 'money.view'],
                 ['money.accountants', 'قبض ودفع الموظّفين', ['money.accountants'], 'money.view'],
