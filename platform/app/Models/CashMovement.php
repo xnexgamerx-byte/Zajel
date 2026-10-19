@@ -58,6 +58,9 @@ class CashMovement extends Model
             'branch_remittance_out' => 'تسديدٌ لفرع',
             'branch_remittance_in'  => 'مسدَّدٌ من فرع',
             'profit_withdrawal'     => 'سحب أرباح',
+            'collection_shortage'   => 'عجز وجبة تحصيل',
+            'collection_excess'     => 'زيادة وجبة تحصيل',
+            'shortage_recovered'    => 'تحصيل عجز مندوب',
             default            => $category,
         };
     }

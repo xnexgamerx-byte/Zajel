@@ -5,15 +5,22 @@ namespace App\Http\Controllers\Tenant;
 use App\Actions\Profits\ManageCollectionBatch;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\CashBox;
 use App\Models\CollectionBatch;
+use App\Models\CollectionBatchAudit;
 use App\Models\CollectionBatchCost;
+use App\Models\CollectionBatchFile;
 use App\Models\CollectionBatchItem;
 use App\Models\CourierSettlementShipment;
 use App\Models\Expense;
+use App\Support\StreamingXlsx;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * «وجبات التحصيل والأرباح»: إنشاء الوجبة من كشوف المناديب المُقفَلة، ومطابقتها، واعتمادها،
@@ -28,17 +35,8 @@ class CollectionBatchController extends Controller
     {
         $user = $request->user();
 
-        $batches = CollectionBatch::query()->visibleTo($user)
+        $batches = $this->filtered($request)
             ->with(['branch:id,name', 'approvedBy:id,name'])
-            ->when($request->input('status'), fn ($q, $status) => match ($status) {
-                'draft', 'approved' => $q->where('status', $status),
-                'discrepancy'       => $q->where('discrepancy', '!=', 0),
-                default             => $q,
-            })
-            ->when(! $user->isBranchLimited() && $request->integer('branch_id'), fn ($q) => $q->where('branch_id', $request->integer('branch_id')))
-            ->when($request->date('from'), fn ($q, $from) => $q->whereFromDate('to_date', $from->toDateString()))
-            ->when($request->date('to'), fn ($q, $to) => $q->whereUntilDate('to_date', $to->toDateString()))
-            ->when(trim((string) $request->input('q')), fn ($q, $term) => $q->where('number', 'like', '%'.$term.'%'))
             ->latest('id')
             ->paginate(config('zajel.per_page'))
             ->withQueryString();
@@ -70,11 +68,21 @@ class CollectionBatchController extends Controller
             'settlements' => $settlements,
             // ما أُقفل خارج المدّة ولم يدخل وجبةً بعد: لا يُنسى
             'older'       => ManageCollectionBatch::eligible($user, $branchId, null, $from->copy()->subDay())->count(),
+            // الوجبة أولاً: مناديب بيدهم ما يُحاسَبون عليه
+            'mode'        => $request->input('mode') === 'couriers' ? 'couriers' : 'settlements',
+            'couriers'    => ManageCollectionBatch::couriersToSettle($user, $branchId)->orderBy('name')
+                ->get(['id', 'name', 'code', 'cash_in_hand', 'commission_balance']),
+            'boxes'       => CashBox::payableBy($user)->orderBy('name')->get(['id', 'name', 'balance']),
+            'defaultBox'  => CashBox::forActor($user, $branchId)?->id,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        if ($request->input('mode') === 'couriers') {
+            return $this->storeForCouriers($request);
+        }
+
         $data = $request->validate([
             'period'           => ['required', 'string', 'in:'.implode(',', array_keys(CollectionBatch::PERIODS))],
             'from'             => ['required', 'date'],
@@ -83,6 +91,7 @@ class CollectionBatchController extends Controller
             'settlement_ids'   => ['required', 'array', 'min:1', 'max:2000'],
             'settlement_ids.*' => ['integer'],
             'notes'            => ['nullable', 'string', 'max:500'],
+            'cash_box_id'      => ['nullable', 'integer'],
         ], ['settlement_ids.required' => 'اختر كشوف المناديب التي تدخل الوجبة.'], ['to' => 'إلى']);
 
         $user = $request->user();
@@ -92,16 +101,39 @@ class CollectionBatchController extends Controller
         $batch = $this->batches->create(
             array_map('intval', $data['settlement_ids']), $branchId, $data['period'],
             Carbon::parse($data['from']), Carbon::parse($data['to']), $data['notes'] ?? null, $user,
+            filled($data['cash_box_id'] ?? null) ? (int) $data['cash_box_id'] : null,
         );
 
         return redirect()->route('profits.batches.show', $batch)
             ->with('success', "أُنشئت وجبة التحصيل {$batch->number}: طابِق ما استُلم من كل مندوب، ثم اعتمدها.");
     }
 
+    /** «الوجبة أولاً»: المناديب، وصندوقٌ يُقبض فيه نقدهم */
+    protected function storeForCouriers(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'courier_ids'   => ['required', 'array', 'min:1', 'max:200'],
+            'courier_ids.*' => ['integer'],
+            'branch_id'     => ['nullable', 'integer'],
+            'cash_box_id'   => ['nullable', 'integer'],
+            'notes'         => ['nullable', 'string', 'max:500'],
+        ], ['courier_ids.required' => 'اختر المناديب الذين تحاسبهم في الوجبة.'], ['cash_box_id' => 'الصندوق']);
+
+        $user = $request->user();
+        $branchId = $user->isBranchLimited() ? $user->branch_id
+            : (filled($data['branch_id'] ?? null) ? Branch::findOrFail($data['branch_id'])->id : null);
+
+        $batch = $this->batches->createForCouriers(array_map('intval', $data['courier_ids']), $branchId,
+            filled($data['cash_box_id'] ?? null) ? (int) $data['cash_box_id'] : null, $data['notes'] ?? null, $user);
+
+        return redirect()->route('profits.batches.show', $batch)
+            ->with('success', "أُنشئت وجبة التحصيل {$batch->number}: استلم نقد كل مندوبٍ واكتب ما عددته.");
+    }
+
     public function show(Request $request, CollectionBatch $batch): View
     {
         return view('tenant.profits.show', $this->sheet($request, $batch) + [
-            'addable'  => $batch->isApproved() ? collect() : ManageCollectionBatch::eligible($request->user(), $batch->branch_id)
+            'addable'  => ! $batch->isOpen() ? collect() : ManageCollectionBatch::eligible($request->user(), $batch->branch_id)
                 ->with('courier:id,name')->orderBy('confirmed_at')->limit(300)->get(),
             'expenses' => Expense::query()->visibleTo($request->user())
                 ->where('status', '!=', 'cancelled')
@@ -111,7 +143,7 @@ class CollectionBatchController extends Controller
                 ->whereUntilDate('spent_on', $batch->to_date->toDateString())
                 ->with('category:id,name_ar')->orderBy('spent_on')->get(),
             // عجزٌ في وجباتٍ معتمدة سابقة لم يُسدَّد: يُحصَّل في هذه الوجبة بسطرٍ موثَّق
-            'shortages' => $batch->isApproved() ? collect() : CollectionBatchItem::query()
+            'shortages' => ! $batch->isOpen() ? collect() : CollectionBatchItem::query()
                 ->with(['courier:id,name', 'settlement:id,code', 'batch:id,number'])
                 ->where('kind', 'settlement')
                 ->whereColumn('received_cash', '<', 'expected_cash')
@@ -197,25 +229,116 @@ class CollectionBatchController extends Controller
         return back()->with('success', 'سُجِّل تحصيل '.number_format((int) $data['amount']).' د.ع من عجزٍ سابق في هذه الوجبة.');
     }
 
+    public function resolve(Request $request, CollectionBatch $batch, CollectionBatchItem $item): RedirectResponse
+    {
+        $data = $request->validate([
+            'resolution'        => ['required', 'in:courier_debt,written_off'],
+            'resolution_reason' => ['nullable', 'string', 'max:255'],
+        ], [], ['resolution' => 'المعالجة', 'resolution_reason' => 'السبب']);
+
+        $this->batches->resolve($batch, $item, $data['resolution'], $data['resolution_reason'] ?? null, $request->user());
+
+        return back()->with('success', 'عولج العجز: '.CollectionBatchItem::RESOLUTIONS[$data['resolution']].'.');
+    }
+
     public function approve(Request $request, CollectionBatch $batch): RedirectResponse
     {
-        $batch = $this->batches->approve($batch, $request->user());
+        $data = $request->validate(['exception' => ['nullable', 'string', 'max:255']], [], ['exception' => 'سبب الاستثناء']);
+        $batch = $this->batches->approve($batch, $request->user(), $data['exception'] ?? null);
 
         return back()->with('success', "اعتُمدت الوجبة {$batch->number}: صافي ربحها ".number_format((int) $batch->net_profit).' د.ع.');
     }
 
+    /** الوجبة لا تُحذف: تُلغى بسببٍ، وتبقى بسجلّها */
     public function destroy(Request $request, CollectionBatch $batch): RedirectResponse
     {
-        $this->batches->delete($batch, $request->user());
+        $data = $request->validate(['reason' => ['required', 'string', 'max:255']], [], ['reason' => 'سبب الإلغاء']);
 
-        return redirect()->route('profits.batches.index')
-            ->with('success', "حُذفت الوجبة {$batch->number}. كشوفها ومصروفاتها تدخل وجبةً أخرى.");
+        $this->batches->cancel($batch, $data['reason'], $request->user());
+
+        return redirect()->route('profits.batches.show', $batch)
+            ->with('success', "أُلغيت الوجبة {$batch->number}. كشوفها ومصروفاتها تدخل وجبةً أخرى، وسجلّها باقٍ.");
+    }
+
+    public function upload(Request $request, CollectionBatch $batch): RedirectResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'max:5120', 'mimes:jpg,jpeg,png,webp,pdf']], [], ['file' => 'الملف']);
+        abort_if($batch->isCancelled(), 422, 'الوجبة ملغاة.');
+
+        $file = $request->file('file');
+        $record = $batch->files()->create([
+            'path'                => $file->store('attachments/'.$batch->company_id.'/batches', 'local'),
+            'name'                => mb_substr($file->getClientOriginalName(), 0, 160),
+            'mime'                => $file->getMimeType(),
+            'size'                => (int) $file->getSize(),
+            'uploaded_by_user_id' => $request->user()->id,
+        ]);
+
+        CollectionBatchAudit::create([
+            'collection_batch_id' => $batch->id, 'user_id' => $request->user()->id, 'user_name' => $request->user()->name,
+            'action' => 'file_added', 'subject' => $record->name,
+        ]);
+
+        return back()->with('success', 'أُرفق الملف.');
+    }
+
+    public function file(CollectionBatch $batch, CollectionBatchFile $file): StreamedResponse
+    {
+        abort_unless((int) $file->collection_batch_id === (int) $batch->id, 404);
+
+        return Storage::disk('local')->download($file->path, $file->name);
+    }
+
+    /** سجل الوجبات بفلاتره في ملف Excel */
+    public function export(Request $request): BinaryFileResponse
+    {
+        $sheet = new StreamingXlsx([
+            ['رقم الوجبة', 14], ['الحال', 18], ['التاريخ', 14], ['الفرع', 16], ['المناديب', 9, 'number'], ['الشحنات', 9, 'number'],
+            ['النقد المتوقَّع', 14, 'number'], ['النقد المستلم', 14, 'number'], ['أموال التجّار', 14, 'number'],
+            ['أجور الزاجل', 13, 'number'], ['صافي الربح', 13, 'number'], ['الفرق', 12, 'number'], ['المتحقّق من الأجور', 14, 'number'],
+            ['اعتمدها', 16], ['وقت الاعتماد', 16],
+        ], 'وجبات التحصيل');
+
+        foreach ($this->filtered($request)->with(['branch:id,name', 'approvedBy:id,name'])->lazyById(500) as $b) {
+            $sheet->add([
+                $b->number, $b->statusLabel(), $b->created_at?->format('Y-m-d'), $b->branch?->name ?? 'كل الفروع',
+                (int) $b->couriers_count, (int) $b->shipments_count, (int) $b->expected_cash, (int) $b->received_cash,
+                (int) $b->merchant_money, (int) $b->fees_in_cash, (int) $b->net_profit, (int) $b->discrepancy, (int) $b->realized_fees,
+                $b->approvedBy?->name, $b->approved_at?->format('Y-m-d H:i'),
+            ]);
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'batches-').'.xlsx';
+        $sheet->save($path);
+
+        return response()->download($path, 'collection-batches-'.now()->format('Y-m-d-His').'.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend();
+    }
+
+    /** @return \Illuminate\Database\Eloquent\Builder<CollectionBatch> */
+    protected function filtered(Request $request)
+    {
+        $user = $request->user();
+
+        return CollectionBatch::query()->visibleTo($user)
+            ->when($request->input('status'), fn ($q, $status) => match (true) {
+                $status === 'open'        => $q->whereNotIn('status', ['approved', 'cancelled']),
+                $status === 'differences' => $q->where('status', '!=', 'cancelled')->where('discrepancy', '!=', 0),
+                isset(CollectionBatch::STATUSES[$status]) => $q->where('status', $status),
+                default                   => $q,
+            })
+            ->when(! $user->isBranchLimited() && $request->integer('branch_id'), fn ($q) => $q->where('branch_id', $request->integer('branch_id')))
+            ->when($request->date('from'), fn ($q, $from) => $q->whereFromDate('to_date', $from->toDateString()))
+            ->when($request->date('to'), fn ($q, $to) => $q->whereUntilDate('to_date', $to->toDateString()))
+            ->when(trim((string) $request->input('q')), fn ($q, $term) => $q->where('number', 'like', '%'.$term.'%'));
     }
 
     /** @return array<string, mixed> */
     protected function sheet(Request $request, CollectionBatch $batch): array
     {
-        $batch->load(['branch:id,name', 'approvedBy:id,name', 'createdBy:id,name', 'costLines.expense.category:id,name_ar']);
+        $batch->load(['branch:id,name', 'approvedBy:id,name', 'createdBy:id,name', 'cancelledBy:id,name', 'cashBox:id,name',
+            'files.uploadedBy:id,name', 'costLines.expense.category:id,name_ar']);
 
         $items = $batch->items()
             ->with(['courier:id,name,code', 'settlement:id,code,confirmed_at', 'remainderOf.batch:id,number', 'remainderOf.settlement:id,code'])

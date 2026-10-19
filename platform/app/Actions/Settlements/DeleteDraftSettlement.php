@@ -3,6 +3,7 @@
 namespace App\Actions\Settlements;
 
 use App\Models\AuditLog;
+use App\Models\CollectionBatchItem;
 use App\Models\CourierSettlement;
 use App\Models\MerchantRequest;
 use App\Models\MerchantSettlement;
@@ -33,6 +34,13 @@ class DeleteDraftSettlement
             if ($draft->status !== 'draft') {
                 throw ValidationException::withMessages([
                     'settlement' => "كشف {$draft->code} مُقفَل فلا يُحذف — تصحيحه حركةٌ في الدفتر.",
+                ]);
+            }
+
+            // مسودّةٌ في وجبة تحصيل (الوجبة أولاً) تُخرج من الوجبة أولاً، لا تُحذف من تحتها
+            if ($draft instanceof CourierSettlement && ($batch = CollectionBatchItem::where('courier_settlement_id', $draft->id)->with('batch:id,number')->first()?->batch)) {
+                throw ValidationException::withMessages([
+                    'settlement' => "كشف {$draft->code} في وجبة التحصيل {$batch->number}: أخرجه منها أو ألغِ الوجبة أولاً.",
                 ]);
             }
 

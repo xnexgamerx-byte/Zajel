@@ -28,10 +28,11 @@ final class Profits
                 coalesce(sum(merchant_money), 0) as merchant, coalesce(sum(delivery_fees), 0) as fees')
             ->toBase()->first();
 
-        $drafts = CollectionBatch::query()->visibleTo($viewer)->where('status', 'draft')
+        // لم تُعتمد: كل حالٍ قبل الاعتماد — والملغاة لا تُعدّ
+        $drafts = CollectionBatch::query()->visibleTo($viewer)->whereNotIn('status', ['approved', 'cancelled'])
             ->selectRaw('count(*) as n, coalesce(sum(net_profit), 0) as profit')->toBase()->first();
 
-        $withDiscrepancy = CollectionBatch::query()->visibleTo($viewer)->where('discrepancy', '!=', 0)->count();
+        $withDiscrepancy = CollectionBatch::query()->visibleTo($viewer)->where('status', '!=', 'cancelled')->where('discrepancy', '!=', 0)->count();
 
         // السحب للشركة كلّها: موظّف الفرع لا يرى ما سحبه صاحبها
         $withdrawn = $viewer?->isBranchLimited() ? 0 : (int) ProfitWithdrawal::where('status', 'done')->sum('amount');
@@ -89,7 +90,7 @@ final class Profits
             ->with('branch:id,name')
             ->whereFromDate('to_date', $period->from->toDateString())
             ->whereUntilDate('to_date', $period->to->toDateString())
-            ->when(! $drafts, fn ($q) => $q->where('status', 'approved'))
+            ->when(! $drafts, fn ($q) => $q->where('status', 'approved'), fn ($q) => $q->where('status', '!=', 'cancelled'))
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($courierId, fn ($q) => $q->whereHas('items', fn ($i) => $i->where('courier_id', $courierId)))
             ->orderByDesc('to_date')->orderByDesc('id')

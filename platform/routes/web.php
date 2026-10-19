@@ -62,6 +62,7 @@ use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\ProfitsController;
 use App\Http\Controllers\Tenant\FinanceLedgerController;
 use App\Http\Controllers\Tenant\CollectionBatchController;
+use App\Http\Controllers\Tenant\CourierFinanceController;
 use App\Http\Controllers\Tenant\ProfitWithdrawalController;
 use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\GovernorateSettingController;
@@ -550,13 +551,18 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/batches', [CollectionBatchController::class, 'index'])->name('batches.index');
                 Route::get('/batches/create', [CollectionBatchController::class, 'create'])->name('batches.create');
                 Route::post('/batches', [CollectionBatchController::class, 'store'])->name('batches.store');
-                Route::whereNumber(['batch', 'item', 'cost'])->group(function () {
+                Route::get('/batches/export', [CollectionBatchController::class, 'export'])->name('batches.export');
+                Route::get('/couriers/{courier}', [CourierFinanceController::class, 'show'])->whereNumber('courier')->name('couriers.show');
+                Route::whereNumber(['batch', 'item', 'cost', 'file'])->group(function () {
                     Route::get('/batches/{batch}', [CollectionBatchController::class, 'show'])->name('batches.show');
                     Route::get('/batches/{batch}/print', [CollectionBatchController::class, 'print'])->name('batches.print');
                     Route::delete('/batches/{batch}', [CollectionBatchController::class, 'destroy'])->name('batches.destroy');
                     Route::post('/batches/{batch}/items', [CollectionBatchController::class, 'addItems'])->name('batches.items.add');
                     Route::delete('/batches/{batch}/items/{item}', [CollectionBatchController::class, 'removeItem'])->name('batches.items.remove');
                     Route::post('/batches/{batch}/items/{item}/received', [CollectionBatchController::class, 'received'])->name('batches.items.received');
+                    Route::post('/batches/{batch}/items/{item}/resolve', [CollectionBatchController::class, 'resolve'])->name('batches.items.resolve');
+                    Route::post('/batches/{batch}/files', [CollectionBatchController::class, 'upload'])->name('batches.files.store');
+                    Route::get('/batches/{batch}/files/{file}', [CollectionBatchController::class, 'file'])->name('batches.files.show');
                     Route::post('/batches/{batch}/costs', [CollectionBatchController::class, 'addCosts'])->name('batches.costs.add');
                     Route::delete('/batches/{batch}/costs/{cost}', [CollectionBatchController::class, 'removeCost'])->name('batches.costs.remove');
                     Route::post('/batches/{batch}/remainders', [CollectionBatchController::class, 'remainder'])->name('batches.remainders');

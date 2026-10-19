@@ -18,6 +18,7 @@
     </div>
     <div class="flex gap-2">
         <a href="{{ route('shipments.index', ['courier_id' => $courier->id]) }}" class="btn-ghost">شحناته</a>
+        @can('money.profits')<a href="{{ route('profits.couriers.show', $courier) }}" class="btn-ghost">كشفه المالي</a>@endcan
         <a href="{{ route('couriers.edit', $courier) }}" class="btn-ghost">تعديل</a>
     </div>
 </div>

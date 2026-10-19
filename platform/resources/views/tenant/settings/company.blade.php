@@ -178,6 +178,19 @@
             </label>
         </div>
 
+        {{-- الاعتماد المزدوج لوجبات التحصيل (docs/plan/68 §٧) --}}
+        <div class="rounded-xl border border-ink-200 p-4">
+            <input type="hidden" name="dual_approval" value="0">
+            <label class="flex items-start gap-3">
+                <input type="checkbox" name="dual_approval" value="1" class="mt-1 size-4"
+                       @checked(old('dual_approval', (bool) $company->setting('finance.dual_approval')))>
+                <span>
+                    <span class="card-title block">يعتمد وجبة التحصيل غيرُ من أنشأها</span>
+                    <span class="card-hint">من جمع النقد وعدّه لا يعتمد وجبته بنفسه: يعتمدها محاسبٌ آخر أو صاحب الشركة.</span>
+                </span>
+            </label>
+        </div>
+
         {{-- طرق دفع مستحقّات التجّار في «طلب محاسبة» من بوابتهم (docs/plan/44) --}}
         <fieldset class="rounded-xl border border-ink-200 p-4">
             <legend class="card-title px-1">طرق الدفع للتجّار</legend>

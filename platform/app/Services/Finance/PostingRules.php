@@ -72,10 +72,13 @@ class PostingRules
                 // العمولة له (credit): الالتزام دائن والتكلفة مدينة
                 [$accountSide, $counterSide] = $credit ? ['credit', 'debit'] : ['debit', 'credit'];
             } else {
-                $account = A::CUSTODY;
+                // عجز الوجبة ذمّةٌ على المندوب في حسابٍ خاص، ورصيدها من نقده الذي بيده (cash_in_hand)
+                $shortage = in_array($tx->category, ['shortage', 'shortage_recovered', 'shortage_written_off'], true);
+                $account = $shortage ? A::SHORTAGES : A::CUSTODY;
                 $counter = match ($tx->category) {
                     'cod_collected', 'amount_correction' => A::SHIPMENT_CLEARING,
-                    'cash_handover'                      => A::CASH_BRIDGE,
+                    'cash_handover', 'shortage', 'shortage_recovered' => A::CASH_BRIDGE,
+                    'shortage_written_off'               => A::WRITE_OFFS,
                     'deduction'                          => A::OTHER_INCOME,
                     default                              => A::UNMAPPED,
                 };
@@ -104,7 +107,9 @@ class PostingRules
         $counter = match ($movement->category) {
             'opening'                                                     => A::OPENING,
             'courier_handover', 'merchant_payout', 'commission_paid',
-            'merchant_advance', 'advance_repaid', 'profit_withdrawal'     => A::CASH_BRIDGE,
+            'merchant_advance', 'advance_repaid', 'profit_withdrawal',
+            'collection_shortage', 'shortage_recovered'                   => A::CASH_BRIDGE,
+            'collection_excess'                                           => A::EXCESS_CASH,
             'merchant_deposit'                                            => A::DEPOSITS,
             'prepaid_fee'                                                 => A::PREPAID,
             'expense'                                                     => A::EXPENSES_DUE,

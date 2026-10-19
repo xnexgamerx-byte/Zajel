@@ -21,12 +21,12 @@
 </div>
 
 <div class="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
-    <a href="{{ route('profits.batches.index', ['status' => 'draft']) }}" class="card block p-4 hover:shadow">
+    <a href="{{ route('profits.batches.index', ['status' => 'open']) }}" class="card block p-4 hover:shadow">
         <div class="text-xs font-medium text-ink-500">وجبات لم تُعتمد بعد</div>
         <div class="mt-1 text-2xl font-bold text-warn-700"><span class="num">{{ number_format($summary['draft_count']) }}</span></div>
         <div class="mt-1 text-xs text-ink-500">ربحها المحسوب <span class="num">{{ number_format($summary['draft_profit']) }}</span> د.ع — لا يُجمع حتى تُعتمد.</div>
     </a>
-    <a href="{{ route('profits.batches.index', ['status' => 'discrepancy']) }}" class="card block p-4 hover:shadow">
+    <a href="{{ route('profits.batches.index', ['status' => 'differences']) }}" class="card block p-4 hover:shadow">
         <div class="text-xs font-medium text-ink-500">وجبات فيها فروقات</div>
         <div class="mt-1 text-2xl font-bold text-bad-700"><span class="num">{{ number_format($summary['discrepancy_count']) }}</span></div>
         <div class="mt-1 text-xs text-ink-500">عجزٌ في عهدة المناديب لم يُسدَّد: <span class="num font-semibold">{{ number_format($summary['shortage']) }}</span> د.ع</div>

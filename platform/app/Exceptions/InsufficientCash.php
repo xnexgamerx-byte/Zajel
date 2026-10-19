@@ -46,6 +46,7 @@ final class InsufficientCash extends ValidationException
             'transfer_out'          => 'المناقلة',
             'branch_remittance_out' => 'التسديد للفرع',
             'profit_withdrawal'     => 'سحب الأرباح',
+            'collection_shortage'   => 'تسجيل العجز',
             default                 => 'العملية',
         };
 

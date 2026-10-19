@@ -138,7 +138,8 @@ class CollectionBatchesTest extends TestCase
             // أموال التجّار ليست ربحاً: الصافي الأجور ناقص العمولات، والمتحقّق ما بقي للشركة من النقد
             $this->assertSame($fees - $commissions, (int) $batch->net_profit);
             $this->assertSame((int) $batch->received_cash - $merchant, (int) $batch->realized_profit);
-            $this->assertSame('draft', $batch->status);
+            // من كشوفٍ مقفلة: النقد استُلم، والوجبة بانتظار المطابقة
+            $this->assertSame('awaiting_reconciliation', $batch->status);
         });
 
         $batch = Tenancy::runFor($this->company, fn () => CollectionBatch::firstOrFail());
@@ -188,6 +189,12 @@ class CollectionBatchesTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->assertSame(-10_000, (int) $batch->refresh()->discrepancy);
         $realizedBefore = (int) $batch->realized_profit;
+
+        // العجز يُعالَج قبل الاعتماد: ذمّةٌ على المندوب
+        $this->actingAs($this->owner)->post($this->host()."/profits/batches/{$batch->id}/approve")->assertSessionHasErrors('batch');
+        $this->actingAs($this->owner)
+            ->post($this->host()."/profits/batches/{$batch->id}/items/{$item->id}/resolve", ['resolution' => 'courier_debt'])
+            ->assertSessionHasNoErrors();
 
         $this->actingAs($this->owner)->post($this->host()."/profits/batches/{$batch->id}/approve")->assertSessionHasNoErrors();
         $this->assertTrue($batch->refresh()->isApproved());
@@ -337,7 +344,7 @@ class CollectionBatchesTest extends TestCase
             ->assertSee('وجبات فيها فروقات')->assertSee('أداء الفروع')->assertSee('أداء المناديب')
             ->assertSee(number_format((int) $batch->refresh()->net_profit));
 
-        $this->actingAs($this->owner)->get($this->host().'/profits/batches?status=draft')
+        $this->actingAs($this->owner)->get($this->host().'/profits/batches?status=open')
             ->assertOk()->assertSee('COL-0002</a>', false)->assertDontSee('COL-0001</a>', false);
 
         // تقرير المدّة يشمل وجبةً تنتهي اليوم، والمسودّة بطلبها

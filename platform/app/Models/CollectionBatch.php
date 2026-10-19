@@ -25,6 +25,16 @@ class CollectionBatch extends Model
         'custom' => ['فترة أحدّدها', null],
     ];
 
+    /** حالات الوجبة بترتيبها (docs/plan/68 §٧) */
+    public const STATUSES = [
+        'draft'                   => 'مسودة',
+        'awaiting_cash'           => 'بانتظار استلام النقد',
+        'awaiting_reconciliation' => 'بانتظار المطابقة',
+        'discrepancy'             => 'تحتوي على فروقات',
+        'approved'                => 'مطابقة ومعتمدة',
+        'cancelled'               => 'ملغاة',
+    ];
+
     protected $guarded = ['id'];
 
     protected function casts(): array
@@ -32,7 +42,8 @@ class CollectionBatch extends Model
         return [
             'from_date'   => 'date',
             'to_date'     => 'date',
-            'approved_at' => 'datetime',
+            'approved_at'  => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 
@@ -49,6 +60,21 @@ class CollectionBatch extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function cashBox(): BelongsTo
+    {
+        return $this->belongsTo(CashBox::class);
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by_user_id');
+    }
+
+    public function files(): HasMany
+    {
+        return $this->hasMany(CollectionBatchFile::class);
     }
 
     public function items(): HasMany
@@ -71,9 +97,20 @@ class CollectionBatch extends Model
         return $this->status === 'approved';
     }
 
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
+
+    /** لم تُعتمد ولم تُلغَ: تُعدَّل */
+    public function isOpen(): bool
+    {
+        return ! $this->isApproved() && ! $this->isCancelled();
+    }
+
     public function statusLabel(): string
     {
-        return $this->isApproved() ? 'معتمدة' : 'لم تُعتمد';
+        return self::STATUSES[$this->status] ?? $this->status;
     }
 
     public function periodLabel(): string

@@ -21,7 +21,12 @@ class CollectionBatchAudit extends Model
         'cost_added'       => 'حُسب مصروف',
         'cost_removed'     => 'أُخرج مصروف',
         'remainder_added'  => 'حُصِّل عجزٌ سابق',
+        'cash_received'    => 'استُلم النقد وعُدّ',
+        'resolved'         => 'عولج العجز',
         'approved'         => 'اعتُمدت',
+        'approved_exception' => 'اعتُمدت باستثناء',
+        'cancelled'        => 'أُلغيت',
+        'file_added'       => 'أُرفق ملف',
         'corrected'        => 'تصحيح بعد الاعتماد',
     ];
 

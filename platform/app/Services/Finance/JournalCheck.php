@@ -62,9 +62,9 @@ class JournalCheck
         $couriers = DB::table('couriers')->where('company_id', $companyId);
         $custody = $this->mismatches(
             (clone $couriers)->pluck('cash_in_hand', 'id'),
-            (clone $lines)->where('account', A::CUSTODY)->groupBy('courier_id')->selectRaw('courier_id as id, sum(debit - credit) as v')->pluck('v', 'id'),
+            (clone $lines)->whereIn('account', [A::CUSTODY, A::SHORTAGES])->groupBy('courier_id')->selectRaw('courier_id as id, sum(debit - credit) as v')->pluck('v', 'id'),
         );
-        $add('custody', 'عهد المناديب = حساب العهدة', $custody[0] === 0, $custody[1], $custody[0] ? Arabic::count($custody[0], ['مندوبٌ واحد', 'مندوبان', 'مناديب', 'مندوباً']).' تختلف عهدته عن قيوده.' : 'عهدة كل مندوبٍ بقيوده.');
+        $add('custody', 'عهد المناديب = العهدة وعجزها', $custody[0] === 0, $custody[1], $custody[0] ? Arabic::count($custody[0], ['مندوبٌ واحد', 'مندوبان', 'مناديب', 'مندوباً']).' تختلف عهدته عن قيوده.' : 'عهدة كل مندوبٍ بقيوده.');
 
         $commissions = $this->mismatches(
             (clone $couriers)->pluck('commission_balance', 'id'),

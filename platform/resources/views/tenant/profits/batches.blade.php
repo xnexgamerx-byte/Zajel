@@ -13,9 +13,11 @@
         <label class="field-label" for="status">الحال</label>
         <select id="status" name="status" class="field-input">
             <option value="">الكل</option>
-            <option value="draft" @selected(request('status') === 'draft')>لم تُعتمد</option>
-            <option value="approved" @selected(request('status') === 'approved')>معتمدة</option>
-            <option value="discrepancy" @selected(request('status') === 'discrepancy')>فيها فروقات</option>
+            <option value="open" @selected(request('status') === 'open')>كل ما لم يُعتمد</option>
+            @foreach (\App\Models\CollectionBatch::STATUSES as $key => $label)
+                <option value="{{ $key }}" @selected(request('status') === $key)>{{ $label }}</option>
+            @endforeach
+            <option value="differences" @selected(request('status') === 'differences')>فيها عجزٌ أو زيادة</option>
         </select>
     </div>
     @if ($branches->isNotEmpty())
@@ -39,6 +41,7 @@
     </div>
     <button type="submit" class="btn-primary">بحث</button>
     <a href="{{ route('profits.batches.index') }}" class="btn-ghost">مسح البحث</a>
+    <a href="{{ route('profits.batches.export', request()->query()) }}" class="btn-ghost ms-auto"><x-icon name="download" class="size-4"/> تصدير Excel</a>
 </form>
 
 <div class="card overflow-hidden">
@@ -54,7 +57,7 @@
                     <th>إجمالي المحصَّل</th>
                     <th>صافي الربح</th>
                     <th>المطابقة</th>
-                    <th>الاعتماد</th>
+                    <th>الحال</th>
                 </tr>
             </thead>
             <tbody>
@@ -74,12 +77,11 @@
                             <span @class(['chip', 'chip-ok' => (int) $batch->discrepancy === 0, 'chip-bad' => $batch->discrepancy < 0, 'chip-info' => $batch->discrepancy > 0])>{{ $batch->reconciliationLabel() }}</span>
                         </td>
                         <td class="text-xs">
+                            <span @class(['chip', 'chip-ok' => $batch->isApproved(), 'chip-mute' => $batch->isCancelled(), 'chip-bad' => $batch->status === 'discrepancy',
+                                'chip-warn' => $batch->isOpen() && $batch->status !== 'discrepancy'])>{{ $batch->statusLabel() }}</span>
                             @if ($batch->isApproved())
-                                <span class="chip chip-ok">معتمدة</span>
                                 <div class="num mt-1 text-ink-500">{{ $batch->approved_at->format('Y-m-d H:i') }}</div>
                                 @if ($batch->approvedBy)<div class="text-ink-500">{{ $batch->approvedBy->name }}</div>@endif
-                            @else
-                                <span class="chip chip-warn">لم تُعتمد</span>
                             @endif
                         </td>
                     </tr>

@@ -66,6 +66,8 @@ class CompanySettingsController extends Controller
             'notify_amount_change' => ['sometimes', 'boolean'],
             // إلزام المندوب بتفعيل موقع هاتفه (docs/plan/62)
             'courier_require_location' => ['sometimes', 'boolean'],
+            // يعتمد وجبة التحصيل غيرُ من أنشأها (docs/plan/68 §٧)
+            'dual_approval' => ['sometimes', 'boolean'],
             // أكثر الصور في دفعة القراءة من تطبيق التاجر (docs/plan/63)
             'reading_batch_max' => ['nullable', 'integer', 'between:1,'.BatchReading::LIMIT],
         ], [
@@ -111,6 +113,7 @@ class CompanySettingsController extends Controller
             'payout_offered' => implode(',', array_keys(PayoutMethods::offered($company))),
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
             'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
+            'dual_approval' => $company->setting('finance.dual_approval') ? '1' : '0',
             'reading_batch_max' => BatchReading::max($company),
         ];
 
@@ -132,6 +135,9 @@ class CompanySettingsController extends Controller
         }
         if (array_key_exists('courier_require_location', $data)) {
             data_set($settings, 'courier.require_location', (bool) $data['courier_require_location']);
+        }
+        if (array_key_exists('dual_approval', $data)) {
+            data_set($settings, 'finance.dual_approval', (bool) $data['dual_approval']);
         }
         if (isset($data['deadline_hours'])) {
             data_set($settings, 'delivery.deadline_hours', (int) $data['deadline_hours']);
@@ -161,6 +167,7 @@ class CompanySettingsController extends Controller
             'payout_offered' => implode(',', array_keys(PayoutMethods::offered($company))),
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
             'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
+            'dual_approval' => $company->setting('finance.dual_approval') ? '1' : '0',
             'reading_batch_max' => BatchReading::max($company),
         ];
 

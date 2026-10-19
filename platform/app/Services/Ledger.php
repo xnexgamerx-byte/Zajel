@@ -482,6 +482,25 @@ class Ledger
         return $entry;
     }
 
+    /**
+     * عجز وجبة التحصيل على المندوب (docs/plan/68 §٧): ما نقص ممّا سلّمه يعود إلى ما بيده
+     * ذمّةً عليه — shortage (عليه)، ثم shortage_recovered حين يسدّده أو shortage_written_off
+     * حين تشطبه الشركة (له). والتصحيح بعد الاعتماد الفئة نفسها بالاتّجاه المعاكس.
+     */
+    public function recordShortage(Courier $courier, string $category, string $direction, int $amount, string $description, int $batchId, ?User $actor = null): ?Transaction
+    {
+        return $this->post(
+            courier: $courier,
+            direction: $direction,
+            category: $category,
+            amount: $amount,
+            description: $description,
+            actor: $actor,
+            referenceType: 'collection_batch',
+            referenceId: $batchId,
+        );
+    }
+
     /** إيراد الشحنة بعد كل حدثٍ يمسّ ما قُيِّد عنها: الفرق وحده (PostingRules::recognizeShipment) */
     protected function recognize(Shipment $shipment): void
     {

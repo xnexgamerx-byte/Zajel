@@ -58,7 +58,7 @@ class Ability
     public const SHIPMENTS_TOTALS = 'shipments.totals';
 
     /** ما لا يُعطى بالدور: لصاحب الشركة، ولمن يُمنح بعينه */
-    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE, self::MONEY_WITHDRAW];
+    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE, self::MONEY_WITHDRAW, self::MONEY_WRITE_OFF];
 
     // التوصيل · الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
@@ -82,6 +82,9 @@ class Ability
 
     /** «العوائد»: وجبات التحصيل والأرباح — إنشاؤها واعتمادها وتصحيحها، وتقارير الأرباح */
     public const MONEY_PROFITS = 'money.profits';
+
+    /** شطب عجز مندوبٍ في وجبة تحصيل، واعتماد وجبةٍ باستثناءٍ موثّق: لصاحب الشركة */
+    public const MONEY_WRITE_OFF = 'money.write_off';
 
     /** تسجيل سحب الأرباح من الشركة: لصاحبها، ولمن يُمنح بعينه */
     public const MONEY_WITHDRAW = 'money.withdraw';
@@ -177,6 +180,7 @@ class Ability
                 self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
                 self::MONEY_PROFITS => 'العوائد: وجبات التحصيل والأرباح',
                 self::MONEY_WITHDRAW => 'تسجيل سحب الأرباح',
+                self::MONEY_WRITE_OFF => 'شطب عجز المناديب واعتماد الوجبة باستثناء',
             ]],
             'reports' => ['label' => 'التقارير', 'abilities' => [
                 self::REPORTS_VIEW => 'التقارير',

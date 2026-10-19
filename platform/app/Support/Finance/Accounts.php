@@ -17,6 +17,8 @@ final class Accounts
 
     public const IN_TRANSIT = '1210';
 
+    public const SHORTAGES = '1250';
+
     public const OUTSIDE_COURIER = '1290';
 
     public const SHIPMENT_CLEARING = '1900';
@@ -37,6 +39,8 @@ final class Accounts
 
     public const EXPENSES_DUE = '2300';
 
+    public const EXCESS_CASH = '2400';
+
     public const OPENING = '3100';
 
     public const DRAWINGS = '3300';
@@ -55,6 +59,8 @@ final class Accounts
 
     public const OPERATING_EXPENSES = '5200';
 
+    public const WRITE_OFFS = '5300';
+
     /**
      * [الاسم، النوع، الجانب الطبيعي]. النوع: asset | liability | equity | revenue | expense | bridge.
      * الحساب الوسيط (bridge) يُصفَّر حين يكتمل طرفا العملية؛ وما بقي فيه سؤالٌ في المطابقة.
@@ -65,6 +71,7 @@ final class Accounts
         self::CASH               => ['النقد في الصناديق والبنوك', 'asset', 'debit'],
         self::CUSTODY            => ['نقد بعهدة المناديب', 'asset', 'debit'],
         self::IN_TRANSIT         => ['نقد بالطريق بين الفروع', 'asset', 'debit'],
+        self::SHORTAGES          => ['عجز عهدة على المناديب', 'asset', 'debit'],
         self::OUTSIDE_COURIER    => ['تحصيلٌ بلا مندوب مسجَّل', 'asset', 'debit'],
         self::SHIPMENT_CLEARING  => ['وسيط الشحنات', 'bridge', 'debit'],
         self::CASH_BRIDGE        => ['وسيط النقد', 'bridge', 'debit'],
@@ -75,6 +82,7 @@ final class Accounts
         self::PREPAID            => ['أجور مقبوضة مقدّماً لم تُكتسب', 'liability', 'credit'],
         self::COMMISSIONS        => ['عمولات مستحقّة للمناديب', 'liability', 'credit'],
         self::EXPENSES_DUE       => ['مصروفات مستحقّة غير مدفوعة', 'liability', 'credit'],
+        self::EXCESS_CASH        => ['زيادات نقدية معلّقة', 'liability', 'credit'],
         self::OPENING            => ['رأس المال والأرصدة الافتتاحية', 'equity', 'credit'],
         self::DRAWINGS           => ['مسحوبات الأرباح', 'equity', 'debit'],
         self::DELIVERY_REVENUE   => ['إيراد أجور التوصيل', 'revenue', 'credit'],
@@ -84,6 +92,7 @@ final class Accounts
         self::COURIER_COMMISSIONS => ['عمولات المناديب', 'expense', 'debit'],
         self::PICKUP_SHARES      => ['حصص مندوبي الاستلام', 'expense', 'debit'],
         self::OPERATING_EXPENSES => ['مصروفات تشغيلية', 'expense', 'debit'],
+        self::WRITE_OFFS         => ['عجز نقدي مشطوب', 'expense', 'debit'],
     ];
 
     public const TYPES = [
