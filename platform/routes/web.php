@@ -60,6 +60,7 @@ use App\Http\Controllers\Tenant\DocScanController;
 use App\Http\Controllers\Tenant\ExpenseController;
 use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\ProfitsController;
+use App\Http\Controllers\Tenant\FinanceLedgerController;
 use App\Http\Controllers\Tenant\CollectionBatchController;
 use App\Http\Controllers\Tenant\ProfitWithdrawalController;
 use App\Http\Controllers\Tenant\FlowReportController;
@@ -534,6 +535,13 @@ Route::middleware('tenant')->group(function () {
             });
             Route::post('/branch-accounts/deposits', [BranchAccountController::class, 'storeDeposit'])
                 ->middleware('can:money.cash')->name('branch-accounts.deposits.store');
+
+            // دفتر القيود (docs/plan/68): الميزان ومطابقته وسطور القيود — للشركة كلّها
+            Route::middleware(['can:money.profits', 'main-branch'])->prefix('finance')->name('finance.')->group(function () {
+                Route::get('/trial-balance', [FinanceLedgerController::class, 'trialBalance'])->name('trial-balance');
+                Route::get('/ledger', [FinanceLedgerController::class, 'lines'])->name('ledger');
+                Route::get('/entries/{entry}', [FinanceLedgerController::class, 'entry'])->whereNumber('entry')->name('entries.show');
+            });
 
             // «العوائد» تحت «الموقف المالي»: وجبات التحصيل والأرباح، وتقريرها، وسحب الأرباح
             Route::middleware('can:money.profits')->prefix('profits')->name('profits.')->group(function () {

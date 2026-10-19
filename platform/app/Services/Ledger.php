@@ -9,6 +9,7 @@ use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Finance\PostingRules;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -74,6 +75,8 @@ class Ledger
                     );
                 }
             }
+
+            $this->recognize($shipment);
         });
     }
 
@@ -168,6 +171,8 @@ class Ledger
                     actor: $actor,
                 );
             }
+
+            $this->recognize($shipment);
         });
     }
 
@@ -186,6 +191,8 @@ class Ledger
             description: "تعديل أجور الشحنة {$shipment->number}".($reason ? " — {$reason}" : ''),
             actor: $actor,
         );
+
+        $this->recognize($shipment);
     }
 
     /** تعديل أجرة المندوب عن شحنةٍ قُيِّدت عمولتها: الفرق في عمولته المستحقّة. */
@@ -239,6 +246,8 @@ class Ledger
                     actor: $actor,
                 );
             }
+
+            $this->recognize($shipment);
         });
     }
 
@@ -388,18 +397,26 @@ class Ledger
         $merchant = $entry->account_type === 'merchant' ? Merchant::withTrashed()->find($entry->account_id) : null;
         $courier = $entry->account_type === 'courier' ? Courier::withTrashed()->find($entry->account_id) : null;
 
-        return $this->post(
+        $shipment = $entry->shipment_id ? Shipment::withTrashed()->find($entry->shipment_id) : null;
+
+        $reversed = $this->post(
             direction: $entry->direction === 'credit' ? 'debit' : 'credit',
             category: $entry->category,
             amount: (int) $entry->amount,
             merchant: $merchant,
             courier: $courier,
-            shipment: $entry->shipment_id ? Shipment::withTrashed()->find($entry->shipment_id) : null,
+            shipment: $shipment,
             description: 'إلغاء: '.$entry->description.($why ? " — {$why}" : ''),
             actor: $actor,
             referenceType: 'reversal',
             referenceId: $entry->id,
         );
+
+        if ($shipment) {
+            $this->recognize($shipment);
+        }
+
+        return $reversed;
     }
 
     /**
@@ -445,7 +462,7 @@ class Ledger
 
         $fresh->forceFill([$balanceColumn => $newBalance])->save();
 
-        return Transaction::create([
+        $entry = Transaction::create([
             'account_type'       => $accountType,
             'account_id'         => $account->id,
             'direction'          => $direction,
@@ -458,6 +475,17 @@ class Ledger
             'description'        => $description,
             'created_by_user_id' => $actor?->id,
         ]);
+
+        // وقيدُه في دفتر القيود، في المعاملة نفسها (docs/plan/68)
+        app(PostingRules::class)->transaction($entry);
+
+        return $entry;
+    }
+
+    /** إيراد الشحنة بعد كل حدثٍ يمسّ ما قُيِّد عنها: الفرق وحده (PostingRules::recognizeShipment) */
+    protected function recognize(Shipment $shipment): void
+    {
+        app(PostingRules::class)->recognizeShipment($shipment);
     }
 
     /**

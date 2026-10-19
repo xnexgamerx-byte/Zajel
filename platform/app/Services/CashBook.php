@@ -7,6 +7,7 @@ use App\Models\CashBox;
 use App\Models\CashMovement;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
+use App\Services\Finance\PostingRules;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -129,7 +130,7 @@ class CashBook
             $fresh->forceFill(['balance' => $balance])->save();
             $box->setAttribute('balance', $balance);
 
-            return CashMovement::create([
+            $movement = CashMovement::create([
                 'cash_box_id'        => $fresh->id,
                 'branch_id'          => $fresh->branch_id,
                 'direction'          => $direction,
@@ -144,6 +145,11 @@ class CashBook
                 // بيد التطبيق لا افتراض القاعدة: CURRENT_TIMESTAMP في SQLite نصٌّ بتوقيت UTC
                 'created_at'         => now(),
             ]);
+
+            // وقيدُها في دفتر القيود، في المعاملة نفسها (docs/plan/68)
+            app(PostingRules::class)->cashMovement($movement);
+
+            return $movement;
         });
     }
 

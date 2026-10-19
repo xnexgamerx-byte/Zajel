@@ -99,6 +99,9 @@ final class StaffNavigation
                 ['money.position', 'الموقف المالي', ['money.position'], 'money.view'],
                 // قسم المدير للأرباح: وجبات التحصيل، وتقريرها، وسحب الأرباح
                 ['profits.index', 'العوائد', ['profits.*'], 'money.profits'],
+                // دفتر القيود: الميزان ومطابقته، وتتبّع أي رقمٍ إلى قيده (docs/plan/68)
+                ['finance.trial-balance', 'ميزان المراجعة', ['finance.trial-balance'], 'money.profits'],
+                ['finance.ledger', 'دفتر القيود', ['finance.ledger', 'finance.entries.*'], 'money.profits'],
                 ['money.position.history', 'تاريخ الموقف المالي', ['money.position.history'], 'money.view'],
                 ['money.reconcile', 'تدقيق الحسابات', ['money.reconcile'], 'money.view'],
                 ['money.accountants', 'قبض ودفع الموظّفين', ['money.accountants'], 'money.view'],

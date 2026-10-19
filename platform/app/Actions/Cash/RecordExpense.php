@@ -6,6 +6,7 @@ use App\Models\CashBox;
 use App\Models\Expense;
 use App\Models\User;
 use App\Services\CashBook;
+use App\Services\Finance\PostingRules;
 use App\Services\SequenceGenerator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -41,6 +42,9 @@ class RecordExpense
                 'status'              => 'recorded',
                 'created_by_user_id'  => $actor?->id,
             ]);
+
+            // يُعترف بالمصروف بتاريخه، دُفع أم لم يُدفع (docs/plan/68)
+            app(PostingRules::class)->expenseRecorded($expense);
 
             // الدفع فوراً حالة شائعة (نثريّة تُدفع نقداً)، لكنّه يبقى
             // خطوةً مستقلّة تُسجَّل حركتها في الصندوق
@@ -131,6 +135,8 @@ class RecordExpense
                 'cancelled_at'  => now(),
                 'cancel_reason' => $reason,
             ])->save();
+
+            app(PostingRules::class)->expenseCancelled($expense);
 
             return $expense->refresh();
         });

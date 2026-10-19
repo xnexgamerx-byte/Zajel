@@ -52,3 +52,17 @@ Schedule::command('zajel:snapshot')
     ->dailyAt('23:50')
     ->timezone('Asia/Baghdad')
     ->withoutOverlapping();
+
+/*
+| دفتر القيود (docs/plan/68): يُبنى تاريخ كل شركةٍ مرّةً بعد التحديث — ثم لا يجد شيئاً —
+| ويُطابَق كل ليلة بالصناديق والمناديب والتجّار.
+*/
+Schedule::command('finance:journal-backfill')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+Schedule::command('finance:journal-check')
+    ->dailyAt('01:40')
+    ->timezone('Asia/Baghdad')
+    ->withoutOverlapping();

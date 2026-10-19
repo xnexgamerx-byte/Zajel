@@ -8,6 +8,7 @@ use App\Models\CashMovement;
 use App\Models\ProfitWithdrawal;
 use App\Models\User;
 use App\Services\CashBook;
+use App\Services\Finance\PostingRules;
 use App\Services\Money\Profits;
 use App\Services\SequenceGenerator;
 use Illuminate\Support\Carbon;
@@ -45,6 +46,9 @@ class RecordProfitWithdrawal
                 'note'               => $note,
                 'created_by_user_id' => $actor->id,
             ]);
+
+            // حقوق ملكية لا مصروف؛ والصندوق — إن اختير — يُطفئ طرفه في «وسيط النقد»
+            app(PostingRules::class)->withdrawal($withdrawal);
 
             if ($box) {
                 $this->cash->out(
@@ -87,6 +91,8 @@ class RecordProfitWithdrawal
                 'cancel_reason'        => $reason,
                 'cancelled_by_user_id' => $actor->id,
             ])->save();
+
+            app(PostingRules::class)->withdrawalCancelled($withdrawal);
 
             return $withdrawal;
         });
