@@ -85,7 +85,7 @@ class ManageCollectionBatch
             ->whereNotIn('couriers.id', CollectionBatchItem::query()
                 ->join('collection_batches', 'collection_batches.id', '=', 'collection_batch_items.collection_batch_id')
                 ->where('collection_batch_items.status', 'pending_cash')
-                ->whereNotIn('collection_batches.status', ['approved', 'cancelled'])
+                ->whereIn('collection_batches.status', CollectionBatch::OPEN)
                 ->select('collection_batch_items.courier_id'));
     }
 

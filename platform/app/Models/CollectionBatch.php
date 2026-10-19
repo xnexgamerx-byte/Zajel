@@ -35,6 +35,9 @@ class CollectionBatch extends Model
         'cancelled'               => 'ملغاة',
     ];
 
+    /** لم تُعتمد ولم تُلغَ: «ضمن» لا «ليس ضمن»، فيُستعمل الفهرس */
+    public const OPEN = ['draft', 'awaiting_cash', 'awaiting_reconciliation', 'discrepancy'];
+
     protected $guarded = ['id'];
 
     protected function casts(): array

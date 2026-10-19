@@ -323,7 +323,7 @@ class CollectionBatchController extends Controller
 
         return CollectionBatch::query()->visibleTo($user)
             ->when($request->input('status'), fn ($q, $status) => match (true) {
-                $status === 'open'        => $q->whereNotIn('status', ['approved', 'cancelled']),
+                $status === 'open'        => $q->whereIn('status', CollectionBatch::OPEN),
                 $status === 'differences' => $q->where('status', '!=', 'cancelled')->where('discrepancy', '!=', 0),
                 isset(CollectionBatch::STATUSES[$status]) => $q->where('status', $status),
                 default                   => $q,

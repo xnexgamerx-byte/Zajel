@@ -29,7 +29,7 @@ final class Profits
             ->toBase()->first();
 
         // لم تُعتمد: كل حالٍ قبل الاعتماد — والملغاة لا تُعدّ
-        $drafts = CollectionBatch::query()->visibleTo($viewer)->whereNotIn('status', ['approved', 'cancelled'])
+        $drafts = CollectionBatch::query()->visibleTo($viewer)->whereIn('status', CollectionBatch::OPEN)
             ->selectRaw('count(*) as n, coalesce(sum(net_profit), 0) as profit')->toBase()->first();
 
         $withDiscrepancy = CollectionBatch::query()->visibleTo($viewer)->where('status', '!=', 'cancelled')->where('discrepancy', '!=', 0)->count();
