@@ -191,6 +191,38 @@
             </label>
         </div>
 
+        {{-- إدارة الأرباح (docs/plan/68 ق٨ وق٩ وق١٠): ما يُحجز من النقد قبل السحب، ودورة التسوية، وحدّ الاعتماد --}}
+        <fieldset class="rounded-xl border border-ink-200 p-4">
+            <legend class="card-title px-1">إدارة الأرباح</legend>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                    <label class="field-label" for="reserve_fixed">احتياطي تشغيلي ثابت (د.ع)</label>
+                    <input id="reserve_fixed" type="number" name="reserve_fixed" min="0" step="1" class="field-input text-left" dir="ltr"
+                           value="{{ old('reserve_fixed', $company->setting('finance.reserve_fixed')) }}">
+                    @error('reserve_fixed') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="field-label" for="reserve_days">أو أيامٌ من متوسّط المصروف اليومي</label>
+                    <input id="reserve_days" type="number" name="reserve_days" min="0" max="90" step="1" class="field-input text-left" dir="ltr"
+                           value="{{ old('reserve_days', $company->setting('finance.reserve_days')) }}">
+                    @error('reserve_days') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="field-label" for="merchant_cycle_days">دورة تسوية التجّار (أيام)</label>
+                    <input id="merchant_cycle_days" type="number" name="merchant_cycle_days" min="1" max="60" step="1" class="field-input text-left" dir="ltr"
+                           value="{{ old('merchant_cycle_days', $company->setting('finance.merchant_cycle_days', 7)) }}">
+                    @error('merchant_cycle_days') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="field-label" for="withdrawal_approval_over">سحب الأرباح فوق هذا المبلغ يعتمده غيرُ طالبه (د.ع)</label>
+                    <input id="withdrawal_approval_over" type="number" name="withdrawal_approval_over" min="0" step="1" class="field-input text-left" dir="ltr"
+                           value="{{ old('withdrawal_approval_over', $company->setting('finance.withdrawal_approval_over')) }}">
+                    @error('withdrawal_approval_over') <p class="field-error">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <p class="card-hint mt-2">الاحتياطي يُحجز من النقد قبل «المتاح للسحب»: الأكبر من المبلغ الثابت وأيام المصروف. والدورة تفصل مستحقّات التجّار الحالية عن المتأخّرة. وحدّ الاعتماد فارغاً أو صفراً: يعتمد صاحب الصلاحية سحبه بنفسه.</p>
+        </fieldset>
+
         {{-- طرق دفع مستحقّات التجّار في «طلب محاسبة» من بوابتهم (docs/plan/44) --}}
         <fieldset class="rounded-xl border border-ink-200 p-4">
             <legend class="card-title px-1">طرق الدفع للتجّار</legend>

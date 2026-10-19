@@ -25,7 +25,7 @@ class StaffNavigationTest extends TestCase
 
     /** من اليمين إلى اليسار بعمل الشاشات (docs/plan/21 §١) */
     private const ORDER = [
-        'الرئيسية', 'الشحنات', 'التوصيل', 'الراجع', 'الحسابات المالية', 'الموقف المالي', 'الفروع', 'الطلبات',
+        'الرئيسية', 'الشحنات', 'التوصيل', 'الراجع', 'الحسابات المالية', 'إدارة الأرباح', 'الفروع', 'الطلبات',
         'التقارير', 'المتابعة', 'الإشعارات', 'الإعدادات',
     ];
 
@@ -61,7 +61,7 @@ class StaffNavigationTest extends TestCase
         // خانات «العوائد»: سجل الوجبات وإنشاؤها وتقرير الأرباح وسحبها، من شريطها
         'profits.batches.index', 'profits.batches.create', 'profits.report', 'profits.withdrawals.index',
         // زرّا Excel في سجل الوجبات ولوحة الأرباح
-        'profits.batches.export', 'profits.export',
+        'profits.batches.export', 'profits.export', 'profits.withdrawals.export',
     ];
 
     private Company $company;

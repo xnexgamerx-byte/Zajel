@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Route;
  *
  * القوائم مرتّبةٌ بما تفعله كل شاشة لا بترتيب نظامٍ آخر (docs/plan/21 §١):
  * الشحنات، ثم رحلتها في التوصيل، ثم الراجع، ثم الحسابات المالية يوماً بيوم، ثم
- * الموقف المالي والفروع، ثم التقارير والمتابعة والإعدادات. وأسماؤها كلماتٌ يومية
+ * إدارة الأرباح والموقف المالي والفروع، ثم التقارير والمتابعة والإعدادات. وأسماؤها كلماتٌ يومية
  * بسيطة يفهمها كل موظّف لا المحاسب وحده (docs/plan/20 §٧).
  * والقائمة ذات الرابط الواحد رابطٌ مباشر لا قائمة تنسدل («الرئيسية»).
  *
@@ -95,10 +95,12 @@ final class StaffNavigation
                 ['pickup-agents.objections', 'اعتراضات مندوبي الاستلام', ['pickup-agents.objections'], 'money.view'],
             ]],
             // الصورة الكاملة: موقف الشركة وتدقيق حساباتها — وحساب الفروع في «الفروع»
-            'position' => ['الموقف المالي', 'bank', [
+            'position' => ['إدارة الأرباح', 'bank', [
                 ['money.position', 'الموقف المالي', ['money.position'], 'money.view'],
                 // قسم المدير للأرباح: لوحتها من دفتر القيود، ووجبات التحصيل، وتقريرها، وسحب الأرباح
-                ['profits.index', 'لوحة الأرباح', ['profits.*'], 'money.profits'],
+                ['profits.index', 'لوحة الأرباح', ['profits.index', 'profits.export', 'profits.batches.*', 'profits.report', 'profits.withdrawals.*', 'profits.couriers.*'], 'money.profits'],
+                // النقد في الصناديق والعهد والطريق، والمتوقَّع أربعة عشر يوماً (docs/plan/68 §١١)
+                ['profits.cash', 'الموقف النقدي', ['profits.cash'], 'money.profits'],
                 // دفتر القيود: الميزان ومطابقته، وتتبّع أي رقمٍ إلى قيده (docs/plan/68)
                 ['finance.trial-balance', 'ميزان المراجعة', ['finance.trial-balance'], 'money.profits'],
                 ['finance.ledger', 'دفتر القيود', ['finance.ledger', 'finance.entries.*'], 'money.profits'],

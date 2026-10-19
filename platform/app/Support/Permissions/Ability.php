@@ -58,7 +58,7 @@ class Ability
     public const SHIPMENTS_TOTALS = 'shipments.totals';
 
     /** ما لا يُعطى بالدور: لصاحب الشركة، ولمن يُمنح بعينه */
-    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE, self::MONEY_WITHDRAW, self::MONEY_WRITE_OFF];
+    public const OWNER_ONLY = [self::SHIPMENTS_OVERRIDE, self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::MONEY_WRITE_OFF];
 
     // التوصيل · الراجع
     public const TRANSPORT_MANAGE = 'transport.manage';
@@ -86,8 +86,11 @@ class Ability
     /** شطب عجز مندوبٍ في وجبة تحصيل، واعتماد وجبةٍ باستثناءٍ موثّق: لصاحب الشركة */
     public const MONEY_WRITE_OFF = 'money.write_off';
 
-    /** تسجيل سحب الأرباح من الشركة: لصاحبها، ولمن يُمنح بعينه */
-    public const MONEY_WITHDRAW = 'money.withdraw';
+    /** طلب سحبٍ من أرباح الشركة (docs/plan/68 §١٠): لصاحبها، ولمن يُمنح بعينه */
+    public const WITHDRAWALS_REQUEST = 'withdrawals.request';
+
+    /** اعتماد السحب ودفعه من الصندوق: لصاحب الشركة، ولمن يُمنح بعينه */
+    public const WITHDRAWALS_APPROVE = 'withdrawals.approve';
 
     // التقارير
     public const REPORTS_VIEW = 'reports.view';
@@ -139,6 +142,8 @@ class Ability
     public const COMPANY_WIDE = [
         self::SETTINGS_PERMISSIONS, self::SETTINGS_BRANCHES,
         self::SETTINGS_PRICING, self::SETTINGS_COMPANY,
+        // السحب من أرباح الشركة كلّها: من الفرع الرئيسي وحده (docs/plan/68 §١٣)
+        self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE,
     ];
 
     /** @var array<int, string>|null */
@@ -179,7 +184,8 @@ class Ability
                 self::MONEY_PAY => 'دفع كشوف التجّار',
                 self::MONEY_CONFIRM_AMOUNT => 'تأكيد مبلغ الوصل (لا رجعة)',
                 self::MONEY_PROFITS => 'العوائد: وجبات التحصيل والأرباح',
-                self::MONEY_WITHDRAW => 'تسجيل سحب الأرباح',
+                self::WITHDRAWALS_REQUEST => 'طلب سحب الأرباح',
+                self::WITHDRAWALS_APPROVE => 'اعتماد سحب الأرباح ودفعه',
                 self::MONEY_WRITE_OFF => 'شطب عجز المناديب واعتماد الوجبة باستثناء',
             ]],
             'reports' => ['label' => 'التقارير', 'abilities' => [

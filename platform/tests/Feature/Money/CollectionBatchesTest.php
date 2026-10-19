@@ -279,39 +279,37 @@ class CollectionBatchesTest extends TestCase
     {
         $box = Tenancy::runFor($this->company, fn () => CashBox::create(['code' => 'MAIN', 'name' => 'القاصة الرئيسية', 'type' => 'main', 'balance' => 0, 'is_active' => true]));
         $batch = $this->batch([$this->settled($this->ahmed, [50_000, 40_000])]);
+        $form = fn (int $amount) => ['amount' => $amount, 'withdrawn_on' => now()->toDateString(), 'withdrawn_by' => 'صاحب الشركة',
+            'cash_box_id' => $box->id, 'note' => 'أرباح الأسبوع', 'pay_now' => 1];
 
-        // المسودّة لا يُسحب منها
-        $this->actingAs($this->owner)
-            ->post($this->host().'/profits/withdrawals', ['amount' => 1_000, 'withdrawn_on' => now()->toDateString()])
-            ->assertSessionHasErrors('amount');
+        // المسودّة لا يُسحب منها: أجورها لم تتحقّق بعد
+        $this->actingAs($this->owner)->post($this->host().'/profits/withdrawals', $form(1_000))->assertSessionHasErrors('amount');
 
         $this->actingAs($this->owner)->post($this->host()."/profits/batches/{$batch->id}/approve");
-        $available = (int) $batch->refresh()->realized_profit;
+        $available = Tenancy::runFor($this->company, fn () => app(\App\Actions\Profits\RecordProfitWithdrawal::class)->available());
         $this->assertGreaterThan(2_000, $available);
 
-        $this->actingAs($this->owner)
-            ->post($this->host().'/profits/withdrawals', ['amount' => $available + 1, 'withdrawn_on' => now()->toDateString()])
-            ->assertSessionHasErrors('amount');
+        $this->actingAs($this->owner)->post($this->host().'/profits/withdrawals', $form($available + 1))->assertSessionHasErrors('amount');
 
-        $this->actingAs($this->owner)
-            ->post($this->host().'/profits/withdrawals', [
-                'amount' => 2_000, 'withdrawn_on' => now()->toDateString(), 'withdrawn_by' => 'صاحب الشركة', 'cash_box_id' => $box->id,
-            ])->assertSessionHas('success', fn ($m) => str_contains($m, 'WD-0001'));
+        $this->actingAs($this->owner)->post($this->host().'/profits/withdrawals', $form(2_000))
+            ->assertSessionHas('success', fn ($m) => str_contains($m, 'WD-0001'));
 
         Tenancy::runFor($this->company, function () use ($box, $available) {
             $withdrawal = ProfitWithdrawal::firstOrFail();
-            $this->assertSame(2_000, (int) $withdrawal->amount);
+            $this->assertSame([2_000, 'paid'], [(int) $withdrawal->amount, $withdrawal->status]);
+            $this->assertSame([$available, $available - 2_000], [(int) $withdrawal->available_before, (int) $withdrawal->available_after]);
             $this->assertSame(1, CashMovement::where('category', 'profit_withdrawal')->where('direction', 'out')->count());
-            $this->assertSame($available - 2_000, app(Profits::class)->available());
+            $this->assertSame($available - 2_000, app(\App\Actions\Profits\RecordProfitWithdrawal::class)->available());
             $balance = (int) $box->refresh()->balance;
 
             app(\App\Actions\Profits\RecordProfitWithdrawal::class)->cancel($withdrawal, 'سُجِّل خطأً', $this->owner);
             $this->assertSame($balance + 2_000, (int) $box->refresh()->balance);
-            $this->assertSame($available, app(Profits::class)->available());
+            $this->assertSame('reversed', $withdrawal->refresh()->status);
+            $this->assertSame($available, app(\App\Actions\Profits\RecordProfitWithdrawal::class)->available());
         });
 
         $this->actingAs($this->owner)->get($this->host().'/profits/withdrawals')
-            ->assertOk()->assertSee('سجل عمليات السحب')->assertSee('WD-0001')->assertSee('ملغى');
+            ->assertOk()->assertSee('سجل عمليات السحب')->assertSee('WD-0001')->assertSee('معكوس');
     }
 
     public function test_only_the_owner_withdraws_and_the_accountant_runs_batches(): void

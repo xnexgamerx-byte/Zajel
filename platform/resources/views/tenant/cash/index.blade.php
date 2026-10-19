@@ -290,7 +290,20 @@
                                 <option value="petty">صندوق نثريّة</option>
                                 <option value="employee" @selected(old('type') === 'employee')>صندوق موظّف</option>
                                 <option value="main">القاصة الرئيسية</option>
+                                <option value="bank" @selected(old('type') === 'bank')>حساب مصرفي</option>
                             </select>
+                        </div>
+                    </div>
+                    {{-- الحساب المصرفي نوعٌ من الصناديق (docs/plan/68 ق١١): اسم البنك ووصف الحساب، لا رقمه --}}
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="field-label" for="bank_name">البنك (لحسابٍ مصرفي)</label>
+                            <input id="bank_name" name="bank_name" value="{{ old('bank_name') }}" maxlength="80" class="field-input">
+                            @error('bank_name') <p class="field-error">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="field-label" for="account_label">وصف الحساب</label>
+                            <input id="account_label" name="account_label" value="{{ old('account_label') }}" maxlength="60" class="field-input" placeholder="الحساب الجاري — آخره ٤٢١٧">
                         </div>
                     </div>
                     {{-- «صناديق الدفع»: ما يقبضه الموظّف بيده يدخل صندوقه، ويسلّمه للقاصة من «صندوقي» --}}

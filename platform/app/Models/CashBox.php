@@ -71,6 +71,7 @@ class CashBox extends Model
             'branch' => 'صندوق فرع',
             'petty'  => 'صندوق نثريّة',
             'employee' => 'صندوق موظّف',
+            'bank'   => 'حساب مصرفي'.($this->bank_name ? ' — '.$this->bank_name : '').($this->account_label ? ' · '.$this->account_label : ''),
             default  => $this->type,
         };
     }
@@ -87,8 +88,9 @@ class CashBox extends Model
     public static function forBranch(?int $branchId, bool $strict = false): ?self
     {
         return static::active()
-            // صندوق الموظّف له وحده: لا يصير صندوق الفرع لغيره
+            // صندوق الموظّف له وحده: لا يصير صندوق الفرع لغيره؛ والحساب المصرفي لا يقبض نقداً باليد
             ->whereNull('user_id')
+            ->where('type', '!=', 'bank')
             ->when($strict, fn (Builder $q) => $q->where('branch_id', $branchId))
             ->when($branchId, fn (Builder $q) => $q->orderByRaw('case when branch_id = ? then 0 else 1 end', [$branchId]))
             ->orderByRaw("case when type = 'main' then 0 else 1 end")

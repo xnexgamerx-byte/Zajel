@@ -35,7 +35,7 @@ final class Profits
         $withDiscrepancy = CollectionBatch::query()->visibleTo($viewer)->where('status', '!=', 'cancelled')->where('discrepancy', '!=', 0)->count();
 
         // السحب للشركة كلّها: موظّف الفرع لا يرى ما سحبه صاحبها
-        $withdrawn = $viewer?->isBranchLimited() ? 0 : (int) ProfitWithdrawal::where('status', 'done')->sum('amount');
+        $withdrawn = $viewer?->isBranchLimited() ? 0 : (int) ProfitWithdrawal::where('status', 'paid')->sum('amount');
 
         return [
             'approved_count'   => (int) $approved->n,
@@ -57,7 +57,7 @@ final class Profits
     public function available(): int
     {
         return (int) CollectionBatch::where('status', 'approved')->sum('realized_profit')
-            - (int) ProfitWithdrawal::where('status', 'done')->sum('amount');
+            - (int) ProfitWithdrawal::where('status', 'paid')->sum('amount');
     }
 
     /** عجزٌ في عهدة المناديب لم يُسدَّد: نقص الكشوف ناقص ما حُصِّل منه بعدها */
@@ -163,7 +163,7 @@ final class Profits
                 'discrepancy' => (int) $batches->sum('discrepancy'),
             ];
 
-        $totals['withdrawn'] = $viewer?->isBranchLimited() ? 0 : (int) ProfitWithdrawal::where('status', 'done')
+        $totals['withdrawn'] = $viewer?->isBranchLimited() ? 0 : (int) ProfitWithdrawal::where('status', 'paid')
             ->whereFromDate('withdrawn_on', $period->from->toDateString())
             ->whereUntilDate('withdrawn_on', $period->to->toDateString())->sum('amount');
 

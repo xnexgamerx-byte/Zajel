@@ -450,7 +450,7 @@ class CompanyFeaturesTest extends TestCase
         $this->assertSame(['شحنة جديدة', 'كل الشحنات'], array_slice(array_column($shipments['links'], 'label'), 0, 2));
 
         $this->actingAs($this->owner)->get($this->host().'/')->assertOk()
-            ->assertSeeInOrder(['الحسابات المالية', 'الموقف المالي', 'التقارير', 'الفروع']);
+            ->assertSeeInOrder(['الحسابات المالية', 'إدارة الأرباح', 'التقارير', 'الفروع']);
 
         $this->actingAs($this->admin)->post('/admin/companies/'.$this->company->id.'/navigation', ['reset' => '1'])
             ->assertSessionHas('success', 'عادت قوائم موظّفي الشركة إلى ترتيبها الأصليّ.');

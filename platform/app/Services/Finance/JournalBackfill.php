@@ -108,10 +108,11 @@ class JournalBackfill
             }
         });
 
-        ProfitWithdrawal::query()->orderBy('id')->chunkById(500, function ($rows) use ($force, &$counts) {
+        // ما طُلب أو اعتُمد ولم يُدفع، أو أُلغي قبل الدفع، لم يحرّك مالاً: لا قيد له
+        ProfitWithdrawal::query()->whereIn('status', ['paid', 'reversed'])->orderBy('id')->chunkById(500, function ($rows) use ($force, &$counts) {
             foreach ($rows as $withdrawal) {
                 $this->rules->withdrawal($withdrawal, $force);
-                if ($withdrawal->isCancelled()) {
+                if ($withdrawal->isReversed()) {
                     $this->rules->withdrawalCancelled($withdrawal, $force);
                 }
                 $counts['withdrawals']++;

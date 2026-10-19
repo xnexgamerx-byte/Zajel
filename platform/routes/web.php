@@ -44,6 +44,7 @@ use App\Http\Controllers\Tenant\BranchAccountController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BranchRemittanceController;
 use App\Http\Controllers\Tenant\CashBoxController;
+use App\Http\Controllers\Tenant\CashPositionController;
 use App\Http\Controllers\Tenant\CompanyLogoController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ControlController;
@@ -549,6 +550,7 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/', [ProfitsController::class, 'index'])->name('index');
                 Route::get('/report', [ProfitsController::class, 'report'])->name('report');
                 Route::get('/export', [ProfitsController::class, 'export'])->name('export');
+                Route::get('/cash', CashPositionController::class)->name('cash');
                 Route::get('/batches', [CollectionBatchController::class, 'index'])->name('batches.index');
                 Route::get('/batches/create', [CollectionBatchController::class, 'create'])->name('batches.create');
                 Route::post('/batches', [CollectionBatchController::class, 'store'])->name('batches.store');
@@ -572,9 +574,17 @@ Route::middleware('tenant')->group(function () {
                 // سحب الأرباح للشركة كلّها: من الفرع الرئيسي، ولصاحب الشركة أو من يُمنح بعينه
                 Route::middleware('main-branch')->group(function () {
                     Route::get('/withdrawals', [ProfitWithdrawalController::class, 'index'])->name('withdrawals.index');
-                    Route::post('/withdrawals', [ProfitWithdrawalController::class, 'store'])->middleware('can:money.withdraw')->name('withdrawals.store');
-                    Route::post('/withdrawals/{withdrawal}/cancel', [ProfitWithdrawalController::class, 'cancel'])
-                        ->middleware('can:money.withdraw')->whereNumber('withdrawal')->name('withdrawals.cancel');
+                    Route::get('/withdrawals/export', [ProfitWithdrawalController::class, 'export'])->name('withdrawals.export');
+                    Route::post('/withdrawals', [ProfitWithdrawalController::class, 'store'])->middleware('can:withdrawals.request')->name('withdrawals.store');
+                    Route::whereNumber('withdrawal')->group(function () {
+                        Route::get('/withdrawals/{withdrawal}/print', [ProfitWithdrawalController::class, 'print'])->name('withdrawals.print');
+                        Route::post('/withdrawals/{withdrawal}/approve', [ProfitWithdrawalController::class, 'approve'])
+                            ->middleware('can:withdrawals.approve')->name('withdrawals.approve');
+                        Route::post('/withdrawals/{withdrawal}/pay', [ProfitWithdrawalController::class, 'pay'])
+                            ->middleware('can:withdrawals.approve')->name('withdrawals.pay');
+                        Route::post('/withdrawals/{withdrawal}/cancel', [ProfitWithdrawalController::class, 'cancel'])
+                            ->middleware('can:withdrawals.request')->name('withdrawals.cancel');
+                    });
                 });
             });
 

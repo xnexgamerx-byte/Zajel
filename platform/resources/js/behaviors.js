@@ -409,6 +409,21 @@ document.addEventListener('submit', (event) => {
     }
 });
 
+/**
+ * «المتاح قبل وبعد» في نموذج سحب الأرباح: data-after-of="معرّف حقل المبلغ" وdata-before المتاح.
+ * والخادم يعيد الحساب عند الحفظ وعند الدفع — هذا عرضٌ لا حارس.
+ */
+document.addEventListener('input', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.id) return;
+
+    for (const out of document.querySelectorAll(`[data-after-of="${input.id}"]`)) {
+        const after = Number(out.dataset.before) - numberValue(input);
+        out.textContent = (after < 0 ? '−' : '') + Math.abs(after).toLocaleString('en-US');
+        out.classList.toggle('text-bad-700', after < 0);
+    }
+});
+
 // الخرائط تُحمَّل حيث تُرسم وحدها، في صفحات الموظّف وصفحة تتبّع الزبون: Leaflet لا يثقل كلّ صفحة (docs/plan/61)
 if (document.querySelector('[data-map]')) {
     import('./map');

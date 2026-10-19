@@ -90,11 +90,15 @@ class CashBoxController extends Controller
         $data = $request->validate([
             'name'      => ['required', 'string', 'max:120'],
             'code'      => ['required', 'string', 'max:20', 'alpha_dash'],
-            'type'      => ['required', 'in:main,branch,petty,employee'],
+            'type'      => ['required', 'in:main,branch,petty,employee,bank'],
+            // الحساب المصرفي (docs/plan/68 ق١١): اسم البنك ووصفٌ يُعرف به، لا رقم الحساب كاملاً
+            'bank_name' => ['nullable', 'required_if:type,bank', 'string', 'max:80'],
+            'account_label' => ['nullable', 'string', 'max:60'],
             'branch_id' => ['nullable', 'integer'],
             'user_id'   => ['nullable', 'required_if:type,employee', 'integer'],
             'opening'   => ['nullable', 'integer', 'min:0'],
-        ], ['user_id.required_if' => 'اختر الموظّف صاحب الصندوق.'], ['name' => 'الاسم', 'code' => 'الرمز', 'type' => 'النوع', 'user_id' => 'الموظّف']);
+        ], ['user_id.required_if' => 'اختر الموظّف صاحب الصندوق.', 'bank_name.required_if' => 'اكتب اسم البنك للحساب المصرفي.'],
+            ['name' => 'الاسم', 'code' => 'الرمز', 'type' => 'النوع', 'user_id' => 'الموظّف', 'bank_name' => 'البنك', 'account_label' => 'وصف الحساب']);
 
         // موظّف الفرع يفتح صناديق فرعه وحده
         if ($request->user()->isBranchLimited()) {
@@ -124,6 +128,8 @@ class CashBoxController extends Controller
             'code'      => $data['code'],
             'name'      => $data['name'],
             'type'      => $data['type'],
+            'bank_name' => $data['type'] === 'bank' ? $data['bank_name'] : null,
+            'account_label' => $data['type'] === 'bank' ? ($data['account_label'] ?? null) : null,
             'branch_id' => $data['branch_id'] ?? $owner?->branch_id,
             'user_id'   => $owner?->id,
             'balance'   => 0,

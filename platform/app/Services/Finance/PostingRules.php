@@ -168,7 +168,7 @@ class PostingRules
     {
         return $this->journal->post(
             (int) $withdrawal->company_id, 'pw:'.$withdrawal->id, 'profit_withdrawal',
-            $withdrawal->created_at ?? now(), [
+            $withdrawal->paid_at ?? $withdrawal->created_at ?? now(), [
                 ['account' => A::DRAWINGS, 'debit' => (int) $withdrawal->amount],
                 ['account' => A::CASH_BRIDGE, 'credit' => (int) $withdrawal->amount],
             ],
