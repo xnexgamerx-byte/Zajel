@@ -329,6 +329,8 @@ class CollectionBatchController extends Controller
                 default                   => $q,
             })
             ->when(! $user->isBranchLimited() && $request->integer('branch_id'), fn ($q) => $q->where('branch_id', $request->integer('branch_id')))
+            // يوم الاعتماد: من «التحصيلات اليومية» في لوحة الأرباح
+            ->when($request->date('approved_on'), fn ($q, $day) => $q->whereOnDate('approved_at', $day->toDateString()))
             ->when($request->date('from'), fn ($q, $from) => $q->whereFromDate('to_date', $from->toDateString()))
             ->when($request->date('to'), fn ($q, $to) => $q->whereUntilDate('to_date', $to->toDateString()))
             ->when(trim((string) $request->input('q')), fn ($q, $term) => $q->where('number', 'like', '%'.$term.'%'));

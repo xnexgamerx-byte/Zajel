@@ -319,7 +319,7 @@ class CollectionBatchesTest extends TestCase
         $accountant = $this->makeUser($this->company, UserRole::Accountant);
         $service = $this->makeUser($this->company, UserRole::CustomerService);
 
-        $this->actingAs($accountant)->get($this->host().'/profits')->assertOk()->assertSee('العوائد');
+        $this->actingAs($accountant)->get($this->host().'/profits')->assertOk()->assertSee('لوحة الأرباح');
         $this->actingAs($accountant)->get($this->host().'/profits/batches/create')->assertOk();
         $this->actingAs($accountant)
             ->post($this->host().'/profits/withdrawals', ['amount' => 1, 'withdrawn_on' => now()->toDateString()])
@@ -337,12 +337,13 @@ class CollectionBatchesTest extends TestCase
         $this->batch([$this->settled($this->ahmed, [10_000])]);
 
         $this->actingAs($this->owner)->get($this->host().'/')
-            ->assertSee('العوائد')->assertSee(route('profits.index', [], false), false);
+            ->assertSee('لوحة الأرباح')->assertSee(route('profits.index', [], false), false);
 
+        // اللوحة من دفتر القيود: إيراد الأجور فيها ما قُيِّد للشحنات المسلَّمة
+        $fees = (int) Tenancy::runFor($this->company, fn () => Shipment::whereNotNull('delivered_at')->sum('total_fees'));
         $this->actingAs($this->owner)->get($this->host().'/profits')
-            ->assertOk()->assertSee('إجمالي الأرباح المحسوبة')->assertSee('وجبات لم تُعتمد بعد')
-            ->assertSee('وجبات فيها فروقات')->assertSee('أداء الفروع')->assertSee('أداء المناديب')
-            ->assertSee(number_format((int) $batch->refresh()->net_profit));
+            ->assertOk()->assertSee('صافي الربح المحاسبي')->assertSee('الربح المحصَّل نقداً')->assertSee('وجبات لم تُعتمد بعد')
+            ->assertSee('أفضل المناديب')->assertSee('كيف حُسب')->assertSee(number_format($fees));
 
         $this->actingAs($this->owner)->get($this->host().'/profits/batches?status=open')
             ->assertOk()->assertSee('COL-0002</a>', false)->assertDontSee('COL-0001</a>', false);

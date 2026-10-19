@@ -548,6 +548,7 @@ Route::middleware('tenant')->group(function () {
             Route::middleware('can:money.profits')->prefix('profits')->name('profits.')->group(function () {
                 Route::get('/', [ProfitsController::class, 'index'])->name('index');
                 Route::get('/report', [ProfitsController::class, 'report'])->name('report');
+                Route::get('/export', [ProfitsController::class, 'export'])->name('export');
                 Route::get('/batches', [CollectionBatchController::class, 'index'])->name('batches.index');
                 Route::get('/batches/create', [CollectionBatchController::class, 'create'])->name('batches.create');
                 Route::post('/batches', [CollectionBatchController::class, 'store'])->name('batches.store');

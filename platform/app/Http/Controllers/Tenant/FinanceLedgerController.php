@@ -77,6 +77,7 @@ class FinanceLedgerController extends Controller
             ->when($request->integer('courier_id'), fn ($q, $id) => $q->where('courier_id', $id))
             ->when($request->integer('merchant_id'), fn ($q, $id) => $q->where('merchant_id', $id))
             ->when($request->integer('cash_box_id'), fn ($q, $id) => $q->where('cash_box_id', $id))
+            ->when($request->integer('branch_id'), fn ($q, $id) => $q->where('branch_id', $id))
             ->when($shipment !== '', fn ($q) => $q->where('shipment_id', Shipment::withTrashed()->where('number', $shipment)->value('id') ?? 0));
 
         $totals = (clone $query)->toBase()->selectRaw('coalesce(sum(debit), 0) as debit, coalesce(sum(credit), 0) as credit')->first();

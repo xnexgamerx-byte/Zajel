@@ -85,6 +85,11 @@
     --color-bad-50:   var(--color-aered-50);
     --color-bad-200:  var(--color-aered-200);
     --color-bad-700:  var(--color-aered-700);
+    /* الأرباح والسيولة في «لوحة الأرباح» (docs/plan/68 §١٥): بنفسجيّ لا يتبع لون الشركة */
+    --color-profit-50:  #f1ecfb;
+    --color-profit-200: #d3c4f1;
+    --color-profit-500: #7b5bd6;
+    --color-profit-700: #5b3bb3;
 
     /*
     | حاويات الحالة في «نبض»: soft لون الحاوية، وdeep لون النصّ والأيقونة عليها

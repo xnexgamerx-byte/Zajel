@@ -97,8 +97,8 @@ final class StaffNavigation
             // الصورة الكاملة: موقف الشركة وتدقيق حساباتها — وحساب الفروع في «الفروع»
             'position' => ['الموقف المالي', 'bank', [
                 ['money.position', 'الموقف المالي', ['money.position'], 'money.view'],
-                // قسم المدير للأرباح: وجبات التحصيل، وتقريرها، وسحب الأرباح
-                ['profits.index', 'العوائد', ['profits.*'], 'money.profits'],
+                // قسم المدير للأرباح: لوحتها من دفتر القيود، ووجبات التحصيل، وتقريرها، وسحب الأرباح
+                ['profits.index', 'لوحة الأرباح', ['profits.*'], 'money.profits'],
                 // دفتر القيود: الميزان ومطابقته، وتتبّع أي رقمٍ إلى قيده (docs/plan/68)
                 ['finance.trial-balance', 'ميزان المراجعة', ['finance.trial-balance'], 'money.profits'],
                 ['finance.ledger', 'دفتر القيود', ['finance.ledger', 'finance.entries.*'], 'money.profits'],

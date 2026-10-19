@@ -1,5 +1,5 @@
 {{--
-  «العوائد» قسم المدير للأرباح: نظرةٌ عامّة، ووجبات التحصيل وسجلّها، وتقرير المدّة، وسحب الأرباح.
+  «العوائد» قسم المدير للأرباح: لوحة الأرباح، ووجبات التحصيل وسجلّها، وتقرير المدّة، وسحب الأرباح.
 --}}
 <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
     <div>
@@ -10,7 +10,7 @@
 </div>
 <nav class="tab-nav mb-5" aria-label="العوائد">
     @foreach (array_filter([
-        ['profits.index', 'نظرة عامة', ['profits.index']],
+        ['profits.index', 'لوحة الأرباح', ['profits.index']],
         ['profits.batches.index', 'سجل وجبات التحصيل', ['profits.batches.*']],
         ['profits.report', 'تقرير الأرباح', ['profits.report']],
         auth()->user()->isBranchLimited() ? null : ['profits.withdrawals.index', 'سحب الأرباح', ['profits.withdrawals.*']],

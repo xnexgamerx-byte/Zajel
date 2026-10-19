@@ -60,8 +60,8 @@ class StaffNavigationTest extends TestCase
         'bags.index', 'manifests.index', 'manifests.inbound',
         // خانات «العوائد»: سجل الوجبات وإنشاؤها وتقرير الأرباح وسحبها، من شريطها
         'profits.batches.index', 'profits.batches.create', 'profits.report', 'profits.withdrawals.index',
-        // زرّ Excel في سجل الوجبات
-        'profits.batches.export',
+        // زرّا Excel في سجل الوجبات ولوحة الأرباح
+        'profits.batches.export', 'profits.export',
     ];
 
     private Company $company;
