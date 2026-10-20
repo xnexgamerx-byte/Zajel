@@ -46,6 +46,7 @@ class CashMovement extends Model
             'opening'          => 'رصيد افتتاحي',
             'courier_handover' => 'تسليم نقد من مندوب',
             'merchant_payout'  => 'دفع لتاجر',
+            'merchant_collection' => 'قبض من تاجر',
             'commission_paid'  => 'عمولة مندوب',
             'merchant_deposit' => 'تأمين تاجر',
             'prepaid_fee'      => 'أجور مدفوعة مقدّماً',

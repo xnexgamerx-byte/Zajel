@@ -106,7 +106,7 @@ class PostingRules
     {
         $counter = match ($movement->category) {
             'opening'                                                     => A::OPENING,
-            'courier_handover', 'merchant_payout', 'commission_paid',
+            'courier_handover', 'merchant_payout', 'merchant_collection', 'commission_paid',
             'merchant_advance', 'advance_repaid', 'profit_withdrawal',
             'collection_shortage', 'shortage_recovered'                   => A::CASH_BRIDGE,
             'collection_excess'                                           => A::EXCESS_CASH,

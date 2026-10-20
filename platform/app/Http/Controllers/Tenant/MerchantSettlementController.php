@@ -189,7 +189,9 @@ class MerchantSettlementController extends Controller
         // رصيدٌ لا يكفي يرجع برسالته (InsufficientCash) ولا يُكتب شيء
         $action->pay($settlement, $request->user(), $data['payout_method'], $data['payout_reference'] ?? null, $box);
 
-        return back()->with('success', "سُجِّل دفع كشف {$settlement->code}.");
+        return back()->with('success', (int) $settlement->net_amount < 0
+            ? "سُجِّل القبض من التاجر عن كشف {$settlement->code}."
+            : "سُجِّل دفع كشف {$settlement->code}.");
     }
 
     /** حذف المسودّة: لا أثر لها في الحساب، وشحناتها تدخل الكشف التالي كما هي */

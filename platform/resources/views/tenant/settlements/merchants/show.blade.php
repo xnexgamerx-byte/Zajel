@@ -232,7 +232,9 @@
             <form method="POST" action="{{ route('settlements.merchants.pay', $settlement) }}"
                   class="card space-y-4 p-5">
                 @csrf
-                <h2 class="text-sm font-bold">تسجيل الدفع</h2>
+                {{-- صافٍ سالب: التاجر هو الذي يدفع، والنقد يدخل الصندوق --}}
+                @php $collect = (int) $settlement->net_amount < 0; @endphp
+                <h2 class="text-sm font-bold">{{ $collect ? 'تسجيل القبض من التاجر' : 'تسجيل الدفع' }}</h2>
 
                 <div>
                     <label class="field-label" for="payout_method">طريقة الدفع</label>
@@ -263,7 +265,7 @@
                         $due = (int) $settlement->net_amount;
                     @endphp
                     <div>
-                        <label class="field-label" for="cash_box_id">يُدفع النقد من</label>
+                        <label class="field-label" for="cash_box_id">{{ $collect ? 'يدخل النقد إلى' : 'يُدفع النقد من' }}</label>
                         <select id="cash_box_id" name="cash_box_id" class="field-input">
                             @foreach ($boxes as $item)
                                 <option value="{{ $item->id }}" @selected($from->id === $item->id)>
@@ -287,7 +289,7 @@
                     @endif
                 @endif
 
-                <button type="submit" class="btn-primary w-full">سجّل الدفع</button>
+                <button type="submit" class="btn-primary w-full">{{ $collect ? 'سجّل القبض' : 'سجّل الدفع' }}</button>
             </form>
         @elseif ($settlement->status === 'paid')
             <section class="card p-5">

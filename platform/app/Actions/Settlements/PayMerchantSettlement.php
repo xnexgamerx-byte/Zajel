@@ -160,10 +160,27 @@ class PayMerchantSettlement
             return;
         }
 
+        $net = (int) $settlement->net_amount;
+
+        // صافٍ سالب: الأجور فوق المحصَّل، فالتاجر هو الذي يدفع — يدخل الدرج بقيمته
+        if ($net < 0) {
+            $this->cash->in(
+                box: $box,
+                category: 'merchant_collection',
+                amount: -$net,
+                description: "قبض من التاجر {$settlement->merchant?->business_name} — كشف {$settlement->code}",
+                actor: $actor,
+                referenceType: 'merchant_settlement',
+                referenceId: $settlement->id,
+            );
+
+            return;
+        }
+
         $this->cash->out(
             box: $box,
             category: 'merchant_payout',
-            amount: (int) $settlement->net_amount,
+            amount: $net,
             description: "دفع للتاجر {$settlement->merchant?->business_name} — كشف {$settlement->code}",
             actor: $actor,
             referenceType: 'merchant_settlement',

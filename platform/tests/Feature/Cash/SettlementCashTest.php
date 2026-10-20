@@ -129,6 +129,50 @@ class SettlementCashTest extends TestCase
         });
     }
 
+    /** كشفٌ صافيه سالب: الأجور فوق المحصَّل، فالتاجر هو الذي يدفع — النقد يدخل الدرج لا يخرج منه */
+    public function test_a_cash_statement_with_a_negative_net_is_collected_from_the_merchant(): void
+    {
+        $this->deliver(0);
+
+        Tenancy::runFor($this->company, function () {
+            // عمولة المندوب تُدفع من الدرج: لم يحصّل شيئاً يغطّيها
+            app(CashBook::class)->in($this->box, 'opening', 10_000);
+            $courierSheet = app(BuildCourierSettlement::class)->handle($this->courier, $this->staff);
+            app(ConfirmCourierSettlement::class)->handle($courierSheet, $this->staff);
+
+            $before = (int) $this->box->refresh()->balance;
+
+            $sheet = app(BuildMerchantSettlement::class)->handle($this->merchant, $this->staff);
+            $net = (int) $sheet->refresh()->net_amount;
+            $this->assertLessThan(0, $net);
+
+            $pay = app(PayMerchantSettlement::class);
+            $pay->confirm($sheet, $this->staff);
+
+            $this->actingAs($this->staff)->get($this->host().'/settlements/merchants/'.$sheet->id)
+                ->assertOk()->assertSee('الواجب تحصيله منه')->assertSee('سجّل القبض')->assertSee('يدخل النقد إلى');
+
+            $pay->pay($sheet->refresh(), $this->staff, 'cash');
+
+            $this->assertSame('paid', $sheet->refresh()->status);
+            $this->assertSame($before - $net, (int) $this->box->refresh()->balance, 'ما على التاجر دخل الدرج');
+            $this->assertSame(0, (int) $this->merchant->refresh()->balance, 'برئت ذمّته');
+
+            $movement = CashMovement::where('reference_type', 'merchant_settlement')->firstOrFail();
+            $this->assertSame(['merchant_collection', 'in', -$net], [$movement->category, $movement->direction, (int) $movement->amount]);
+            $this->assertTrue(app(CashBook::class)->reconcile($this->box)['matches']);
+
+            $failed = collect(app(\App\Services\Finance\JournalCheck::class)->run(full: true))->where('status', 'fail');
+            $this->assertSame([], $failed->pluck('label')->all());
+
+            // والحذف في يومه يعيد ما قُبض: يخرج من الدرج، ويعود ما على التاجر
+            app(\App\Actions\Money\UndoWithinDay::class)->merchantSettlement($sheet, $this->staff, 'كشفٌ بُني خطأً');
+            $this->assertSame($before, (int) $this->box->refresh()->balance);
+            $this->assertSame($net, (int) $this->merchant->refresh()->balance);
+            $this->assertTrue(app(CashBook::class)->reconcile($this->box)['matches']);
+        });
+    }
+
     public function test_a_transfer_to_the_merchants_wallet_leaves_the_drawer_untouched(): void
     {
         $this->deliver(100_000);
