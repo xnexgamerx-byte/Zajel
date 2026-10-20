@@ -113,6 +113,8 @@ class CourierReturnReceiptsTest extends TestCase
     /** ما استُلم قبل الإيصالات يُجمع في إيصالاته — ولا يُعاد جمعه مرّة ثانية */
     public function test_returns_received_before_receipts_get_their_receipts(): void
     {
+        // الإيصال يجمع ما استُلم في الدقيقة نفسها: لا تعبر الدقيقة بين الاستلامين
+        $this->freezeTime();
         $a1 = $this->returning($this->ahmed);
         $a2 = $this->returning($this->ahmed);
 
