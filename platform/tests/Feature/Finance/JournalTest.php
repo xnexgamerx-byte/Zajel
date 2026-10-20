@@ -290,8 +290,31 @@ class JournalTest extends TestCase
         $line = DB::table('journal_lines')->where('company_id', $this->company->id)->where('debit', '>', 0)->orderBy('id')->first();
         DB::table('journal_lines')->where('id', $line->id)->update(['debit' => $line->debit + 1]);
 
-        $this->assertSame('fail', $this->checks()['chain']);
+        // الشاشة تفحص ما بعد آخر فحصٍ سليم وحده؛ والفحص الكامل الليلي يكشف القديم
+        $this->assertSame('ok', $this->checks()['chain']);
         $this->artisan('finance:journal-check')->assertFailed();
+        // ومن بعده تقوله الشاشات حتى يسلم فحصٌ كامل
+        $this->assertSame('fail', $this->checks()['chain']);
+
+        DB::table('journal_lines')->where('id', $line->id)->update(['debit' => $line->debit]);
+        $this->assertSame('fail', $this->checks()['chain']);
+        $this->artisan('finance:journal-check')->assertSuccessful();
+        $this->assertSame('ok', $this->checks()['chain']);
+    }
+
+    public function test_screens_check_only_entries_after_the_last_sound_check(): void
+    {
+        $this->deliver(50_000);
+        $this->artisan('finance:journal-check')->assertSuccessful();
+        $head = DB::table('journal_heads')->where('company_id', $this->company->id)->first();
+        $this->assertNotNull($head->verified_at);
+        $this->assertSame((int) DB::table('journal_entries')->where('company_id', $this->company->id)->max('number'), (int) $head->verified_number);
+
+        // قيدٌ جديد يُعبث به قبل أن يُفحص: يكشفه فحص الشاشة نفسه
+        $this->deliver(30_000);
+        $entry = DB::table('journal_entries')->where('company_id', $this->company->id)->orderByDesc('number')->first();
+        DB::table('journal_entries')->where('id', $entry->id)->update(['idempotency_key' => $entry->idempotency_key.'x']);
+        $this->assertSame('fail', $this->checks()['chain']);
     }
 
     public function test_screens_trace_a_number_to_its_entries(): void

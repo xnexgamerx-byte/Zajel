@@ -8,7 +8,6 @@ use App\Models\CashBox;
 use App\Models\CollectionBatch;
 use App\Models\CollectionBatchItem;
 use App\Models\Courier;
-use App\Models\CourierSettlement;
 use App\Models\JournalLine;
 use App\Models\Merchant;
 use App\Models\MerchantSettlement;
@@ -102,9 +101,30 @@ final class ProfitDashboard
                     ->whereIn('journal_lines.shipment_id', Shipment::withTrashed()->where('delivery_courier_id', $id)->select('id')))));
     }
 
+    /**
+     * الملخّص اليومي في النطاق بلا قيود الإقفال: للشركة أو لفرع. والمندوب والتاجر لا بُعد لهما فيه،
+     * فنطاقهما يقرأ السطور (usesDaily).
+     */
+    public function daily(?Carbon $from = null, ?Carbon $to = null): QueryBuilder
+    {
+        return DB::table('journal_daily')->where('company_id', Tenancy::id())->where('closing', false)
+            ->when($from, fn ($q) => $q->where('entry_date', '>=', $from->toDateString()))
+            ->when($to, fn ($q) => $q->where('entry_date', '<=', $to->toDateString()))
+            ->when($this->scope['branch'], fn ($q, $id) => $q->where('branch_id', $id));
+    }
+
+    public function usesDaily(): bool
+    {
+        return ! $this->scope['courier'] && ! $this->scope['merchant'];
+    }
+
     /** مدين − دائن لحساباتٍ في مدّة */
     public function net(array $accounts, ?Carbon $from = null, ?Carbon $to = null): int
     {
+        if ($this->usesDaily()) {
+            return (int) $this->daily($from, $to)->whereIn('account', $accounts)->sum(DB::raw('debit - credit'));
+        }
+
         return (int) $this->lines($from, $to)->whereIn('journal_lines.account', $accounts)
             ->sum(DB::raw('journal_lines.debit - journal_lines.credit'));
     }
@@ -112,10 +132,13 @@ final class ProfitDashboard
     /** @return array<string, int> مدين − دائن لكل حساب */
     public function netByAccount(array $accounts, ?Carbon $from = null, ?Carbon $to = null): array
     {
-        $rows = $this->lines($from, $to)->whereIn('journal_lines.account', $accounts)
-            ->groupBy('journal_lines.account')
-            ->selectRaw('journal_lines.account as account, sum(journal_lines.debit - journal_lines.credit) as v')
-            ->pluck('v', 'account');
+        $rows = $this->usesDaily()
+            ? $this->daily($from, $to)->whereIn('account', $accounts)->groupBy('account')
+                ->selectRaw('account, sum(debit - credit) as v')->pluck('v', 'account')
+            : $this->lines($from, $to)->whereIn('journal_lines.account', $accounts)
+                ->groupBy('journal_lines.account')
+                ->selectRaw('journal_lines.account as account, sum(journal_lines.debit - journal_lines.credit) as v')
+                ->pluck('v', 'account');
 
         return collect($accounts)->mapWithKeys(fn ($a) => [$a => (int) ($rows[$a] ?? 0)])->all();
     }
@@ -272,13 +295,15 @@ final class ProfitDashboard
             ->whereIn('cs.status', ['confirmed', 'paid'])->whereNull('cs.cancelled_at')
             ->whereNotIn('cs.id', $approvedSettlements), 'cs.confirmed_at', self::sqlCashFees(), $bounds);
 
-        // ٣. على التجّار: أجورٌ تزيد على ما حُصِّل، لم يُدفع كشفها بعد
-        $merchants = $this->aged((clone $this->shipments())->toBase()
-            ->where('shipments.merchant_due', '<', 0)
-            ->where(fn ($q) => $q->whereNotNull('shipments.delivered_at')->orWhere('shipments.status', 'returned'))
-            ->where(fn ($q) => $q->whereNull('shipments.merchant_settlement_id')
-                ->orWhereIn('shipments.merchant_settlement_id', MerchantSettlement::query()->where('status', '!=', 'paid')->select('id'))),
-            'shipments.status_changed_at', '-shipments.merchant_due', $bounds);
+        // ٣. على التجّار: أجورٌ تزيد على ما حُصِّل، لم يُدفع كشفها بعد — بلا كشفٍ، أو في كشفٍ لم يُدفع.
+        // استعلامان لا «أو»: كلٌّ يقرأ فهرسه (sh_merchant_due_idx)
+        $owed = fn () => (clone $this->shipments())->toBase()->where('shipments.merchant_due', '<', 0)
+            ->where(fn ($q) => $q->whereNotNull('shipments.delivered_at')->orWhere('shipments.status', 'returned'));
+        $merchants = $this->sumAged(
+            $this->aged($owed()->whereNull('shipments.merchant_settlement_id'), 'shipments.status_changed_at', '-shipments.merchant_due', $bounds),
+            $this->aged($owed()->whereIn('shipments.merchant_settlement_id', MerchantSettlement::query()->where('status', '!=', 'paid')->select('id')),
+                'shipments.status_changed_at', '-shipments.merchant_due', $bounds),
+        );
 
         // ٤. عجزٌ على المناديب لم يُسترد: رصيد 1250
         $shortages = $this->scope['merchant'] ? 0 : $this->net([A::SHORTAGES]);
@@ -291,6 +316,13 @@ final class ProfitDashboard
         ];
 
         return $places + ['total' => array_sum(array_column($places, 'total'))];
+    }
+
+    /** @return array{total: int, 0_7: int, 8_30: int, 31: int, aged: bool} */
+    private function sumAged(array $a, array $b): array
+    {
+        return ['total' => $a['total'] + $b['total'], '0_7' => $a['0_7'] + $b['0_7'], '8_30' => $a['8_30'] + $b['8_30'],
+            '31' => $a['31'] + $b['31'], 'aged' => true];
     }
 
     /** مجموعٌ بأعمار ٠–٧ و٨–٣٠ وأكثر من ٣٠ يوماً */
@@ -411,13 +443,19 @@ final class ProfitDashboard
                 'revenue' => 0, 'costs' => 0, 'net' => 0, 'previous' => 0];
         }
 
-        $daily = fn (ReportPeriod $range) => $this->lines($range->from, $range->to)
-            ->whereIn('journal_lines.account', [...self::REVENUE, ...self::COSTS])
-            ->groupBy('journal_lines.entry_date')
-            ->selectRaw('journal_lines.entry_date as day,
-                sum(case when journal_lines.account in (\''.implode("','", self::REVENUE).'\') then journal_lines.credit - journal_lines.debit else 0 end) as revenue,
-                sum(case when journal_lines.account in (\''.implode("','", self::COSTS).'\') then journal_lines.debit - journal_lines.credit else 0 end) as costs')
-            ->get();
+        $revenue = "'".implode("','", self::REVENUE)."'";
+        $costs = "'".implode("','", self::COSTS)."'";
+        $daily = fn (ReportPeriod $range) => ($this->usesDaily()
+            ? $this->daily($range->from, $range->to)->whereIn('account', [...self::REVENUE, ...self::COSTS])->groupBy('entry_date')
+                ->selectRaw("entry_date as day,
+                    sum(case when account in ({$revenue}) then credit - debit else 0 end) as revenue,
+                    sum(case when account in ({$costs}) then debit - credit else 0 end) as costs")
+            : $this->lines($range->from, $range->to)->whereIn('journal_lines.account', [...self::REVENUE, ...self::COSTS])
+                ->groupBy('journal_lines.entry_date')
+                ->selectRaw("journal_lines.entry_date as day,
+                    sum(case when journal_lines.account in ({$revenue}) then journal_lines.credit - journal_lines.debit else 0 end) as revenue,
+                    sum(case when journal_lines.account in ({$costs}) then journal_lines.debit - journal_lines.credit else 0 end) as costs")
+        )->get();
 
         $index = fn (string $day, Carbon $start) => intdiv((int) $start->copy()->startOfDay()->diffInDays(Carbon::parse(substr($day, 0, 10))), $weekly ? 7 : 1);
 

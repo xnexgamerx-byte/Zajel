@@ -41,7 +41,7 @@ class FinancialPeriodController extends Controller
             'from'    => $from->startOfDay(),
             'to'      => $to->startOfDay(),
             'figures' => $this->close->figures($from, $to),
-            'checks'  => $this->close->checks($from, $to),
+            'checks'  => $this->close->checks($from, $to, fresh: false),
         ]);
     }
 

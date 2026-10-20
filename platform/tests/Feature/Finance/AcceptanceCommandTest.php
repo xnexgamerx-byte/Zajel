@@ -47,7 +47,7 @@ class AcceptanceCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        File::deleteDirectory(storage_path('app/acceptance'));
+        File::delete(File::glob(storage_path('app/acceptance/zajel-*.md')));
         parent::tearDown();
     }
 
@@ -60,9 +60,9 @@ class AcceptanceCommandTest extends TestCase
             ->expectsOutputToContain('لوحة الأرباح')
             ->assertSuccessful();
 
-        $reports = File::files(storage_path('app/acceptance'));
+        $reports = File::glob(storage_path('app/acceptance/zajel-*.md'));
         $this->assertCount(1, $reports);
-        $report = File::get($reports[0]->getPathname());
+        $report = File::get($reports[0]);
         $this->assertStringContainsString('## زمن الشاشات المالية', $report);
         $this->assertStringContainsString('تأخّر مندوبٍ عن تسليم النقد', $report, 'المندوب لم يسلّم نقده منذ ثلاثة أيام.');
 

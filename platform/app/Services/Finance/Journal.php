@@ -127,11 +127,43 @@ class Journal
                 'expense_category_id' => $line['expense_category_id'] ?? null,
             ], $lines));
 
+            $this->bumpDaily($companyId, $day, $event === 'period_close', $lines);
+
             DB::table('journal_heads')->where('company_id', $companyId)
                 ->update(['last_number' => $number, 'last_hash' => $hash, 'updated_at' => now()]);
 
             return (int) $entryId;
         });
+    }
+
+    /**
+     * الملخّص اليومي (journal_daily) يزيد بسطور القيد في معاملته. قفل رأس الدفتر يمنع قيدين للشركة
+     * معاً، فالتحديث ثم الإدراج إن لم يوجد صفٌّ لا يتسابقان.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     */
+    protected function bumpDaily(int $companyId, string $day, bool $closing, array $lines): void
+    {
+        $groups = [];
+        foreach ($lines as $line) {
+            $key = $line['account'].'|'.(int) ($line['branch_id'] ?? 0);
+            $groups[$key] ??= ['account' => $line['account'], 'branch_id' => (int) ($line['branch_id'] ?? 0), 'debit' => 0, 'credit' => 0];
+            $groups[$key]['debit'] += (int) $line['debit'];
+            $groups[$key]['credit'] += (int) $line['credit'];
+        }
+
+        foreach ($groups as $g) {
+            $where = ['company_id' => $companyId, 'entry_date' => $day, 'account' => $g['account'], 'branch_id' => $g['branch_id'], 'closing' => $closing];
+
+            $updated = DB::table('journal_daily')->where($where)->update([
+                'debit'  => DB::raw('debit + '.(int) $g['debit']),
+                'credit' => DB::raw('credit + '.(int) $g['credit']),
+            ]);
+
+            if ($updated === 0) {
+                DB::table('journal_daily')->insert($where + ['debit' => $g['debit'], 'credit' => $g['credit']]);
+            }
+        }
     }
 
     public function isInitialized(int $companyId): bool
@@ -151,15 +183,42 @@ class Journal
 
     /**
      * سلامة السلسلة: كل قيدٍ يحمل بصمة سابقه ويعيد حسابها. يُرجع أوّل رقمٍ انكسرت عنده، أو null.
+     *
+     * الكامل يمرّ على الدفتر كلّه (كل ليلة: finance:journal-check)، ويُحفظ آخر ما سلم في رأس الدفتر.
+     * وغير الكامل (الشاشات وفحوص الإقفال) يبدأ من هناك: يتأكّد أن آخر قيدٍ سلم لم تتغيّر بصمته،
+     * ويفحص ما جاء بعده وحده — فلا تمرّ شاشةٌ على مليون سطرٍ في كل فتحة. والتلاعب بقيدٍ قديم
+     * يكشفه الفحص الكامل التالي.
+     *
+     * يُقرأ بالمفتاح لا بالإزاحة: الإزاحة تعيد قراءة ما قبلها في كل صفحة، فيصير الفحص تربيعياً.
      */
-    public function brokenAt(int $companyId): ?int
+    public function brokenAt(int $companyId, bool $full = true): ?int
     {
+        $head = DB::table('journal_heads')->where('company_id', $companyId)->first();
+        $from = 0;
         $previous = null;
-        $broken = null;
 
-        DB::table('journal_entries')->where('company_id', $companyId)->orderBy('number')
+        // كسرٌ وجده فحصٌ سابق يبقى حتى يسلم فحصٌ كامل
+        if (! $full && $head?->broken_number) {
+            return (int) $head->broken_number;
+        }
+
+        if (! $full && $head?->verified_number) {
+            $anchor = DB::table('journal_entries')->where('company_id', $companyId)
+                ->where('number', $head->verified_number)->value('hash');
+
+            // نقطة البدء نفسها تغيّرت: يُفحص من أوّله
+            if ($anchor !== null && $anchor === $head->verified_hash) {
+                $from = (int) $head->verified_number;
+                $previous = $anchor;
+            }
+        }
+
+        $broken = null;
+        $last = $from;
+
+        DB::table('journal_entries')->where('company_id', $companyId)->where('number', '>', $from)
             ->select(['id', 'number', 'idempotency_key', 'entry_date', 'prev_hash', 'hash'])
-            ->chunk(2000, function ($entries) use (&$previous, &$broken) {
+            ->chunkById(2000, function ($entries) use (&$previous, &$broken, &$last) {
                 $ids = $entries->pluck('id')->all();
                 $lines = DB::table('journal_lines')->whereIn('journal_entry_id', $ids)->orderBy('id')
                     ->get(['journal_entry_id', 'account', 'debit', 'credit'])->groupBy('journal_entry_id');
@@ -177,10 +236,27 @@ class Journal
                     }
 
                     $previous = $entry->hash;
+                    $last = (int) $entry->number;
                 }
-            });
+            }, 'number');
+
+        if ($head !== null) {
+            DB::table('journal_heads')->where('company_id', $companyId)->update($broken !== null
+                ? ['broken_number' => $broken]
+                : array_filter([
+                    'verified_number' => $last ?: null,
+                    'verified_hash'   => $previous,
+                    'verified_at'     => $full ? now() : null,
+                ], fn ($v) => $v !== null) + ['broken_number' => null]);
+        }
 
         return $broken;
+    }
+
+    /** آخر فحصٍ كاملٍ للسلسلة، أو null إن لم يجرِ بعد */
+    public function verifiedAt(int $companyId): ?string
+    {
+        return DB::table('journal_heads')->where('company_id', $companyId)->value('verified_at');
     }
 
     protected function lockHead(int $companyId): object

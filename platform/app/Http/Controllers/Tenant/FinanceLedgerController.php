@@ -12,6 +12,7 @@ use App\Models\Shipment;
 use App\Services\Finance\JournalCheck;
 use App\Services\Reports\ReportPeriod;
 use App\Support\Finance\Accounts;
+use App\Support\Tenancy\Tenancy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -28,14 +29,15 @@ class FinanceLedgerController extends Controller
         $from = $period->from->toDateString();
         $to = $period->to->toDateString();
 
-        $rows = JournalLine::query()
+        // من الملخّص اليومي لا من السطور: آلاف الصفوف لا مليون (قيد الإقفال فيه، فالميزان يراه)
+        $rows = DB::table('journal_daily')->where('company_id', Tenancy::id())
             ->selectRaw('account,
                 sum(case when entry_date < ? then debit - credit else 0 end) as opening,
                 sum(case when entry_date >= ? then debit else 0 end) as debit,
                 sum(case when entry_date >= ? then credit else 0 end) as credit', [$from, $from, $from])
             ->where('entry_date', '<=', $to)
             ->groupBy('account')
-            ->toBase()->get()->keyBy('account');
+            ->get()->keyBy('account');
 
         $accounts = collect(Accounts::ALL)->map(function ($meta, $code) use ($rows) {
             $row = $rows[$code] ?? null;
@@ -57,7 +59,7 @@ class FinanceLedgerController extends Controller
         return view('tenant.finance.trial-balance', [
             'period'   => $period,
             'accounts' => $accounts,
-            'checks'   => $check->run(),
+            'checks'   => $check->latest($request->boolean('fresh')),
         ]);
     }
 

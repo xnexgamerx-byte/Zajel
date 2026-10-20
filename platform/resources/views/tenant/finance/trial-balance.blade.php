@@ -20,9 +20,16 @@
 </form>
 
 <section class="card mb-5 overflow-hidden">
-    <h2 class="border-b border-ink-100 px-5 py-4 text-sm font-bold">مطابقة الدفتر</h2>
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 px-5 py-4">
+        <h2 class="text-sm font-bold">مطابقة الدفتر</h2>
+        {{-- النتيجة محفوظةٌ ربع ساعة: فحص الدفاتر الفرعية كلّها في كل فتحةٍ ثقيلٌ على تاريخٍ طويل --}}
+        <span class="text-xs text-ink-500">
+            فُحصت <span class="num">{{ \Illuminate\Support\Carbon::parse($checks['at'])->timezone(config('app.timezone'))->format('H:i') }}</span>
+            · <a href="{{ request()->fullUrlWithQuery(['fresh' => 1]) }}" class="text-[var(--brand)] hover:underline">أعد الفحص الآن</a>
+        </span>
+    </div>
     <ul class="divide-y divide-ink-100">
-        @foreach ($checks as $c)
+        @foreach ($checks['checks'] as $c)
             <li class="flex flex-wrap items-start gap-3 px-5 py-3 text-sm">
                 <span @class(['chip shrink-0', 'chip-ok' => $c['status'] === 'ok', 'chip-bad' => $c['status'] === 'fail', 'chip-warn' => $c['status'] === 'note'])>
                     {{ ['ok' => 'مطابق', 'fail' => 'فرق', 'note' => 'للعلم'][$c['status']] }}

@@ -45,10 +45,10 @@ class AuditChain
         $lastId = null;
         $broken = null;
 
+        // بالمفتاح لا بالإزاحة: الإزاحة تعيد قراءة ما قبلها في كل صفحة
         DB::table('audit_logs')
             ->when($chain === 0, fn ($q) => $q->whereNull('company_id'), fn ($q) => $q->where('company_id', $chain))
-            ->orderBy('id')
-            ->chunk(2000, function ($rows) use (&$previous, &$lastId, &$broken) {
+            ->chunkById(2000, function ($rows) use (&$previous, &$lastId, &$broken) {
                 foreach ($rows as $row) {
                     if ($row->prev_hash !== $previous || $row->hash !== self::hash((array) $row, $previous)) {
                         $broken = (int) $row->id;

@@ -25,7 +25,7 @@ class JournalCheckCommand extends Command
         $failed = false;
 
         foreach ($companies as $company) {
-            $results = Tenancy::runFor($company, fn () => $check->run());
+            $results = Tenancy::runFor($company, fn () => $check->run(full: true));
             $fails = array_values(array_filter($results, fn ($r) => $r['status'] === 'fail'));
             $failed = $failed || $fails !== [];
 

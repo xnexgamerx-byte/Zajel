@@ -120,6 +120,12 @@ class InvariantsTest extends TestCase
             $this->assertInvariants("البذرة {$seed}، الخطوة {$step}");
         }
 
+        // والفحص الكامل في آخرها: السلسلتان من أوّلهما، والملخّص اليومي = السطور
+        $full = Tenancy::runFor($this->company, fn () => collect(app(JournalCheck::class)->run(full: true))->keyBy('key'));
+        foreach (['daily', 'chain', 'audit_chain', 'balanced'] as $key) {
+            $this->assertSame('ok', $full[$key]['status'] ?? null, "الفحص الكامل {$key}: ".($full[$key]['detail'] ?? '').' — '.implode("\n", $this->log));
+        }
+
         // حارسٌ لا يحرس إن رُفضت عملياته كلّها: أربعة أنواعٍ على الأقل جرت فعلاً
         $done = collect($this->log)->reject(fn ($line) => str_contains($line, 'رُفضت'))
             ->map(fn ($line) => explode(': ', $line)[1])->unique();

@@ -84,13 +84,13 @@ class PeriodClose
     /** ميزان المراجعة للفترة: افتتاحي وحركة وختامي لكل حساب، بلا قيود الإقفال */
     public function trial(Carbon $from, Carbon $to): array
     {
-        $rows = (new ProfitDashboard)->lines(null, $to)
-            ->selectRaw('journal_lines.account as account,
-                sum(case when journal_lines.entry_date < ? then journal_lines.debit - journal_lines.credit else 0 end) as opening,
-                sum(case when journal_lines.entry_date >= ? then journal_lines.debit else 0 end) as debit,
-                sum(case when journal_lines.entry_date >= ? then journal_lines.credit else 0 end) as credit',
+        $rows = (new ProfitDashboard)->daily(null, $to)
+            ->selectRaw('account,
+                sum(case when entry_date < ? then debit - credit else 0 end) as opening,
+                sum(case when entry_date >= ? then debit else 0 end) as debit,
+                sum(case when entry_date >= ? then credit else 0 end) as credit',
                 [$from->toDateString(), $from->toDateString(), $from->toDateString()])
-            ->groupBy('journal_lines.account')->get();
+            ->groupBy('account')->get();
 
         return $rows->map(fn ($r) => [
             'account' => $r->account, 'name' => A::name($r->account),
@@ -105,7 +105,8 @@ class PeriodClose
      *
      * @return list<array{key: string, label: string, ok: bool, detail: string}>
      */
-    public function checks(Carbon $from, Carbon $to, ?FinancialPeriod $except = null): array
+    /** $fresh: الإعداد والاعتماد يفحصان الآن؛ وشاشة المراجعة تقرأ آخر مطابقةٍ محفوظة (JournalCheck::latest) */
+    public function checks(Carbon $from, Carbon $to, ?FinancialPeriod $except = null, bool $fresh = true): array
     {
         $checks = [];
         $add = function (string $key, string $label, bool $ok, string $detail) use (&$checks) {
@@ -143,7 +144,7 @@ class PeriodClose
             ($uncategorised ? Arabic::count($uncategorised, ['مصروفٌ واحد', 'مصروفان', 'مصروفات', 'مصروفاً']).' بلا بند. ' : '')
             .($drafts ? Arabic::count($drafts, ['كشفٌ مسودّة', 'كشفان مسودّتان', 'كشوف مسودّة', 'كشفاً مسودّة']).' لم يُقفَل أو يُحذف.' : '')) ?: 'لا شيء معلَّق.');
 
-        $journal = collect($this->journalCheck->run())->keyBy('key');
+        $journal = collect($fresh ? $this->journalCheck->run() : $this->journalCheck->latest()['checks'])->keyBy('key');
         $ledgerFails = collect(['boxes', 'custody', 'commissions', 'merchants'])->filter(fn ($k) => ($journal[$k]['status'] ?? 'ok') === 'fail');
         $add('ledger', 'الدفتر العام = الدفاتر الفرعية', $ledgerFails->isEmpty(),
             $ledgerFails->isEmpty() ? 'الصناديق والعهد والعمولات والتجّار مطابقةٌ لقيودها.' : $ledgerFails->map(fn ($k) => $journal[$k]['label'].': '.$journal[$k]['detail'])->implode(' · '));

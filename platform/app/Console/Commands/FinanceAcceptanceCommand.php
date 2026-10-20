@@ -13,7 +13,6 @@ use App\Services\Finance\OpeningBalances;
 use App\Services\Finance\PeriodClose;
 use App\Services\Finance\ProfitDashboard;
 use App\Services\Reports\ReportPeriod;
-use App\Support\Audit\AuditChain;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Http\Kernel;
@@ -97,7 +96,7 @@ class FinanceAcceptanceCommand extends Command
         $this->line('- القيود: '.number_format(DB::table('journal_entries')->where('company_id', $company->id)->count())
             .'، السطور: '.number_format(DB::table('journal_lines')->where('company_id', $company->id)->count()));
 
-        [$ms, $results] = $this->timed(fn () => $check->run());
+        [$ms, $results] = $this->timed(fn () => $check->run(full: true));
         foreach ($results as $r) {
             $this->verdict($r['status'] !== 'fail', "{$r['label']}: {$r['detail']}", $r['status'] === 'note');
         }

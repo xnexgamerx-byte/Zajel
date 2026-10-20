@@ -19,8 +19,12 @@ class JournalCheck
 {
     public function __construct(protected Journal $journal) {}
 
-    /** @return list<array{key: string, label: string, status: string, value: int, detail: string}> */
-    public function run(): array
+    /**
+     * $full: سلسلة البصمات كاملةً (الفحص الليلي والقبول). والشاشات تفحص ما جاء بعد آخر فحصٍ سليم.
+     *
+     * @return list<array{key: string, label: string, status: string, value: int, detail: string}>
+     */
+    public function run(bool $full = false): array
     {
         $companyId = (int) Tenancy::id();
 
@@ -32,14 +36,17 @@ class JournalCheck
         }
 
         $lines = DB::table('journal_lines')->where('company_id', $companyId);
-        $balance = fn (string $account) => (int) (clone $lines)->where('account', $account)->sum(DB::raw('debit - credit'));
+        // رصيد كل حسابٍ من الملخّص اليومي (بقيد الإقفال): صفٌّ لكل يومٍ لا سطرٌ لكل حركة
+        $daily = DB::table('journal_daily')->where('company_id', $companyId)->groupBy('account')
+            ->selectRaw('account, sum(debit) as d, sum(credit) as c')->get()->keyBy('account');
+        $balance = fn (string $account) => (int) ($daily[$account]->d ?? 0) - (int) ($daily[$account]->c ?? 0);
 
         $checks = [];
         $add = function (string $key, string $label, bool $ok, int $value, string $detail, bool $note = false) use (&$checks) {
             $checks[] = ['key' => $key, 'label' => $label, 'status' => $ok ? 'ok' : ($note ? 'note' : 'fail'), 'value' => $value, 'detail' => $detail];
         };
 
-        $totals = (clone $lines)->selectRaw('coalesce(sum(debit), 0) as d, coalesce(sum(credit), 0) as c')->first();
+        $totals = (object) ['d' => (int) $daily->sum('d'), 'c' => (int) $daily->sum('c')];
         $add('balanced', 'ميزان المراجعة متوازن', (int) $totals->d === (int) $totals->c, (int) $totals->d - (int) $totals->c,
             'مجموع المدين '.number_format((int) $totals->d).' ومجموع الدائن '.number_format((int) $totals->c).'.');
 
@@ -111,8 +118,20 @@ class JournalCheck
         $outside = $balance(A::OUTSIDE_COURIER);
         $add('outside', 'تحصيلٌ بلا مندوبٍ مسجَّل', $outside === 0, $outside, 'شحناتٌ سُلِّمت بلا مندوب: نقدها قُبض ولا عهدة تحمله.', true);
 
-        $broken = $this->journal->brokenAt($companyId);
-        $add('chain', 'سلسلة البصمات سليمة', $broken === null, (int) $broken, $broken ? "انكسرت عند القيد رقم {$broken}: عُدِّل أو حُذف قيدٌ خارج النظام." : 'لا قيد عُدِّل أو حُذف.');
+        // الملخّص اليومي يطابق السطور (في الفحص الكامل: يمرّ على السطور كلّها)
+        if ($full) {
+            $fromLines = (clone $lines)->groupBy('account')->selectRaw('account, sum(debit) as d, sum(credit) as c')->get()->keyBy('account');
+            $off = $fromLines->keys()->merge($daily->keys())->unique()->filter(fn ($a) => (int) ($fromLines[$a]->d ?? 0) !== (int) ($daily[$a]->d ?? 0)
+                || (int) ($fromLines[$a]->c ?? 0) !== (int) ($daily[$a]->c ?? 0))->values();
+            $add('daily', 'الملخّص اليومي = سطور القيود', $off->isEmpty(), $off->count(),
+                $off->isEmpty() ? 'كل حسابٍ في الملخّص بمجموع سطوره.' : 'يختلف في الحسابات: '.$off->implode('، ').'.');
+        }
+
+        $broken = $this->journal->brokenAt($companyId, $full);
+        $verified = $this->journal->verifiedAt($companyId);
+        $add('chain', 'سلسلة البصمات سليمة', $broken === null, (int) $broken, $broken
+            ? "انكسرت عند القيد رقم {$broken}: عُدِّل أو حُذف قيدٌ خارج النظام."
+            : 'لا قيد عُدِّل أو حُذف'.($full || ! $verified ? '.' : ' منذ آخر فحصٍ كامل ('.\Illuminate\Support\Carbon::parse($verified)->timezone(config('app.timezone'))->format('Y-m-d H:i').')، وما جاء بعده سليم.'));
 
         // وسجلّ التدقيق بسلسلته (docs/plan/68 §١٣)
         $audit = AuditChain::brokenAt($companyId);
@@ -120,6 +139,23 @@ class JournalCheck
             $audit ? "انكسرت عند السطر رقم {$audit}: عُدِّل أو حُذف من سجلّ التدقيق خارج النظام." : 'لا سطر عُدِّل أو حُذف من سجلّ التدقيق.');
 
         return $checks;
+    }
+
+    /**
+     * آخر نتيجةٍ للشاشات: تُحفظ ربع ساعة، فلا تمرّ كل فتحةٍ لميزان المراجعة على الدفاتر الفرعية
+     * كلّها. و$fresh يعيدها الآن (زرّ «أعد الفحص»، وإعداد الإقفال واعتماده).
+     *
+     * @return array{at: string, checks: list<array{key: string, label: string, status: string, value: int, detail: string}>}
+     */
+    public function latest(bool $fresh = false): array
+    {
+        $key = 'journal-check:'.Tenancy::id();
+
+        if ($fresh) {
+            cache()->forget($key);
+        }
+
+        return cache()->remember($key, now()->addMinutes(15), fn () => ['at' => now()->toIso8601String(), 'checks' => $this->run()]);
     }
 
     /**
