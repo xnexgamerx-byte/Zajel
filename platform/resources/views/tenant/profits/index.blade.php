@@ -5,11 +5,13 @@
 @php
     $user = auth()->user();
     $wide = ! $user->isBranchLimited();
+    // «تتبّع الرقم» يفتح دفتر القيود: من الفرع الرئيسي، وفي شركةٍ فيها المحاسبة
+    $trace = $wide && \App\Support\FeatureGate::enabled('accounting');
     $dims = array_filter(['branch_id' => $scope['branch'], 'courier_id' => $scope['courier'], 'merchant_id' => $scope['merchant']]);
     $from = $period->from->toDateString();
     $to = $period->to->toDateString();
     // «تتبّع الرقم»: سطور الحساب في المدّة بأبعاد النطاق — من الفرع الرئيسي
-    $ledger = fn (string $account, ?string $f = null, ?string $t = null) => $wide
+    $ledger = fn (string $account, ?string $f = null, ?string $t = null) => $trace
         ? route('finance.ledger', ['account' => $account, 'from' => $f ?? $from, 'to' => $t ?? $to] + $dims) : null;
     $always = '2000-01-01';
     $today = now()->toDateString();
@@ -166,7 +168,7 @@
             'hint' => 'مدعومةٌ بنقدٍ حرّ '.number_format($g['backed']).'، والباقي في أجورٍ لم تُحصَّل أو عهدٍ أو ذمم. للشركة كلّها.',
             'formula' => 'كل ما رُبح منذ بداية الدفتر (الإيرادات − التكاليف) − المسحوب (3300). والمدعوم بنقد = الأصغر من المحتجزة والنقد الحرّ (ح).',
             'parts' => [
-                ['label' => 'ما رُبح منذ البداية', 'value' => $g['earned'], 'href' => $wide ? route('finance.trial-balance', ['from' => $always, 'to' => $today]) : null],
+                ['label' => 'ما رُبح منذ البداية', 'value' => $g['earned'], 'href' => $trace ? route('finance.trial-balance', ['from' => $always, 'to' => $today]) : null],
                 ['label' => 'المسحوب (3300)', 'value' => $g['drawn'], 'sign' => '−', 'href' => route('profits.withdrawals.index')],
                 ['label' => 'مدعومة بنقد', 'value' => $g['backed']],
                 ['label' => 'غير مدعومة بنقد', 'value' => $g['unbacked']],
@@ -225,7 +227,7 @@
 <section class="card mb-5 p-5">
     <h2 class="card-title mb-3">الإيرادات والتكاليف وصافي الربح {{ $period->days() > 31 ? 'أسبوعاً بأسبوع' : 'يوماً بيوم' }}</h2>
     @include('tenant.profits.charts.trend', ['series' => $series,
-        'link' => $wide ? fn ($f, $t) => route('finance.ledger', ['from' => $f, 'to' => $t] + $dims) : null])
+        'link' => $trace ? fn ($f, $t) => route('finance.ledger', ['from' => $f, 'to' => $t] + $dims) : null])
 </section>
 
 <div class="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">

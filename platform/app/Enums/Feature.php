@@ -21,10 +21,15 @@ enum Feature: string
     case Conversations = 'conversations';
     case Announcements = 'announcements';
     case AppAds = 'app_ads';
+    case Accounting = 'accounting';
 
-    /** في النظام قبل قائمة الميزات: مفتوحةٌ لكل شركةٍ ما لم تُغلق لها */
+    /**
+     * في النظام قبل قائمة الميزات: مفتوحةٌ لكل شركةٍ ما لم تُغلق لها. والمحاسبة (docs/plan/68)
+     * كانت تعمل في كل شركةٍ قبل أن يكون لها مفتاح، فتبقى كذلك بقرار صاحب المنصّة.
+     */
     private const INCLUDED = [
         self::QuickEntry, self::ExcelImport, self::Waybills, self::Conversations, self::Announcements, self::AppAds,
+        self::Accounting,
     ];
 
     public function label(): string
@@ -37,6 +42,7 @@ enum Feature: string
             self::Conversations => 'المحادثات مع التجّار',
             self::Announcements => 'الإشعارات الجماعية',
             self::AppAds        => 'إعلانات التطبيق',
+            self::Accounting    => 'المحاسبة: دفتر القيود وإقفال الفترات',
         };
     }
 
@@ -51,6 +57,8 @@ enum Feature: string
             self::Conversations => 'محادثات الدعم بين الشركة وتجّارها من البوّابة، بالملفات والصور.',
             self::Announcements => 'إشعارٌ واحدٌ يصل كلَّ التجّار أو كلَّ المناديب.',
             self::AppAds        => 'صورٌ إعلانية في بوّابة التاجر وتطبيق المندوب.',
+            self::Accounting    => 'ميزان المراجعة ودفتر القيود، وإقفال الفترات، والأرصدة الافتتاحية، والموقف النقدي وتوقّعه، والتنبيهات المالية. '
+                .'إغلاقها يُخفي شاشاتها ويوقف فحص التنبيهات، والقيود تبقى تُكتب: فتحها ثانيةً يعرض أرقاماً كاملة.',
         };
     }
 

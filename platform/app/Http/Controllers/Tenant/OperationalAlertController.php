@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Enums\Feature;
 use App\Http\Controllers\Controller;
 use App\Models\FinancialAlert;
 use App\Services\Finance\FinancialAlerts;
 use App\Services\Operations\OperationalAlerts;
+use App\Support\FeatureGate;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -23,7 +25,7 @@ class OperationalAlertController extends Controller
     {
         $user = $request->user();
         $money = $user->can('money.view');
-        $finance = $user->can('profits.view');
+        $finance = $user->can('profits.view') && FeatureGate::enabled(Feature::Accounting);
 
         $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'overdue';
         if (($tab === 'unsettled' && ! $money) || ($tab === 'finance' && ! $finance)) {

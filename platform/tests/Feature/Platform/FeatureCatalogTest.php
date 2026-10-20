@@ -19,7 +19,8 @@ class FeatureCatalogTest extends TestCase
         $open = array_values(array_filter(Feature::cases(), fn (Feature $feature) => $feature->included()));
 
         $this->assertSame(
-            [Feature::QuickEntry, Feature::ExcelImport, Feature::Waybills, Feature::Conversations, Feature::Announcements, Feature::AppAds],
+            // والمحاسبة كانت تعمل في كل شركةٍ قبل أن يكون لها مفتاح (docs/plan/68 §١٩)
+            [Feature::QuickEntry, Feature::ExcelImport, Feature::Waybills, Feature::Conversations, Feature::Announcements, Feature::AppAds, Feature::Accounting],
             $open,
             'ميزةٌ جديدة لا تُفتح لكل الشركات: تبقى مطفأةً حتى تفتحها المنصّة لشركةٍ بعينها.',
         );

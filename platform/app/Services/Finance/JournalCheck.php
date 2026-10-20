@@ -134,7 +134,7 @@ class JournalCheck
             : 'لا قيد عُدِّل أو حُذف'.($full || ! $verified ? '.' : ' منذ آخر فحصٍ كامل ('.\Illuminate\Support\Carbon::parse($verified)->timezone(config('app.timezone'))->format('Y-m-d H:i').')، وما جاء بعده سليم.'));
 
         // وسجلّ التدقيق بسلسلته (docs/plan/68 §١٣)
-        $audit = AuditChain::brokenAt($companyId);
+        $audit = AuditChain::brokenAt($companyId, $full);
         $add('audit_chain', 'سلسلة سجلّ التدقيق سليمة', $audit === null, (int) $audit,
             $audit ? "انكسرت عند السطر رقم {$audit}: عُدِّل أو حُذف من سجلّ التدقيق خارج النظام." : 'لا سطر عُدِّل أو حُذف من سجلّ التدقيق.');
 

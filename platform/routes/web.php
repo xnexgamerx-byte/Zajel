@@ -338,7 +338,7 @@ Route::middleware('tenant')->group(function () {
             Route::get('/operational-alerts', [OperationalAlertController::class, 'index'])
                 ->middleware('can:shipments.view')->name('operations.alerts');
             // التنبيهات المالية (docs/plan/68 §١٢): تبويبٌ فيها لمن يرى الأرباح
-            Route::middleware('can:profits.view')->prefix('/operational-alerts/finance')->name('finance.alerts.')->group(function () {
+            Route::middleware(['feature:accounting', 'can:profits.view'])->prefix('/operational-alerts/finance')->name('finance.alerts.')->group(function () {
                 Route::post('/scan', [FinancialAlertController::class, 'scan'])->name('scan');
                 Route::whereNumber('alert')->group(function () {
                     Route::post('/{alert}/take', [FinancialAlertController::class, 'take'])->name('take');
@@ -553,17 +553,21 @@ Route::middleware('tenant')->group(function () {
 
             // دفتر القيود (docs/plan/68): الميزان ومطابقته وسطور القيود — للشركة كلّها
             Route::middleware(['can:profits.view', 'main-branch'])->prefix('finance')->name('finance.')->group(function () {
+                // الإعدادات المالية (docs/plan/68 §١٣): لصاحب الشركة — خارج ميزة المحاسبة، فالوجبات والسحب تعمل بها
+                Route::middleware('can:finance.settings')->group(function () {
+                    Route::get('/settings', [FinanceSettingsController::class, 'edit'])->name('settings');
+                    Route::put('/settings', [FinanceSettingsController::class, 'update'])->name('settings.update');
+                });
+            });
+
+            // المحاسبة (ميزة accounting): تُغلق لشركةٍ من لوحة المنصّة، ودفترها يبقى يُكتب
+            Route::middleware(['feature:accounting', 'can:profits.view', 'main-branch'])->prefix('finance')->name('finance.')->group(function () {
                 Route::get('/trial-balance', [FinanceLedgerController::class, 'trialBalance'])->name('trial-balance');
                 Route::get('/ledger', [FinanceLedgerController::class, 'lines'])->name('ledger');
                 Route::get('/entries/{entry}', [FinanceLedgerController::class, 'entry'])->whereNumber('entry')->name('entries.show');
                 // الأرصدة الافتتاحية (docs/plan/68 ق١٣): ما لا يُبنى من التاريخ يُقيَّد مرّةً يوم التشغيل
                 Route::get('/opening', [OpeningBalanceController::class, 'index'])->name('opening');
                 Route::post('/opening', [OpeningBalanceController::class, 'store'])->middleware('can:periods.close')->name('opening.store');
-                // الإعدادات المالية (docs/plan/68 §١٣): لصاحب الشركة
-                Route::middleware('can:finance.settings')->group(function () {
-                    Route::get('/settings', [FinanceSettingsController::class, 'edit'])->name('settings');
-                    Route::put('/settings', [FinanceSettingsController::class, 'update'])->name('settings.update');
-                });
                 // إقفال الفترات (docs/plan/68 §٩)
                 Route::get('/periods', [FinancialPeriodController::class, 'index'])->name('periods.index');
                 Route::get('/periods/review', [FinancialPeriodController::class, 'review'])->name('periods.review');
@@ -582,7 +586,7 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/', [ProfitsController::class, 'index'])->name('index');
                 Route::get('/report', [ProfitsController::class, 'report'])->name('report');
                 Route::get('/export', [ProfitsController::class, 'export'])->name('export');
-                Route::get('/cash', CashPositionController::class)->name('cash');
+                Route::get('/cash', CashPositionController::class)->middleware('feature:accounting')->name('cash');
                 Route::get('/batches', [CollectionBatchController::class, 'index'])->name('batches.index');
                 Route::get('/batches/create', [CollectionBatchController::class, 'create'])->middleware('can:batches.prepare')->name('batches.create');
                 Route::post('/batches', [CollectionBatchController::class, 'store'])->middleware('can:batches.prepare')->name('batches.store');

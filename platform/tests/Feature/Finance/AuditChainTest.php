@@ -82,4 +82,36 @@ class AuditChainTest extends TestCase
         DB::table('audit_logs')->where('id', $first->id)->delete();
         $this->assertNotNull(AuditChain::brokenAt($this->a->id));
     }
+
+    /** الشاشات تفحص ما بعد آخر سطرٍ سلم، والعبث بما قبله يكشفه الفحص الكامل ثم يبقى ظاهراً لها */
+    public function test_screens_check_only_rows_after_the_last_sound_check(): void
+    {
+        $old = $this->log($this->a, 'period_closed', ['number' => 'FP-0001']);
+        $this->log($this->a, 'profit_withdrawal_paid', ['amount' => 50_000]);
+        $this->assertNull(AuditChain::brokenAt($this->a->id));
+        $head = DB::table('audit_heads')->where('chain', $this->a->id)->first();
+        $this->assertNotNull($head->verified_at);
+
+        // سطرٌ جديد بعد نقطة التحقّق: يُفحص وحده وتتقدّم النقطة إليه، ووقت الفحص الكامل لا يتغيّر
+        $new = $this->log($this->a, 'profit_withdrawal_paid', ['amount' => 20_000]);
+        $this->assertNull(AuditChain::brokenAt($this->a->id, full: false));
+        $this->assertSame($new->id, (int) DB::table('audit_heads')->where('chain', $this->a->id)->value('verified_id'));
+        $this->assertSame($head->verified_at, DB::table('audit_heads')->where('chain', $this->a->id)->value('verified_at'));
+
+        // تعديل سطرٍ قبل النقطة لا تراه الشاشة، والفحص الليلي يراه، ثم تبقى الشاشة تقوله
+        DB::table('audit_logs')->where('id', $old->id)->update(['reason' => 'عبث']);
+        $this->assertNull(AuditChain::brokenAt($this->a->id, full: false));
+        $this->assertSame($old->id, AuditChain::brokenAt($this->a->id));
+        $this->assertSame($old->id, AuditChain::brokenAt($this->a->id, full: false));
+
+        // يُصلح ويسلم فحصٌ كامل: تعود الشاشة سليمة
+        DB::table('audit_logs')->where('id', $old->id)->update(['reason' => null]);
+        $this->assertSame($old->id, AuditChain::brokenAt($this->a->id, full: false));
+        $this->assertNull(AuditChain::brokenAt($this->a->id));
+        $this->assertNull(AuditChain::brokenAt($this->a->id, full: false));
+
+        // تعديل سطر النقطة نفسه: يُفحص من أوّله فيُرى
+        DB::table('audit_logs')->where('id', $new->id)->update(['hash' => str_repeat('0', 64)]);
+        $this->assertSame($new->id, AuditChain::brokenAt($this->a->id, full: false));
+    }
 }

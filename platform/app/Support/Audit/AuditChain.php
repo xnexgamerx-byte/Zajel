@@ -38,18 +38,42 @@ class AuditChain
     /**
      * أوّل سطرٍ انكسرت عنده سلسلة الشركة (أو النواة بصفر)، أو null إن سلمت.
      * وتنكسر أيضاً إن حُذف آخرها: الرأس يحفظ آخر رقمٍ وبصمته.
+     *
+     * $full = false للشاشات: يُفحص ما بعد آخر سطرٍ سلم (نقطة التحقّق في الرأس) ما دامت بصمته
+     * لم تتغيّر، وكسرٌ وجده فحصٌ سابق يبقى حتى يسلم فحصٌ كامل — كما في Journal::brokenAt.
      */
-    public static function brokenAt(int $chain): ?int
+    public static function brokenAt(int $chain, bool $full = true): ?int
     {
+        // الرأس قبل السطور: ما يُكتب أثناء الفحص بعد آخر سطرٍ يذكره، فلا يُحسب حذفاً
+        $head = DB::table('audit_heads')->where('chain', $chain)->first();
+        $rows = DB::table('audit_logs')
+            ->when($chain === 0, fn ($q) => $q->whereNull('company_id'), fn ($q) => $q->where('company_id', $chain));
+
+        if (! $full && $head?->broken_id) {
+            return (int) $head->broken_id;
+        }
+
         $previous = null;
         $lastId = null;
+
+        if (! $full && $head?->verified_id) {
+            $anchor = (clone $rows)->where('id', $head->verified_id)->value('hash');
+
+            // نقطة البدء نفسها تغيّرت: يُفحص من أوّله
+            if ($anchor !== null && $anchor === $head->verified_hash) {
+                $previous = $anchor;
+                $lastId = (int) $head->verified_id;
+            }
+        }
+
         $broken = null;
 
         // بالمفتاح لا بالإزاحة: الإزاحة تعيد قراءة ما قبلها في كل صفحة
-        DB::table('audit_logs')
-            ->when($chain === 0, fn ($q) => $q->whereNull('company_id'), fn ($q) => $q->where('company_id', $chain))
-            ->chunkById(2000, function ($rows) use (&$previous, &$lastId, &$broken) {
-                foreach ($rows as $row) {
+        (clone $rows)
+            ->when($lastId, fn ($q) => $q->where('id', '>', $lastId))
+            ->when($head, fn ($q) => $q->where('id', '<=', (int) $head->last_id))
+            ->chunkById(2000, function ($items) use (&$previous, &$lastId, &$broken) {
+                foreach ($items as $row) {
                     if ($row->prev_hash !== $previous || $row->hash !== self::hash((array) $row, $previous)) {
                         $broken = (int) $row->id;
 
@@ -60,18 +84,22 @@ class AuditChain
                 }
             });
 
-        if ($broken !== null) {
-            return $broken;
-        }
-
-        $head = DB::table('audit_heads')->where('chain', $chain)->first();
-
         // حُذف آخر السلسلة: الرأس يذكر سطراً لم يعد آخرها
-        if ($head !== null && ($head->last_hash !== $previous || (int) $head->last_id !== (int) $lastId)) {
-            return (int) $head->last_id;
+        if ($broken === null && $head !== null && ($head->last_hash !== $previous || (int) $head->last_id !== (int) $lastId)) {
+            $broken = (int) $head->last_id;
         }
 
-        return null;
+        if ($head !== null) {
+            DB::table('audit_heads')->where('chain', $chain)->update($broken !== null
+                ? ['broken_id' => $broken]
+                : array_filter([
+                    'verified_id'   => $lastId,
+                    'verified_hash' => $previous,
+                    'verified_at'   => $full ? now() : null,
+                ], fn ($v) => $v !== null) + ['broken_id' => null]);
+        }
+
+        return $broken;
     }
 
     private static function canonical(mixed $value): string

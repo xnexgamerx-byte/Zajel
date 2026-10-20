@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\Feature;
 use App\Models\Company;
 use App\Models\FinancialAlert;
 use App\Services\Finance\FinancialAlerts;
@@ -11,7 +12,7 @@ use Throwable;
 
 /**
  * التنبيهات المالية (docs/plan/68 §١٢): كل ساعة تُفحص الحسابات، وكل يومٍ سلسلتا البصمات.
- * شركةٌ يتعثّر فحصها لا توقف غيرها.
+ * شركةٌ يتعثّر فحصها لا توقف غيرها، وشركةٌ أُغلقت فيها المحاسبة لا تُفحص: لا أحد يرى تنبيهاتها.
  */
 class FinancialAlertsCommand extends Command
 {
@@ -28,6 +29,10 @@ class FinancialAlertsCommand extends Command
         $failed = false;
 
         foreach ($companies as $company) {
+            if (! $company->hasFeature(Feature::Accounting)) {
+                continue;
+            }
+
             try {
                 $done = Tenancy::runFor($company, fn () => $alerts->scan($this->option('daily') ? FinancialAlert::DAILY : null));
                 $this->line("{$company->name}: فُتح {$done['opened']}، وزال سبب {$done['cleared']}");

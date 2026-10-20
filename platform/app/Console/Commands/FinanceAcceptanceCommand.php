@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\Feature;
 use App\Enums\UserRole;
 use App\Models\Company;
 use App\Models\FinancialAlert;
@@ -54,6 +55,9 @@ class FinanceAcceptanceCommand extends Command
         'التنبيهات المالية'      => ['/operational-alerts?tab=finance', 3000],
         'تصدير لوحة الأرباح'     => ['/profits/export', 3000],
     ];
+
+    /** شاشات ميزة المحاسبة: لا تُقاس في شركةٍ أُغلقت فيها */
+    public const ACCOUNTING_PAGES = ['الموقف النقدي', 'ميزان المراجعة', 'دفتر القيود', 'مراجعة ما قبل الإقفال', 'الأرصدة الافتتاحية', 'التنبيهات المالية'];
 
     private array $report = [];
 
@@ -175,7 +179,14 @@ class FinanceAcceptanceCommand extends Command
         $host = $company->slug.'.'.config('zajel.tenant_domain');
         // القياس لا يكتب: شاشة التنبيهات لا تفحص بنفسها الآن (زمن الفحص مقيسٌ أعلاه في معاملةٍ تُلغى)
         cache()->add(FinancialAlerts::scanKey($company->id), true, now()->addMinutes(15));
+        $accounting = $company->hasFeature(Feature::Accounting);
         foreach (self::PAGES as $label => [$path, $limit]) {
+            if (! $accounting && in_array($label, self::ACCOUNTING_PAGES, true)) {
+                $this->line("- {$label}: المحاسبة مغلقةٌ في هذه الشركة، لم تُقس.");
+
+                continue;
+            }
+
             $best = null;
             $status = null;
             // المرّة الأولى تُحمّل الشيفرة والذاكرة المؤقّتة: يُحسب أسرع الثلاث

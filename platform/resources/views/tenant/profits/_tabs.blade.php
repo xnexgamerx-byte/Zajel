@@ -11,7 +11,7 @@
 <nav class="tab-nav mb-5" aria-label="العوائد">
     @foreach (array_filter([
         ['profits.index', 'لوحة الأرباح', ['profits.index']],
-        ['profits.cash', 'الموقف النقدي', ['profits.cash']],
+        \App\Support\FeatureGate::enabled('accounting') ? ['profits.cash', 'الموقف النقدي', ['profits.cash']] : null,
         ['profits.batches.index', 'سجل وجبات التحصيل', ['profits.batches.*']],
         ['profits.report', 'تقرير الأرباح', ['profits.report']],
         auth()->user()->isBranchLimited() ? null : ['profits.withdrawals.index', 'سحب الأرباح', ['profits.withdrawals.*']],
