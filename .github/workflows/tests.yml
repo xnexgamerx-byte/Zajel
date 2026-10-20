@@ -196,6 +196,15 @@ jobs:
             'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e "SELECT COUNT(*) FROM zajel.governorates"')
           test "$count" -gt 0
 
+      # النسخة تُستعاد في قاعدةٍ جانبية ويُفحص دفترها (docs/plan/68 §١٧-٨)، وقاعدة التشغيل كما هي
+      - name: Backup restores and verifies
+        run: |
+          sudo ./backup.sh
+          sudo ./verify-backup.sh
+          count=$(sudo docker compose exec -T db sh -c \
+            'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -e "SHOW DATABASES LIKE \"zajel_verify\""')
+          test -z "$count"
+
       # خلف Cloudflare كما يُنقل إليها خادمٌ ثُبّت مباشراً (cloudflare-mode.sh): شهادة
       # مصدرٍ ذاتية التوقيع مكان شهادتها، ثم شبكة Docker مكان عناوينها. Caddy يقدّم
       # الشهادة بلا Let's Encrypt، والتطبيق يعرف الزائر من آخر عنوانٍ أضافه الوكيل

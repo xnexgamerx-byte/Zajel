@@ -124,6 +124,7 @@ class FinanceLedgerController extends Controller
             'profit_withdrawal' => ['سحب الأرباح', route('profits.withdrawals.index')],
             'shipment'          => ['الشحنة', route('shipments.show', $id)],
             'financial_period'  => ['إقفال الفترة', route('finance.periods.show', $id)],
+            'opening_balance'   => ['القيد الافتتاحي', route('finance.opening')],
             default             => ['—', null],
         };
     }

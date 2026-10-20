@@ -102,7 +102,7 @@ final class StaffNavigation
                 // النقد في الصناديق والعهد والطريق، والمتوقَّع أربعة عشر يوماً (docs/plan/68 §١١)
                 ['profits.cash', 'الموقف النقدي', ['profits.cash'], 'profits.view'],
                 // دفتر القيود: الميزان ومطابقته، وتتبّع أي رقمٍ إلى قيده (docs/plan/68)
-                ['finance.trial-balance', 'ميزان المراجعة', ['finance.trial-balance'], 'profits.view'],
+                ['finance.trial-balance', 'ميزان المراجعة', ['finance.trial-balance', 'finance.opening'], 'profits.view'],
                 ['finance.ledger', 'دفتر القيود', ['finance.ledger', 'finance.entries.*'], 'profits.view'],
                 // إقفال الفترات: المراجعة والإعداد والاعتماد والتقرير بنسخه (docs/plan/68 §٩)
                 ['finance.periods.index', 'إقفال الفترات', ['finance.periods.*'], 'profits.view'],

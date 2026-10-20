@@ -620,12 +620,16 @@ class FinancialAlerts
         return $found;
     }
 
+    /** علامة «فُحص منذ قليل» للشركة: ما دامت قائمةً لا تفحص الشاشة بنفسها */
+    public static function scanKey(int $companyId): string
+    {
+        return 'finance-alerts-scan:'.$companyId;
+    }
+
     /** الشاشة ترى ما يحتاج فحصاً قبل أن يأتي موعد الساعة: فحصٌ إن مرّ على آخره ربع ساعة */
     public function scanIfStale(): void
     {
-        $key = 'finance-alerts-scan:'.Tenancy::id();
-
-        if (cache()->add($key, true, now()->addMinutes(15))) {
+        if (cache()->add(self::scanKey((int) Tenancy::id()), true, now()->addMinutes(15))) {
             $this->scan();
         }
     }

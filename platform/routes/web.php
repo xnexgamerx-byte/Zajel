@@ -65,6 +65,7 @@ use App\Http\Controllers\Tenant\FinanceLedgerController;
 use App\Http\Controllers\Tenant\FinanceSettingsController;
 use App\Http\Controllers\Tenant\FinancialAlertController;
 use App\Http\Controllers\Tenant\FinancialPeriodController;
+use App\Http\Controllers\Tenant\OpeningBalanceController;
 use App\Http\Controllers\Tenant\CollectionBatchController;
 use App\Http\Controllers\Tenant\CourierFinanceController;
 use App\Http\Controllers\Tenant\ProfitWithdrawalController;
@@ -555,6 +556,9 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/trial-balance', [FinanceLedgerController::class, 'trialBalance'])->name('trial-balance');
                 Route::get('/ledger', [FinanceLedgerController::class, 'lines'])->name('ledger');
                 Route::get('/entries/{entry}', [FinanceLedgerController::class, 'entry'])->whereNumber('entry')->name('entries.show');
+                // الأرصدة الافتتاحية (docs/plan/68 ق١٣): ما لا يُبنى من التاريخ يُقيَّد مرّةً يوم التشغيل
+                Route::get('/opening', [OpeningBalanceController::class, 'index'])->name('opening');
+                Route::post('/opening', [OpeningBalanceController::class, 'store'])->middleware('can:periods.close')->name('opening.store');
                 // الإعدادات المالية (docs/plan/68 §١٣): لصاحب الشركة
                 Route::middleware('can:finance.settings')->group(function () {
                     Route::get('/settings', [FinanceSettingsController::class, 'edit'])->name('settings');

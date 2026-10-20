@@ -64,6 +64,8 @@ class StaffNavigationTest extends TestCase
         'profits.batches.export', 'profits.export', 'profits.withdrawals.export',
         // مراجعة ما قبل الإقفال من «إقفال الفترات»
         'finance.periods.review',
+        // الأرصدة الافتتاحية: تبويبٌ في دفتر القيود
+        'finance.opening',
     ];
 
     private Company $company;

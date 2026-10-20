@@ -74,6 +74,7 @@ class AuditLog extends Model
         'profit_withdrawal_cancelled'  => 'أُلغي طلب سحب',
         'profit_withdrawal_reversed'   => 'عُكس سحبٌ مدفوع',
         'finance_settings_updated' => 'عُدِّلت الإعدادات المالية',
+        'opening_balance_posted'   => 'كُتب قيدٌ افتتاحي',
         'branch_remittance_sent'     => 'أُرسل تسديدٌ بين الفروع',
         'branch_remittance_received' => 'استُلم تسديدٌ بين الفروع',
         'financial_alert'          => 'إجراءٌ على تنبيهٍ مالي',
