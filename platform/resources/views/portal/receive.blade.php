@@ -25,10 +25,10 @@
                 <p class="mt-1 text-sm text-ink-600">
                     @if ($isStatement)
                         <span class="num font-bold">{{ number_format($doc->net_amount) }}</span> د.ع
-                        · {{ number_format($doc->shipments_count) }} شحنة
+                        · {{ \App\Support\Arabic::shipments($doc->shipments_count) }}
                         @if ($doc->paid_at) · دُفع {{ $doc->paid_at->format('Y-m-d H:i') }} @endif
                     @else
-                        {{ number_format($doc->shipments_count) }} شحنة راجعة · {{ $doc->viaLabel() }}
+                        راجعة: {{ \App\Support\Arabic::shipments($doc->shipments_count) }} · {{ $doc->viaLabel() }}
                         · سُلّمت {{ $doc->handed_at?->format('Y-m-d H:i') }}
                     @endif
                 </p>
@@ -94,7 +94,7 @@
                             <span class="block font-semibold">إيصال الراجع <span class="num">{{ $batch->number }}</span></span>
                             <span class="text-xs text-ink-500">{{ $batch->viaLabel() }} · {{ $batch->handed_at?->format('Y-m-d') }}</span>
                         </span>
-                        <span class="text-xs text-ink-600">{{ number_format($batch->shipments_count) }} شحنة</span>
+                        <span class="text-xs text-ink-600">{{ \App\Support\Arabic::shipments($batch->shipments_count) }}</span>
                     </li>
                 @endforeach
             </ul>
