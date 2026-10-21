@@ -27,6 +27,7 @@ use App\Http\Controllers\Platform\SubscriptionController as PlatformSubscription
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\Portal\PickupRequestController;
 use App\Http\Controllers\Portal\ProcessingController as PortalProcessingController;
+use App\Http\Controllers\Portal\ReceiveController as PortalReceiveController;
 use App\Http\Controllers\Portal\RequestController as PortalRequestController;
 use App\Http\Controllers\Portal\ShipmentController as PortalShipmentController;
 use App\Http\Controllers\Portal\ShipmentImportController as PortalShipmentImportController;
@@ -89,6 +90,7 @@ use App\Http\Controllers\Tenant\PricingQuoteController;
 use App\Http\Controllers\Tenant\ProcessingController;
 use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
+use App\Http\Controllers\Tenant\ReceiptLinkController;
 use App\Http\Controllers\Tenant\ReconcileController;
 use App\Http\Controllers\Tenant\ReferenceReportController;
 use App\Http\Controllers\Tenant\ReportController;
@@ -160,6 +162,8 @@ Route::middleware('tenant')->group(function () {
         Route::post('/home/customize', [HomeLayoutController::class, 'update'])->middleware('staff')->name('home.customize.update');
         // صورة إعلان التطبيق: لكل مستخدمي الشركة — ربط المسار يفلتر بها
         Route::get('/app-ads/{ad}/image', [AppAdController::class, 'image'])->whereNumber('ad')->middleware('feature:app_ads')->name('app-ads.image');
+        // باركود وصل الحساب وإيصال الراجع (docs/plan/69): التاجر إلى تأكيد استلامه، والموظّف إلى الكشف
+        Route::get('/rc/{code}', ReceiptLinkController::class)->middleware('throttle:30,1')->name('receipt.link');
 
         Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
         Route::get('/shipments/create', [ShipmentController::class, 'create'])
@@ -781,6 +785,11 @@ Route::middleware('tenant')->group(function () {
 
             Route::get('/statement', StatementController::class)->name('statement');
             Route::post('/settlements/{settlement}/confirm', [StatementController::class, 'confirm'])->whereNumber('settlement')->name('settlements.confirm');
+            // «استلام بالباركود»: يمسح ورقة حسابه أو رواجعه فيُؤكَّد ما وصله (docs/plan/69)
+            Route::middleware('feature:scan_receipts')->group(function () {
+                Route::get('/receive', [PortalReceiveController::class, 'index'])->name('receive.index');
+                Route::post('/receive', [PortalReceiveController::class, 'store'])->middleware('throttle:20,1')->name('receive.store');
+            });
             Route::get('/inbox', [InboxController::class, 'portal'])->name('inbox');
 
             Route::middleware('feature:conversations')->group(function () {

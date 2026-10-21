@@ -20,9 +20,16 @@
             <div class="num text-xl font-black">{{ number_format($settlement->net_amount) }}</div>
         </div>
     </div>
+    @php($scan = \App\Actions\Receipts\ConfirmReceipt::required())
     <figure class="shrink-0 text-center">
-        <img src="{{ \App\Support\QrCode::dataUri(route('doc.merchant', $settlement)) }}" alt="" class="size-24">
-        <figcaption class="text-[10px] text-ink-600">امسحه للاستلام</figcaption>
+        <img src="{{ \App\Support\QrCode::dataUri($scan ? route('receipt.link', $settlement->receiptCode()) : route('doc.merchant', $settlement)) }}" alt="" class="size-24">
+        @if ($scan)
+            {{-- يمسحه التاجر من تطبيقه أو بوابته فيُؤكَّد استلامه، أو يكتب الرمز (docs/plan/69) --}}
+            <figcaption class="text-[10px] text-ink-600">رمز الاستلام</figcaption>
+            <div class="num text-xs font-bold tracking-wider" dir="ltr" data-receipt-code>{{ \App\Support\ReceiptCode::format($settlement->receiptCode()) }}</div>
+        @else
+            <figcaption class="text-[10px] text-ink-600">امسحه للاستلام</figcaption>
+        @endif
     </figure>
 </div>
 

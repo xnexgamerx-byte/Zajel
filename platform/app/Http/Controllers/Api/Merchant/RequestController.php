@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Merchant;
 
 use App\Actions\Merchants\SubmitMerchantRequest;
+use App\Actions\Receipts\ConfirmReceipt;
 use App\Actions\Returns\HandOverReturns;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
@@ -10,6 +11,7 @@ use App\Models\Merchant;
 use App\Models\MerchantRequest;
 use App\Models\ReturnBatch;
 use App\Models\Shipment;
+use App\Support\ReceiptCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,6 +28,8 @@ class RequestController extends Controller
 
         return response()->json([
             // ما يرجع إليه الآن: طلب كشف الراجع يجمعه
+            // تأكيد استلام الراجع بمسح إيصاله لا بزرّ (docs/plan/69)
+            'scan_required' => ConfirmReceipt::required(),
             'returning' => Shipment::where('merchant_id', $merchant->id)->where('status', ShipmentStatus::Returning->value)->count(),
             'requests' => MerchantRequest::where('merchant_id', $merchant->id)
                 ->with(['settlement:id,code', 'returnBatch:id,number'])->latest('id')->limit(30)->get()
@@ -119,6 +123,10 @@ class RequestController extends Controller
     public function confirm(Request $request, ReturnBatch $batch, HandOverReturns $handover): JsonResponse
     {
         abort_unless((int) $batch->merchant_id === (int) $request->attributes->get('merchant')->id, 404);
+
+        if (ConfirmReceipt::required() && ! ReceiptCode::matches($batch->receipt_code, $request->input('code'))) {
+            return response()->json(['message' => ConfirmReceipt::scanFirst($batch), 'scan_required' => true], 422);
+        }
 
         return $handover->confirmReceived($batch, 'التاجر من التطبيق', $request->user(), 'merchant')
             ? response()->json(['message' => "أكّدت استلام رواجع الإيصال {$batch->number}."])

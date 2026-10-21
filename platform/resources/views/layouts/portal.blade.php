@@ -25,6 +25,7 @@
         ['portal.waybills.index', 'وصولات للطباعة', 'portal.waybills.*', 'printer', 'وصولات'],
         ['portal.pickups.index', 'طلبات الاستلام', 'portal.pickups.*', 'clipboard', 'استلام'],
         ['portal.statement', 'حسابي', 'portal.statement', 'wallet', 'حسابي'],
+        ['portal.receive.index', 'استلام بالباركود', 'portal.receive.*', 'qr', 'امسح'],
         ['portal.requests.index', 'طلباتي', 'portal.requests.*', 'card', 'طلباتي'],
         ['portal.support.index', 'الدعم', 'portal.support.*', 'chat', 'الدعم'],
     ];

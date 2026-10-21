@@ -12,11 +12,22 @@
                 <span class="num text-sm font-normal text-ink-600">{{ $batch->merchant?->code }}</span></h2>
             <div class="flex items-center gap-3">
                 <div class="num text-base font-bold">{{ $batch->number }}</div>
-                {{-- يُمسح حين يعود الإيصال موقَّعاً، أو بكاميرا التطبيق عند التاجر (docs/plan/61) --}}
-                <figure class="text-center">
-                    <img src="{{ \App\Support\QrCode::dataUri(route('doc.returns', $batch)) }}" alt="" class="size-20">
-                    <figcaption class="text-[10px] text-ink-600">امسحه للاستلام</figcaption>
-                </figure>
+                {{-- يُمسح حين يعود الإيصال موقَّعاً، أو بكاميرا التطبيق عند التاجر (docs/plan/61).
+                     والشركة التي تطلب الورقة: رمز الاستلام على الإيصال المسلَّم وحده، لا على نسخة التاجر من بوابته (docs/plan/69) --}}
+                @php($scan = \App\Actions\Receipts\ConfirmReceipt::required())
+                @if (($merchantCopy ?? false) && $scan)
+                    <div class="rounded border border-ink-300 px-2 py-1 text-center text-[10px] text-ink-600">نسخة التاجر<br>يُؤكَّد الاستلام بمسح الإيصال الذي وصلك</div>
+                @else
+                    <figure class="text-center">
+                        <img src="{{ \App\Support\QrCode::dataUri($scan ? route('receipt.link', $batch->receiptCode()) : route('doc.returns', $batch)) }}" alt="" class="size-20">
+                        @if ($scan)
+                            <figcaption class="text-[10px] text-ink-600">رمز الاستلام</figcaption>
+                            <div class="num text-[11px] font-bold tracking-wider" dir="ltr" data-receipt-code>{{ \App\Support\ReceiptCode::format($batch->receiptCode()) }}</div>
+                        @else
+                            <figcaption class="text-[10px] text-ink-600">امسحه للاستلام</figcaption>
+                        @endif
+                    </figure>
+                @endif
             </div>
         </div>
 

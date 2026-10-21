@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Merchant\LabelController as MerchantLabelController
 use App\Http\Controllers\Api\Merchant\PickupController as MerchantPickupController;
 use App\Http\Controllers\Api\Merchant\ProcessingController as MerchantProcessingController;
 use App\Http\Controllers\Api\Merchant\ProfileController as MerchantProfileController;
+use App\Http\Controllers\Api\Merchant\ReceiveController as MerchantReceiveController;
 use App\Http\Controllers\Api\Merchant\RequestController as MerchantRequestController;
 use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentController;
 use App\Http\Controllers\Api\Merchant\SupportController as MerchantSupportController;
@@ -115,6 +116,8 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::post('/labels', [MerchantLabelController::class, 'store'])->middleware('throttle:30,1')->name('labels.store');
             Route::get('/returns/{batch}', [MerchantRequestController::class, 'batch'])->whereNumber('batch')->name('returns.show');
             Route::post('/returns/{batch}/confirm', [MerchantRequestController::class, 'confirm'])->whereNumber('batch')->name('returns.confirm');
+            // «استلام بالباركود»: كاميرا التطبيق تمسح وصل الحساب أو إيصال الراجع (docs/plan/69)
+            Route::post('/receive', MerchantReceiveController::class)->middleware(['feature:scan_receipts', 'throttle:20,1'])->name('receive');
             Route::middleware('feature:conversations')->prefix('support')->name('support.')->group(function () {
                 Route::get('/', [MerchantSupportController::class, 'index'])->name('index');
                 Route::post('/', [MerchantSupportController::class, 'store'])->middleware('throttle:20,1')->name('store');

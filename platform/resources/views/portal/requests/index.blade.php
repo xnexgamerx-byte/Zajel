@@ -172,6 +172,9 @@
                         <td class="text-xs">
                             @if ($batch->isReceived())
                                 <span class="num">{{ $batch->received_at->format('Y-m-d H:i') }}</span>
+                            @elseif (\App\Actions\Receipts\ConfirmReceipt::required())
+                                {{-- يُؤكَّد بمسح الإيصال الذي وصل مع الرواجع (docs/plan/69) --}}
+                                <a href="{{ route('portal.receive.index') }}" class="btn-primary inline-flex py-1 text-xs whitespace-nowrap">امسح الإيصال</a>
                             @else
                                 <form method="POST" action="{{ route('portal.requests.returns.confirm', $batch) }}">
                                     @csrf

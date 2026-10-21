@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Merchant;
 
 use App\Actions\Merchants\SubmitMerchantRequest;
+use App\Actions\Receipts\ConfirmReceipt;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Models\MerchantRequest;
@@ -10,6 +11,7 @@ use App\Models\MerchantSettlement;
 use App\Models\Transaction;
 use App\Support\MerchantBalance;
 use App\Support\PayoutMethods;
+use App\Support\ReceiptCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -37,6 +39,8 @@ class FinanceController extends Controller
 
         return response()->json([
             'balance' => $balance->toArray(),
+            // تأكيد استلام الدفعة بمسح وصلها لا بزرّ (docs/plan/69)
+            'scan_required' => ConfirmReceipt::required(),
             'request' => $open ? [
                 'number' => $open->number,
                 'amount' => (int) $open->amount,
@@ -153,6 +157,10 @@ class FinanceController extends Controller
     public function confirm(Request $request, MerchantSettlement $settlement): JsonResponse
     {
         abort_unless((int) $settlement->merchant_id === (int) $request->attributes->get('merchant')->id, 404);
+
+        if (ConfirmReceipt::required() && ! ReceiptCode::matches($settlement->receipt_code, $request->input('code'))) {
+            return response()->json(['message' => ConfirmReceipt::scanFirst($settlement), 'scan_required' => true], 422);
+        }
 
         $confirmed = MerchantSettlement::whereKey($settlement->id)->where('status', 'paid')->whereNull('merchant_confirmed_at')
             ->update(['merchant_confirmed_at' => now()]);

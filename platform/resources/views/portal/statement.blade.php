@@ -119,12 +119,47 @@
                                 </div>
                                 @if ($settlement->merchant_confirmed_at)
                                     <div class="text-xs text-ink-500">أكّدتَ استلامها {{ $settlement->merchant_confirmed_at->format('Y-m-d') }}</div>
+                                @elseif ($scanRequired)
+                                    {{-- يُؤكَّد بمسح الوصل الذي وصل مع المبلغ (docs/plan/69) --}}
+                                    <a href="{{ route('portal.receive.index') }}" class="btn-primary mt-1 inline-flex py-1 text-xs">
+                                        <x-icon name="qr" class="size-4" /> امسح الوصل لتأكيد استلامها</a>
                                 @else
                                     <form method="POST" action="{{ route('portal.settlements.confirm', $settlement) }}" class="mt-1">
                                         @csrf
                                         <button class="btn-primary py-1 text-xs">استلمتُها</button>
                                     </form>
                                 @endif
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </section>
+
+        {{-- «كشوفات الرواجع»: ما سُلّم له من رواجع بإيصالاتها (docs/plan/69) --}}
+        <section class="card mt-5 p-5" aria-labelledby="return-statements">
+            <div class="mb-4 flex items-center justify-between gap-2">
+                <h2 id="return-statements" class="text-sm font-bold">كشوفات الرواجع</h2>
+                <a href="{{ route('portal.requests.index') }}" class="text-xs font-semibold text-[var(--brand)] hover:underline">كلّها</a>
+            </div>
+
+            @if ($returnBatches->isEmpty())
+                <p class="py-6 text-center text-sm text-ink-500">لم تُسلَّم لك رواجع بإيصال بعد.</p>
+            @else
+                <div class="divide-y divide-ink-100">
+                    @foreach ($returnBatches as $batch)
+                        <div class="py-2.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="num text-xs font-semibold">{{ $batch->number }}</span>
+                                <span class="text-xs text-ink-500">{{ number_format($batch->shipments_count) }} شحنة · {{ $batch->viaLabel() }}</span>
+                            </div>
+                            @if ($batch->isReceived())
+                                <div class="mt-0.5 text-xs text-ok-700">وصلتك {{ $batch->received_at->format('Y-m-d') }}</div>
+                            @elseif ($scanRequired)
+                                <a href="{{ route('portal.receive.index') }}" class="btn-primary mt-1 inline-flex py-1 text-xs">
+                                    <x-icon name="qr" class="size-4" /> امسح الإيصال لتأكيد استلامها</a>
+                            @else
+                                <div class="mt-0.5 text-xs text-warn-700">بانتظار تأكيدك — من «طلباتي»</div>
                             @endif
                         </div>
                     @endforeach

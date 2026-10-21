@@ -399,7 +399,8 @@ document.addEventListener('submit', (event) => {
 
     event.preventDefault();
     const input = form.querySelector('input');
-    const match = input.value.trim().match(/\/doc\/[cmrb]\/\d+/);
+    // وباركود وصل الحساب وإيصال الراجع: /rc/<رمز الاستلام> (docs/plan/69)
+    const match = input.value.trim().match(/\/doc\/[cmrb]\/\d+|\/rc\/[A-Za-z0-9-]+/);
 
     if (match) {
         window.location.assign(match[0]);

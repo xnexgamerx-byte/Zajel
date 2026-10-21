@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Actions\Merchants\SubmitMerchantRequest;
+use App\Actions\Receipts\ConfirmReceipt;
 use App\Actions\Returns\HandOverReturns;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
@@ -10,6 +11,7 @@ use App\Models\Merchant;
 use App\Models\MerchantRequest;
 use App\Models\ReturnBatch;
 use App\Models\Shipment;
+use App\Support\ReceiptCode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -100,6 +102,11 @@ class RequestController extends Controller
     {
         abort_unless((int) $batch->merchant_id === (int) $request->attributes->get('merchant')->id, 404);
 
+        // الشركة تطلب الورقة: يُؤكَّد بمسح إيصالها لا بزرّ (docs/plan/69)
+        if (ConfirmReceipt::required() && ! ReceiptCode::matches($batch->receipt_code, $request->input('code'))) {
+            return redirect()->route('portal.receive.index')->withErrors(['code' => ConfirmReceipt::scanFirst($batch)]);
+        }
+
         return $handover->confirmReceived($batch, 'التاجر من بوابته', $request->user(), 'merchant')
             ? back()->with('success', "أكّدت استلام رواجع الإيصال {$batch->number}.")
             : back()->withErrors(['batch' => "الإيصال {$batch->number} مؤكَّدٌ سلفاً."]);
@@ -115,6 +122,7 @@ class RequestController extends Controller
             'shipments' => fn ($q) => $q->with(['governorate:id,name_ar', 'city:id,name_ar', 'lastFailureReason:id,name_ar'])->orderBy('id'),
         ]);
 
-        return view('tenant.returns.receipt', ['batches' => collect([$batch]), 'back' => route('portal.requests.index')]);
+        // نسخة التاجر بلا رمز الاستلام: الرمز على الورقة التي سُلّمت له وحدها (docs/plan/69)
+        return view('tenant.returns.receipt', ['batches' => collect([$batch]), 'back' => route('portal.requests.index'), 'merchantCopy' => true]);
     }
 }
