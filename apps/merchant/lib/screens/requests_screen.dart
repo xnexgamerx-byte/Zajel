@@ -5,7 +5,7 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
-import 'scan_screen.dart';
+import 'receive_screen.dart';
 import 'shipment_screen.dart';
 
 Future<void> openRequests(BuildContext context, Brand brand) =>
@@ -66,12 +66,10 @@ class _RequestsScreenState extends State<RequestsScreen> {
     }
   }
 
-  /// رمز إيصال الراجع المطبوع يُمسح فيُفتح الإيصال بشحناته و«وصلتني»
+  /// باركود إيصال الراجع يُمسح فيُؤكَّد استلامه (docs/plan/69) — والإيصال القديم يُفتح بشحناته
   Future<void> _scanReceipt() async {
-    final result = await Navigator.of(context)
-        .push<ScanResult>(MaterialPageRoute(fullscreenDialog: true, builder: (_) => ScanScreen(brand: brand)));
-    if (!mounted || result?.receipt == null) return;
-    await _open(result!.receipt!);
+    await openReceive(context, brand);
+    if (mounted) await _load();
   }
 
   Future<void> _open(int id) async {
@@ -213,7 +211,13 @@ class _RequestsScreenState extends State<RequestsScreen> {
           ),
         ),
         if (b.received != null)
-          Chip2('وصلتك', color: const Color(0xFF0F7B4A))
+          Chip2('وصلتك', color: Palette.ok)
+        else if (data?.scanRequired ?? false)
+          Tap(
+            radius: 20,
+            onTap: _scanReceipt,
+            child: ScanPill(brand: brand, text: 'امسح الإيصال'),
+          )
         else
           FilledButton(
             onPressed: busy == null ? () => _received(b) : null,
@@ -372,6 +376,12 @@ class _ReturnReceiptScreenState extends State<ReturnReceiptScreen> {
   }
 
   Future<void> _confirm() async {
+    // الشركة تطلب الإيصال نفسه: يُؤكَّد بمسح باركوده (docs/plan/69)
+    if (data?.scanRequired ?? false) {
+      await openReceive(context, brand);
+      await _load();
+      return;
+    }
     setState(() => confirming = true);
     try {
       final message = await Api.instance.confirmReturns(widget.id);
@@ -406,8 +416,8 @@ class _ReturnReceiptScreenState extends State<ReturnReceiptScreen> {
                         if (d.receipt.received == null) ...[
                           SheetButton(
                             brand: brand,
-                            label: 'وصلتني هذه الرواجع',
-                            icon: Icons.check_circle_rounded,
+                            label: d.scanRequired ? 'امسح الإيصال لتأكيد استلامها' : 'وصلتني هذه الرواجع',
+                            icon: d.scanRequired ? Icons.qr_code_scanner_rounded : Icons.check_circle_rounded,
                             busy: confirming,
                             onTap: _confirm,
                           ),

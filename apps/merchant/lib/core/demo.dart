@@ -15,7 +15,17 @@ class Demo {
     available: 1250000,
     pending: 500000,
     pendingReason: 'عن 12 شحنة واصلة، نقدها ما زال مع المندوب — يصير متاحاً حين تحاسبه الشركة.',
-    stats: const Stats(total: 124, delivered: 86, inDelivery: 28, returns: 6),
+    stats: const Stats(
+      total: 124,
+      delivered: 86,
+      inDelivery: 28,
+      returns: 6,
+      waiting: 6,
+      warehouse: 11,
+      courier: 28,
+      deliveredToday: 14,
+      returning: 3,
+    ),
     processing: 3,
     canProcess: true,
     attention: 3,
@@ -377,6 +387,20 @@ class Demo {
         confirmed: true,
       ),
     ],
+    // نسخة العرض تُري الاستلام بالباركود (docs/plan/69): رمز الكشف K7M2P-QX9RT ورمز الإيصال R3TRN-2BX7Q
+    scanRequired: true,
+    month: const MonthStats(
+      label: 'تشرين الأول',
+      delivered: 43,
+      returned: 5,
+      rate: 90,
+      returnRate: 10,
+      collected: 1792000,
+      growth: 12,
+      average: 41700,
+      shipments: 50,
+      weeks: [380000, 455000, 512000, 445000],
+    ),
     movements: [
       Movement(label: 'مستحقّ الشحنة ZA-20260124', amount: 40000, shipment: 'ZA-20260124', at: _today(10, 45)),
       Movement(
@@ -413,6 +437,7 @@ class Demo {
         ),
     ];
     return StatementDetail(
+      scanRequired: true,
       statement: s,
       totals: {
         'count': s.count,
@@ -520,7 +545,30 @@ class Demo {
   ];
 
   static RequestsPage requests() =>
-      RequestsPage(returning: _returning, requests: List.of(_requests), batches: List.of(_batches));
+      RequestsPage(returning: _returning, requests: List.of(_requests), batches: List.of(_batches), scanRequired: true);
+
+  /// رموز الاستلام المطبوعة على أوراق العرض: وصل الكشف MS000041 وإيصال الراجع RB000034
+  static const _codes = {'K7M2PQX9RT': ('statement', 1), 'R3TRN2BX7Q': ('returns', 2)};
+
+  static Received receive(String raw) {
+    final match = RegExp(r'/rc/([A-Za-z0-9-]+)').firstMatch(raw);
+    final code = (match?.group(1) ?? raw).replaceAll(RegExp(r'[\s-]'), '').toUpperCase();
+    final doc = _codes[code];
+    if (doc == null) {
+      throw ApiError(
+        'هذا الرمز ليس لورقةٍ من أوراقك. امسح الباركود المطبوع على الوصل الذي وصلك، أو اكتب الرمز الذي تحته.',
+      );
+    }
+    if (doc.$1 == 'statement') {
+      if (_confirmed.contains(doc.$2)) throw ApiError('الكشف MS000041 لم يُدفع بعد أو أكّدته سلفاً.');
+      _confirmed.add(doc.$2);
+      return Received(message: 'أكّدت استلام دفعة الكشف MS000041.', type: 'statement', id: doc.$2);
+    }
+    final b = _batches.firstWhere((b) => b.id == doc.$2);
+    if (b.received != null) throw ApiError('الإيصال ${b.number} مؤكَّدٌ سلفاً.');
+    b.received = DateTime.now();
+    return Received(message: 'أكّدت استلام رواجع الإيصال ${b.number}.', type: 'returns', id: b.id);
+  }
 
   static String requestReturns(bool courier, String? note) {
     if (_returning == 0) throw ApiError('لا راجع لك عندنا الآن.');
@@ -587,6 +635,7 @@ class Demo {
       ('حسين كاظم', 'بغداد · الدورة', 25000, 'العنوان غير صحيح'),
     ];
     return ReturnReceiptDetail(
+      scanRequired: true,
       receipt: b,
       lines: [
         for (var i = 0; i < b.count; i++)

@@ -13,6 +13,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // «تشانغا» للعناوين والأرقام الكبيرة (docs/plan/70)
+  final display = FontLoader('Changa');
+  for (final w in [500, 600, 700, 800]) {
+    display.addFont(Future.value(ByteData.view(File('assets/fonts/Changa-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await display.load();
 }
 
 Future<void> _start(WidgetTester tester) async {
@@ -77,9 +83,18 @@ void main() {
       '500,000',
       'MS000041',
       'MS000037',
-      'أكّدتَ استلامها',
+      'استلمتها',
+      'امسح للتأكيد',
+      'استلام الحساب',
+      // «مؤشراتك هذا الشهر» بدل تركيب الرصيد (docs/plan/70)
+      'مؤشراتك هذا الشهر',
+      'تشرين الأول',
+      '90%',
+      '1,792,000',
+      '▲ 12%',
       'مستحقّ الشحنة ZA-20260124',
     ]) {
+      await _reveal(tester, find.textContaining(text));
       expect(find.textContaining(text), findsWidgets, reason: text);
     }
 
@@ -92,15 +107,33 @@ void main() {
     await tester.tap(find.byTooltip('رجوع').last);
     await tester.pumpAndSettle();
 
-    // «استلمتُها» على الكشف المدفوع غير المؤكَّد
-    await tester.tap(find.text('استلمتُها'));
-    await tester.pumpAndSettle();
-    expect(find.text('أكّدت استلام الدفعة.'), findsOneWidget);
+    // «استلام الحساب»: لا زرّ يؤكّد — يُمسح الوصل أو يُكتب رمزه (docs/plan/69)
     expect(find.text('استلمتُها'), findsNothing);
-    expect(find.text('أكّدتَ استلامها'), findsNWidgets(2));
+    await _reveal(tester, find.text('استلام الحساب'));
+    await tester.tap(find.text('استلام الحساب'));
+    await tester.pumpAndSettle();
+    expect(find.text('استلام بالباركود'), findsOneWidget);
+
+    // رمزٌ ليس لورقةٍ من أوراقه
+    await tester.enterText(find.byType(TextField), 'AAAAA-BBBBB');
+    await tester.tap(find.text('أكّد'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ليس لورقةٍ من أوراقك'), findsOneWidget);
+
+    // والرمز المطبوع تحت الباركود، بأحرفٍ صغيرة وشرطة
+    await tester.enterText(find.byType(TextField), 'k7m2p-qx9rt');
+    await tester.tap(find.text('أكّد'));
+    await tester.pumpAndSettle();
+    expect(find.text('تمّ تأكيد الاستلام'), findsOneWidget);
+    expect(find.text('أكّدت استلام دفعة الكشف MS000041.'), findsOneWidget);
+    await tester.tap(find.text('تمّ'));
+    await tester.pumpAndSettle();
+    expect(find.text('امسح للتأكيد'), findsNothing);
+    expect(find.text('استلمتها'), findsNWidgets(2));
 
     // طلب محاسبة بزين كاش المحفوظ
-    await tester.tap(find.textContaining('اطلب محاسبة —'));
+    await tester.scrollUntilVisible(find.text('اطلب محاسبة'), -300, scrollable: _vertical);
+    await tester.tap(find.text('اطلب محاسبة'));
     await tester.pumpAndSettle();
     expect(find.text('طريقة الدفع'), findsOneWidget);
     expect(find.text('زين كاش'), findsOneWidget);
@@ -108,7 +141,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('تمّ الطلب REQ-261010-7'), findsOneWidget);
     expect(find.textContaining('طلبك REQ-261010-7 بانتظار المعالجة'), findsOneWidget);
-    expect(find.textContaining('اطلب محاسبة —'), findsNothing);
+    expect(find.text('اطلب محاسبة'), findsNothing);
   });
 }
 

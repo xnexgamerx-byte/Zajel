@@ -127,19 +127,29 @@ class SolidIcon extends StatelessWidget {
   );
 }
 
-/// يجعل أيّ بطاقةٍ قابلةً للّمس بتموّجٍ داخل زواياها
+/// يجعل أيّ بطاقةٍ قابلةً للّمس بتموّجٍ داخل زواياها.
+///
+/// والظلّ هنا لا على Ink الداخل: Material يقصّ ما يرسمه Ink على حدوده، فيظهر ظلّه مربّعاً باهتاً
 class Tap extends StatelessWidget {
-  const Tap({super.key, required this.child, this.onTap, this.radius = 14});
+  const Tap({super.key, required this.child, this.onTap, this.radius = 14, this.shadow});
 
   final Widget child;
   final VoidCallback? onTap;
   final double radius;
+  final List<BoxShadow>? shadow;
 
   @override
-  Widget build(BuildContext context) => Material(
-    type: MaterialType.transparency,
-    child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(radius), child: child),
-  );
+  Widget build(BuildContext context) {
+    final tap = Material(
+      type: MaterialType.transparency,
+      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(radius), child: child),
+    );
+    if (shadow == null) return tap;
+    return DecoratedBox(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(radius), boxShadow: shadow),
+      child: tap,
+    );
+  }
 }
 
 /// شارة الحالة كما في التصميم: ما ينتظر قرارك بلون الشركة، والباقي رماديّة
@@ -173,6 +183,167 @@ class StatusPill extends StatelessWidget {
     child: FittedBox(
       fit: BoxFit.scaleDown,
       child: Text(row.status, maxLines: 1, style: font(size, w8, Colors.white, height: 1)),
+    ),
+  );
+}
+
+/// صفّ كشفٍ أو إيصالٍ في تصميم ز (docs/plan/70): مربّعٌ أحمر شفّاف مظلَّل، بأيقونةٍ في مربّعٍ بتدرّج
+/// لون الشركة، وعنوانه وسطره، وفي طرفه رقمه وحالته.
+class TintedRow extends StatelessWidget {
+  const TintedRow({
+    super.key,
+    required this.brand,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.end,
+    this.status,
+    this.onTap,
+  });
+
+  final Brand brand;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? end;
+  final Widget? status;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Tap(
+    radius: 20,
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+          colors: [brand.main.withValues(alpha: .10), brand.main.withValues(alpha: .04)],
+        ),
+        border: Border.all(color: brand.main.withValues(alpha: .20)),
+        boxShadow: [
+          BoxShadow(
+            color: brand.main.withValues(alpha: .14),
+            blurRadius: 20,
+            spreadRadius: -12,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: brand.hero,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: brand.glow(.5),
+            ),
+            child: Icon(icon, size: 22, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: font(14, w8, Palette.ink, height: 1.35),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: font(12, w5, Palette.muted, height: 1.35),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [?end, if (end != null && status != null) const SizedBox(height: 5), ?status],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// «امسح للتأكيد»: حالةٌ تنتظر مسح ورقتها (docs/plan/69)
+class ScanPill extends StatelessWidget {
+  const ScanPill({super.key, required this.brand, required this.text});
+
+  final Brand brand;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    decoration: BoxDecoration(gradient: brand.hero, borderRadius: BorderRadius.circular(20), boxShadow: brand.glow(.5)),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.qr_code_scanner_rounded, size: 13, color: Colors.white),
+        const SizedBox(width: 4),
+        Text(text, style: font(11, w8, Colors.white, height: 1.3)),
+      ],
+    ),
+  );
+}
+
+/// «استلمتها ✓»: ما أُكّد
+class OkPill extends StatelessWidget {
+  const OkPill({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    decoration: BoxDecoration(color: Palette.okSoft, borderRadius: BorderRadius.circular(20)),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.check_rounded, size: 13, color: Palette.ok),
+        const SizedBox(width: 3),
+        Text(text, style: font(11, w8, Palette.ok, height: 1.3)),
+      ],
+    ),
+  );
+}
+
+/// الزرّ الأحمر الكبير في تصميم ز: تدرّج لون الشركة وتوهّجه
+class HeroButton extends StatelessWidget {
+  const HeroButton({super.key, required this.brand, required this.label, this.icon, this.onTap, this.height = 54});
+
+  final Brand brand;
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onTap;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => Tap(
+    shadow: brand.glow(),
+    radius: 18,
+    onTap: onTap,
+    child: Ink(
+      height: height,
+      decoration: BoxDecoration(gradient: brand.hero, borderRadius: BorderRadius.circular(18)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (icon != null) ...[Icon(icon, size: 21, color: Colors.white), const SizedBox(width: 8)],
+          Text(label, style: font(15, w8, Colors.white)),
+        ],
+      ),
     ),
   );
 }

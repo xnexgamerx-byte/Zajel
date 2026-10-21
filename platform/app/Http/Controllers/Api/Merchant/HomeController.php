@@ -52,6 +52,14 @@ class HomeController extends Controller
                 'delivered' => $counts['delivered'],
                 'in_delivery' => $counts['open'],
                 'returns' => $counts['returns'],
+                // «رحلة شحناتك» (docs/plan/70): بانتظار مندوب ← بالمخزن ← مع المندوب ← سُلّمت اليوم، وما يرجع إليه
+                'waiting' => $counts['waiting'],
+                'warehouse' => $counts['warehouse'],
+                'courier' => $counts['courier'],
+                'delivered_today' => Shipment::where('merchant_id', $merchant->id)
+                    ->whereIn('status', [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value])
+                    ->where('delivered_at', '>=', now('Asia/Baghdad')->startOfDay()->timezone(config('app.timezone')))->count(),
+                'returning' => $counts['returning'],
             ],
             'processing' => [
                 'count' => $counts['processing'],

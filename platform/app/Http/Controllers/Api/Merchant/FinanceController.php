@@ -4,16 +4,19 @@ namespace App\Http\Controllers\Api\Merchant;
 
 use App\Actions\Merchants\SubmitMerchantRequest;
 use App\Actions\Receipts\ConfirmReceipt;
+use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Models\MerchantRequest;
 use App\Models\MerchantSettlement;
+use App\Models\Shipment;
 use App\Models\Transaction;
 use App\Support\MerchantBalance;
 use App\Support\PayoutMethods;
 use App\Support\ReceiptCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -41,6 +44,8 @@ class FinanceController extends Controller
             'balance' => $balance->toArray(),
             // تأكيد استلام الدفعة بمسح وصلها لا بزرّ (docs/plan/69)
             'scan_required' => ConfirmReceipt::required(),
+            // «مؤشراتك هذا الشهر» بدل تركيب الرصيد (docs/plan/70)
+            'month' => self::month($merchant),
             'request' => $open ? [
                 'number' => $open->number,
                 'amount' => (int) $open->amount,
@@ -130,6 +135,7 @@ class FinanceController extends Controller
             'status' => self::SETTLEMENT_STATUS[$settlement->status] ?? $settlement->status,
             'paid' => $settlement->status === 'paid',
             'confirmed' => $settlement->merchant_confirmed_at !== null,
+            'scan_required' => ConfirmReceipt::required(),
             'at' => ($settlement->paid_at ?? $settlement->confirmed_at ?? $settlement->created_at)?->toIso8601String(),
             'reference' => $settlement->payout_reference,
             'totals' => [
@@ -151,6 +157,53 @@ class FinanceController extends Controller
                 'net' => (int) $line->net_amount,
             ])->values(),
         ]);
+    }
+
+    /** أشهر السنة كما تُقال في العراق */
+    private const MONTHS = ['كانون الثاني', 'شباط', 'آذار', 'نيسان', 'أيّار', 'حزيران', 'تمّوز', 'آب', 'أيلول',
+        'تشرين الأول', 'تشرين الثاني', 'كانون الأول'];
+
+    /**
+     * «مؤشراتك هذا الشهر» (docs/plan/70) بتوقيت بغداد: ما سُلّم وما رجع، ونسبة التسليم بينهما،
+     * والمحصَّل أسبوعاً أسبوعاً ومقارنته بالشهر الماضي، ومتوسط الطلب، وشحنات الشهر.
+     *
+     * @return array<string, mixed>
+     */
+    public static function month(Merchant $merchant): array
+    {
+        $start = now('Asia/Baghdad')->startOfMonth();
+        $from = $start->copy()->timezone(config('app.timezone'));
+        $lastFrom = $start->copy()->subMonthNoOverflow()->timezone(config('app.timezone'));
+        $delivered = [ShipmentStatus::Delivered->value, ShipmentStatus::PartiallyDelivered->value];
+        $mine = fn () => Shipment::where('merchant_id', $merchant->id);
+
+        $rows = $mine()->whereIn('status', $delivered)->where('delivered_at', '>=', $from)
+            ->toBase()->get(['delivered_at', 'collected_amount']);
+        $returned = $mine()->where('returned_at', '>=', $from)->count();
+        $last = (int) $mine()->whereIn('status', $delivered)
+            ->where('delivered_at', '>=', $lastFrom)->where('delivered_at', '<', $from)->sum('collected_amount');
+
+        $weeks = array_fill(0, intdiv(now('Asia/Baghdad')->day - 1, 7) + 1, 0);
+        foreach ($rows as $row) {
+            $week = intdiv(Carbon::parse($row->delivered_at, config('app.timezone'))->timezone('Asia/Baghdad')->day - 1, 7);
+            $weeks[$week] = ($weeks[$week] ?? 0) + (int) $row->collected_amount;
+        }
+
+        $count = $rows->count();
+        $collected = (int) $rows->sum('collected_amount');
+
+        return [
+            'label' => self::MONTHS[$start->month - 1],
+            'delivered' => $count,
+            'returned' => $returned,
+            'rate' => $count + $returned > 0 ? (int) round(100 * $count / ($count + $returned)) : null,
+            'return_rate' => $count + $returned > 0 ? (int) round(100 * $returned / ($count + $returned)) : null,
+            'collected' => $collected,
+            'growth' => $last > 0 ? (int) round(100 * ($collected - $last) / $last) : null,
+            'average' => $count > 0 ? (int) round($collected / $count) : 0,
+            'shipments' => $mine()->where('created_at', '>=', $from)->count(),
+            'weeks' => array_values($weeks),
+        ];
     }
 
     /** «استلمتُها»: يؤكّد أن دفعة الكشف وصلته */

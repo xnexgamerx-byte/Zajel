@@ -6,21 +6,29 @@ import '../core/palette.dart';
 import '../widgets/bits.dart';
 import 'create_screen.dart' show LatinDigits;
 
-/// ما يعود من شاشة المسح: رقم وصلٍ مقبول، أو «بلا وصل» للإدخال اليدوي، أو رمز إيصال راجع
+/// ما يعود من شاشة المسح: رقم وصلٍ مقبول، أو «بلا وصل» للإدخال اليدوي، أو رمز إيصال راجع،
+/// أو باركود استلامٍ (وصل حسابٍ أو إيصال راجع) يُؤكَّد به ما وصل
 class ScanResult {
-  const ScanResult.waybill(String this.code) : manual = false, receipt = null;
-  const ScanResult.manual() : code = null, manual = true, receipt = null;
-  const ScanResult.receipt(int this.receipt) : code = null, manual = false;
+  const ScanResult.waybill(String this.code) : manual = false, receipt = null, receive = null;
+  const ScanResult.manual() : code = null, manual = true, receipt = null, receive = null;
+  const ScanResult.receipt(int this.receipt) : code = null, manual = false, receive = null;
+  const ScanResult.receive(String this.receive) : code = null, manual = false, receipt = null;
 
   final String? code;
   final bool manual;
 
   /// إيصال راجعٍ مُسح رمزه المطبوع (docs/plan/61): يُفتح ليؤكَّد وصوله
   final int? receipt;
+
+  /// باركود الاستلام /rc/<الرمز> (docs/plan/69)
+  final String? receive;
 }
 
 /// رمز إيصال الراجع المطبوع رابطٌ ينتهي بـ /doc/b/رقمه
 int? receiptCode(String raw) => int.tryParse(RegExp(r'/doc/b/(\d+)').firstMatch(raw)?.group(1) ?? '');
+
+/// باركود الاستلام على وصل الحساب وإيصال الراجع: رابطٌ ينتهي بـ /rc/<الرمز> (docs/plan/69)
+bool isReceiveLink(String raw) => RegExp(r'/rc/[A-Za-z0-9-]+').hasMatch(raw);
 
 /// الزرّ الأوسط (docs/plan/52): كاميرا تقرأ باركود الوصل المطبوع أو رمزه، فيتحقّق النظام أنه
 /// من وصولات التاجر ولم يُستعمل — ثم تُكتب بيانات الطلب في «طلب جديد» على هذا الوصل.
@@ -61,6 +69,10 @@ class _ScanScreenState extends State<ScanScreen> {
       Navigator.of(context).pop(ScanResult.receipt(receipt));
       return;
     }
+    if (isReceiveLink(raw)) {
+      Navigator.of(context).pop(ScanResult.receive(raw.trim()));
+      return;
+    }
     setState(() => (checking = true, error = null));
     try {
       final ok = await Api.instance.checkWaybill(code);
@@ -88,7 +100,7 @@ class _ScanScreenState extends State<ScanScreen> {
             errorBuilder: (context, e) => _noCamera(),
             placeholderBuilder: (context) => const ColoredBox(color: Colors.black),
           ),
-          const _Frame(),
+          const ScanFrame(),
           SafeArea(child: Column(children: [_top(), const Spacer(), _bottom()])),
         ],
       ),
@@ -172,7 +184,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 child: Container(
                   height: 46,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF6F8FB),
+                    color: const Color(0xFFFBF6F5),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Palette.line),
                   ),
@@ -240,21 +252,35 @@ class _ScanScreenState extends State<ScanScreen> {
   );
 }
 
-/// إطار المسح: ظلٌّ حول نافذةٍ عريضة تناسب الباركود، بزوايا بيضاء
-class _Frame extends StatelessWidget {
-  const _Frame();
+/// إطار المسح: ظلٌّ حول نافذةٍ مربّعة تناسب رمز QR، بزواياها — بيضاء، أو بلون الشركة للاستلام
+class ScanFrame extends StatelessWidget {
+  const ScanFrame({super.key, this.color = Colors.white, this.center = .42});
+
+  final Color color;
+
+  /// موضع النافذة من أعلى الشاشة (نسبةً من ارتفاعها)
+  final double center;
 
   @override
-  Widget build(BuildContext context) => IgnorePointer(child: CustomPaint(painter: _FramePainter()));
+  Widget build(BuildContext context) => IgnorePointer(child: CustomPaint(painter: _FramePainter(color, center)));
+}
+
+/// نافذة المسح نفسها، لما يُرسم داخلها (خطّ المسح)
+Rect scanWindow(Size size, {double center = .42}) {
+  final w = size.width * .68;
+  return Rect.fromCenter(center: Offset(size.width / 2, size.height * center), width: w, height: w);
 }
 
 class _FramePainter extends CustomPainter {
+  _FramePainter(this.color, this.center);
+
+  final Color color;
+  final double center;
+
   @override
   void paint(Canvas canvas, Size size) {
     // مربّعٌ لرمز QR المطبوع على الوصل (docs/plan/61) — والباركود الطويل يُقرأ فيه أيضاً
-    final w = size.width * .68;
-    final h = w;
-    final window = Rect.fromCenter(center: Offset(size.width / 2, size.height * .42), width: w, height: h);
+    final window = scanWindow(size, center: center);
     final hole = RRect.fromRectAndRadius(window, const Radius.circular(18));
 
     canvas.drawPath(
@@ -263,9 +289,9 @@ class _FramePainter extends CustomPainter {
     );
 
     final corner = Paint()
-      ..color = Colors.white
+      ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = 5
       ..strokeCap = StrokeCap.round;
     const l = 26.0;
     for (final (x, y, dx, dy) in [
@@ -286,5 +312,5 @@ class _FramePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _FramePainter old) => old.color != color || old.center != center;
 }

@@ -276,7 +276,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     onTap: onTap,
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(color: const Color(0xFFF2F5F9), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: const Color(0xFFF8F2F1), borderRadius: BorderRadius.circular(10)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -407,7 +407,7 @@ class _DecideSheetState extends State<_DecideSheet> {
           const SizedBox(height: 14),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF6F8FB),
+              color: const Color(0xFFFBF6F5),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Palette.line),
             ),

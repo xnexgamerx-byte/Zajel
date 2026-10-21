@@ -142,7 +142,7 @@ class _ImportScreenState extends State<ImportScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: c.required ? brand.soft : const Color(0xFFF2F4F7),
+                  color: c.required ? brand.soft : const Color(0xFFF5ECEA),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(

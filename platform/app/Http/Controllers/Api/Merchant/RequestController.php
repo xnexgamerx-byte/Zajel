@@ -107,6 +107,7 @@ class RequestController extends Controller
             'note' => $batch->note,
             'at' => $batch->handed_at?->toIso8601String(),
             'received' => $batch->received_at?->toIso8601String(),
+            'scan_required' => ConfirmReceipt::required(),
             'shipments' => $shipments->map(fn (Shipment $s) => [
                 'id' => $s->id,
                 'number' => $s->number,

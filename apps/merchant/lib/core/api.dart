@@ -291,6 +291,14 @@ class Api {
     return ReturnReceiptDetail.fromJson(await _send(http.get(_uri('/merchant/returns/$id'), headers: _headers)));
   }
 
+  /// «استلام بالباركود» (docs/plan/69): رمز الورقة أو رابطها كما قرأته الكاميرا — الرمز يدلّ على ورقته
+  Future<Received> receive(String code) async {
+    if (AppConfig.demo) return Demo.receive(code);
+    return Received.fromJson(
+      await _send(http.post(_uri('/merchant/receive'), headers: _headers, body: jsonEncode({'code': code}))),
+    );
+  }
+
   /// «وصلتني»: رواجع الإيصال وصلت التاجر
   Future<String> confirmReturns(int id) async {
     if (AppConfig.demo) return Demo.confirmReturns(id);

@@ -517,7 +517,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
               hintText: 'اكتب ردّك…',
               hintStyle: font(13, w5, Palette.muted),
               filled: true,
-              fillColor: const Color(0xFFF6F8FB),
+              fillColor: const Color(0xFFFBF6F5),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),

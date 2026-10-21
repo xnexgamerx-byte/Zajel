@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
 
-/// ألوان التصميم كما في ملف التصميم (docs/plan/48 §التصميم) — والأحمر من لون الشركة.
+/// ألوان تصميم ز (docs/plan/70): خلفيةٌ دافئة، وحبرٌ نبيذيّ داكن، والأحمر الداكن من لون الشركة.
 class Palette {
-  static const bg = Color(0xFFF0F5FB);
-  static const ink = Color(0xFF0E1A33);
-  static const slate = Color(0xFF5B6B86);
-  static const muted = Color(0xFF6F86A2);
-  static const line = Color(0xFFE6EBF2);
-  static const pill = Color(0xFF69758B);
-  static const returnRed = Color(0xFFD92D20);
-  static const eye = Color(0xFFEBF0F4);
-  static const shadow = Color(0x0F0F2A55);
+  static const bg = Color(0xFFFBF6F5);
+  static const ink = Color(0xFF26181A);
+  static const slate = Color(0xFF5C4644);
+  static const muted = Color(0xFF7A6260);
+  static const line = Color(0xFFF0E3E1);
+  static const pill = Color(0xFF7A6260);
+  static const returnRed = Color(0xFFB42318);
+  static const eye = Color(0xFFF5ECEA);
+  static const shadow = Color(0x24781E24);
+
+  /// المسلَّم والمؤكَّد: أخضر هادئ
+  static const ok = Color(0xFF1F6B35);
+  static const okSoft = Color(0xFFE6F4EA);
 }
 
 /// درجات لون الشركة: الأحمر في التصميم، وغيره لشركةٍ أخرى بالنسب نفسها.
 class Brand {
   Brand(this.main);
 
-  factory Brand.hex(String? hex, {String fallback = '#FE0A0E'}) {
+  factory Brand.hex(String? hex, {String fallback = '#B3202A'}) {
     Color parse(String h) => Color(int.parse('FF${h.replaceAll('#', '')}', radix: 16));
     try {
       return Brand(parse(hex == null || hex.isEmpty ? fallback : hex));
@@ -54,6 +58,26 @@ class Brand {
     end: Alignment.bottomRight,
     colors: [_shift(7, .11), _shift(3, .02, .92)],
   );
+
+  /// أغمق منه: نصٌّ بلون الشركة يُقرأ على الفاتح
+  Color get deep => _shift(0, -.05);
+
+  /// تدرّج الأزرار والبطاقات الحمراء الكبيرة في تصميم ز: من الأفتح إلى الأغمق
+  LinearGradient get hero => LinearGradient(
+    begin: AlignmentDirectional.topStart,
+    end: AlignmentDirectional.bottomEnd,
+    colors: [_shift(0, .07), main, _shift(-2, -.08)],
+  );
+
+  /// ظلّ ما هو بلون الشركة: متوهّجٌ بلونه لا رماديّ
+  List<BoxShadow> glow([double alpha = .45]) => [
+    BoxShadow(
+      color: main.withValues(alpha: alpha),
+      blurRadius: 22,
+      spreadRadius: -8,
+      offset: const Offset(0, 12),
+    ),
+  ];
 }
 
 /// خطّ «القاهرة» بمقاسات التصميم.
@@ -71,8 +95,15 @@ const w6 = FontWeight.w600;
 const w7 = FontWeight.w700;
 const w8 = FontWeight.w800;
 
-/// ظلّ البطاقات البيضاء الناعم
-const cardShadow = [BoxShadow(color: Palette.shadow, blurRadius: 8, offset: Offset(0, 2))];
+/// «تشانغا» للعناوين والأرقام الكبيرة (تصميم ز)
+TextStyle display(double size, FontWeight weight, Color color, {double height = 1.25}) =>
+    font(size, weight, color, height: height).copyWith(fontFamily: 'Changa');
+
+/// ظلّ البطاقات البيضاء: خطٌّ رفيعٌ قريب وظلٌّ بعيدٌ ناعمٌ بلونٍ دافئ
+const cardShadow = [
+  BoxShadow(color: Color(0x0A26181A), blurRadius: 2, offset: Offset(0, 1)),
+  BoxShadow(color: Palette.shadow, blurRadius: 24, spreadRadius: -10, offset: Offset(0, 12)),
+];
 
 /// «#ZA-20260124» وسط نصٍّ عربي: معزولٌ من اليسار لليمين، وإلّا قفزت «#» إلى آخر الرقم
 String tag(String number) => '\u2066#$number\u2069';

@@ -286,7 +286,7 @@ class InputBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-      color: const Color(0xFFF6F8FB),
+      color: const Color(0xFFFBF6F5),
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: Palette.line),
     ),

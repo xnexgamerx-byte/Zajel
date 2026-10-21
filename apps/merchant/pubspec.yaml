@@ -47,3 +47,14 @@ flutter:
           weight: 700
         - asset: assets/fonts/Cairo-800.ttf
           weight: 800
+    # «تشانغا» للعناوين والأرقام الكبيرة في تصميم ز (docs/plan/70) — OFL أيضاً
+    - family: Changa
+      fonts:
+        - asset: assets/fonts/Changa-500.ttf
+          weight: 500
+        - asset: assets/fonts/Changa-600.ttf
+          weight: 600
+        - asset: assets/fonts/Changa-700.ttf
+          weight: 700
+        - asset: assets/fonts/Changa-800.ttf
+          weight: 800

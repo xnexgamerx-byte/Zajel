@@ -14,6 +14,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // «تشانغا» للعناوين والأرقام الكبيرة (docs/plan/70)
+  final display = FontLoader('Changa');
+  for (final w in [500, 600, 700, 800]) {
+    display.addFont(Future.value(ByteData.view(File('assets/fonts/Changa-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await display.load();
 }
 
 void main() {
@@ -31,16 +37,21 @@ void main() {
 
     for (final text in [
       '، أحمد',
-      'إجمالي المستحقات عن الواصل',
-      'المتاح للسحب',
-      'قيد المطابقة',
-      '1,750,000',
-      // «إنشاء شحنة» قبل الأرقام (docs/plan/63)
-      'بالذكاء الاصطناعي',
-      'بالتسجيل الصوتي',
+      // «رحلة شحناتك» محطّةً محطّة (docs/plan/70)
+      'رحلة شحناتك الآن',
+      'بانتظار مندوب',
+      'بالمخزن',
+      'قيد التوصيل',
+      'سُلّمت اليوم',
+      '3 راجعة إليك',
+      // «أنشئ طلباً»: زرٌّ أحمر وثلاث بطاقات، ثم طباعة الوصولات (docs/plan/63)
+      'الزبون والمبلغ والعنوان بخطوةٍ واحدة',
+      'من صورة',
+      'بصوتك',
+      'اطلب استلام',
       'طباعة وصولات الطلبات المدخلة',
-      'إجمالي الشحنات',
       'للمعالجة',
+      'عالجها',
       'عرض الكل',
       // «تحتاج انتباهك» أوّلاً بتفاصيلها (docs/plan/61)
       'تحتاج انتباهك (3)',
@@ -51,12 +62,10 @@ void main() {
       expect(find.textContaining(text), findsWidgets, reason: text);
     }
 
-    // إخفاء الرصيد بالعين
-    await tester.scrollUntilVisible(find.byIcon(Icons.visibility_outlined), -300, scrollable: _vertical);
-    await tester.tap(find.byIcon(Icons.visibility_outlined));
-    await tester.pump();
+    // المال في «المالية» وحدها لا في الرئيسية (docs/plan/70)
     expect(find.textContaining('1,750,000'), findsNothing);
-    // والأدوات في «المزيد» لا في الرئيسية (docs/plan/59)
+    expect(find.textContaining('المتاح للسحب'), findsNothing);
+    // والأدوات في «حسابي» لا في الرئيسية (docs/plan/59)
     expect(find.text('أدوات سريعة'), findsNothing);
 
     // و«آخر الشحنات» بضغطة
@@ -74,8 +83,8 @@ void main() {
     await tester.pumpWidget(const MerchantApp(signedIn: true));
     await tester.pumpAndSettle();
 
-    // عدّاد «مسلمة» في الرئيسية يفتح «شحناتي» على شريحته
-    await tester.tap(find.text('مسلّمة').first);
+    // محطّة «سُلّمت اليوم» في الرئيسية تفتح «شحناتي» على شريحة المسلَّمة
+    await tester.tap(find.text('سُلّمت اليوم').first);
     await tester.pumpAndSettle();
     expect(find.text('شحناتي'), findsWidgets);
     expect(find.text('محمد علي'), findsOneWidget);
@@ -114,8 +123,8 @@ void main() {
     await tester.pumpWidget(const MerchantApp(signedIn: true));
     await tester.pumpAndSettle();
 
-    // «إدخال يدوي» في الرئيسية يفتح النموذج على محافظة التاجر
-    await tester.tap(find.text('إدخال يدوي'));
+    // «طلب جديد» الأحمر في الرئيسية يفتح النموذج على محافظة التاجر
+    await tester.tap(find.text('الزبون والمبلغ والعنوان بخطوةٍ واحدة'));
     await tester.pumpAndSettle();
     expect(find.text('بغداد'), findsOneWidget);
 

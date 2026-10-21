@@ -415,7 +415,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                           height: 10,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: i == steps.length - 1 ? brand.main : const Color(0xFFC5CEDA),
+                            color: i == steps.length - 1 ? brand.main : const Color(0xFFDCC9C6),
                             boxShadow: i == steps.length - 1
                                 ? [BoxShadow(color: brand.main.withValues(alpha: .25), spreadRadius: 3)]
                                 : null,

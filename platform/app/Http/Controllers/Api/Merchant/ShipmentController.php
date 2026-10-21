@@ -173,6 +173,11 @@ class ShipmentController extends Controller
             'attention' => $of(ShipmentStatus::Postponed, ShipmentStatus::Returning),
             'returns' => $of(ShipmentStatus::Returned) + Shipment::where('merchant_id', $merchantId)
                 ->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at')->count(),
+            // «رحلة شحناتك» في الرئيسية (docs/plan/70): أين هي الآن، محطّةً محطّة
+            'waiting' => $of(ShipmentStatus::Created, ShipmentStatus::PendingPickup),
+            'warehouse' => $of(ShipmentStatus::PickedUp, ShipmentStatus::AtHub, ShipmentStatus::InTransit),
+            'courier' => $of(ShipmentStatus::OutForDelivery),
+            'returning' => $of(ShipmentStatus::Returning),
         ];
     }
 

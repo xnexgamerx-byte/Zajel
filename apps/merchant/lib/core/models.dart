@@ -39,6 +39,11 @@ class HomeData {
         delivered: stats['delivered'] as int,
         inDelivery: stats['in_delivery'] as int,
         returns: stats['returns'] as int,
+        waiting: stats['waiting'] as int? ?? 0,
+        warehouse: stats['warehouse'] as int? ?? 0,
+        courier: stats['courier'] as int? ?? 0,
+        deliveredToday: stats['delivered_today'] as int? ?? 0,
+        returning: stats['returning'] as int? ?? 0,
       ),
       processing: j['processing']['count'] as int,
       canProcess: j['processing']['allowed'] as bool,
@@ -79,12 +84,31 @@ class HomeData {
 }
 
 class Stats {
-  const Stats({required this.total, required this.delivered, required this.inDelivery, required this.returns});
+  const Stats({
+    required this.total,
+    required this.delivered,
+    required this.inDelivery,
+    required this.returns,
+    this.waiting = 0,
+    this.warehouse = 0,
+    this.courier = 0,
+    this.deliveredToday = 0,
+    this.returning = 0,
+  });
 
   final int total;
   final int delivered;
   final int inDelivery;
   final int returns;
+
+  /// «رحلة شحناتك» (docs/plan/70): بانتظار مندوب ← بالمخزن ← مع المندوب ← سُلّمت اليوم
+  final int waiting;
+  final int warehouse;
+  final int courier;
+  final int deliveredToday;
+
+  /// ما يرجع إليه الآن
+  final int returning;
 }
 
 class AdBanner {
@@ -515,6 +539,8 @@ class Finance {
     this.account,
     required this.statements,
     required this.movements,
+    this.scanRequired = false,
+    this.month,
   });
 
   factory Finance.fromJson(Map<String, dynamic> j) {
@@ -533,6 +559,8 @@ class Finance {
       account: j['account'] as String?,
       statements: [for (final s in j['statements'] as List) Statement.fromJson((s as Map).cast())],
       movements: [for (final m in j['movements'] as List) Movement.fromJson((m as Map).cast())],
+      scanRequired: j['scan_required'] as bool? ?? false,
+      month: j['month'] == null ? null : MonthStats.fromJson((j['month'] as Map).cast()),
     );
   }
 
@@ -551,6 +579,75 @@ class Finance {
   final String? account;
   final List<Statement> statements;
   final List<Movement> movements;
+
+  /// الشركة تطلب مسح الوصل لتأكيد الاستلام (docs/plan/69): لا «استلمتُها» بزرّ
+  final bool scanRequired;
+
+  /// «مؤشراتك هذا الشهر» (docs/plan/70)
+  final MonthStats? month;
+}
+
+/// «مؤشراتك هذا الشهر» (docs/plan/70): ما سُلّم وما رجع، والمحصَّل أسبوعاً أسبوعاً
+class MonthStats {
+  const MonthStats({
+    required this.label,
+    required this.delivered,
+    required this.returned,
+    this.rate,
+    this.returnRate,
+    required this.collected,
+    this.growth,
+    required this.average,
+    required this.shipments,
+    required this.weeks,
+  });
+
+  factory MonthStats.fromJson(Map<String, dynamic> j) => MonthStats(
+    label: j['label'] as String? ?? '',
+    delivered: j['delivered'] as int? ?? 0,
+    returned: j['returned'] as int? ?? 0,
+    rate: j['rate'] as int?,
+    returnRate: j['return_rate'] as int?,
+    collected: j['collected'] as int? ?? 0,
+    growth: j['growth'] as int?,
+    average: j['average'] as int? ?? 0,
+    shipments: j['shipments'] as int? ?? 0,
+    weeks: [for (final w in (j['weeks'] as List?) ?? const []) w as int],
+  );
+
+  final String label;
+  final int delivered;
+  final int returned;
+
+  /// نسبة التسليم من المنتهية هذا الشهر — null ولا منتهية بعد
+  final int? rate;
+  final int? returnRate;
+  final int collected;
+
+  /// الفرق عن الشهر الماضي بالمئة — null وليس له شهرٌ ماضٍ
+  final int? growth;
+  final int average;
+  final int shipments;
+  final List<int> weeks;
+}
+
+/// ما أكّده مسح الورقة: دفعة كشفٍ أو رواجع إيصال
+class Received {
+  const Received({required this.message, required this.type, required this.id});
+
+  factory Received.fromJson(Map<String, dynamic> j) => Received(
+    message: j['message'] as String? ?? 'أكّدت الاستلام.',
+    type: j['type'] as String? ?? 'statement',
+    id: j['id'] as int? ?? 0,
+  );
+
+  final String message;
+
+  /// statement أو returns
+  final String type;
+  final int id;
+
+  bool get statement => type == 'statement';
 }
 
 /// ما قرأه النظام من رسالةٍ أو لقطة شاشةٍ أو تسجيل (docs/plan/55): يملأ «طلب جديد» ولا يحفظ
@@ -746,14 +843,17 @@ class ReturnReceipt {
 
 /// تفاصيل إيصال الراجع (docs/plan/61): شحناته كما طُبعت عليه
 class ReturnReceiptDetail {
-  ReturnReceiptDetail({required this.receipt, required this.lines, this.note});
+  ReturnReceiptDetail({required this.receipt, required this.lines, this.note, this.scanRequired = false});
 
   factory ReturnReceiptDetail.fromJson(Map<String, dynamic> j) => ReturnReceiptDetail(
     receipt: ReturnReceipt.fromJson(j),
     note: j['note'] as String?,
     lines: [for (final l in j['shipments'] as List) ReturnLine.fromJson((l as Map).cast())],
+    scanRequired: j['scan_required'] as bool? ?? false,
   );
 
+  /// «وصلتني» بمسح الإيصال لا بزرّ (docs/plan/69)
+  final bool scanRequired;
   final ReturnReceipt receipt;
   final String? note;
   final List<ReturnLine> lines;
@@ -790,13 +890,17 @@ class ReturnLine {
 }
 
 class RequestsPage {
-  RequestsPage({required this.returning, required this.requests, required this.batches});
+  RequestsPage({required this.returning, required this.requests, required this.batches, this.scanRequired = false});
 
   factory RequestsPage.fromJson(Map<String, dynamic> j) => RequestsPage(
     returning: j['returning'] as int? ?? 0,
     requests: [for (final r in j['requests'] as List) MerchantRequestRow.fromJson((r as Map).cast())],
     batches: [for (final b in j['batches'] as List) ReturnReceipt.fromJson((b as Map).cast())],
+    scanRequired: j['scan_required'] as bool? ?? false,
   );
+
+  /// «وصلتني» بمسح الإيصال لا بزرّ (docs/plan/69)
+  final bool scanRequired;
 
   /// شحناته الراجعة الآن: ما يجمعه طلب كشف الراجع
   final int returning;
@@ -1082,7 +1186,7 @@ class AttentionItem {
 
 /// تفاصيل كشف التاجر (docs/plan/61): شحناته سطراً سطراً ومجاميعه
 class StatementDetail {
-  StatementDetail({required this.statement, required this.totals, required this.lines});
+  StatementDetail({required this.statement, required this.totals, required this.lines, this.scanRequired = false});
 
   factory StatementDetail.fromJson(Map<String, dynamic> j) => StatementDetail(
     statement: Statement(
@@ -1099,8 +1203,11 @@ class StatementDetail {
     ),
     totals: (j['totals'] as Map).cast<String, dynamic>(),
     lines: [for (final l in j['lines'] as List) StatementLine.fromJson((l as Map).cast())],
+    scanRequired: j['scan_required'] as bool? ?? false,
   );
 
+  /// «استلمتُها» بمسح الوصل لا بزرّ (docs/plan/69)
+  final bool scanRequired;
   final Statement statement;
   final Map<String, dynamic> totals;
   final List<StatementLine> lines;

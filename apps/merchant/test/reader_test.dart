@@ -13,6 +13,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // «تشانغا» للعناوين والأرقام الكبيرة (docs/plan/70)
+  final display = FontLoader('Changa');
+  for (final w in [500, 600, 700, 800]) {
+    display.addFont(Future.value(ByteData.view(File('assets/fonts/Changa-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await display.load();
 }
 
 Future<void> _start(WidgetTester tester) async {
@@ -44,7 +50,7 @@ void main() {
   testWidgets('صور كثيرة مرّة واحدة: تُرفع وتُقرأ معاً، والناقص يُكمَل، ثم تُنشأ كلّها', (tester) async {
     await _start(tester);
 
-    await tester.tap(find.text('بالذكاء الاصطناعي'));
+    await tester.tap(find.text('من صورة'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('صور كثيرة مرّة واحدة'));
     for (var i = 0; i < 6; i++) {
@@ -87,7 +93,7 @@ void main() {
   testWidgets('بالذكاء الاصطناعي: رسالة الزبون تملأ «طلب جديد» للمراجعة', (tester) async {
     await _start(tester);
 
-    await tester.tap(find.text('بالذكاء الاصطناعي'));
+    await tester.tap(find.text('من صورة'));
     await tester.pumpAndSettle();
     expect(find.text('لقطة شاشة'), findsOneWidget);
 
@@ -117,7 +123,7 @@ void main() {
   testWidgets('بالتسجيل الصوتي: يسجّل حتى «أوقف» ثم يُكتب ما سُمع', (tester) async {
     await _start(tester);
 
-    await tester.tap(find.text('بالتسجيل الصوتي'));
+    await tester.tap(find.text('بصوتك'));
     await tester.pumpAndSettle();
     expect(find.text('اضغط المايك وتكلّم'), findsOneWidget);
 

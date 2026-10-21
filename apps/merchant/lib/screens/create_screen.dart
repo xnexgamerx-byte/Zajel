@@ -466,7 +466,7 @@ class _CreateScreenState extends State<CreateScreen> {
   }
 
   BoxDecoration _box(bool bad) => BoxDecoration(
-    color: const Color(0xFFF6F8FB),
+    color: const Color(0xFFFBF6F5),
     borderRadius: BorderRadius.circular(12),
     border: Border.all(color: bad ? Palette.returnRed : Palette.line),
   );
@@ -969,7 +969,7 @@ class _ChoiceSheetState extends State<_ChoiceSheet> {
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
                 child: Container(
                   height: 44,
-                  decoration: BoxDecoration(color: const Color(0xFFF6F8FB), borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(color: const Color(0xFFFBF6F5), borderRadius: BorderRadius.circular(12)),
                   child: TextField(
                     autofocus: true,
                     onChanged: (v) => setState(() => q = v.trim()),

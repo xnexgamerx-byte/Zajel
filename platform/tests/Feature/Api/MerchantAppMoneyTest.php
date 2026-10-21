@@ -151,7 +151,18 @@ class MerchantAppMoneyTest extends TestCase
             ->assertJsonPath('statements.0.status', 'مدفوع')->assertJsonPath('statements.0.net', 70_000)
             ->assertJsonPath('statements.0.confirmed', false)
             ->assertJsonFragment(['value' => 'zaincash', 'label' => 'زين كاش', 'details' => true])
-            ->assertJsonPath('movements.0.amount', 15_000);
+            ->assertJsonPath('movements.0.amount', 15_000)
+            // «مؤشرات الشهر» بدل «كيف تكوّن رصيدك» (docs/plan/70)
+            ->assertJsonPath('month.delivered', 3)->assertJsonPath('month.returned', 0)
+            ->assertJsonPath('month.rate', 100)->assertJsonPath('month.collected', 100_000)
+            ->assertJsonPath('month.average', 33_333)->assertJsonPath('month.shipments', 3)
+            ->assertJsonPath('month.growth', null)
+            ->assertJsonPath('month.weeks', fn ($weeks) => array_sum($weeks) === 100_000);
+
+        // «رحلة شحناتك» في الرئيسية: كلّها سُلّمت اليوم ولا شيء في الطريق
+        $this->getJson($this->api('/merchant/home'), $headers)->assertOk()
+            ->assertJsonPath('stats.delivered_today', 3)->assertJsonPath('stats.courier', 0)
+            ->assertJsonPath('stats.waiting', 0)->assertJsonPath('stats.returning', 0);
 
         // تفاصيل الكشف بشحناته (docs/plan/61)
         $this->getJson($this->api('/merchant/finance/statements/'.$settlement->id), $headers)->assertOk()

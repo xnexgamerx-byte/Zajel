@@ -13,6 +13,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // «تشانغا» للعناوين والأرقام الكبيرة (docs/plan/70)
+  final display = FontLoader('Changa');
+  for (final w in [500, 600, 700, 800]) {
+    display.addFont(Future.value(ByteData.view(File('assets/fonts/Changa-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await display.load();
 }
 
 Future<void> _open(WidgetTester tester, String tool) async {
@@ -23,8 +29,11 @@ Future<void> _open(WidgetTester tester, String tool) async {
 
   await tester.pumpWidget(const MerchantApp(signedIn: true));
   await tester.pumpAndSettle();
-  // من «المزيد» في الشريط السفلي
-  await tester.tap(find.text('المزيد'));
+  // من «حسابي» في الشريط السفلي
+  await tester.tap(find.text('حسابي'));
+  await tester.pumpAndSettle();
+  // «حسابي» أطول من الشاشة: بطاقة المتجر وكشوفات الرواجع قبل الأدوات
+  await tester.ensureVisible(find.text(tool).last);
   await tester.pumpAndSettle();
   await tester.tap(find.text(tool).last);
   await tester.pumpAndSettle();
@@ -72,15 +81,20 @@ void main() {
     expect(find.text('شحنات الإيصال'), findsOneWidget);
     expect(find.text('#ZA-20260111'), findsOneWidget);
     expect(find.textContaining('الزبون رفض الاستلام'), findsOneWidget);
-    expect(find.text('وصلتني هذه الرواجع'), findsOneWidget);
+    // «وصلتني» بمسح الإيصال لا بزرّ (docs/plan/69)
+    expect(find.text('امسح الإيصال لتأكيد استلامها'), findsOneWidget);
     await tester.tap(find.byTooltip('رجوع').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('وصلتني'));
+    await tester.tap(find.text('امسح الإيصال'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'وصلتني').last);
+    expect(find.text('استلام بالباركود'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'R3TRN2BX7Q');
+    await tester.tap(find.text('أكّد'));
     await tester.pumpAndSettle();
     expect(find.text('أكّدت استلام رواجع الإيصال RB000034.'), findsOneWidget);
+    await tester.tap(find.text('تمّ'));
+    await tester.pumpAndSettle();
     expect(find.text('وصلتك'), findsNWidgets(2));
 
     await tester.tap(find.text('اطلب كشف راجع'));
