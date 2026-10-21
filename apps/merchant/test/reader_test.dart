@@ -13,12 +13,6 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
-  // «تشانغا» للعناوين والأرقام الكبيرة (docs/plan/70)
-  final display = FontLoader('Changa');
-  for (final w in [500, 600, 700, 800]) {
-    display.addFont(Future.value(ByteData.view(File('assets/fonts/Changa-$w.ttf').readAsBytesSync().buffer)));
-  }
-  await display.load();
 }
 
 Future<void> _start(WidgetTester tester) async {

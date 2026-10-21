@@ -227,7 +227,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
               if (item.reason != null) _chip(item.reason!, brand.coral),
               if (item.attempts > 1) _chip('المحاولة ${item.attempts}', Palette.returnRed),
               Text(
-                '${item.row.area} · $waited',
+                '${item.row.place} · $waited',
                 style: font(11.5, w6, item.waiting >= 24 ? Palette.returnRed : Palette.slate),
               ),
             ],

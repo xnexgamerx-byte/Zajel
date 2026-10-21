@@ -134,6 +134,8 @@ class RecentShipment {
     required this.status,
     required this.urgent,
     this.tone = 'slate',
+    this.governorate,
+    this.city,
   });
 
   factory RecentShipment.fromJson(Map<String, dynamic> j) => RecentShipment(
@@ -146,12 +148,25 @@ class RecentShipment {
     status: j['status'] as String,
     urgent: j['urgent'] as bool? ?? false,
     tone: j['tone'] as String? ?? 'slate',
+    governorate: j['governorate'] as String?,
+    city: j['city'] as String?,
   );
 
   final int id;
   final String number;
   final String name;
+
+  /// المنطقة، أو المحافظة إن لم تُحدَّد — ما يرسله النظام القديم وحده
   final String area;
+  final String? governorate;
+  final String? city;
+
+  /// «المحافظة · المنطقة» كاملين (docs/plan/70)
+  String get place {
+    final parts = [governorate, city].whereType<String>().where((p) => p.isNotEmpty).toList();
+    return parts.isEmpty ? area : parts.join(' · ');
+  }
+
   final int amount;
   final DateTime? at;
   final String status;

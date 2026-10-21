@@ -266,12 +266,28 @@ class _ShipmentCard extends StatelessWidget {
                     Text('د.ع', style: font(11, w6, Palette.ink, height: 1.3)),
                   ],
                 ),
-                const SizedBox(height: 3),
+                // «المحافظة · المنطقة» كاملين ولو طال السطر (docs/plan/70)
+                if (row.place.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Icon(Icons.location_on_rounded, size: 14, color: brand.main),
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(child: Text(row.place, style: font(12, w7, Palette.ink, height: 1.35))),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 2),
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        [row.area, when(row.at)].where((t) => t.isNotEmpty).join(' · '),
+                        when(row.at),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: font(11, w5, Palette.slate, height: 1.3),

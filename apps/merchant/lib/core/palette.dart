@@ -95,9 +95,18 @@ const w6 = FontWeight.w600;
 const w7 = FontWeight.w700;
 const w8 = FontWeight.w800;
 
-/// «تشانغا» للعناوين والأرقام الكبيرة (تصميم ز)
-TextStyle display(double size, FontWeight weight, Color color, {double height = 1.25}) =>
-    font(size, weight, color, height: height).copyWith(fontFamily: 'Changa');
+/// العناوين والأرقام الكبيرة: «القاهرة» نفسه، خطّ النظام كلّه، بوزنٍ أثقل درجةً (docs/plan/70)
+TextStyle display(double size, FontWeight weight, Color color, {double height = 1.25}) => font(
+  size,
+  switch (weight) {
+    FontWeight.w400 => w5,
+    w5 => w6,
+    w6 => w7,
+    _ => w8,
+  },
+  color,
+  height: height,
+);
 
 /// ظلّ البطاقات البيضاء: خطٌّ رفيعٌ قريب وظلٌّ بعيدٌ ناعمٌ بلونٍ دافئ
 const cardShadow = [

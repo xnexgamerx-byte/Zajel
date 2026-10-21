@@ -13,12 +13,6 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
-  // «تشانغا» للعناوين والأرقام الكبيرة (docs/plan/70)
-  final display = FontLoader('Changa');
-  for (final w in [500, 600, 700, 800]) {
-    display.addFont(Future.value(ByteData.view(File('assets/fonts/Changa-$w.ttf').readAsBytesSync().buffer)));
-  }
-  await display.load();
 }
 
 Future<void> _start(WidgetTester tester) async {
@@ -54,7 +48,7 @@ void main() {
     ]) {
       expect(find.textContaining(text, findRichText: true), findsWidgets, reason: text);
     }
-    expect(find.text('الكرادة · تنتظر منذ يوم'), findsOneWidget);
+    expect(find.text('بغداد · الكرادة · تنتظر منذ يوم'), findsOneWidget);
 
     // تأجيل «حسين علي» (البطاقة الثانية) إلى الغد
     await tester.tap(find.text('تأجيل').at(1));

@@ -16,6 +16,7 @@ import 'processing_screen.dart';
 import 'receive_screen.dart';
 import 'reader_sheets.dart';
 import 'requests_screen.dart';
+import 'returns_screen.dart';
 import 'scan_screen.dart';
 import 'shipments_screen.dart';
 import 'support_screen.dart';
@@ -74,6 +75,7 @@ class _ShellState extends State<Shell> {
       'waybills' => openWaybills,
       'import' => openImport,
       'labels' => openLabels,
+      'returns' => openReturns,
       _ => null,
     };
     if (tool != null) {
@@ -263,15 +265,15 @@ class _NavBar extends StatelessWidget {
               Positioned(
                 top: -28,
                 child: Container(
-                  width: 62,
-                  height: 62,
+                  width: 58,
+                  height: 58,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: brand.hero,
                     border: Border.all(color: Colors.white, width: 4),
                     boxShadow: brand.glow(.6),
                   ),
-                  child: const Icon(Icons.add_rounded, size: 30, color: Colors.white),
+                  child: const Icon(Icons.add_rounded, size: 28, color: Colors.white),
                 ),
               ),
               Positioned(bottom: 8, child: Text(label, style: font(11.5, w8, Palette.ink, height: 1))),
@@ -292,7 +294,7 @@ class _NavBar extends StatelessWidget {
             decoration: BoxDecoration(gradient: active ? brand.hero : null, borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 7),
-          Icon(active ? filled : icon, size: 24, color: color),
+          Icon(active ? filled : icon, size: 23, color: color),
           const SizedBox(height: 4),
           Text(label, style: font(11.5, active ? w8 : w6, color, height: 1)),
         ],
@@ -301,8 +303,8 @@ class _NavBar extends StatelessWidget {
   }
 }
 
-/// «حسابي» (تصميم ز): بطاقة المتجر، و«كشوفات الرواجع» تُستلم بمسح إيصالها (docs/plan/69)، ثم الأدوات
-/// كلّها والخروج.
+/// «حسابي» (تصميم ز): بطاقة المتجر، ثم الأدوات كلّها — أوّلها «كشوفات الرواجع» و«استلام راجع» بمسح
+/// الإيصال (docs/plan/69) — والخروج.
 class _Account extends StatefulWidget {
   const _Account({
     required this.brand,
@@ -326,6 +328,8 @@ class _AccountState extends State<_Account> {
   RequestsPage? returns;
 
   static const _items = [
+    ('كشوفات الرواجع', Icons.assignment_return_rounded, 'returns'),
+    ('استلام راجع بالباركود', Icons.qr_code_scanner_rounded, 'receive'),
     ('طباعة وصولات الطلبات المدخلة', Icons.print_rounded, 'labels'),
     ('للمعالجة', Icons.schedule_rounded, 'processing'),
     ('طلبات الاستلام', Icons.hail_rounded, 'pickups'),
@@ -364,16 +368,12 @@ class _AccountState extends State<_Account> {
     if (done != null) await _load();
   }
 
-  Future<void> _openReceipt(ReturnReceipt b) async {
-    await openReturnReceipt(context, brand, b.id);
-    await _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
     final name = session?.name ?? '';
     final top = MediaQuery.paddingOf(context).top;
+    final waiting = returns?.batches.where((b) => b.received == null).length ?? 0;
     return RefreshIndicator(
       color: brand.main,
       onRefresh: _load,
@@ -423,8 +423,6 @@ class _AccountState extends State<_Account> {
           ),
           if (AppConfig.demo) ...[const SizedBox(height: 8), const DemoNote()],
           const SizedBox(height: 12),
-          _returns(),
-          const SizedBox(height: 12),
           WhiteCard(
             radius: 24,
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -436,15 +434,29 @@ class _AccountState extends State<_Account> {
                   for (final (i, (label, icon, screen)) in _items.indexed) ...[
                     if (i > 0) const Divider(height: 1, indent: 60, color: Palette.line),
                     ListTile(
-                      onTap: () => widget.onOpen(screen),
+                      onTap: () => screen == 'receive' ? _scan() : widget.onOpen(screen),
                       leading: Container(
-                        width: 36,
-                        height: 36,
+                        width: 34,
+                        height: 34,
                         decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
-                        child: Icon(icon, size: 19, color: brand.deep),
+                        child: Icon(icon, size: 18, color: brand.deep),
                       ),
                       title: Text(label, style: font(14, w7, Palette.ink)),
-                      trailing: const Chev(size: 9, stroke: 1.6, color: Palette.muted),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // ما ينتظر استلامه من الرواجع
+                          if (screen == 'returns' && waiting > 0) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                              decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(20)),
+                              child: Text('$waiting بانتظارك', style: font(11, w8, Colors.white)),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          const Chev(size: 9, stroke: 1.6, color: Palette.muted),
+                        ],
+                      ),
                     ),
                   ],
                 ],
@@ -461,86 +473,6 @@ class _AccountState extends State<_Account> {
             ),
             icon: Icon(Icons.logout_rounded, color: brand.deep),
             label: Text('تسجيل الخروج', style: font(14, w7, brand.deep)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// «كشوفات الرواجع»: إيصالات ما رجع إليه، وما ينتظر مسح إيصاله
-  Widget _returns() {
-    final r = returns;
-    final batches = r?.batches.take(4).toList() ?? const <ReturnReceipt>[];
-    final waiting = r?.batches.where((b) => b.received == null).length ?? 0;
-    return WhiteCard(
-      radius: 24,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('كشوفات الرواجع', style: display(17, w7, Palette.ink)),
-                    Text(
-                      r?.scanRequired ?? false ? 'رواجعك بإيصالاتها — تُستلم بمسح الإيصال' : 'رواجعك بإيصالاتها',
-                      style: font(11.5, w5, Palette.muted),
-                    ),
-                  ],
-                ),
-              ),
-              if (waiting > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: brand.soft,
-                    border: Border.all(color: brand.border),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text('$waiting بانتظارك', style: font(12, w8, brand.deep)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (r == null)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: CircularProgressIndicator(color: brand.main),
-              ),
-            )
-          else if (batches.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text('لم تُسلَّم لك رواجع بإيصال بعد.', style: font(12.5, w5, Palette.muted)),
-            )
-          else
-            for (final b in batches) ...[
-              TintedRow(
-                brand: brand,
-                icon: Icons.inventory_2_rounded,
-                title: 'إيصال ${b.number}',
-                subtitle: '${b.count} شحنة · ${b.via}${b.at == null ? '' : ' · ${when(b.at)}'}',
-                end: Text('أجرة ${money(b.fees)}', style: font(12, w8, Palette.ink)),
-                status: b.received != null
-                    ? const OkPill(text: 'وصلتك')
-                    : r.scanRequired
-                    ? ScanPill(brand: brand, text: 'امسح للاستلام')
-                    : null,
-                onTap: () => _openReceipt(b),
-              ),
-              const SizedBox(height: 8),
-            ],
-          if (r?.scanRequired ?? false) ...[
-            const SizedBox(height: 4),
-            HeroButton(brand: brand, label: 'امسح إيصال الراجع', icon: Icons.qr_code_scanner_rounded, onTap: _scan),
-          ],
-          TextButton(
-            onPressed: () => widget.onOpen('requests'),
-            child: Text('كلّ إيصالاتك وطلباتك', style: font(13, w7, brand.deep)),
           ),
         ],
       ),

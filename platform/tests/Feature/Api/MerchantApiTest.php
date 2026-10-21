@@ -167,6 +167,9 @@ class MerchantApiTest extends TestCase
         $this->assertFalse($recent->firstWhere('name', 'محمد علي')['urgent']);
         $this->assertTrue($recent->first()['urgent']);
         $this->assertSame('المنصور', $recent->first()['area']);
+        // المحافظة والمنطقة كلٌّ وحده: يُعرضان «المحافظة · المنطقة» (docs/plan/70)
+        $this->assertSame('المنصور', $recent->first()['city']);
+        $this->assertNotEmpty($recent->first()['governorate']);
     }
 
     public function test_home_never_shows_another_merchants_shipments(): void

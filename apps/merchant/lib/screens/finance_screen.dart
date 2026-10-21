@@ -322,14 +322,14 @@ class _FinanceScreenState extends State<FinanceScreen> {
             Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     gradient: brand.hero,
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: brand.glow(.5),
                   ),
-                  child: const Icon(Icons.qr_code_scanner_rounded, size: 22, color: Colors.white),
+                  child: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: Colors.white),
                 ),
                 const Spacer(),
                 if (waiting > 0)
@@ -469,7 +469,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                             TextSpan(
                               text: m.rate == null ? '—' : '${m.rate}',
                               style: display(23, w7, Palette.ink, height: 1.1),
-                              // «%» بخطّ القاهرة: تشانغا يرسمها دائرةً وشرطة
+                              // «%» أصغر من الرقم
                               children: [if (m.rate != null) TextSpan(text: '%', style: font(15, w8, Palette.ink))],
                             ),
                           ),

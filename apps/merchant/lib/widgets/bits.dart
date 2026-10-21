@@ -235,14 +235,14 @@ class TintedRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               gradient: brand.hero,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: brand.glow(.5),
             ),
-            child: Icon(icon, size: 22, color: Colors.white),
+            child: Icon(icon, size: 20, color: Colors.white),
           ),
           const SizedBox(width: 12),
           Expanded(

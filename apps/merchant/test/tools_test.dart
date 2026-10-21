@@ -13,12 +13,6 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
-  // «تشانغا» للعناوين والأرقام الكبيرة (docs/plan/70)
-  final display = FontLoader('Changa');
-  for (final w in [500, 600, 700, 800]) {
-    display.addFont(Future.value(ByteData.view(File('assets/fonts/Changa-$w.ttf').readAsBytesSync().buffer)));
-  }
-  await display.load();
 }
 
 Future<void> _open(WidgetTester tester, String tool) async {
@@ -32,7 +26,7 @@ Future<void> _open(WidgetTester tester, String tool) async {
   // من «حسابي» في الشريط السفلي
   await tester.tap(find.text('حسابي'));
   await tester.pumpAndSettle();
-  // «حسابي» أطول من الشاشة: بطاقة المتجر وكشوفات الرواجع قبل الأدوات
+  // «حسابي» قد يطول عن الشاشة
   await tester.ensureVisible(find.text(tool).last);
   await tester.pumpAndSettle();
   await tester.tap(find.text(tool).last);
@@ -68,6 +62,29 @@ void main() {
     expect(find.textContaining('12 طرد · يوم'), findsOneWidget);
     expect(find.text('اطلب مندوب استلام'), findsNothing);
     expect(find.textContaining('طلبك مفتوح'), findsOneWidget);
+  });
+
+  testWidgets('كشوفات الرواجع: خانةٌ في «حسابي» تفتح الإيصالات، و«استلام راجع» بالباركود', (tester) async {
+    await _open(tester, 'كشوفات الرواجع');
+    expect(find.text('رواجعك بإيصالاتها وشحناتها'), findsOneWidget);
+    expect(find.text('بانتظار استلامك'), findsOneWidget);
+    expect(find.text('إيصال RB000034'), findsOneWidget);
+    expect(find.text('امسح للاستلام'), findsOneWidget);
+
+    // الإيصال يُفتح بشحناته
+    await tester.tap(find.text('إيصال RB000034'));
+    await tester.pumpAndSettle();
+    expect(find.text('شحنات الإيصال'), findsOneWidget);
+    await tester.tap(find.byTooltip('رجوع').last);
+    await tester.pumpAndSettle();
+
+    // الاستلام نفسه في اختبار «طلباتي» — هنا يفتح الماسح ويُغلق
+    await tester.tap(find.text('استلام راجع بالباركود'));
+    await tester.pumpAndSettle();
+    expect(find.text('استلام بالباركود'), findsOneWidget);
+    await tester.tap(find.byTooltip('إغلاق'));
+    await tester.pumpAndSettle();
+    expect(find.text('امسح للاستلام'), findsOneWidget);
   });
 
   testWidgets('طلباتي: «وصلتني» على الإيصال، وكشف راجعٍ يُطلب ويُلغى', (tester) async {

@@ -125,6 +125,9 @@ class ShipmentController extends Controller
             'number' => $s->number,
             'name' => $s->recipient_name ?: $s->recipient_phone,
             'area' => $s->city?->name_ar ?? $s->governorate?->name_ar,
+            // المحافظة وحدها، فيُعرض «المحافظة · المنطقة» كاملاً (docs/plan/70)
+            'governorate' => $s->governorate?->name_ar,
+            'city' => $s->city?->name_ar,
             'amount' => (int) $s->cod_amount,
             'at' => ($s->status_changed_at ?? $s->created_at)?->toIso8601String(),
             'status' => $s->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $s->statusLabel(),

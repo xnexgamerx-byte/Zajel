@@ -14,12 +14,6 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
-  // «تشانغا» للعناوين والأرقام الكبيرة (docs/plan/70)
-  final display = FontLoader('Changa');
-  for (final w in [500, 600, 700, 800]) {
-    display.addFont(Future.value(ByteData.view(File('assets/fonts/Changa-$w.ttf').readAsBytesSync().buffer)));
-  }
-  await display.load();
 }
 
 void main() {
@@ -43,7 +37,6 @@ void main() {
       'بالمخزن',
       'قيد التوصيل',
       'سُلّمت اليوم',
-      '3 راجعة إليك',
       // «أنشئ طلباً»: زرٌّ أحمر وثلاث بطاقات، ثم طباعة الوصولات (docs/plan/63)
       'الزبون والمبلغ والعنوان بخطوةٍ واحدة',
       'من صورة',
@@ -62,6 +55,9 @@ void main() {
       expect(find.textContaining(text), findsWidgets, reason: text);
     }
 
+    // الراجعة لا تُعدّ على «رحلة شحناتك» — لها «كشوفات الرواجع» (docs/plan/70)
+    expect(find.textContaining('راجعة إليك'), findsNothing);
+
     // المال في «المالية» وحدها لا في الرئيسية (docs/plan/70)
     expect(find.textContaining('1,750,000'), findsNothing);
     expect(find.textContaining('المتاح للسحب'), findsNothing);
@@ -70,6 +66,8 @@ void main() {
 
     // و«آخر الشحنات» بضغطة
     await tester.scrollUntilVisible(find.text('آخر الشحنات'), 300, scrollable: _vertical);
+    await tester.drag(_vertical, const Offset(0, -200));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('آخر الشحنات'));
     await tester.pumpAndSettle();
     expect(find.textContaining('#ZA-20260124', skipOffstage: false), findsWidgets);
