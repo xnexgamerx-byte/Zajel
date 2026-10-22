@@ -368,7 +368,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -393,10 +393,17 @@ class _HomeScreenState extends State<HomeScreen> {
             height: _Station.size,
             child: CustomPaint(
               painter: _RingPainter(share, station),
-              child: Center(child: Text(money(count), style: display(19, w7, station.deep, height: 1))),
+              // الرقم داخل الحلقة لا يمسّها: يصغر إن طال («1,250»)
+              child: Padding(
+                padding: const EdgeInsets.all(_Station.stroke + 4),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(money(count), style: display(16, w7, station.deep, height: 1)),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 9),
+          const SizedBox(height: 7),
           Text(
             label,
             textAlign: TextAlign.center,
@@ -796,7 +803,8 @@ class _Station {
       deep = brand.deep,
       now = true;
 
-  static const size = 74.0;
+  static const size = 58.0;
+  static const stroke = 8.0;
   static const waiting = _Station(Color(0xFFF7C668), Color(0xFFD9870B), Color(0xFFA9650A));
   static const warehouse = _Station(Color(0xFF86B6EA), Color(0xFF2F6DB5), Color(0xFF22528A));
   static const delivered = _Station(Color(0xFF7DD597), Color(0xFF239048), Color(0xFF1A6B35));
@@ -818,7 +826,7 @@ class _RingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 13.0;
+    const stroke = _Station.stroke;
     final rect = (Offset.zero & size).deflate(stroke / 2);
     canvas.drawArc(
       rect,
@@ -828,7 +836,7 @@ class _RingPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = stroke
-        ..color = const Color(0xFFE9DEDC),
+        ..color = const Color(0xFFF0E6E4),
     );
     if (share <= 0) return;
     canvas.drawArc(
