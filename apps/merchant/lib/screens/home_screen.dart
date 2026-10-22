@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show pi;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -335,17 +336,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ رحلة شحناتك
 
-  /// المحطّات الأربع على خطٍّ واحد، لكلٍّ لونها: بانتظار مندوب كهرمانيّ، وبالمخزن أزرق، وقيد التوصيل بلون
-  /// الشركة متوهّجاً (هي الآن)، والمسلَّم أخضر
+  /// المحطّات الأربع حلقاتٍ بأرقامها: كلّ حلقةٍ بلون محطّتها، وقدر امتلائها نصيبها من شحنات اليوم
   Widget _journey(Stats s) {
     final stations = [
-      (s.waiting, 'بانتظار مندوب', Icons.inventory_2_rounded, 'shipments:open', _Station.waiting),
-      (s.warehouse, 'بالمخزن', Icons.warehouse_rounded, 'shipments:open', _Station.warehouse),
-      (s.courier, 'قيد التوصيل', Icons.local_shipping_rounded, 'shipments:open', _Station.courier(brand)),
-      (s.deliveredToday, 'سُلّمت اليوم', Icons.task_alt_rounded, 'shipments:delivered', _Station.delivered),
+      (s.waiting, 'بانتظار مندوب', 'shipments:open', _Station.waiting),
+      (s.warehouse, 'بالمخزن', 'shipments:open', _Station.warehouse),
+      (s.courier, 'قيد التوصيل', 'shipments:open', _Station.courier(brand)),
+      (s.deliveredToday, 'سُلّمت اليوم', 'shipments:delivered', _Station.delivered),
     ];
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
+      padding: const EdgeInsets.fromLTRB(10, 14, 10, 14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
@@ -359,104 +359,51 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Row(
               children: [
-                Text('رحلة شحناتك الآن', style: display(16, w7, Palette.ink, height: 1.3)),
+                Text('رحلة شحناتك الآن', style: display(17, w7, Palette.ink, height: 1.3)),
                 const Spacer(),
                 Text('${money(s.total)} شحنة إجمالاً', style: font(11.5, w6, Palette.muted)),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, box) {
-              final w = box.maxWidth;
-              return Stack(
-                children: [
-                  // الخطّ من أوّل محطّةٍ إلى آخرها، ومملوءٌ حتى المحطّة الحاليّة
-                  PositionedDirectional(
-                    start: w / 8,
-                    end: w / 8,
-                    top: _Station.size / 2 - 2,
-                    height: 4,
-                    child: Container(
-                      decoration: BoxDecoration(color: const Color(0xFFF1E6E4), borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                  // كلّ قطعةٍ بلون المحطّة التي تصل إليها
-                  for (final (i, color) in [_Station.warehouse.light, brand.main.withValues(alpha: .55)].indexed)
-                    PositionedDirectional(
-                      start: w / 8 + i * w / 4,
-                      width: w / 4,
-                      top: _Station.size / 2 - 2,
-                      height: 4,
-                      child: ColoredBox(color: color),
-                    ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final (count, label, icon, screen, station) in stations)
-                        Expanded(child: _station(count, label, icon, screen, station)),
-                    ],
-                  ),
-                ],
-              );
-            },
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final (count, label, screen, station) in stations)
+                Expanded(child: _station(count, label, screen, station, s.total)),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _station(int count, String label, IconData icon, String screen, _Station station) {
-    final now = station.now;
+  Widget _station(int count, String label, String screen, _Station station, int total) {
+    final share = total > 0 ? count / total : 0.0;
     return Tap(
       radius: 16,
       onTap: () => _open(screen),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 2),
-        child: Column(
-          children: [
-            Container(
-              width: _Station.size,
-              height: _Station.size,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [station.light, station.main],
-                ),
-                border: Border.all(color: Colors.white, width: 3),
-                boxShadow: [
-                  if (now) BoxShadow(color: station.main.withValues(alpha: .16), spreadRadius: 4),
-                  BoxShadow(
-                    color: station.main.withValues(alpha: .45),
-                    blurRadius: 12,
-                    spreadRadius: -4,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: Colors.white,
-                shadows: [Shadow(color: station.deep.withValues(alpha: .5), blurRadius: 3, offset: const Offset(0, 1))],
-              ),
+      child: Column(
+        children: [
+          SizedBox(
+            width: _Station.size,
+            height: _Station.size,
+            child: CustomPaint(
+              painter: _RingPainter(share, station),
+              child: Center(child: Text(money(count), style: display(19, w7, station.deep, height: 1))),
             ),
-            const SizedBox(height: 7),
-            Text(money(count), style: display(19, w7, station.deep, height: 1)),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: font(11, now ? w8 : w6, now ? Palette.ink : Palette.slate, height: 1.3),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 9),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: font(11.5, station.now ? w8 : w6, station.now ? Palette.ink : Palette.slate, height: 1.3),
+          ),
+        ],
       ),
     );
   }
@@ -839,7 +786,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// لون محطّةٍ في «رحلة شحناتك»: فاتحٌ أعلى الدائرة، وأصليٌّ أسفلها، وداكنٌ لرقمها
+/// لون محطّةٍ في «رحلة شحناتك»: فاتحٌ وأصليٌّ للحلقة، وداكنٌ لرقمها
 class _Station {
   const _Station(this.light, this.main, this.deep) : now = false;
 
@@ -849,20 +796,62 @@ class _Station {
       deep = brand.deep,
       now = true;
 
-  static const size = 46.0;
-  static const waiting = _Station(Color(0xFFF5B54A), Color(0xFFD9870B), Color(0xFFA9650A));
-  static const warehouse = _Station(Color(0xFF6AA2E0), Color(0xFF2F6DB5), Color(0xFF22528A));
-  static const delivered = _Station(Color(0xFF5CC07A), Color(0xFF239048), Color(0xFF1A6B35));
+  static const size = 72.0;
+  static const waiting = _Station(Color(0xFFF7C668), Color(0xFFD9870B), Color(0xFFA9650A));
+  static const warehouse = _Station(Color(0xFF86B6EA), Color(0xFF2F6DB5), Color(0xFF22528A));
+  static const delivered = _Station(Color(0xFF7DD597), Color(0xFF239048), Color(0xFF1A6B35));
 
   final Color light;
   final Color main;
   final Color deep;
 
-  /// المحطّة التي فيها أكثر شحناته الآن: بهالةٍ حولها
+  /// المحطّة التي فيها الشحنات الآن: رقمها وعنوانها بأثقل خطّ
   final bool now;
 }
 
-/// شريط التحذير المخطّط فوق «للمعالجة»
+/// حلقةٌ بمسارٍ رماديٍّ فاتح، وقوسٌ من لون المحطّة بقدر نصيبها — تبدأ من أعلى الدائرة
+class _RingPainter extends CustomPainter {
+  const _RingPainter(this.share, this.station);
+
+  final double share;
+  final _Station station;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 8.0;
+    final rect = (Offset.zero & size).deflate(stroke / 2);
+    canvas.drawArc(
+      rect,
+      0,
+      2 * pi,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..color = const Color(0xFFE9DEDC),
+    );
+    if (share <= 0) return;
+    canvas.drawArc(
+      rect,
+      -pi / 2,
+      2 * pi * share.clamp(0.0, 1.0),
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round
+        ..shader = SweepGradient(
+          startAngle: -pi / 2,
+          endAngle: 3 * pi / 2,
+          colors: [station.light, station.main],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) => old.share != share || old.station.main != station.main;
+}
+
 class _Stripes extends CustomPainter {
   _Stripes(this.color);
 
