@@ -796,7 +796,7 @@ class _Station {
       deep = brand.deep,
       now = true;
 
-  static const size = 72.0;
+  static const size = 74.0;
   static const waiting = _Station(Color(0xFFF7C668), Color(0xFFD9870B), Color(0xFFA9650A));
   static const warehouse = _Station(Color(0xFF86B6EA), Color(0xFF2F6DB5), Color(0xFF22528A));
   static const delivered = _Station(Color(0xFF7DD597), Color(0xFF239048), Color(0xFF1A6B35));
@@ -818,7 +818,7 @@ class _RingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 8.0;
+    const stroke = 13.0;
     final rect = (Offset.zero & size).deflate(stroke / 2);
     canvas.drawArc(
       rect,
