@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\Support\Claims;
 use App\Actions\Support\Converse;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
@@ -57,7 +58,13 @@ class ConversationController extends Controller
         $conversation->load(['merchant:id,business_name,code,phone', 'shipment:id,number,status', 'messages']);
         $this->converse->markRead($conversation, Converse::STAFF);
 
-        return view('tenant.conversations.show', ['conversation' => $conversation]);
+        // من فتحتها تردّ عليها (docs/plan/73) — وإن كانت لزميلتها تُقرأ ولا يُردّ عليها
+        $claim = Claims::holder(Claims::CONVERSATION, $conversation->id);
+        if ($claim === null && $conversation->isOpen()) {
+            $claim = Claims::take(Claims::CONVERSATION, $conversation->id, $request->user())->load('user:id,name');
+        }
+
+        return view('tenant.conversations.show', ['conversation' => $conversation, 'claim' => $claim]);
     }
 
     /** الشركة تبدأ أيضاً: «عنوان الشحنة ناقص»، «رصيدك سالب». */
@@ -94,6 +101,7 @@ class ConversationController extends Controller
             'attachment' => Converse::ATTACHMENT_RULE,
         ], [], ['body' => 'الردّ', 'attachment' => 'الملف']);
 
+        Claims::take(Claims::CONVERSATION, $conversation->id, $request->user());
         $this->converse->reply($conversation, (string) ($data['body'] ?? ''), $request->user(), Converse::STAFF, $request->file('attachment'));
 
         return back();
@@ -111,6 +119,11 @@ class ConversationController extends Controller
     public function close(Request $request, Conversation $conversation): RedirectResponse
     {
         $this->authorizeVisible($request, $conversation);
+
+        if ($conversation->isOpen()) {
+            Claims::take(Claims::CONVERSATION, $conversation->id, $request->user());
+            Claims::clear(Claims::CONVERSATION, $conversation->id);
+        }
 
         $conversation->isOpen()
             ? $this->converse->close($conversation)

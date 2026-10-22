@@ -78,6 +78,9 @@
                         <span class="font-semibold">ما قاله الزبون:</span> {{ $ticket->reason }}
                     </p>
 
+                    @php $claim = $claims[$ticket->id] ?? null; @endphp
+                    <x-claim subject="ticket" :id="$ticket->id" :claim="$claim" class="mt-3" />
+                    @unless (\App\Actions\Support\Claims::heldByOther($claim, auth()->user()))
                     <form method="POST" action="{{ route('tickets.approve', $ticket) }}" class="mt-3 flex flex-wrap items-end gap-2">
                         @csrf
                         <div class="w-40">
@@ -102,6 +105,7 @@
                         @endif
                         والرفض يحتاج سبباً في «ردّك».
                     </p>
+                    @endunless
                 </section>
             @endforeach
         </div>

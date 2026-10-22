@@ -2,6 +2,7 @@
 
 namespace App\Actions\Shipments;
 
+use App\Actions\Support\Claims;
 use App\Enums\ShipmentStatus;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
@@ -38,6 +39,11 @@ class ProcessFailedAttempt
         ?string $ip = null,
     ): ShipmentStatus {
         return DB::transaction(function () use ($shipment, $action, $actor, $by, $until, $said, $ip) {
+            // من فتحتها تقرّر فيها (docs/plan/73) — والتاجر في بوابته يقرّر في شحنته كما كان
+            if ($by === 'staff') {
+                Claims::take(Claims::PROCESSING, $shipment->id, $actor);
+            }
+
             // الحال بعد القفل: قراران متزامنان (موظّفٌ وتاجر) لا يمرّان معاً
             $shipment->setRawAttributes(Shipment::query()->lockForUpdate()->findOrFail($shipment->id)->getAttributes(), true);
 
@@ -77,6 +83,7 @@ class ProcessFailedAttempt
                 'meta'        => ['action' => $action, 'waited_minutes' => $waited, 'by' => $by, 'said' => $said],
                 'ip'          => $ip,
             ]);
+            Claims::clear(Claims::PROCESSING, $shipment->id);
 
             return $to;
         });

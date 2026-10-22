@@ -2,6 +2,7 @@
 
 namespace App\Actions\Shipments;
 
+use App\Actions\Support\Claims;
 use App\Enums\ShipmentStatus;
 use App\Models\Courier;
 use App\Models\Shipment;
@@ -70,6 +71,8 @@ class ShipmentTickets
     public function approve(ShipmentTicket $ticket, int $amount, ?string $reply, User $actor): ShipmentTicket
     {
         return DB::transaction(function () use ($ticket, $amount, $reply, $actor) {
+            // من فتحتها تحسمها (docs/plan/73): زميلتها لا تعتمد ما تعالجه غيرها
+            Claims::take(Claims::TICKET, $ticket->id, $actor);
             [$ticket, $shipment] = $this->lockOpen($ticket);
 
             $this->checkAmount($shipment, $ticket->kind, $amount, 'approved_amount');
@@ -88,6 +91,7 @@ class ShipmentTickets
             }
 
             $ticket->update($done);
+            Claims::clear(Claims::TICKET, $ticket->id);
 
             return $ticket;
         });
@@ -96,12 +100,14 @@ class ShipmentTickets
     public function reject(ShipmentTicket $ticket, string $reply, User $actor): ShipmentTicket
     {
         return DB::transaction(function () use ($ticket, $reply, $actor) {
+            Claims::take(Claims::TICKET, $ticket->id, $actor);
             [$ticket, $shipment] = $this->lockOpen($ticket, withCourier: false);
 
             $ticket->update(['status' => 'rejected', 'reply' => $reply,
                 'handled_by_user_id' => $actor->id, 'handled_at' => now()]);
 
             $this->log($shipment, $actor, 'user', "رُفض طلب تغيير المبلغ ({$ticket->number}) — {$reply}", $ticket->courier_id);
+            Claims::clear(Claims::TICKET, $ticket->id);
 
             return $ticket;
         });
@@ -127,6 +133,7 @@ class ShipmentTickets
                     return;
                 }
 
+                Claims::clear(Claims::TICKET, $ticket->id);
                 $ticket->update(['status' => 'closed', 'closed_note' => match (true) {
                     $ticket->isOpen() && $asWritten => 'سُلِّمت بالمبلغ الأصلي قبل الجواب.',
                     $ticket->isOpen() => "صارت الشحنة «{$to->label()}» قبل الجواب.",

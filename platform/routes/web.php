@@ -46,6 +46,7 @@ use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\BranchRemittanceController;
 use App\Http\Controllers\Tenant\CashBoxController;
 use App\Http\Controllers\Tenant\CashPositionController;
+use App\Http\Controllers\Tenant\ClaimController;
 use App\Http\Controllers\Tenant\CompanyLogoController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ControlController;
@@ -337,6 +338,13 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/tickets/{ticket}/approve', [ShipmentTicketController::class, 'approve'])->whereNumber('ticket')->name('tickets.approve');
                 Route::post('/tickets/{ticket}/reject', [ShipmentTicketController::class, 'reject'])->whereNumber('ticket')->name('tickets.reject');
             });
+
+            // «أعالجها» و«أفلتها» (docs/plan/73): من فتحت الطلب تعالجه وحدها
+            Route::post('/claims/{subject}/{id}', [ClaimController::class, 'take'])
+                ->whereIn('subject', ['ticket', 'processing', 'conversation'])->whereNumber('id')
+                ->middleware('throttle:120,1')->name('claims.take');
+            Route::post('/claims/{subject}/{id}/release', [ClaimController::class, 'release'])
+                ->whereIn('subject', ['ticket', 'processing', 'conversation'])->whereNumber('id')->name('claims.release');
 
             // «التنبيهات التشغيلية» (docs/plan/39): ما مرّ عليه آخر موعدٍ للتوصيل ولم يُحسم
             Route::get('/operational-alerts', [OperationalAlertController::class, 'index'])

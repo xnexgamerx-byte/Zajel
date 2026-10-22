@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Shipments\ShipmentTickets;
+use App\Actions\Support\Claims;
 use App\Http\Controllers\Controller;
 use App\Models\Governorate;
 use App\Models\ShipmentTicket;
@@ -42,6 +43,8 @@ class ShipmentTicketController extends Controller
         return view('tenant.tickets.index', [
             'tab'          => $tab,
             'tickets'      => $tickets,
+            // من تعالج كلّ طلبٍ الآن (docs/plan/73)
+            'claims'       => $tab === 'open' ? Claims::holders(Claims::TICKET, $tickets->getCollection()->pluck('id')) : collect(),
             'openCount'    => $base()->open()->count(),
             'governorates' => $mine === [] ? collect()
                 : Governorate::query()->whereIn('id', $mine)->orderedForCompany()->pluck('name_ar'),

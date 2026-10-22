@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Shipments\ProcessFailedAttempt;
+use App\Actions\Support\Claims;
 use App\Actions\Support\Converse;
 use App\Actions\Support\CourierChat;
 use App\Enums\Feature;
@@ -81,6 +82,8 @@ class ProcessingController extends Controller
             'pendingCount' => (clone $pending)->count(),
             'filtered'  => $request->filled('q') || $request->filled('courier_id') || $follow !== null,
             'follow'    => $follow,
+            // من تعالج كلّ شحنةٍ الآن (docs/plan/73): زميلتها لا تقرّر فيها
+            'claims'    => $page ? Claims::holders(Claims::PROCESSING, $page->getCollection()->pluck('id')) : collect(),
             // من يتابع كلّ شحنة الآن — أسماؤهم للجميع، والملاحظة لصاحبها وحده (في الصفحة)
             'followUps' => $page ? ShipmentFollowUp::whereIn('shipment_id', $page->getCollection()->pluck('id'))
                 ->with('user:id,name')->orderBy('started_at')->get()->groupBy('shipment_id') : collect(),
@@ -157,6 +160,9 @@ class ProcessingController extends Controller
 
         $data = $request->validate(['note' => ['nullable', 'string', 'max:1000']], [], ['note' => 'ملاحظتك']);
 
+        // «بدأت المتابعة» تحجزها لها (docs/plan/73): لا تتابعها زميلتان معاً
+        Claims::take(Claims::PROCESSING, $shipment->id, $request->user());
+
         $row = ShipmentFollowUp::firstOrNew(['shipment_id' => $shipment->id, 'user_id' => $request->user()->id]);
         $fresh = ! $row->exists || ! $row->isCurrent($shipment);
 
@@ -176,6 +182,7 @@ class ProcessingController extends Controller
         abort_unless(FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply'), 403);
 
         $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الرسالة']);
+        Claims::take(Claims::PROCESSING, $shipment->id, $request->user());
 
         $open = Conversation::query()->where('shipment_id', $shipment->id)->latest('id')->first();
 
@@ -196,6 +203,7 @@ class ProcessingController extends Controller
         abort_unless(FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply'), 403);
 
         $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الرسالة']);
+        Claims::take(Claims::PROCESSING, $shipment->id, $request->user());
 
         $chat->send($shipment->deliveryCourier, $data['body'], $request->user(), CourierChat::STAFF, $shipment);
         $chat->markRead($chat->thread($shipment->deliveryCourier)->refresh(), CourierChat::STAFF);
@@ -266,6 +274,7 @@ class ProcessingController extends Controller
         abort_unless($shipment->status === ShipmentStatus::FailedAttempt && $shipment->merchant, 404);
 
         $user = $request->user();
+        Claims::take(Claims::PROCESSING, $shipment->id, $user);
         $body = MerchantMessage::for($shipment->loadMissing(['merchant', 'governorate', 'city', 'lastFailureReason', 'deliveryCourier']), $user);
 
         $conversation = DB::transaction(function () use ($shipment, $user, $body, $converse) {

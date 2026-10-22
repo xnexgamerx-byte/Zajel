@@ -30,6 +30,13 @@
         <x-thread :messages="$conversation->messages" mine="staff" file-route="conversations.attachment" />
     </section>
 
+    {{-- من فتحتها تردّ عليها (docs/plan/73): زميلتها تقرؤها ولا تردّ --}}
+    @if (\App\Actions\Support\Claims::heldByOther($claim, auth()->user()))
+        <x-claim subject="conversation" :id="$conversation->id" :claim="$claim" class="card mb-4 p-4" />
+    @else
+    @if ($claim)
+        <x-claim subject="conversation" :id="$conversation->id" :claim="$claim" class="mb-3" />
+    @endif
     <form method="POST" action="{{ route('conversations.reply', $conversation) }}" enctype="multipart/form-data" class="card p-4">
         @csrf
         <div class="mb-1 flex flex-wrap items-center justify-between gap-2">
@@ -54,5 +61,6 @@
             <button type="submit" class="btn-primary">أرسل</button>
         </div>
     </form>
+    @endif
 </div>
 @endsection

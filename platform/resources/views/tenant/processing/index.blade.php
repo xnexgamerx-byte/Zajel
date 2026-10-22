@@ -88,7 +88,11 @@
                     @php
                         $following = ($followUps[$shipment->id] ?? collect())->filter(fn ($f) => $f->isCurrent($shipment));
                         $myFollow = $following->firstWhere('user_id', auth()->id());
+                        // من فتحتها تعالجها وحدها (docs/plan/73)
+                        $claim = $claims[$shipment->id] ?? null;
+                        $heldByOther = \App\Actions\Support\Claims::heldByOther($claim, auth()->user());
                     @endphp
+                    <x-claim subject="processing" :id="$shipment->id" :claim="$claim" class="mt-2" />
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs" data-follow>
                         @foreach ($following as $follow)
                             <span @class(['chip', 'chip-info' => $follow->user_id !== auth()->id(), 'chip-ok' => $follow->user_id === auth()->id()])>
@@ -96,7 +100,8 @@
                                 · {{ $follow->started_at->diffForHumans() }}
                             </span>
                         @endforeach
-                        @if (! $myFollow)
+                        @if ($heldByOther)
+                        @elseif (! $myFollow)
                             <form method="POST" action="{{ route('processing.follow', $shipment) }}">
                                 @csrf
                                 <button type="submit" class="btn-ghost py-1 text-xs">
@@ -209,6 +214,7 @@
                             <a href="{{ $whatsapp }}" target="_blank" rel="noopener" class="ms-auto self-center text-xs text-ink-500 underline hover:text-[var(--brand)]">واتساب التاجر</a>
                         @endif
                     </div>
+                    @unless ($heldByOther)
                     <form method="POST" action="{{ route('processing.store', $shipment) }}" class="mt-3 flex flex-wrap items-end gap-2">
                         @csrf
                         <input name="note" class="field-input min-w-56 flex-1 py-1.5" maxlength="255" placeholder="ما قاله الزبون"
@@ -222,6 +228,7 @@
                         {{-- «تأكيد الراجع»: يصير «راجع مؤكد» ويرجع لتاجره (docs/plan/38) --}}
                         <button name="action" value="return" class="btn-danger py-1">تأكيد الراجع</button>
                     </form>
+                    @endunless
                 </section>
             @endforeach
         </div>
