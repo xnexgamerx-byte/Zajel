@@ -62,6 +62,30 @@ class SpokenOrderTest extends TestCase
         return (int) City::where('governorate_id', $this->governorate($code))->where('name_ar', $name)->value('id');
     }
 
+    /** الهاتف يُلتقط بكلّ ما يقوله التاجر: «سفر» و«زيرو»، وأرقامٌ مفصولة، و«وصفر»، و+964 */
+    #[DataProvider('spokenPhones')]
+    public function test_the_phone_is_caught_however_its_digits_are_said(string $speech): void
+    {
+        $reading = $this->hear($speech.' بغداد الكرادة');
+
+        $this->assertSame('07701234567', $reading['fields']['recipient_phone'] ?? null);
+    }
+
+    public static function spokenPhones(): array
+    {
+        $digits = 'سبعة سبعة صفر واحد اثنين ثلاثة اربعة خمسة ستة سبعة';
+
+        return [
+            'صفر بالمصري والعراقي' => ['الرقم صفر '.$digits],
+            'سفر كما تسمعها المايك' => ['الرقم سفر '.$digits],
+            'زيرو' => ['الرقم زيرو '.$digits],
+            'وصفر وسط الرقم' => ['الرقم صفر سبعة سبعة وصفر واحد اثنين ثلاثة اربعة خمسة ستة سبعة'],
+            'أرقام مفصولة بمسافات' => ['الرقم 0 7 7 0 1 2 3 4 5 6 7'],
+            'مقاطع بمسافات' => ['الرقم 0770 1234 567'],
+            'بالمفتاح الدولي' => ['الرقم +964 770 123 4567'],
+        ];
+    }
+
     public function test_a_whole_order_said_in_one_breath_fills_the_form(): void
     {
         $reading = $this->hear('الاسم علي حسين الرقم صفر سبعة سبعة صفر واحد اثنين ثلاثة اربعة خمسة ستة سبعة '

@@ -18,7 +18,7 @@ use App\Support\Phone;
 final class SpokenOrder
 {
     private const UNITS = [
-        'صفر' => 0,
+        'صفر' => 0, 'سفر' => 0, 'زيرو' => 0, 'زيره' => 0,
         'واحد' => 1, 'واحده' => 1, 'وحده' => 1,
         'اثنين' => 2, 'اثنان' => 2, 'ثنين' => 2, 'اتنين' => 2, 'اثنتين' => 2, 'ثنتين' => 2,
         'ثلاثه' => 3, 'ثلاث' => 3, 'تلاثه' => 3, 'تلاث' => 3, 'ثلث' => 3,
@@ -74,7 +74,7 @@ final class SpokenOrder
      * كلماتٌ عدديّة تكون اسماً أو كلمةً أخرى وحدها («ست زينب»، «سبع» اسم): تُقرأ رقماً إن
      * جاء بعدها معدودٌ أو قبلها كلمة المبلغ أو العدد فقط
      */
-    private const AMBIGUOUS = ['ست', 'سبع', 'خمس', 'عشر', 'ثمن', 'ثلث', 'تسع', 'اربع', 'ثلاث', 'ثمان', 'تلاث', 'ميه', 'مية'];
+    private const AMBIGUOUS = ['ست', 'سبع', 'خمس', 'عشر', 'ثمن', 'ثلث', 'تسع', 'اربع', 'ثلاث', 'ثمان', 'تلاث', 'ميه', 'مية', 'سفر'];
 
     private const COUNTED = '/^(?:قطع|قطعه|قطعة|حبات|حبه|حبة|الاف|آلاف|الف|ألف|دينار|الاف)$/u';
 
@@ -100,7 +100,12 @@ final class SpokenOrder
         }
 
         // رقم الهاتف سطرٌ وحده، والمبلغ بآلافه سطرٌ وحده: ما قبلهما اسمٌ وما بينهما عنوان
-        $text = (string) preg_replace('/(?<![\d:])((?:\+?964|0)?\s*7\d(?:\s?\d){8})(?!\d)/u', "\n$1\n", $text);
+        // الرقم المكتوب بمسافاتٍ بين أرقامه («0770 1234 567»، «0 7 7 0…») يصير رقماً واحداً قبل أيّ قصٍّ
+        $text = (string) preg_replace_callback('/(?<![\d:])((?:\+?964|0)?\s*7(?:\s*\d){9})(?!\d)/u', function (array $m) {
+            $phone = Phone::normalise($m[1]);
+
+            return $phone === null ? $m[1] : "\n".$phone."\n";
+        }, $text);
         $text = (string) preg_replace('/(?<=\s|^)(?<!المبلغ )(?<!العدد )(\d+(?:\.\d{1,2})? الف)(?=\s|$)/u', "\n$1", $text);
 
         // عددٌ صغير في آخر الكلام بلا كلمة المبلغ مبلغٌ بالآلاف: «… قرب الجامع خمسة وعشرين»
@@ -213,7 +218,7 @@ final class SpokenOrder
     /**
      * سلسلةٌ من كلمات العدد نصّاً.
      *
-     * @param list<array{word: string, value: int, joined: bool, digit: bool, kind: string}> $run
+     * @param  list<array{word: string, value: int, joined: bool, digit: bool, kind: string}>  $run
      */
     private static function spell(array $run): string
     {
@@ -286,7 +291,7 @@ final class SpokenOrder
      * السلسلة مقاطع كما يُقال الهاتف: كلّ مقطعٍ عددٌ («اربعمية وعشرة» 410، «سبعة وسبعين» 77، «صفر» 0)،
      * والمقاطع تُلصق. «ثلاث تساعات» 999، و«دبل سبعة» 77. وما فيه ألفٌ أو نصفٌ ليس هاتفاً (null).
      *
-     * @param list<array{word: string, value: int, joined: bool, digit: bool, kind: string}> $run
+     * @param  list<array{word: string, value: int, joined: bool, digit: bool, kind: string}>  $run
      */
     private static function grouped(array $run): ?string
     {
@@ -324,7 +329,10 @@ final class SpokenOrder
             $repeat = null;
 
             $last = end($groups);
-            $continues = $last !== false && isset($last['words']) && ($word['joined']
+            // «سبعة وصفر» رقمان لا مجموع: لا يجتمع آحادٌ بآحاد، وإلّا فـ«خمسة وعشرين» وما يشبهها تجتمع
+            $unitAfterUnit = $word['kind'] === 'unit' && $last !== false && isset($last['words'])
+                && end($last['words'])['kind'] === 'unit';
+            $continues = $last !== false && isset($last['words']) && ! $unitAfterUnit && ($word['joined']
                 // «ثلاث مية»: آحادٌ ثم «مية» مضاعفُها
                 || ($word['kind'] === 'hundred' && $word['value'] === 100 && count($last['words']) === 1 && $last['words'][0]['kind'] === 'unit'));
 
