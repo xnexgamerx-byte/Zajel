@@ -21,7 +21,11 @@ class Demo {
   static final List<Movement> _moves = _seedMoves();
 
   /// يعيد العرض إلى أوّله — بين اختبارٍ وآخر
+  /// «مسح الشحنة عند الاستلام والتسليم» (docs/plan/72): مطفأةٌ في العرض إلّا حين يفتحها اختبار
+  static bool scanParcels = false;
+
   static void reset() {
+    scanParcels = false;
     _parcels = _seed();
     _cash = 2340000;
     _commission = 180000;
@@ -207,10 +211,18 @@ class Demo {
     Reason(id: 5, name: 'الزبون رفض الاستلام', requiresNote: true),
   ];
 
-  static Future<Outcome> act(int id, String action, {int? reasonId, String? note, String? code}) async {
+  static Future<Outcome> act(int id, String action, {int? reasonId, String? note, String? code, String? scan}) async {
     final p = _get(id);
     if (p.status != 'out_for_delivery') {
       throw _field('action', 'هذه الشحنة لم تعد بيدك.');
+    }
+    if (scanParcels && (scan ?? '').trim() != '${p.id}') {
+      throw _field(
+        'scan',
+        (scan ?? '').isEmpty
+            ? 'امسح باركود الشحنة ${p.id} أو اكتب رقمها قبل التسجيل.'
+            : 'ما مسحته ليس الشحنة ${p.id}. امسح الطرد الذي في يدك.',
+      );
     }
 
     if (action == 'failed_attempt' || action == 'postponed') {
@@ -389,7 +401,18 @@ class Demo {
     ),
   ];
 
-  static Future<List<PickupItem>> pickups() async => List.of(_pickups);
+  static Future<PickupsPage> pickups() async => PickupsPage(items: List.of(_pickups), scanRequired: scanParcels);
+
+  /// شحنات تاجر كلّ طلب: 1901xx للطلب الأوّل، و1902xx للثاني — والـ180xxx شحنات توصيلٍ لا تاجرَ هنا
+  static Future<ScannedParcel> pickupScan(int pickupId, String code) async {
+    final p = _pickups.firstWhere((p) => p.id == pickupId);
+    final n = int.tryParse(RegExp(r'\d+').firstMatch(code)?.group(0) ?? '');
+    if (n == null) throw ApiError('امسح باركود الشحنة أو اكتب رقمها.');
+    final base = 190000 + pickupId * 100;
+    if (n > base && n <= base + p.expected) return ScannedParcel(id: n, number: '$n', recipient: 'زبون ${n - base}');
+    if (n >= 190100 && n < 190300) throw ApiError('الشحنة $n ليست لهذا التاجر.');
+    throw ApiError('لا شحنة بالرقم «$n».');
+  }
 
   static Future<String> completePickup(int id, int count) async {
     final p = _pickups.firstWhere((p) => p.id == id, orElse: () => throw ApiError('هذا الطلب مُغلق بالفعل.'));
@@ -581,6 +604,7 @@ class _Parcel {
       merchantPhone: '07800000000',
       amount: amount,
       needsCode: code,
+      needsScan: canAct && Demo.scanParcels,
       pieces: 1,
       description: 'ملابس',
       notes: note,

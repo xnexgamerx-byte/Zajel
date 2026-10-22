@@ -9,9 +9,12 @@ import '../widgets/digits.dart';
 /// الزرّ الأوسط (docs/plan/66): كاميرا تقرأ باركود الشحنة أو رمز QR على وصلها، أو يُكتب رقمها،
 /// فيجدها النظام بين شحنات المندوب — ويعود رقمها لتُفتح. شحنة غيره «ليست بيدك».
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key, required this.brand});
+  const ScanScreen({super.key, required this.brand, this.returnCode = false});
 
   final Brand brand;
+
+  /// يعود بما مُسح نصّاً بلا بحث: مسح الطرد عند الباب قبل التسجيل (docs/plan/72)
+  final bool returnCode;
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -40,6 +43,10 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _check(String raw) async {
     final code = LatinDigits.convert(raw).trim();
     if (checking || code.isEmpty) return;
+    if (widget.returnCode) {
+      Navigator.of(context).pop(code);
+      return;
+    }
     setState(() => (checking = true, error = null));
     try {
       final id = await Api.instance.find(code);
@@ -104,10 +111,12 @@ class _ScanScreenState extends State<ScanScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          Text('امسح الشحنة', style: font(19, w8, Colors.white)),
+          Text(widget.returnCode ? 'امسح الطرد الذي في يدك' : 'امسح الشحنة', style: font(19, w8, Colors.white)),
           const SizedBox(height: 4),
           Text(
-            'ضع باركود الوصل أو رمز QR داخل الإطار فتُفتح الشحنة.',
+            widget.returnCode
+                ? 'ضع باركود الوصل الملصق على الطرد داخل الإطار.'
+                : 'ضع باركود الوصل أو رمز QR داخل الإطار فتُفتح الشحنة.',
             textAlign: TextAlign.center,
             style: font(12.5, w5, Colors.white.withValues(alpha: .85), height: 1.5),
           ),
@@ -181,7 +190,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(12)),
-                  child: Text('افتح', style: font(14, w8, Colors.white)),
+                  child: Text(widget.returnCode ? 'تمّ' : 'افتح', style: font(14, w8, Colors.white)),
                 ),
               ),
             ],

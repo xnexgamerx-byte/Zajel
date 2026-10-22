@@ -289,6 +289,7 @@ class ShipmentDetail {
     this.merchantPhone,
     required this.amount,
     this.needsCode = false,
+    this.needsScan = false,
     this.pieces = 1,
     this.description,
     this.notes,
@@ -327,6 +328,7 @@ class ShipmentDetail {
       merchantPhone: m['phone'] as String?,
       amount: _int(j['amount']),
       needsCode: j['needs_code'] as bool? ?? false,
+      needsScan: j['needs_scan'] as bool? ?? false,
       pieces: _int(j['pieces']),
       description: j['description'] as String?,
       notes: j['notes'] as String?,
@@ -357,6 +359,9 @@ class ShipmentDetail {
   final String? merchant;
   final String? merchantPhone;
   final int amount;
+
+  /// يُمسح الطرد قبل أيّ تسجيلٍ عند الباب (docs/plan/72)
+  final bool needsScan;
   final bool needsCode;
   final int pieces;
   final String? description;
@@ -710,4 +715,37 @@ class ChatMessage {
   final String? shipmentNumber;
   final String? recipient;
   final DateTime? at;
+}
+
+// ------------------------------------------------------- مسح الشحنة عند الاستلام والتسليم (docs/plan/72)
+
+class PickupsPage {
+  PickupsPage({required this.items, this.scanRequired = false});
+
+  factory PickupsPage.fromJson(Map<String, dynamic> j) => PickupsPage(
+    items: [for (final p in _list(j['data'])) PickupItem.fromJson(p)],
+    scanRequired: j['scan_required'] as bool? ?? false,
+  );
+
+  final List<PickupItem> items;
+
+  /// يُستلم بمسح كلّ شحنة: ما مُسح وحده
+  final bool scanRequired;
+}
+
+/// شحنةٌ مسحها مندوب الاستلام عند التاجر
+class ScannedParcel {
+  ScannedParcel({required this.id, required this.number, this.recipient, this.amount = 0});
+
+  factory ScannedParcel.fromJson(Map<String, dynamic> j) => ScannedParcel(
+    id: _int(j['id']),
+    number: j['number'] as String? ?? '',
+    recipient: j['recipient'] as String?,
+    amount: _int(j['amount']),
+  );
+
+  final int id;
+  final String number;
+  final String? recipient;
+  final int amount;
 }

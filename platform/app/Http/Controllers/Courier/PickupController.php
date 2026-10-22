@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Courier;
 
+use App\Actions\Couriers\ScanParcel;
 use App\Actions\Shipments\CompletePickup;
 use App\Http\Controllers\Controller;
 use App\Models\PickupRequest;
@@ -17,6 +18,7 @@ class PickupController extends Controller
         $courier = $request->attributes->get('courier');
 
         return view('courier.pickups', [
+            'scanRequired' => ScanParcel::required(),
             'pickups' => PickupRequest::query()
                 ->where('courier_id', $courier->id)
                 ->whereIn('status', ['assigned', 'in_progress'])
@@ -36,12 +38,35 @@ class PickupController extends Controller
             return back()->withErrors(['actual_count' => 'هذا الطلب مُغلق بالفعل.']);
         }
 
-        $data = $request->validate([
-            'actual_count' => ['required', 'integer', 'min:0', 'max:5000'],
-            'note'         => ['nullable', 'string', 'max:500'],
-        ], [], ['actual_count' => 'العدد المستلم']);
+        // بمسح الشحنات (docs/plan/72): يُستلم ما مُسح وحده، سطرٌ لكلّ شحنة — والعدد عددها
+        if (ScanParcel::required()) {
+            $data = $request->validate([
+                'codes' => ['required', 'string', 'max:20000'],
+                'note'  => ['nullable', 'string', 'max:500'],
+            ], ['codes.required' => 'امسح باركود كلّ طردٍ استلمته أو اكتب رقمه.']);
 
-        $action->handle($pickup, $data['actual_count'], $request->user(), $data['note'] ?? null);
+            $ids = [];
+            foreach (preg_split('/\R+/u', trim($data['codes'])) ?: [] as $line) {
+                if (trim($line) === '') {
+                    continue;
+                }
+                $found = ScanParcel::resolve($pickup, $line);
+                if (is_string($found)) {
+                    return back()->withInput()->withErrors(['codes' => $found]);
+                }
+                $ids[] = $found->id;
+            }
+            $ids = array_values(array_unique($ids));
+            $data['actual_count'] = count($ids);
+        } else {
+            $data = $request->validate([
+                'actual_count' => ['required', 'integer', 'min:0', 'max:5000'],
+                'note'         => ['nullable', 'string', 'max:500'],
+            ], [], ['actual_count' => 'العدد المستلم']);
+            $ids = null;
+        }
+
+        $action->handle($pickup, $data['actual_count'], $request->user(), $data['note'] ?? null, $ids);
 
         return redirect()
             ->route('courier.pickups')

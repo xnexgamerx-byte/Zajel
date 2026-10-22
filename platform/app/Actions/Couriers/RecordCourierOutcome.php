@@ -30,7 +30,7 @@ class RecordCourierOutcome
     public function __construct(protected ChangeShipmentStatus $change) {}
 
     /**
-     * @param  array{collected_amount?: ?int, failure_reason_id?: ?int, note?: ?string, delivery_code?: ?string, lat?: ?float, lng?: ?float}  $data
+     * @param  array{collected_amount?: ?int, failure_reason_id?: ?int, note?: ?string, delivery_code?: ?string, scan?: ?string, lat?: ?float, lng?: ?float}  $data
      *
      * @throws ValidationException خطأٌ لكل حقل، كما في الشاشة
      */
@@ -40,6 +40,15 @@ class RecordCourierOutcome
 
         if ((int) $shipment->delivery_courier_id !== $courier->id || $shipment->status !== ShipmentStatus::OutForDelivery) {
             throw ValidationException::withMessages(['action' => 'هذه الشحنة لم تعد بيدك.']);
+        }
+
+        // مسح الشحنة قبل أيّ تسجيلٍ عند الباب، إن فُتح للشركة (docs/plan/72)
+        if (ScanParcel::required() && ! ScanParcel::matches($shipment, $data['scan'] ?? null)) {
+            throw ValidationException::withMessages([
+                'scan' => filled($data['scan'] ?? null)
+                    ? "ما مسحته ليس الشحنة {$shipment->number}. امسح الطرد الذي في يدك."
+                    : "امسح باركود الشحنة {$shipment->number} أو اكتب رقمها قبل التسجيل.",
+            ]);
         }
 
         // الواصل الجزئي بالمبلغ الذي اعتمده الكول سنتر، ولا غيره

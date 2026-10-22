@@ -7,6 +7,7 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import 'pickup_scan_screen.dart';
 
 /// «اليوم» و«الاستلام» و«حصصي» (docs/plan/71): شاشات المندوب في الموقع نفسها، فوق الشريط.
 Future<void> openToday(BuildContext context, Brand brand, {void Function(int id)? onShipment}) => Navigator.of(context)
@@ -196,24 +197,46 @@ class PickupsScreen extends StatelessWidget {
   final Brand brand;
 
   @override
-  Widget build(BuildContext context) => _Loaded<List<PickupItem>>(
+  Widget build(BuildContext context) => _Loaded<PickupsPage>(
     brand: brand,
     title: 'الاستلام',
     subtitle: 'طلبات استلامٍ مُسنَدة إليك',
     load: Api.instance.pickups,
-    body: (list, reload) => [
-      if (list.isEmpty)
+    body: (page, reload) => [
+      if (page.scanRequired)
+        Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: brand.softer,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: brand.border),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.qr_code_scanner_rounded, size: 20, color: brand.deep),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'تستلم بمسح باركود كلّ طرد: ما لم تمسحه يبقى عند التاجر.',
+                  style: font(12.5, w7, Palette.ink, height: 1.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      if (page.items.isEmpty)
         const Empty(
           icon: Icons.inventory_2_outlined,
           title: 'ما عندك طلبات استلام',
           text: 'حين يُسنَد إليك طلب استلامٍ من تاجر يظهر هنا.',
         )
       else
-        for (final p in list) ...[_card(context, p, reload), const SizedBox(height: 10)],
+        for (final p in page.items) ...[_card(context, p, reload, scan: page.scanRequired), const SizedBox(height: 10)],
     ],
   );
 
-  Widget _card(BuildContext context, PickupItem p, Future<void> Function() reload) => WhiteCard(
+  Widget _card(BuildContext context, PickupItem p, Future<void> Function() reload, {bool scan = false}) => WhiteCard(
     padding: const EdgeInsets.all(14),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -268,10 +291,17 @@ class PickupsScreen extends StatelessWidget {
             Expanded(
               child: SheetButton(
                 brand: brand,
-                label: 'استلمت الطرود',
-                icon: Icons.check_rounded,
+                label: scan ? 'امسح الطرود' : 'استلمت الطرود',
+                icon: scan ? Icons.qr_code_scanner_rounded : Icons.check_rounded,
                 onTap: () async {
-                  final message = await showSheet<String>(context, _CompleteSheet(brand: brand, pickup: p));
+                  // بمسح الشحنات (docs/plan/72): شاشة المسح، وإلّا العدد الفعلي
+                  final message = scan
+                      ? await Navigator.of(context).push<String>(
+                          MaterialPageRoute(
+                            builder: (_) => PickupScanScreen(brand: brand, pickup: p),
+                          ),
+                        )
+                      : await showSheet<String>(context, _CompleteSheet(brand: brand, pickup: p));
                   if (message == null || !context.mounted) return;
                   toast(context, message);
                   await reload();

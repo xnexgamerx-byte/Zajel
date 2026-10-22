@@ -38,6 +38,8 @@ class ActionController extends Controller
             'failure_reason_id' => ['nullable', 'integer'],
             'note'              => ['nullable', 'string', 'max:500'],
             'delivery_code'     => ['nullable', 'string', 'max:10'],
+            // الطرد ممسوحٌ في يده (docs/plan/72)
+            'scan'              => ['nullable', 'string', 'max:300'],
             'lat'               => ['nullable', 'numeric', 'between:-90,90'],
             'lng'               => ['nullable', 'numeric', 'between:-180,180'],
         ], [], [

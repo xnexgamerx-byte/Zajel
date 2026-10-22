@@ -137,10 +137,11 @@ class Api {
     int? reasonId,
     String? note,
     String? code,
+    String? scan,
     double? lat,
     double? lng,
   }) async {
-    if (AppConfig.demo) return Demo.act(id, action, reasonId: reasonId, note: note, code: code);
+    if (AppConfig.demo) return Demo.act(id, action, reasonId: reasonId, note: note, code: code, scan: scan);
     final body = await _send(
       http.post(
         _uri('/courier/shipments/$id/act'),
@@ -150,6 +151,7 @@ class Api {
           'failure_reason_id': ?reasonId,
           if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
           if (code != null && code.isNotEmpty) 'delivery_code': code,
+          if (scan != null && scan.isNotEmpty) 'scan': scan,
           'lat': ?lat,
           'lng': ?lng,
         }),
@@ -183,20 +185,30 @@ class Api {
     return TodayPage.fromJson(await _send(http.get(_uri('/courier/today'), headers: _headers)));
   }
 
-  Future<List<PickupItem>> pickups() async {
+  Future<PickupsPage> pickups() async {
     if (AppConfig.demo) return Demo.pickups();
-    final body = await _send(http.get(_uri('/courier/pickups'), headers: _headers));
-    return [for (final p in body['data'] as List) PickupItem.fromJson((p as Map).cast())];
+    return PickupsPage.fromJson(await _send(http.get(_uri('/courier/pickups'), headers: _headers)));
   }
 
-  /// «استلمت الطرود»: كلّ شحنات التاجر المعلّقة دفعةً واحدة
-  Future<String> completePickup(int id, int count, {String? note}) async {
-    if (AppConfig.demo) return Demo.completePickup(id, count);
+  /// ما مسحه عند التاجر: شحنةٌ من شحناته تنتظر الاستلام، أو خطأٌ يقول لماذا (docs/plan/72)
+  Future<ScannedParcel> pickupScan(int pickupId, String code) async {
+    if (AppConfig.demo) return Demo.pickupScan(pickupId, code);
+    final uri = _uri('/courier/pickups/$pickupId/scan').replace(queryParameters: {'code': code});
+    final body = await _send(http.get(uri, headers: _headers));
+    return ScannedParcel.fromJson((body['data'] as Map).cast());
+  }
+
+  /// «استلمت الطرود»: كلّ شحنات التاجر المعلّقة دفعةً واحدة — أو ما مُسح منها وحده
+  Future<String> completePickup(int id, int count, {String? note, List<int>? shipments}) async {
+    if (AppConfig.demo) return Demo.completePickup(id, shipments?.length ?? count);
     final body = await _send(
       http.post(
         _uri('/courier/pickups/$id/complete'),
         headers: _headers,
-        body: jsonEncode({'actual_count': count, if (note != null && note.trim().isNotEmpty) 'note': note.trim()}),
+        body: jsonEncode({
+          if (shipments == null) 'actual_count': count else 'shipments': shipments,
+          if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+        }),
       ),
     );
     return body['message'] as String? ?? 'سُجّل الاستلام.';

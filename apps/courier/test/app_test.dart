@@ -283,4 +283,56 @@ void main() {
     await _tap(tester, find.byTooltip('أرسل'));
     expect(find.text('العنوان غلط، الزبون في الكرادة خارج'), findsOneWidget);
   });
+
+  testWidgets('بمسح الشحنة: لا يُسجَّل شيءٌ عند الباب قبل مسح الطرد نفسه', (tester) async {
+    Demo.scanParcels = true;
+    await _start(tester);
+    await _openShipment(tester, '180209');
+    expect(find.text('امسح الطرد قبل التسجيل'), findsOneWidget);
+
+    // طردٌ آخر في يده: يرفضه النظام عند التسجيل، فيُمسح من جديد
+    await _tap(tester, find.text('امسح الطرد قبل التسجيل'));
+    expect(find.text('امسح الطرد الذي في يدك'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '180212');
+    await _tap(tester, find.text('تمّ'));
+    expect(find.text('مسحت الطرد'), findsOneWidget);
+    await _tap(tester, find.text('سُلّمت'));
+    await _tap(tester, find.text('نعم، سُلّمت'));
+    expect(find.text('ما مسحته ليس الشحنة 180209. امسح الطرد الذي في يدك.'), findsOneWidget);
+    expect(find.text('امسح الطرد قبل التسجيل'), findsOneWidget);
+
+    await _tap(tester, find.text('امسح الطرد قبل التسجيل'));
+    await tester.enterText(find.byType(TextField), '180209');
+    await _tap(tester, find.text('تمّ'));
+    await _tap(tester, find.text('سُلّمت'));
+    await _tap(tester, find.text('نعم، سُلّمت'));
+    expect(find.text('سُجِّلت الشحنة 180209: واصل.'), findsOneWidget);
+  });
+
+  testWidgets('بمسح الشحنات: مندوب الاستلام يأخذ ما مسحه من شحنات التاجر وحده', (tester) async {
+    Demo.scanParcels = true;
+    await _start(tester);
+    await _tap(tester, find.text('الاستلام').first);
+    expect(find.text('تستلم بمسح باركود كلّ طرد: ما لم تمسحه يبقى عند التاجر.'), findsOneWidget);
+    await _tap(tester, find.text('امسح الطرود').first);
+    expect(find.text('0 من 12 متوقَّع'), findsOneWidget);
+
+    Future<void> scan(String code) async {
+      await tester.enterText(find.byType(TextField), code);
+      await _tap(tester, find.text('أضف'));
+    }
+
+    await scan('190201');
+    expect(find.text('الشحنة 190201 ليست لهذا التاجر.'), findsOneWidget);
+    await scan('190101');
+    expect(find.text('أُضيفت الشحنة 190101.'), findsOneWidget);
+    await scan('190101');
+    expect(find.text('الشحنة 190101 ممسوحةٌ سلفاً.'), findsOneWidget);
+    await scan('190102');
+    expect(find.text('2 من 12 متوقَّع'), findsOneWidget);
+
+    await _tap(tester, find.text('سجّل استلام طردان'));
+    expect(find.text('استُلم طردان من متجر الوردة.'), findsOneWidget);
+    expect(find.text('متجر الوردة'), findsNothing);
+  });
 }

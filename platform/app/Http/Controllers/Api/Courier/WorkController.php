@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Courier;
 
+use App\Actions\Couriers\ScanParcel;
 use App\Actions\Pickups\AccruePickupShare;
 use App\Actions\Shipments\CompletePickup;
 use App\Enums\ShipmentStatus;
@@ -61,6 +62,8 @@ class WorkController extends Controller
         abort_unless($courier->picks(), 403, 'الاستلام لمندوب الاستلام.');
 
         return response()->json([
+            // يُستلم بمسح كلّ شحنة (docs/plan/72)
+            'scan_required' => ScanParcel::required(),
             'data' => PickupRequest::query()
                 ->where('courier_id', $courier->id)
                 ->whereIn('status', ['assigned', 'in_progress'])
@@ -82,7 +85,24 @@ class WorkController extends Controller
         ]);
     }
 
-    /** «استلمت الطرود»: كلّ شحنات التاجر المعلّقة دفعةً واحدة، كما في الموقع */
+    /** ما مسحه عند التاجر: شحنةٌ من شحناته تنتظر الاستلام، أو ما يُقال له (docs/plan/72) */
+    public function scanPickup(Request $request, PickupRequest $pickup): JsonResponse
+    {
+        abort_unless($pickup->courier_id === $this->courier($request)->id, 404);
+
+        $found = ScanParcel::resolve($pickup, (string) $request->query('code'));
+
+        return is_string($found)
+            ? response()->json(['message' => $found], 422)
+            : response()->json(['data' => [
+                'id' => $found->id,
+                'number' => $found->number,
+                'recipient' => $found->recipient_name,
+                'amount' => (int) $found->cod_amount,
+            ]]);
+    }
+
+    /** «استلمت الطرود»: كلّ شحنات التاجر المعلّقة دفعةً واحدة كما في الموقع — أو ما مُسح منها وحده */
     public function completePickup(Request $request, PickupRequest $pickup, CompletePickup $action): JsonResponse
     {
         $courier = $this->courier($request);
@@ -92,12 +112,24 @@ class WorkController extends Controller
             return response()->json(['message' => 'هذا الطلب مُغلق بالفعل.'], 422);
         }
 
+        $scan = ScanParcel::required();
         $data = $request->validate([
-            'actual_count' => ['required', 'integer', 'min:0', 'max:5000'],
+            'actual_count' => [$scan ? 'nullable' : 'required', 'integer', 'min:0', 'max:5000'],
+            'shipments' => [$scan ? 'required' : 'nullable', 'array', 'max:5000'],
+            'shipments.*' => ['integer'],
             'note' => ['nullable', 'string', 'max:500'],
-        ], [], ['actual_count' => 'العدد المستلم']);
+        ], ['shipments.required' => 'امسح الطرود التي استلمتها — بلا مسحٍ لا يُستلم شيء.'], ['actual_count' => 'العدد المستلم']);
 
-        $action->handle($pickup, $data['actual_count'], $request->user(), $data['note'] ?? null);
+        $ids = null;
+        if ($scan) {
+            $ids = ScanParcel::ids($pickup, $data['shipments']);
+            if (is_string($ids)) {
+                return response()->json(['message' => $ids, 'errors' => ['shipments' => [$ids]]], 422);
+            }
+            $data['actual_count'] = count($ids);
+        }
+
+        $action->handle($pickup, $data['actual_count'], $request->user(), $data['note'] ?? null, $ids);
 
         return response()->json([
             'message' => 'استُلم '.Arabic::parcels((int) $data['actual_count'])." من {$pickup->merchant->business_name}.",

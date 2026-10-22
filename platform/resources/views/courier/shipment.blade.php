@@ -169,6 +169,16 @@
         <input type="hidden" name="lat" data-geo-lat>
         <input type="hidden" name="lng" data-geo-lng>
 
+        {{-- الطرد في يده لا في ذاكرته (docs/plan/72): يُمسح باركوده أو يُكتب رقمه قبل أيّ تسجيل --}}
+        @if (\App\Actions\Couriers\ScanParcel::required())
+            <div class="card p-4">
+                <label class="field-label" for="scan">امسح باركود الشحنة أو اكتب رقمها</label>
+                <input id="scan" name="scan" class="field-input text-center text-lg" dir="ltr" inputmode="numeric"
+                       autocomplete="off" value="{{ old('scan') }}" placeholder="رقم الوصل" required>
+                @error('scan') <p class="field-error">{{ $message }}</p> @enderror
+            </div>
+        @endif
+
         {{-- تسليم: الفعل الأكثر تكراراً، فهو الأكبر والأول. والمبلغ ثابت: لا يُكتب هنا --}}
         <div class="card p-4">
             <p class="text-sm text-ink-600">

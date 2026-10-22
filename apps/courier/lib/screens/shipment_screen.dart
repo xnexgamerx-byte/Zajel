@@ -8,6 +8,7 @@ import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/digits.dart';
 import '../widgets/page.dart';
+import 'scan_screen.dart';
 import 'shipment_sheets.dart';
 
 /// الشحنة عند الباب (docs/plan/66): الزبون والعنوان والمبلغ، والكود إن كانت بكود، ثم
@@ -28,6 +29,10 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
   String? error;
   String? codeError;
   bool busy = false;
+
+  /// ما مُسح من الطرد قبل التسجيل (docs/plan/72) — يُرسل مع الإجراء ويطابقه النظام
+  String? scanned;
+  String? scanError;
 
   Brand get brand => widget.brand;
 
@@ -91,6 +96,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         reasonId: reasonId,
         note: note,
         code: code.text.trim(),
+        scan: scanned,
         lat: here?.lat,
         lng: here?.lng,
       );
@@ -109,6 +115,9 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
       if (!mounted) return;
       if (e.fields.containsKey('delivery_code')) {
         setState(() => codeError = e.fields['delivery_code']);
+      } else if (e.fields.containsKey('scan')) {
+        // ما مُسح ليس هذا الطرد: يُمسح من جديد
+        setState(() => (scanned = null, scanError = e.fields['scan']));
       } else {
         toast(context, e.message, bad: true);
         // لم تعد بيده (سحبها المكتب أو سُجّلت من الموقع): تُعرض بحالها الآن
@@ -117,6 +126,14 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  /// الماسح نفسه، يعود بما قرأه نصّاً — أو يُكتب الرقم في الماسح
+  Future<void> _scanParcel() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(fullscreenDialog: true, builder: (_) => ScanScreen(brand: brand, returnCode: true)),
+    );
+    if (code != null && mounted) setState(() => (scanned = code, scanError = null));
   }
 
   Future<void> _ticket() async {
@@ -167,6 +184,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                         children: [
+                          if (d.needsScan && d.canAct) ...[_scanCard(d), const SizedBox(height: 12)],
                           _customer(d),
                           const SizedBox(height: 12),
                           _amount(d),
@@ -432,8 +450,73 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
     ),
   );
 
+  /// «امسح الطرد»: لا يُسجَّل شيءٌ عند الباب قبل مسحه (docs/plan/72)
+  Widget _scanCard(ShipmentDetail d) {
+    final done = scanned != null;
+    return Tap(
+      radius: 20,
+      onTap: _scanParcel,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: done ? Palette.okSoft : brand.softer,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: done ? const Color(0xFFC6E5CF) : brand.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: done ? null : brand.hero,
+                    color: done ? Palette.ok : null,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    done ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        done ? 'مسحت الطرد' : 'امسح الطرد قبل التسجيل',
+                        style: font(14.5, w8, done ? Palette.ok : Palette.ink),
+                      ),
+                      Text(
+                        done
+                            ? 'يتحقّق النظام منه حين تسجّل. اضغط لتمسح من جديد.'
+                            : 'باركود الوصل الملصق عليه، أو اكتب رقمه.',
+                        style: font(12, w6, Palette.slate, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!done) Chev(size: 10, stroke: 1.7, color: brand.deep),
+              ],
+            ),
+            if (scanError != null) ...[
+              const SizedBox(height: 8),
+              Text(scanError!, style: font(12.5, w7, Palette.returnRed, height: 1.5)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _actions(ShipmentDetail d) {
-    final codeMissing = d.needsCode && code.text.trim().length < 4;
+    // لا شيء قبل مسح الطرد إن طُلب (docs/plan/72)
+    final scanMissing = d.needsScan && scanned == null;
+    final codeMissing = scanMissing || (d.needsCode && code.text.trim().length < 4);
     final partial = d.actions.contains('partially_delivered') && d.partialAmount != null;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
@@ -465,9 +548,17 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _secondary('لم تُسلَّم', Palette.warn, () => _notDelivered(postpone: false))),
+              Expanded(
+                child: _secondary(
+                  'لم تُسلَّم',
+                  Palette.warn,
+                  scanMissing ? null : () => _notDelivered(postpone: false),
+                ),
+              ),
               const SizedBox(width: 10),
-              Expanded(child: _secondary('مؤجلة', Palette.ink, () => _notDelivered(postpone: true))),
+              Expanded(
+                child: _secondary('مؤجلة', Palette.ink, scanMissing ? null : () => _notDelivered(postpone: true)),
+              ),
             ],
           ),
         ],
@@ -475,7 +566,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
     );
   }
 
-  Widget _secondary(String label, Color color, VoidCallback onTap) => SizedBox(
+  Widget _secondary(String label, Color color, VoidCallback? onTap) => SizedBox(
     height: 48,
     child: OutlinedButton(
       onPressed: busy ? null : onTap,

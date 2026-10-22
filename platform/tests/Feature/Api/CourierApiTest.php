@@ -480,4 +480,102 @@ class CourierApiTest extends TestCase
             ->assertJsonPath('data.1.mine', false)->assertJsonPath('data.1.body', 'اتصل به بعد ساعة');
         $this->getJson($this->api('/courier/home'), $this->auth($token))->assertJsonPath('chat.unread', false);
     }
+
+    // ------------------------------------------------------- مسح الشحنة عند الاستلام والتسليم (docs/plan/72)
+
+    public function test_with_scanning_on_the_courier_records_nothing_at_the_door_before_scanning_the_parcel(): void
+    {
+        $shipment = $this->ship('زينب علي');
+        $other = $this->ship('علي حسين');
+        $token = $this->token();
+        $url = $this->api('/courier/shipments/'.$shipment->id.'/act');
+
+        // مطفأةٌ: كما كان
+        $this->getJson($this->api('/courier/shipments/'.$shipment->id), $this->auth($token))->assertJsonPath('data.needs_scan', false);
+
+        $this->setFeature($this->company, Feature::ScanParcels);
+        $this->getJson($this->api('/courier/shipments/'.$shipment->id), $this->auth($token))->assertJsonPath('data.needs_scan', true);
+
+        $this->postJson($url, ['action' => 'delivered'], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('scan');
+        // طردٌ آخر بيده ليس هذا
+        $this->postJson($url, ['action' => 'delivered', 'scan' => $other->number], $this->auth($token))
+            ->assertUnprocessable()->assertJsonPath('errors.scan.0', fn ($m) => str_starts_with($m, 'ما مسحته ليس'));
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+
+        $this->postJson($url, ['action' => 'delivered', 'scan' => $shipment->number], $this->auth($token))->assertOk();
+        $this->assertSame(ShipmentStatus::Delivered, $this->fresh($shipment)->status);
+
+        // وشاشته في الموقع بالقاعدة نفسها
+        $this->app['auth']->forgetGuards();
+        $web = 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain').'/courier/shipments/'.$other->id;
+        $this->actingAs($this->user)->post($web, ['action' => 'failed_attempt', 'failure_reason_id' => $this->reason()->id])
+            ->assertSessionHasErrors('scan');
+        $this->actingAs($this->user)->post($web, ['action' => 'failed_attempt', 'failure_reason_id' => $this->reason()->id, 'scan' => $other->number])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(ShipmentStatus::FailedAttempt, $this->fresh($other)->status);
+    }
+
+    public function test_with_scanning_on_a_pickup_takes_only_the_scanned_parcels_of_that_merchant(): void
+    {
+        [$picker, $pickerUser] = $this->courierWithLogin('سجاد', '07721230009', ['type' => 'pickup']);
+        $make = fn (Merchant $merchant, string $name) => Tenancy::runFor($this->company, fn () => app(CreateShipment::class)->handle([
+            'merchant_id' => $merchant->id, 'recipient_name' => $name, 'recipient_phone' => '07801234567',
+            'governorate_id' => $this->baghdad()->id, 'address' => 'بغداد', 'cod_amount' => 30_000,
+        ], $this->staff));
+        [$first, $second, $third] = [$make($this->merchant, 'زبون 1'), $make($this->merchant, 'زبون 2'), $make($this->merchant, 'زبون 3')];
+        $foreign = $make($this->makeMerchant($this->company, 'M0002'), 'زبون تاجرٍ آخر');
+        $pickup = Tenancy::runFor($this->company, fn () => PickupRequest::create([
+            'merchant_id' => $this->merchant->id, 'courier_id' => $picker->id,
+            'number' => 'PU000001', 'status' => 'assigned', 'expected_count' => 3,
+        ]));
+        $this->setFeature($this->company, Feature::ScanParcels);
+        $token = $this->token($pickerUser);
+
+        $this->getJson($this->api('/courier/pickups'), $this->auth($token))->assertJsonPath('scan_required', true);
+        $scan = fn (string $code) => $this->getJson($this->api('/courier/pickups/'.$pickup->id.'/scan?code='.urlencode($code)), $this->auth($token));
+        $scan($first->number)->assertOk()->assertJsonPath('data.id', $first->id)->assertJsonPath('data.recipient', 'زبون 1');
+        $scan($foreign->number)->assertUnprocessable()->assertJsonPath('message', fn ($m) => str_contains($m, 'ليست لهذا التاجر'));
+        $scan('999999999')->assertUnprocessable();
+
+        $url = $this->api('/courier/pickups/'.$pickup->id.'/complete');
+        $this->postJson($url, ['actual_count' => 3], $this->auth($token))->assertUnprocessable()->assertJsonValidationErrors('shipments');
+        $this->postJson($url, ['shipments' => [$first->id, $foreign->id]], $this->auth($token))->assertUnprocessable();
+        $this->postJson($url, ['shipments' => [$first->id, $second->id]], $this->auth($token))->assertOk()
+            ->assertJsonPath('message', fn ($m) => str_starts_with($m, 'استُلم طردان'));
+
+        Tenancy::runFor($this->company, function () use ($first, $second, $third, $pickup) {
+            $this->assertSame(ShipmentStatus::PickedUp, $first->refresh()->status);
+            $this->assertSame(ShipmentStatus::PickedUp, $second->refresh()->status);
+            // ما لم يُمسح بقي عند التاجر
+            $this->assertNotSame(ShipmentStatus::PickedUp, $third->refresh()->status);
+            $this->assertSame(2, $pickup->refresh()->actual_count);
+        });
+    }
+
+    public function test_with_scanning_on_the_web_pickup_screen_takes_the_scanned_lines(): void
+    {
+        [$picker, $pickerUser] = $this->courierWithLogin('سجاد', '07721230009', ['type' => 'pickup']);
+        [$first, $second] = Tenancy::runFor($this->company, fn () => collect(['زبون 1', 'زبون 2'])->map(fn ($name) => app(CreateShipment::class)->handle([
+            'merchant_id' => $this->merchant->id, 'recipient_name' => $name, 'recipient_phone' => '07801234567',
+            'governorate_id' => $this->baghdad()->id, 'address' => 'بغداد', 'cod_amount' => 30_000,
+        ], $this->staff))->all());
+        $pickup = Tenancy::runFor($this->company, fn () => PickupRequest::create([
+            'merchant_id' => $this->merchant->id, 'courier_id' => $picker->id,
+            'number' => 'PU000001', 'status' => 'assigned', 'expected_count' => 2,
+        ]));
+        $this->setFeature($this->company, Feature::ScanParcels);
+        $url = 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain').'/courier/pickups/'.$pickup->id.'/complete';
+
+        $this->actingAs($pickerUser)->post($url, ['actual_count' => 2])->assertSessionHasErrors('codes');
+        $this->actingAs($pickerUser)->post($url, ['codes' => "{$first->number}\n999999999"])->assertSessionHasErrors('codes');
+        // قارئ الباركود يكتب الرقم مرّتين أحياناً: يُعدّ مرّة
+        $this->actingAs($pickerUser)->post($url, ['codes' => "{$first->number}\n{$first->number}\n"])
+            ->assertSessionHas('success', fn ($m) => str_starts_with($m, 'استُلم طرد واحد'));
+
+        Tenancy::runFor($this->company, function () use ($first, $second) {
+            $this->assertSame(ShipmentStatus::PickedUp, $first->refresh()->status);
+            $this->assertNotSame(ShipmentStatus::PickedUp, $second->refresh()->status);
+        });
+    }
 }

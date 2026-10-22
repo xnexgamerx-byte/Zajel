@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Courier;
 
 use App\Actions\Couriers\RecordCourierOutcome;
+use App\Actions\Couriers\ScanParcel;
 use App\Actions\Shipments\ShipmentTickets;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
@@ -56,6 +57,8 @@ class ShipmentController extends Controller
             'failure_reason_id' => ['nullable', 'integer'],
             'note' => ['nullable', 'string', 'max:500'],
             'delivery_code' => ['nullable', 'string', 'max:10'],
+            // الطرد ممسوحٌ في يده (docs/plan/72)
+            'scan' => ['nullable', 'string', 'max:300'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
         ], [
@@ -178,6 +181,8 @@ class ShipmentController extends Controller
                 ? ['lat' => (float) $shipment->lat, 'lng' => (float) $shipment->lng] : null,
             'merchant' => ['name' => $shipment->merchant?->business_name, 'phone' => $shipment->merchant?->phone],
             'amount' => (int) $shipment->cod_amount,
+            // يُمسح الطرد قبل أيّ تسجيل (docs/plan/72)
+            'needs_scan' => $canAct && ScanParcel::required(),
             'needs_code' => filled($shipment->delivery_code),
             'pieces' => (int) $shipment->pieces_count,
             'description' => $shipment->description,

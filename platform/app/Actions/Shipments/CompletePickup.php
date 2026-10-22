@@ -22,12 +22,16 @@ class CompletePickup
         protected \App\Actions\Pickups\AccruePickupShare $shares,
     ) {}
 
-    public function handle(PickupRequest $pickup, int $actualCount, ?User $actor = null, ?string $note = null): PickupRequest
+    /**
+     * @param  list<int>|null  $only  الشحنات الممسوحة وحدها (docs/plan/72): ما لم يُمسح يبقى عند التاجر
+     */
+    public function handle(PickupRequest $pickup, int $actualCount, ?User $actor = null, ?string $note = null, ?array $only = null): PickupRequest
     {
-        return DB::transaction(function () use ($pickup, $actualCount, $actor, $note) {
+        return DB::transaction(function () use ($pickup, $actualCount, $actor, $note, $only) {
             $pending = Shipment::query()
                 ->where('merchant_id', $pickup->merchant_id)
                 ->whereIn('status', [ShipmentStatus::Created->value, ShipmentStatus::PendingPickup->value])
+                ->when($only !== null, fn ($q) => $q->whereIn('id', $only))
                 ->get();
 
             foreach ($pending as $shipment) {

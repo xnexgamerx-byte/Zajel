@@ -77,6 +77,9 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             // «اليوم» و«الاستلام» و«حصصي» والجرس والمحادثة (docs/plan/71): شاشاته في الموقع نفسها
             Route::get('/today', [CourierWorkController::class, 'today'])->name('today');
             Route::get('/pickups', [CourierWorkController::class, 'pickups'])->name('pickups');
+            // بمسح الشحنات وحده (docs/plan/72)
+            Route::get('/pickups/{pickup}/scan', [CourierWorkController::class, 'scanPickup'])->whereNumber('pickup')
+                ->middleware(['feature:scan_parcels', 'throttle:120,1'])->name('pickups.scan');
             Route::post('/pickups/{pickup}/complete', [CourierWorkController::class, 'completePickup'])->whereNumber('pickup')
                 ->middleware('throttle:30,1')->name('pickups.complete');
             Route::get('/shares', [CourierWorkController::class, 'shares'])->name('shares');

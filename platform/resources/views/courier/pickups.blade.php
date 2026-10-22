@@ -43,10 +43,18 @@
 
         <form method="POST" action="{{ route('courier.pickups.complete', $pickup) }}" class="mt-3 space-y-2">
             @csrf
-            <label class="field-label" for="actual_count-{{ $pickup->id }}">العدد المستلم فعلاً</label>
-            <input id="actual_count-{{ $pickup->id }}" name="actual_count" type="number" min="0"
-                   class="field-input text-left text-lg" dir="ltr"
-                   value="{{ old('actual_count', $pickup->expected_count) }}" required>
+            @if ($scanRequired)
+                {{-- بمسح الشحنات (docs/plan/72): قارئ الباركود يكتب الرقم ويضغط Enter فينزل سطراً --}}
+                <label class="field-label" for="codes-{{ $pickup->id }}">امسح باركود كلّ طرد، أو اكتب أرقامها — سطرٌ لكلّ شحنة</label>
+                <textarea id="codes-{{ $pickup->id }}" name="codes" rows="4" dir="ltr" required
+                          class="field-input text-left text-lg" autocomplete="off">{{ old('codes') }}</textarea>
+                @error('codes') <p class="field-error">{{ $message }}</p> @enderror
+            @else
+                <label class="field-label" for="actual_count-{{ $pickup->id }}">العدد المستلم فعلاً</label>
+                <input id="actual_count-{{ $pickup->id }}" name="actual_count" type="number" min="0"
+                       class="field-input text-left text-lg" dir="ltr"
+                       value="{{ old('actual_count', $pickup->expected_count) }}" required>
+            @endif
 
             <button type="submit"
                     class="w-full rounded-xl px-4 py-3.5 text-base font-bold text-white active:opacity-90"
@@ -54,7 +62,11 @@
                 استلمت الطرود
             </button>
             <p class="text-xs text-ink-500">
-                يُسجَّل استلام كل شحنات هذا التاجر المعلّقة دفعة واحدة.
+                @if ($scanRequired)
+                    يُستلم ما مسحته وحده، وما لم تمسحه يبقى عند التاجر.
+                @else
+                    يُسجَّل استلام كل شحنات هذا التاجر المعلّقة دفعة واحدة.
+                @endif
             </p>
         </form>
     </div>
