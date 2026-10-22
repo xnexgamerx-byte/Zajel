@@ -29,7 +29,15 @@ class AuthController extends Controller
     private const APPS = [
         'merchant' => [UserRole::Merchant],
         'courier'  => [UserRole::Courier],
+        // تطبيق الكول سنتر (docs/plan/73): موظّفو الشركة ممّن يعالجون التذاكر أو الشحنات أو المحادثات
+        'callcenter' => [
+            UserRole::CompanyOwner, UserRole::CompanyAdmin, UserRole::BranchOwner, UserRole::BranchManager,
+            UserRole::Operations, UserRole::CustomerService, UserRole::Accountant,
+        ],
     ];
+
+    /** ما يُعمل في تطبيق الكول سنتر: من لا يملك شيئاً منها لا يدخله */
+    public const CALL_CENTRE_ABILITIES = ['tickets.handle', 'shipments.status', 'support.reply'];
 
     /** هوية الشركة لشاشة الدخول قبل أن يدخل أحد */
     public function company(Request $request): JsonResponse
@@ -69,9 +77,17 @@ class AuthController extends Controller
         }
 
         if (! in_array($user->role, self::APPS[$data['app']], true)) {
-            throw ValidationException::withMessages(['username' => $data['app'] === 'merchant'
-                ? 'هذا التطبيق للتجّار. ادخل من تطبيقك أو من الموقع.'
-                : 'هذا التطبيق للمندوبين. ادخل من تطبيقك أو من الموقع.']);
+            throw ValidationException::withMessages(['username' => match ($data['app']) {
+                'merchant' => 'هذا التطبيق للتجّار. ادخل من تطبيقك أو من الموقع.',
+                'courier'  => 'هذا التطبيق للمندوبين. ادخل من تطبيقك أو من الموقع.',
+                default    => 'هذا التطبيق لموظّفي الكول سنتر. ادخل من تطبيقك أو من الموقع.',
+            }]);
+        }
+
+        if ($data['app'] === 'callcenter' && ! collect(self::CALL_CENTRE_ABILITIES)->contains(fn ($a) => $user->can($a))) {
+            throw ValidationException::withMessages([
+                'username' => 'حسابك لا يعالج التذاكر ولا الشحنات ولا المحادثات. اطلب الصلاحية من مدير الشركة.',
+            ]);
         }
 
         if ($user->role === UserRole::Merchant) {
