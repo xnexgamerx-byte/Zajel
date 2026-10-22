@@ -151,7 +151,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 child: Container(
                   height: 46,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF6F8FB),
+                    color: Palette.field,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Palette.line),
                   ),
@@ -193,7 +193,7 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Widget _noCamera() => ColoredBox(
-    color: const Color(0xFF1B2333),
+    color: const Color(0xFF241517),
     // تحت إطار المسح لا فوقه
     child: Align(
       alignment: const Alignment(0, .42),

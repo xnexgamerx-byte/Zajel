@@ -3,14 +3,18 @@
 namespace App\Http\Controllers\Api\Courier;
 
 use App\Actions\Returns\ReceiveReturns;
+use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Courier;
 use App\Models\CourierSettlement;
+use App\Models\CourierThread;
+use App\Models\PickupRequest;
 use App\Models\Shipment;
 use App\Models\ShipmentTicket;
 use App\Models\Transaction;
+use App\Support\FeatureGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -49,6 +53,16 @@ class HomeController extends Controller
             'name' => $courier->name,
             'type' => $courier->type,
             'unread' => Announcement::for($user)->whereDoesntHave('reads', fn ($q) => $q->where('user_id', $user->id))->count(),
+            // ما يعمله: توصيل أو استلام أو كلاهما — يُظهر التطبيق شاشاته وحدها (docs/plan/71)
+            'delivers' => $courier->delivers(),
+            'picks' => $courier->picks(),
+            'pickups' => $courier->picks()
+                ? PickupRequest::where('courier_id', $courier->id)->whereIn('status', ['assigned', 'in_progress'])->count()
+                : 0,
+            // المحادثة مع المكتب إن فُتحت للشركة، ونقطةٌ إن كتب المكتب ولم يُقرأ
+            'chat' => FeatureGate::enabled(Feature::Conversations)
+                ? ['unread' => CourierThread::where('courier_id', $courier->id)->where('courier_unread', true)->exists()]
+                : null,
             'in_hand' => [
                 'count' => (clone $inHand)->count(),
                 'to_collect' => (int) (clone $inHand)->sum('cod_amount'),
@@ -58,6 +72,8 @@ class HomeController extends Controller
                 'delivered' => (int) (($today[ShipmentStatus::Delivered->value] ?? 0) + ($today[ShipmentStatus::PartiallyDelivered->value] ?? 0)),
                 'failed' => (int) ($today[ShipmentStatus::FailedAttempt->value] ?? 0),
                 'postponed' => (int) ($today[ShipmentStatus::Postponed->value] ?? 0),
+                'collected' => (int) Shipment::query()->where('delivery_courier_id', $courier->id)
+                    ->whereOnDate('delivered_at', today())->sum('collected_amount'),
             ],
             'returns' => (clone $returns)->count(),
             'attention' => $this->attention($courier, $returns),

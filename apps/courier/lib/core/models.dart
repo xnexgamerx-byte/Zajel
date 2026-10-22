@@ -87,6 +87,12 @@ class HomeData {
     required this.postponed,
     required this.returns,
     required this.attention,
+    this.collected = 0,
+    this.delivers = true,
+    this.picks = false,
+    this.pickups = 0,
+    this.chat = false,
+    this.chatUnread = false,
   });
 
   factory HomeData.fromJson(Map<String, dynamic> j) {
@@ -104,6 +110,12 @@ class HomeData {
       postponed: _int(today['postponed']),
       returns: _int(j['returns']),
       attention: [for (final a in _list(j['attention'])) Attention.fromJson(a)],
+      collected: _int(today['collected']),
+      delivers: j['delivers'] as bool? ?? true,
+      picks: j['picks'] as bool? ?? false,
+      pickups: _int(j['pickups']),
+      chat: j['chat'] is Map,
+      chatUnread: (j['chat'] as Map?)?['unread'] as bool? ?? false,
     );
   }
 
@@ -118,6 +130,20 @@ class HomeData {
   final int postponed;
   final int returns;
   final List<Attention> attention;
+
+  /// ما حصّله اليوم (docs/plan/71)
+  final int collected;
+
+  /// مندوب توصيل، أو استلام، أو كلاهما: تظهر شاشاته وحدها
+  final bool delivers;
+  final bool picks;
+
+  /// طلبات الاستلام المُسنَدة إليه الآن
+  final int pickups;
+
+  /// المحادثة مع المكتب مفتوحةٌ للشركة، وفيها ما لم يُقرأ
+  final bool chat;
+  final bool chatUnread;
 }
 
 /// سطر الشحنة في «مهامي»
@@ -461,4 +487,227 @@ class Outcome {
 
   final String message;
   final ShipmentDetail shipment;
+}
+
+// ------------------------------------------------------------- «اليوم» والاستلام والحصص والجرس والمكتب (docs/plan/71)
+
+DateTime? _at(Object? v) => v is String ? DateTime.tryParse(v)?.toLocal() : null;
+
+/// سطرٌ في «اليوم»: الشحنة بحالها، وما حصّله منها، ومتى
+class TodayRow {
+  TodayRow({required this.row, this.governorate, this.collected = 0, this.at});
+
+  factory TodayRow.fromJson(Map<String, dynamic> j) => TodayRow(
+    row: TaskRow.fromJson(j),
+    governorate: j['governorate'] as String?,
+    collected: _int(j['collected']),
+    at: _at(j['at']),
+  );
+
+  final TaskRow row;
+  final String? governorate;
+  final int collected;
+  final DateTime? at;
+}
+
+class TodayPage {
+  TodayPage({
+    required this.delivered,
+    required this.notDelivered,
+    required this.postponed,
+    required this.collected,
+    required this.rows,
+  });
+
+  factory TodayPage.fromJson(Map<String, dynamic> j) => TodayPage(
+    delivered: _int(j['delivered']),
+    notDelivered: _int(j['not_delivered']),
+    postponed: _int(j['postponed']),
+    collected: _int(j['collected']),
+    rows: [for (final r in _list(j['data'])) TodayRow.fromJson(r)],
+  );
+
+  final int delivered;
+  final int notDelivered;
+  final int postponed;
+  final int collected;
+  final List<TodayRow> rows;
+}
+
+/// طلب استلامٍ مُسنَدٌ لمندوب الاستلام
+class PickupItem {
+  PickupItem({
+    required this.id,
+    required this.number,
+    required this.merchant,
+    required this.expected,
+    this.address,
+    this.landmark,
+    this.notes,
+    this.phone,
+    this.at,
+  });
+
+  factory PickupItem.fromJson(Map<String, dynamic> j) => PickupItem(
+    id: _int(j['id']),
+    number: j['number'] as String? ?? '',
+    merchant: j['merchant'] as String? ?? '',
+    expected: _int(j['expected']),
+    address: j['address'] as String?,
+    landmark: j['landmark'] as String?,
+    notes: j['notes'] as String?,
+    phone: j['phone'] as String?,
+    at: _at(j['at']),
+  );
+
+  final int id;
+  final String number;
+  final String merchant;
+  final int expected;
+  final String? address;
+  final String? landmark;
+  final String? notes;
+  final String? phone;
+  final DateTime? at;
+}
+
+/// دفعة ربحٍ لمندوب الاستلام: يؤكّد وصولها
+class Payout {
+  Payout({
+    required this.id,
+    required this.number,
+    required this.paid,
+    this.earned = 0,
+    this.centre = 0,
+    this.confirmed = false,
+    this.date,
+  });
+
+  factory Payout.fromJson(Map<String, dynamic> j) => Payout(
+    id: _int(j['id']),
+    number: j['number'] as String? ?? '',
+    paid: _int(j['paid']),
+    earned: _int(j['earned']),
+    centre: _int(j['centre']),
+    confirmed: j['confirmed'] as bool? ?? false,
+    date: j['date'] as String?,
+  );
+
+  final int id;
+  final String number;
+  final int paid;
+  final int earned;
+  final int centre;
+  bool confirmed;
+  final String? date;
+}
+
+/// حصّته من طلب استلام: العدد × السعر، ويعترض على العدد ما لم يُبتّ فيها
+class Share {
+  Share({
+    required this.id,
+    this.pickup,
+    required this.count,
+    required this.rate,
+    required this.amount,
+    required this.status,
+    required this.statusLabel,
+    this.note,
+    this.canObject = false,
+    this.date,
+  });
+
+  factory Share.fromJson(Map<String, dynamic> j) => Share(
+    id: _int(j['id']),
+    pickup: j['pickup'] as String?,
+    count: _int(j['count']),
+    rate: _int(j['rate']),
+    amount: _int(j['amount']),
+    status: j['status'] as String? ?? '',
+    statusLabel: j['status_label'] as String? ?? '',
+    note: j['note'] as String?,
+    canObject: j['can_object'] as bool? ?? false,
+    date: j['date'] as String?,
+  );
+
+  final int id;
+  final String? pickup;
+  final int count;
+  final int rate;
+  final int amount;
+  final String status;
+  final String statusLabel;
+  final String? note;
+  final bool canObject;
+  final String? date;
+}
+
+class SharesPage {
+  SharesPage({required this.balance, required this.payouts, required this.shares});
+
+  factory SharesPage.fromJson(Map<String, dynamic> j) => SharesPage(
+    balance: _int(j['balance']),
+    payouts: [for (final p in _list(j['payouts'])) Payout.fromJson(p)],
+    shares: [for (final s in _list(j['shares'])) Share.fromJson(s)],
+  );
+
+  final int balance;
+  final List<Payout> payouts;
+  final List<Share> shares;
+}
+
+/// إعلانٌ من الشركة في الجرس
+class Notice {
+  Notice({required this.id, required this.title, required this.body, this.fresh = false, this.at});
+
+  factory Notice.fromJson(Map<String, dynamic> j) => Notice(
+    id: _int(j['id']),
+    title: j['title'] as String? ?? '',
+    body: j['body'] as String? ?? '',
+    fresh: j['fresh'] as bool? ?? false,
+    at: _at(j['at']),
+  );
+
+  final int id;
+  final String title;
+  final String body;
+  final bool fresh;
+  final DateTime? at;
+}
+
+/// رسالةٌ في المحادثة مع المكتب — ورقم الشحنة يفتحها إن كانت شحنته
+class ChatMessage {
+  ChatMessage({
+    required this.id,
+    required this.mine,
+    required this.author,
+    required this.body,
+    this.shipmentId,
+    this.shipmentNumber,
+    this.recipient,
+    this.at,
+  });
+
+  factory ChatMessage.fromJson(Map<String, dynamic> j) {
+    final shipment = (j['shipment'] as Map?)?.cast<String, dynamic>();
+    return ChatMessage(
+      id: _int(j['id']),
+      mine: j['mine'] as bool? ?? false,
+      author: j['author'] as String? ?? '',
+      body: j['body'] as String? ?? '',
+      shipmentId: shipment?['id'] as int?,
+      shipmentNumber: shipment?['number'] as String?,
+      recipient: shipment?['recipient'] as String?,
+      at: _at(j['at']),
+    );
+  }
+
+  final int id;
+  final bool mine;
+  final String author;
+  final String body;
+  final int? shipmentId;
+  final String? shipmentNumber;
+  final String? recipient;
+  final DateTime? at;
 }

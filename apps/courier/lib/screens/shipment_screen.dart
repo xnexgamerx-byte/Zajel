@@ -363,7 +363,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         Container(
           height: 58,
           decoration: BoxDecoration(
-            color: const Color(0xFFF6F8FB),
+            color: Palette.field,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: codeError != null ? Palette.bad : Palette.line,

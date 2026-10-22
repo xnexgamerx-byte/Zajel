@@ -32,6 +32,11 @@ class Demo {
     _moves
       ..clear()
       ..addAll(_seedMoves());
+    _pickups = _seedPickups();
+    _payouts = _seedPayouts();
+    _shares = _seedShares();
+    _chat = _seedChat();
+    _chatUnread = true;
   }
 
   static List<_Parcel> _seed() => [
@@ -138,6 +143,13 @@ class Demo {
     failed: _failed,
     postponed: _postponed,
     returns: _returns.length,
+    collected: _collectedToday,
+    // مندوب توصيلٍ واستلامٍ معاً: تظهر الشاشات كلّها في العرض
+    delivers: true,
+    picks: true,
+    pickups: _pickups.length,
+    chat: true,
+    chatUnread: _chatUnread,
     attention: [
       for (final p in _out.where((p) => p.ticket != null && p.ticket!.status != 'rejected'))
         Attention(
@@ -278,6 +290,221 @@ class Demo {
       ),
     ],
   );
+
+  // ------------------------------------------- «اليوم» والاستلام والحصص والجرس والمكتب (docs/plan/71)
+
+  /// ما سُجّل اليوم قبل فتح العرض: ثلاثٌ سُلّمت وواحدةٌ لم تُسلَّم
+  static final _earlier = [
+    TodayRow(
+      row: TaskRow(
+        id: 180180,
+        number: '180180',
+        status: 'delivered',
+        statusLabel: 'واصل',
+        recipient: 'هدى كريم',
+        city: 'الكرادة',
+        amount: 35000,
+      ),
+      governorate: 'بغداد',
+      collected: 35000,
+      at: _ago(3),
+    ),
+    TodayRow(
+      row: TaskRow(
+        id: 180181,
+        number: '180181',
+        status: 'delivered',
+        statusLabel: 'واصل',
+        recipient: 'سيف علي',
+        city: 'المنصور',
+        amount: 50000,
+      ),
+      governorate: 'بغداد',
+      collected: 50000,
+      at: _ago(4),
+    ),
+    TodayRow(
+      row: TaskRow(
+        id: 180182,
+        number: '180182',
+        status: 'failed_attempt',
+        statusLabel: 'لم يُسلَّم',
+        recipient: 'منى جاسم',
+        city: 'الكرادة',
+        amount: 20000,
+        failure: 'لا يرد على الهاتف',
+      ),
+      governorate: 'بغداد',
+      at: _ago(5),
+    ),
+  ];
+
+  static int get _collectedToday =>
+      _earlier.fold(0, (s, r) => s + r.collected) +
+      _parcels.where((p) => p.status == 'delivered').fold(0, (s, p) => s + p.amount);
+
+  static Future<TodayPage> today() async {
+    final now = [
+      for (final p in _parcels.where((p) => p.status != 'out_for_delivery' && p.status != 'returning'))
+        TodayRow(
+          row: p.row(),
+          governorate: 'بغداد',
+          collected: p.status == 'delivered' ? p.amount : 0,
+          at: DateTime.now(),
+        ),
+    ];
+    final rows = [...now, ..._earlier];
+    return TodayPage(
+      delivered: rows.where((r) => r.row.status == 'delivered' || r.row.status == 'partially_delivered').length,
+      notDelivered: rows.where((r) => r.row.status == 'failed_attempt').length,
+      postponed: rows.where((r) => r.row.status == 'postponed').length,
+      collected: rows.fold(0, (s, r) => s + r.collected),
+      rows: rows,
+    );
+  }
+
+  static List<PickupItem> _pickups = _seedPickups();
+
+  static List<PickupItem> _seedPickups() => [
+    PickupItem(
+      id: 1,
+      number: 'PU000119',
+      merchant: 'متجر الوردة',
+      expected: 12,
+      address: 'الكرادة داخل، شارع 62',
+      landmark: 'مقابل مطعم الساعة',
+      phone: '07700000001',
+      at: DateTime.now().add(const Duration(hours: 1)),
+    ),
+    PickupItem(
+      id: 2,
+      number: 'PU000121',
+      merchant: 'بيت العطور',
+      expected: 5,
+      address: 'المنصور، شارع 14 رمضان',
+      landmark: 'قرب جامع الرحمن',
+      notes: 'الطرود في المخزن الخلفي',
+      phone: '07700000002',
+      at: DateTime.now().add(const Duration(hours: 3)),
+    ),
+  ];
+
+  static Future<List<PickupItem>> pickups() async => List.of(_pickups);
+
+  static Future<String> completePickup(int id, int count) async {
+    final p = _pickups.firstWhere((p) => p.id == id, orElse: () => throw ApiError('هذا الطلب مُغلق بالفعل.'));
+    _pickups.remove(p);
+    return 'استُلم ${parcels(count)} من ${p.merchant}.';
+  }
+
+  static List<Payout> _payouts = _seedPayouts();
+
+  static List<Payout> _seedPayouts() => [
+    Payout(id: 12, number: 'PP-000012', paid: 30000, earned: 30000, date: '2026-10-20'),
+    Payout(id: 9, number: 'PP-000009', paid: 22000, earned: 24000, centre: 2000, confirmed: true, date: '2026-10-12'),
+  ];
+
+  static List<Share> _shares = _seedShares();
+
+  static List<Share> _seedShares() => [
+    Share(
+      id: 31,
+      pickup: 'PU000118',
+      count: 9,
+      rate: 1000,
+      amount: 9000,
+      status: 'accrued',
+      statusLabel: 'مستحقّة',
+      canObject: true,
+      date: '2026-10-21',
+    ),
+    Share(
+      id: 30,
+      pickup: 'PU000112',
+      count: 6,
+      rate: 1000,
+      amount: 7000,
+      status: 'accepted',
+      statusLabel: 'قُبل الاعتراض',
+      note: 'طردٌ إضافي سُجّل بعد المراجعة',
+      date: '2026-10-19',
+    ),
+    Share(
+      id: 29,
+      pickup: 'PU000108',
+      count: 11,
+      rate: 1000,
+      amount: 11000,
+      status: 'paid',
+      statusLabel: 'مدفوعة',
+      date: '2026-10-15',
+    ),
+  ];
+
+  static Future<SharesPage> shares() async =>
+      SharesPage(balance: 42000, payouts: List.of(_payouts), shares: List.of(_shares));
+
+  static Future<String> objectShare(int id, int count, String reason) async {
+    if (reason.trim().isEmpty) throw _field('reason', 'حقل السبب مطلوب.');
+    final i = _shares.indexWhere((s) => s.id == id);
+    final old = _shares[i];
+    _shares[i] = Share(
+      id: old.id,
+      pickup: old.pickup,
+      count: old.count,
+      rate: old.rate,
+      amount: old.amount,
+      status: 'objected',
+      statusLabel: 'معترَض عليها',
+      date: old.date,
+    );
+    return 'سُجّل اعتراضك. سيُبتّ فيه من إدارة الفرع.';
+  }
+
+  static Future<String> confirmPayout(int id) async {
+    final p = _payouts.firstWhere((p) => p.id == id);
+    if (p.confirmed) throw ApiError('الدفعة ${p.number} مؤكَّدة سلفاً.');
+    p.confirmed = true;
+    return 'أكّدت استلام الدفعة ${p.number}.';
+  }
+
+  static Future<List<Notice>> notifications() async => [
+    Notice(
+      id: 2,
+      title: 'تغيير وقت الاستلام',
+      body: 'يبدأ استلام الرواجع في المخزن من الساعة 4 عصراً بدل 5.',
+      fresh: true,
+      at: _ago(2),
+    ),
+    Notice(id: 1, title: 'عطلة الجمعة', body: 'لا توصيل يوم الجمعة القادم.', fresh: true, at: _ago(26)),
+  ];
+
+  static List<ChatMessage> _chat = _seedChat();
+  static bool _chatUnread = true;
+
+  static List<ChatMessage> _seedChat() => [
+    ChatMessage(
+      id: 1,
+      mine: true,
+      author: 'أنت',
+      body: 'الزبون لا يردّ على الهاتف، أنا عند البيت.',
+      shipmentId: 180209,
+      shipmentNumber: '180209',
+      recipient: 'نور الهدى',
+      at: _ago(2),
+    ),
+    ChatMessage(id: 2, mine: false, author: 'الكول سنتر', body: 'اتصلنا به: ينزل بعد عشر دقائق.', at: _ago(1)),
+  ];
+
+  static Future<List<ChatMessage>> chat() async {
+    _chatUnread = false;
+    return List.of(_chat);
+  }
+
+  static Future<void> sendChat(String text, {int? shipmentId}) async {
+    if (text.trim().isEmpty) throw _field('body', 'اكتب رسالتك.');
+    _chat.add(ChatMessage(id: _chat.length + 1, mine: true, author: 'أنت', body: text.trim(), at: DateTime.now()));
+  }
 
   static ApiError _field(String field, String message) => ApiError(message, fields: {field: message});
 }

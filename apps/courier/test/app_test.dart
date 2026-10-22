@@ -225,4 +225,62 @@ void main() {
     await _tap(tester, find.text('الراجع بيدي'));
     expect(find.text(tag('180190')), findsOneWidget);
   });
+
+  testWidgets('اليوم: ما سجّله وما حصّله، من اختصار الرئيسية', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.text('اليوم').first);
+    expect(find.text('ما سجّلته اليوم وما حصّلته'), findsOneWidget);
+    expect(find.text('حصّلت اليوم'), findsOneWidget);
+    expect(find.text('هدى كريم'), findsOneWidget);
+    expect(find.text('لا يرد على الهاتف'), findsOneWidget);
+  });
+
+  testWidgets('الاستلام: يتّصل بالتاجر ويسجّل ما استلمه فعلاً', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.text('الاستلام').first);
+    expect(find.text('متجر الوردة'), findsOneWidget);
+    expect(find.text('مقابل مطعم الساعة'), findsOneWidget);
+    await _tap(tester, find.text('استلمت الطرود').first);
+    expect(find.text('يُسجَّل استلام كلّ شحنات هذا التاجر المعلّقة دفعةً واحدة.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, '11');
+    await _tap(tester, find.text('سجّل الاستلام'));
+    expect(find.text('استُلم 11 طرداً من متجر الوردة.'), findsOneWidget);
+    expect(find.text('متجر الوردة'), findsNothing);
+    expect(find.text('بيت العطور'), findsOneWidget);
+  });
+
+  testWidgets('حصصي: اعتراضٌ على العدد، وتأكيد دفعة الربح مرّة واحدة', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.text('حصصي').first);
+    expect(find.text('رصيدك المستحقّ الآن'), findsOneWidget);
+    expect(find.textContaining('42,000', findRichText: true), findsOneWidget);
+
+    await _tap(tester, find.text('استلمتُها').first);
+    expect(find.text('أكّدت استلام الدفعة PP-000012.'), findsOneWidget);
+    expect(find.text('استلمتُها'), findsNWidgets(2));
+
+    await _tap(tester, find.text('العدد غير صحيح؟ اعترض'));
+    await _tap(tester, find.text('أرسل الاعتراض'));
+    expect(find.text('اكتب لماذا العدد غير صحيح.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'جمعتُ طردين إضافيين');
+    await _tap(tester, find.text('أرسل الاعتراض'));
+    expect(find.text('سُجّل اعتراضك. سيُبتّ فيه من إدارة الفرع.'), findsOneWidget);
+    expect(find.text('معترَض عليها'), findsOneWidget);
+    expect(find.text('العدد غير صحيح؟ اعترض'), findsNothing);
+  });
+
+  testWidgets('الجرس والمحادثة مع المكتب من رأس الرئيسية', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.byTooltip('الإشعارات'));
+    expect(find.text('تغيير وقت الاستلام'), findsOneWidget);
+    expect(find.text('جديد'), findsNWidgets(2));
+    await _tap(tester, find.byTooltip('رجوع'));
+
+    await _tap(tester, find.byTooltip('المحادثة مع المكتب'));
+    expect(find.text('اتصلنا به: ينزل بعد عشر دقائق.'), findsOneWidget);
+    expect(find.text('الشحنة ${tag('180209')} — نور الهدى'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'العنوان غلط، الزبون في الكرادة خارج');
+    await _tap(tester, find.byTooltip('أرسل'));
+    expect(find.text('العنوان غلط، الزبون في الكرادة خارج'), findsOneWidget);
+  });
 }

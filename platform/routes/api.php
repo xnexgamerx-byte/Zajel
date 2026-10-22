@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Courier\HomeController as CourierHomeController;
+use App\Http\Controllers\Api\Courier\InboxController as CourierInboxController;
 use App\Http\Controllers\Api\Courier\ShipmentController as CourierShipmentController;
 use App\Http\Controllers\Api\Courier\TaskController as CourierTaskController;
+use App\Http\Controllers\Api\Courier\WorkController as CourierWorkController;
 use App\Http\Controllers\Api\Merchant\CreateShipmentController as MerchantCreateShipmentController;
 use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceController;
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
@@ -71,6 +73,21 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
                 ->middleware('throttle:20,1')->name('shipments.ticket.store');
             // موقع الهاتف ما دام التطبيق مفتوحاً (docs/plan/62) — المتحكّم نفسه الذي في الموقع
             Route::post('/location', CourierLocationController::class)->middleware('throttle:30,1')->name('location');
+
+            // «اليوم» و«الاستلام» و«حصصي» والجرس والمحادثة (docs/plan/71): شاشاته في الموقع نفسها
+            Route::get('/today', [CourierWorkController::class, 'today'])->name('today');
+            Route::get('/pickups', [CourierWorkController::class, 'pickups'])->name('pickups');
+            Route::post('/pickups/{pickup}/complete', [CourierWorkController::class, 'completePickup'])->whereNumber('pickup')
+                ->middleware('throttle:30,1')->name('pickups.complete');
+            Route::get('/shares', [CourierWorkController::class, 'shares'])->name('shares');
+            Route::post('/shares/{share}/object', [CourierWorkController::class, 'objectShare'])->whereNumber('share')
+                ->middleware('throttle:20,1')->name('shares.object');
+            Route::post('/payouts/{payout}/confirm', [CourierWorkController::class, 'confirmPayout'])->whereNumber('payout')->name('payouts.confirm');
+            Route::get('/notifications', [CourierInboxController::class, 'notifications'])->name('notifications');
+            Route::middleware('feature:conversations')->group(function () {
+                Route::get('/chat', [CourierInboxController::class, 'chat'])->name('chat');
+                Route::post('/chat', [CourierInboxController::class, 'send'])->middleware('throttle:30,1')->name('chat.send');
+            });
         });
 
         Route::prefix('merchant')->name('merchant.')->middleware(['abilities:merchant', 'merchant'])->group(function () {

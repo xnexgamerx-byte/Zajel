@@ -2,15 +2,22 @@
 
 namespace Tests\Feature\Api;
 
+use App\Actions\Notify\Announce;
 use App\Actions\Shipments\CreateShipment;
 use App\Actions\Shipments\SendOutForDelivery;
 use App\Actions\Shipments\ShipmentTickets;
+use App\Actions\Support\CourierChat;
+use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Models\Company;
+use App\Models\CompanyFeature;
 use App\Models\Courier;
 use App\Models\FailureReason;
 use App\Models\Merchant;
+use App\Models\PickupPayout;
+use App\Models\PickupRequest;
+use App\Models\PickupShare;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\ShipmentTicket;
@@ -52,10 +59,11 @@ class CourierApiTest extends TestCase
     private function courierWithLogin(string $name, string $phone, array $extra = []): array
     {
         return Tenancy::runFor($this->company, function () use ($name, $phone, $extra) {
-            $courier = Courier::create([
+            // ما مُرّر يغلب الافتراض: ['type' => 'pickup'] مندوب استلام
+            $courier = Courier::create($extra + [
                 'code' => 'C'.substr($phone, -4), 'name' => $name, 'phone' => $phone, 'type' => 'delivery',
                 'status' => 'active', 'commission_per_delivery' => 5_000, 'cash_limit' => 1_000_000,
-            ] + $extra);
+            ]);
             $user = User::create([
                 'name' => $name, 'phone' => $phone, 'password' => 'password',
                 'role' => UserRole::Courier, 'courier_id' => $courier->id, 'is_active' => true,
@@ -363,5 +371,113 @@ class CourierApiTest extends TestCase
             $this->assertEqualsWithDelta(33.31, (float) $courier->last_lat, 0.0001);
             $this->assertNotNull($courier->last_seen_at);
         });
+    }
+
+    // ------------------------------------------------- «اليوم» والاستلام والحصص والجرس والمحادثة (docs/plan/71)
+
+    public function test_today_lists_what_was_recorded_today_and_what_was_collected(): void
+    {
+        $delivered = $this->ship('زينب علي');
+        $this->ship('علي حسين');
+        $token = $this->token();
+        $this->postJson($this->api('/courier/shipments/'.$delivered->id.'/act'), ['action' => 'delivered'], $this->auth($token))->assertOk();
+
+        $this->getJson($this->api('/courier/today'), $this->auth($token))->assertOk()
+            ->assertJsonPath('delivered', 1)->assertJsonPath('collected', 40_000)
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.number', $delivered->number)
+            ->assertJsonPath('data.0.collected', 40_000);
+
+        // والرئيسية تعرف ما يعمله وما حصّله اليوم
+        $this->getJson($this->api('/courier/home'), $this->auth($token))->assertOk()
+            ->assertJsonPath('delivers', true)->assertJsonPath('picks', false)
+            ->assertJsonPath('today.collected', 40_000)->assertJsonPath('chat.unread', false);
+    }
+
+    public function test_a_pickup_courier_closes_his_pickup_from_the_app_and_nobody_elses(): void
+    {
+        [$picker, $pickerUser] = $this->courierWithLogin('سجاد', '07721230009', ['type' => 'pickup']);
+        Tenancy::runFor($this->company, fn () => app(CreateShipment::class)->handle([
+            'merchant_id' => $this->merchant->id, 'recipient_name' => 'زبون', 'recipient_phone' => '07801234567',
+            'governorate_id' => $this->baghdad()->id, 'address' => 'بغداد', 'cod_amount' => 30_000,
+        ], $this->staff));
+        $pickup = Tenancy::runFor($this->company, fn () => PickupRequest::create([
+            'merchant_id' => $this->merchant->id, 'courier_id' => $picker->id,
+            'number' => 'PU000001', 'status' => 'assigned', 'expected_count' => 1,
+        ]));
+
+        // مندوب التوصيل وحده لا يرى شاشة الاستلام، ولا يغلق طلب غيره
+        $this->getJson($this->api('/courier/pickups'), $this->auth($this->token()))->assertForbidden();
+        $this->postJson($this->api('/courier/pickups/'.$pickup->id.'/complete'), ['actual_count' => 1], $this->auth($this->token()))
+            ->assertNotFound();
+
+        $this->app['auth']->forgetGuards();
+        $token = $this->token($pickerUser);
+        $this->getJson($this->api('/courier/home'), $this->auth($token))->assertOk()
+            ->assertJsonPath('picks', true)->assertJsonPath('pickups', 1);
+        $this->getJson($this->api('/courier/pickups'), $this->auth($token))->assertOk()
+            ->assertJsonPath('data.0.number', 'PU000001')->assertJsonPath('data.0.expected', 1);
+
+        $this->postJson($this->api('/courier/pickups/'.$pickup->id.'/complete'), ['actual_count' => 1], $this->auth($token))
+            ->assertOk()->assertJsonPath('message', fn ($m) => str_starts_with($m, 'استُلم'));
+        $this->assertSame('completed', Tenancy::runFor($this->company, fn () => $pickup->refresh()->status));
+        $this->postJson($this->api('/courier/pickups/'.$pickup->id.'/complete'), ['actual_count' => 1], $this->auth($token))
+            ->assertUnprocessable();
+    }
+
+    public function test_shares_can_be_objected_to_and_a_payout_confirmed_once(): void
+    {
+        [$picker, $pickerUser] = $this->courierWithLogin('سجاد', '07721230009', ['type' => 'pickup']);
+        [$share, $payout] = Tenancy::runFor($this->company, fn () => [
+            PickupShare::create(['courier_id' => $picker->id, 'shipments_count' => 4, 'rate' => 1000, 'amount' => 4000]),
+            PickupPayout::create(['courier_id' => $picker->id, 'number' => 'PP-1', 'earned' => 4000, 'paid_amount' => 4000]),
+        ]);
+        $token = $this->token($pickerUser);
+
+        $this->getJson($this->api('/courier/shares'), $this->auth($token))->assertOk()
+            ->assertJsonPath('shares.0.count', 4)->assertJsonPath('shares.0.can_object', true)
+            ->assertJsonPath('payouts.0.number', 'PP-1')->assertJsonPath('payouts.0.confirmed', false);
+
+        $this->postJson($this->api('/courier/shares/'.$share->id.'/object'), ['claimed_count' => 6], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('reason');
+        $this->postJson($this->api('/courier/shares/'.$share->id.'/object'), ['claimed_count' => 6, 'reason' => 'طردان لم يُسجَّلا'], $this->auth($token))
+            ->assertOk();
+        $this->assertSame('objected', Tenancy::runFor($this->company, fn () => $share->refresh()->status));
+
+        $this->postJson($this->api('/courier/payouts/'.$payout->id.'/confirm'), [], $this->auth($token))->assertOk();
+        $this->postJson($this->api('/courier/payouts/'.$payout->id.'/confirm'), [], $this->auth($token))->assertUnprocessable();
+
+        // حصص غيره لا تُمسّ
+        $this->app['auth']->forgetGuards();
+        $this->postJson($this->api('/courier/payouts/'.$payout->id.'/confirm'), [], $this->auth($this->token()))->assertNotFound();
+    }
+
+    public function test_the_bell_and_the_office_chat_are_the_web_screens_own(): void
+    {
+        Tenancy::runFor($this->company, fn () => app(Announce::class)->publish('delivery_couriers', 'تحديث', 'لا توصيل يوم الجمعة.', $this->staff));
+        $token = $this->token();
+
+        $this->getJson($this->api('/courier/home'), $this->auth($token))->assertJsonPath('unread', 1);
+        $this->getJson($this->api('/courier/notifications'), $this->auth($token))->assertOk()
+            ->assertJsonPath('data.0.title', 'تحديث')->assertJsonPath('data.0.fresh', true);
+        $this->getJson($this->api('/courier/home'), $this->auth($token))->assertJsonPath('unread', 0);
+
+        // المحادثة مع المكتب حين تُفتح للشركة وحدها
+        $this->setFeature($this->company, Feature::Conversations, false);
+        $this->getJson($this->api('/courier/chat'), $this->auth($token))->assertForbidden();
+        $this->getJson($this->api('/courier/home'), $this->auth($token))->assertJsonPath('chat', null);
+        Tenancy::runFor($this->company, fn () => CompanyFeature::where('feature', Feature::Conversations->value)->delete());
+        $this->company->forgetFeatures();
+
+        $shipment = $this->ship('زينب علي');
+        $this->postJson($this->api('/courier/chat'), ['body' => 'الزبون لا يردّ', 'shipment_id' => $shipment->id], $this->auth($token))
+            ->assertCreated();
+        Tenancy::runFor($this->company, fn () => app(CourierChat::class)
+            ->send($this->courier, 'اتصل به بعد ساعة', $this->staff, CourierChat::STAFF));
+
+        $this->getJson($this->api('/courier/home'), $this->auth($token))->assertJsonPath('chat.unread', true);
+        $this->getJson($this->api('/courier/chat'), $this->auth($token))->assertOk()
+            ->assertJsonPath('data.0.mine', true)->assertJsonPath('data.0.shipment.id', $shipment->id)
+            ->assertJsonPath('data.1.mine', false)->assertJsonPath('data.1.body', 'اتصل به بعد ساعة');
+        $this->getJson($this->api('/courier/home'), $this->auth($token))->assertJsonPath('chat.unread', false);
     }
 }

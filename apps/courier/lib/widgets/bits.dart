@@ -53,7 +53,7 @@ class _ChevPainter extends CustomPainter {
 
 /// بطاقةٌ بيضاء بزوايا التصميم وظلّه الناعم
 class WhiteCard extends StatelessWidget {
-  const WhiteCard({super.key, required this.child, this.padding = EdgeInsets.zero, this.radius = 14, this.height});
+  const WhiteCard({super.key, required this.child, this.padding = EdgeInsets.zero, this.radius = 20, this.height});
 
   final Widget child;
   final EdgeInsets padding;
@@ -64,7 +64,12 @@ class WhiteCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     height: height,
     padding: padding,
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(radius), boxShadow: cardShadow),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Palette.line),
+      boxShadow: cardShadow,
+    ),
     child: child,
   );
 }
@@ -128,16 +133,62 @@ class SolidIcon extends StatelessWidget {
 
 /// يجعل أيّ بطاقةٍ قابلةً للّمس بتموّجٍ داخل زواياها
 class Tap extends StatelessWidget {
-  const Tap({super.key, required this.child, this.onTap, this.radius = 14});
+  const Tap({super.key, required this.child, this.onTap, this.radius = 14, this.shadow});
 
   final Widget child;
   final VoidCallback? onTap;
   final double radius;
 
+  /// ظلٌّ خارج الزرّ: ظلّ Ink يُقصّ داخل Material فيظهر مربّعاً — فيُرسم هنا حوله
+  final List<BoxShadow>? shadow;
+
   @override
-  Widget build(BuildContext context) => Material(
-    type: MaterialType.transparency,
-    child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(radius), child: child),
+  Widget build(BuildContext context) {
+    final tap = Material(
+      type: MaterialType.transparency,
+      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(radius), child: child),
+    );
+    if (shadow == null) return tap;
+    return DecoratedBox(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(radius), boxShadow: shadow),
+      child: tap,
+    );
+  }
+}
+
+/// زرٌّ كبير بتدرّج لون الشركة وتوهّجه (تصميم ز)
+class HeroButton extends StatelessWidget {
+  const HeroButton({super.key, required this.brand, required this.label, this.icon, this.onTap, this.height = 52});
+
+  final Brand brand;
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onTap;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => Tap(
+    shadow: onTap == null ? null : brand.glow(),
+    radius: 18,
+    onTap: onTap,
+    child: Ink(
+      height: height,
+      decoration: BoxDecoration(
+        gradient: onTap == null ? null : brand.hero,
+        color: onTap == null ? Palette.line : null,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: onTap == null ? Palette.muted : Colors.white),
+            const SizedBox(width: 8),
+          ],
+          Text(label, style: font(15, w8, onTap == null ? Palette.muted : Colors.white)),
+        ],
+      ),
+    ),
   );
 }
 

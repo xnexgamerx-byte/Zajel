@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
+import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
@@ -56,7 +57,8 @@ class _CashScreenState extends State<CashScreen> {
         color: brand.main,
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 130),
+          // نسخة العرض على الويب بلا شريط حالة: تحت الشريط المرسوم
+          padding: EdgeInsets.fromLTRB(16, AppConfig.demo ? 36 : 18, 16, 130),
           children: [
             Row(
               children: [

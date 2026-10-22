@@ -176,6 +176,78 @@ class Api {
     return (body['message'] as String? ?? 'أُرسل طلبك إلى الكول سنتر.', Ticket.fromJson((body['data'] as Map).cast()));
   }
 
+  // ------------------------------------------- «اليوم» والاستلام والحصص والجرس والمكتب (docs/plan/71)
+
+  Future<TodayPage> today() async {
+    if (AppConfig.demo) return Demo.today();
+    return TodayPage.fromJson(await _send(http.get(_uri('/courier/today'), headers: _headers)));
+  }
+
+  Future<List<PickupItem>> pickups() async {
+    if (AppConfig.demo) return Demo.pickups();
+    final body = await _send(http.get(_uri('/courier/pickups'), headers: _headers));
+    return [for (final p in body['data'] as List) PickupItem.fromJson((p as Map).cast())];
+  }
+
+  /// «استلمت الطرود»: كلّ شحنات التاجر المعلّقة دفعةً واحدة
+  Future<String> completePickup(int id, int count, {String? note}) async {
+    if (AppConfig.demo) return Demo.completePickup(id, count);
+    final body = await _send(
+      http.post(
+        _uri('/courier/pickups/$id/complete'),
+        headers: _headers,
+        body: jsonEncode({'actual_count': count, if (note != null && note.trim().isNotEmpty) 'note': note.trim()}),
+      ),
+    );
+    return body['message'] as String? ?? 'سُجّل الاستلام.';
+  }
+
+  Future<SharesPage> shares() async {
+    if (AppConfig.demo) return Demo.shares();
+    return SharesPage.fromJson(await _send(http.get(_uri('/courier/shares'), headers: _headers)));
+  }
+
+  Future<String> objectShare(int id, int count, String reason) async {
+    if (AppConfig.demo) return Demo.objectShare(id, count, reason);
+    final body = await _send(
+      http.post(
+        _uri('/courier/shares/$id/object'),
+        headers: _headers,
+        body: jsonEncode({'claimed_count': count, 'reason': reason.trim()}),
+      ),
+    );
+    return body['message'] as String? ?? 'سُجّل اعتراضك.';
+  }
+
+  Future<String> confirmPayout(int id) async {
+    if (AppConfig.demo) return Demo.confirmPayout(id);
+    final body = await _send(http.post(_uri('/courier/payouts/$id/confirm'), headers: _headers));
+    return body['message'] as String? ?? 'أكّدت استلام الدفعة.';
+  }
+
+  Future<List<Notice>> notifications() async {
+    if (AppConfig.demo) return Demo.notifications();
+    final body = await _send(http.get(_uri('/courier/notifications'), headers: _headers));
+    return [for (final n in body['data'] as List) Notice.fromJson((n as Map).cast())];
+  }
+
+  Future<List<ChatMessage>> chat() async {
+    if (AppConfig.demo) return Demo.chat();
+    final body = await _send(http.get(_uri('/courier/chat'), headers: _headers));
+    return [for (final m in body['data'] as List) ChatMessage.fromJson((m as Map).cast())];
+  }
+
+  Future<void> sendChat(String text, {int? shipmentId}) async {
+    if (AppConfig.demo) return Demo.sendChat(text, shipmentId: shipmentId);
+    await _send(
+      http.post(
+        _uri('/courier/chat'),
+        headers: _headers,
+        body: jsonEncode({'body': text.trim(), 'shipment_id': ?shipmentId}),
+      ),
+    );
+  }
+
   /// موقع الهاتف والتطبيق مفتوح — يُرمى بصمت إن لم يصل
   Future<void> location(double lat, double lng, double accuracy) async {
     if (AppConfig.demo) return;
