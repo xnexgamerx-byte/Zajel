@@ -169,22 +169,34 @@ class StatusPill extends StatelessWidget {
   final double height;
   final double size;
 
+  /// لون الحالة بثيم الرئيسية (docs/plan/77): خلفيةٌ فاتحة من لونها ونصٌّ به — الراجع أحمر ليُميَّز
+  /// (docs/plan/50)، وما ينتظر قرارك بلون الشركة، والواصل أخضر، وما في الطريق أزرق، والباقي رماديّ
+  Color get _color => switch (row.tone) {
+    'red' => Palette.returnRed,
+    'green' => Palette.ok,
+    'blue' => const Color(0xFF2F6DB5),
+    'amber' || 'urgent' => brand.main,
+    _ => row.urgent ? brand.main : Palette.slate,
+  };
+
   @override
-  Widget build(BuildContext context) => Container(
-    width: width,
-    height: height,
-    padding: const EdgeInsets.symmetric(horizontal: 4),
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      // الراجع أحمر ليُميَّز (docs/plan/50)، وما ينتظر قرارك بلون الشركة، والباقي رماديّة
-      color: row.tone == 'red' ? Palette.returnRed : (row.urgent ? brand.coral : Palette.pill),
-      borderRadius: BorderRadius.circular(height / 2),
-    ),
-    child: FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(row.status, maxLines: 1, style: font(size, w8, Colors.white, height: 1)),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final color = _color;
+    return Container(
+      width: width,
+      height: height,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Color.lerp(Colors.white, color, .12),
+        borderRadius: BorderRadius.circular(height / 2),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(row.status, maxLines: 1, style: font(size, w8, Color.lerp(color, Colors.black, .1)!, height: 1)),
+      ),
+    );
+  }
 }
 
 /// صفّ كشفٍ أو إيصالٍ في تصميم ز (docs/plan/70): مربّعٌ أحمر شفّاف مظلَّل، بأيقونةٍ في مربّعٍ بتدرّج

@@ -81,7 +81,11 @@ class _MerchantAppState extends State<MerchantApp> {
         scaffoldBackgroundColor: Palette.bg,
         colorScheme: ColorScheme.fromSeed(seedColor: brand.main, primary: brand.main, surface: Colors.white),
       ),
-      builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
+      // خطّ الهاتف المكبَّر يُحترم حتى حدٍّ لا ينكسر عنده التصميم (docs/plan/77)
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.12,
+        child: Directionality(textDirection: TextDirection.rtl, child: child!),
+      ),
       home: signedIn
           ? Shell(brand: brand, session: session, onLogout: _logout)
           : LoginScreen(brand: brand, onSignedIn: _adopt),

@@ -50,7 +50,7 @@ void main() {
       'التفاصيل المالية',
       '1,750,000',
       'طباعة الطلبات',
-      'طلب مندوب استلام',
+      'مندوب استلام',
       // «شحنات تحتاج انتباهك» مكان آخر الشحنات
       'شحنات تحتاج انتباهك',
       'الزبون طلب التأجيل',
@@ -171,8 +171,8 @@ void main() {
     await tester.pumpWidget(const MerchantApp(signedIn: true));
     await tester.pumpAndSettle();
 
-    // الزرّ الأحمر في وسط الشريط السفلي يفتح الكاميرا
-    await tester.tapAt(const Offset(196.5, 780));
+    // زرّ المسح الأحمر المرفوع في وسط الشريط السفلي يفتح الكاميرا
+    await tester.tap(find.byTooltip('امسح الوصل أو أنشئ شحنة'));
     await tester.pumpAndSettle();
     expect(find.text('امسح الوصل المطبوع'), findsOneWidget);
 

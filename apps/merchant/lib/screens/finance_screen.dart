@@ -122,7 +122,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
           Row(
             children: [
               const TabBack(),
-              Expanded(child: Text('المالية', style: display(28, w7, Palette.ink, height: 1.3))),
+              Expanded(child: Text('المالية', style: display(20, w8, Palette.ink, height: 1.3))),
               Tooltip(
                 message: hidden ? 'أظهر الأرقام' : 'أخفِ الأرقام',
                 child: Tap(
@@ -218,7 +218,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                           child: Text.rich(
                             TextSpan(
                               text: _amount(d.available),
-                              style: display(34, w7, Colors.white, height: 1.25),
+                              style: display(28, w7, Colors.white, height: 1.25),
                               children: [TextSpan(text: '  د.ع', style: display(14, w6, Colors.white))],
                             ),
                           ),

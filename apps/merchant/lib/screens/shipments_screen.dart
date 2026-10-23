@@ -114,7 +114,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
           child: Row(
             children: [
               const TabBack(),
-              Text('شحناتي', style: font(20, w8, Palette.ink, height: 1.2)),
+              Text('شحناتي', style: display(20, w8, Palette.ink, height: 1.2)),
               const SizedBox(width: 8),
               if (total > 0) Text('${money(total)} شحنة', style: font(12, w6, Palette.slate)),
             ],

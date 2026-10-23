@@ -171,9 +171,9 @@ class _HomeScreenState extends State<HomeScreen> {
           // نسخة العرض على الهاتف تقول ذلك صراحةً: لا تُحسب على النظام
           if (AppConfig.demo && !kIsWeb) _pad(const DemoNote()),
           _header(d),
-          const SizedBox(height: 16),
-          _pad(_search()),
           const SizedBox(height: 14),
+          _pad(_search()),
+          const SizedBox(height: 12),
           _pad(_stats(d.stats)),
           // ما تعثّر ينتظر قراره: شريطٌ لا يُغفل عنه، ويختفي حين لا شيء
           if (d.processing > 0) ...[const SizedBox(height: 12), _pad(_processing(d))],
@@ -191,38 +191,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static double _top(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    return top > 0 ? top + 6 : 32;
+    return top > 0 ? top + 12 : 36;
   }
 
   Widget _pad(Widget child) => Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: child);
 
   // ------------------------------------------------------------------ الترويسة
 
-  /// التحيّة كبيرةً واسمه تحتها بخطٍّ عريض، وصورته في الطرف الآخر، والجرس والإعدادات أعلاها
+  /// التحيّة واسمه بخطٍّ واضحٍ غير ضخم، وصورته في الطرف الآخر، والجرس والإعدادات بجانبها
   Widget _header(HomeData d) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              _round(Icons.settings_outlined, 'حسابي', () => _open('account')),
-              const SizedBox(width: 10),
-              _bellButton(d.unread),
-              const Spacer(),
-              _avatar(d),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(baghdadGreeting(), style: font(13, w6, Palette.muted, height: 1.3)),
+                Text(
+                  d.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: display(19, w8, Palette.ink, height: 1.3),
+                ),
+                Text(
+                  'شحناتك مع ${widget.companyName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: font(11.5, w6, Palette.slate, height: 1.4),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(baghdadGreeting(), style: display(24, w6, Palette.muted, height: 1.2)),
-          Text(d.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(30, w8, Palette.ink, height: 1.25)),
-          Text(
-            'شحناتك مع ${widget.companyName}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: font(14, w6, Palette.slate, height: 1.5),
-          ),
+          const SizedBox(width: 8),
+          _round(Icons.settings_outlined, 'المزيد', () => _open('account')),
+          const SizedBox(width: 8),
+          _bellButton(d.unread),
+          const SizedBox(width: 8),
+          _avatar(d),
         ],
       ),
     );
@@ -231,13 +239,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _round(IconData icon, String tip, VoidCallback onTap) => Tooltip(
     message: tip,
     child: Tap(
-      radius: 24,
+      radius: 20,
       onTap: onTap,
       child: Container(
-        width: 48,
-        height: 48,
+        width: 40,
+        height: 40,
         decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: cardShadow),
-        child: Icon(icon, size: 23, color: Palette.ink),
+        child: Icon(icon, size: 20, color: Palette.ink),
       ),
     ),
   );
@@ -263,8 +271,8 @@ class _HomeScreenState extends State<HomeScreen> {
         radius: 24,
         onTap: uploading ? null : () => _logo(d),
         child: Container(
-          width: 48,
-          height: 48,
+          width: 44,
+          height: 44,
           padding: const EdgeInsets.all(2),
           decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: cardShadow),
           child: ClipOval(
@@ -297,20 +305,20 @@ class _HomeScreenState extends State<HomeScreen> {
         radius: 22,
         onTap: _bell,
         child: SizedBox(
-          width: 44,
-          height: 44,
+          width: 40,
+          height: 40,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: cardShadow),
-                child: const Icon(Icons.notifications_none_rounded, size: 22, color: Palette.ink),
+                child: const Icon(Icons.notifications_none_rounded, size: 20, color: Palette.ink),
               ),
               if (unread > 0)
                 Positioned(
-                  left: 27,
+                  left: 24,
                   top: -2,
                   child: Container(
                     constraints: const BoxConstraints(minWidth: 18),
@@ -351,32 +359,32 @@ class _HomeScreenState extends State<HomeScreen> {
       Tooltip(
         message: 'امسح باركود',
         child: Tap(
-          radius: 16,
+          radius: 14,
           onTap: () => _open('scan'),
           child: Container(
-            width: 52,
-            height: 52,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Palette.line),
               boxShadow: cardShadow,
             ),
-            child: const Icon(Icons.qr_code_scanner_rounded, size: 24, color: Palette.ink),
+            child: Icon(Icons.qr_code_scanner_rounded, size: 21, color: brand.main),
           ),
         ),
       ),
-      const SizedBox(width: 10),
+      const SizedBox(width: 8),
       Expanded(
         child: Tap(
-          radius: 16,
+          radius: 14,
           onTap: () => _open('shipments:search'),
           child: Container(
-            height: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Palette.line),
               boxShadow: cardShadow,
             ),
@@ -387,10 +395,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     'ابحث برقم الشحنة أو اسم الزبون…',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: font(13, w5, Palette.muted),
+                    style: font(12, w5, Palette.muted),
                   ),
                 ),
-                const Icon(Icons.search_rounded, size: 24, color: Palette.ink),
+                const Icon(Icons.search_rounded, size: 21, color: Palette.slate),
               ],
             ),
           ),
@@ -401,68 +409,72 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ الرقمان
 
-  /// «سُلّمت اليوم» و«إجمالي الشحنات»: رقمٌ كبير، وأعمدةٌ تمتلئ بنسبةٍ حقيقيّة — ما سُلّم من خرجة اليوم،
-  /// ونسبة التسليم من كلّ ما أرسل
+  /// «سُلّمت اليوم» و«إجمالي الشحنات» في بطاقتين صغيرتين: الأيقونة والعنوان في سطر، والرقم وأعمدته في
+  /// سطر — والأعمدة تمتلئ بنسبةٍ حقيقيّة: ما سُلّم من خرجة اليوم، ونسبة التسليم
   Widget _stats(Stats s) {
     final today = s.deliveredToday + s.courier;
     final rate = s.total == 0 ? 0 : (s.delivered * 100 / s.total).round();
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: _stat(
-              'سُلّمت اليوم',
-              s.deliveredToday,
-              Icons.local_shipping_outlined,
-              today == 0 ? 0 : s.deliveredToday / today,
-              s.courier == 0 ? 'لا شيء مع المندوب الآن' : '${money(s.courier)} مع المندوب الآن',
-              'shipments:delivered',
-            ),
+    return Row(
+      children: [
+        Expanded(
+          child: _stat(
+            'سُلّمت اليوم',
+            s.deliveredToday,
+            Icons.local_shipping_outlined,
+            today == 0 ? 0 : s.deliveredToday / today,
+            s.courier == 0 ? 'لا شيء مع المندوب' : '${money(s.courier)} مع المندوب الآن',
+            'shipments:delivered',
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _stat(
-              'إجمالي الشحنات',
-              s.total,
-              Icons.inventory_2_outlined,
-              rate / 100,
-              'نسبة التسليم $rate٪',
-              'shipments',
-            ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _stat(
+            'إجمالي الشحنات',
+            s.total,
+            Icons.inventory_2_outlined,
+            rate / 100,
+            'نسبة التسليم $rate٪',
+            'shipments',
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _stat(String label, int value, IconData icon, double fill, String note, String screen) {
     return Tap(
-      radius: 24,
+      radius: 18,
       shadow: cardShadow,
       onTap: () => _open(screen),
       child: Ink(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color.lerp(Colors.white, brand.main, .07)!, Colors.white],
+            colors: [Color.lerp(Colors.white, brand.main, .06)!, Colors.white],
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: brand.main.withValues(alpha: .10)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
-              child: Icon(icon, size: 23, color: brand.main),
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
+                  child: Icon(icon, size: 15, color: brand.main),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: font(12, w7, Palette.ink)),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(label, style: font(13.5, w7, Palette.ink)),
+            const SizedBox(height: 4),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -470,14 +482,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: AlignmentDirectional.centerStart,
-                    child: Text(money(value), style: display(30, w8, Palette.ink, height: 1.15)),
+                    child: Text(money(value), style: display(22, w8, Palette.ink, height: 1.2)),
                   ),
                 ),
                 _Bars(fill: fill, color: brand.main),
               ],
             ),
-            const SizedBox(height: 6),
-            Text(note, maxLines: 1, overflow: TextOverflow.ellipsis, style: font(11.5, w6, Palette.slate)),
+            Text(note, maxLines: 1, overflow: TextOverflow.ellipsis, style: font(10.5, w6, Palette.slate)),
           ],
         ),
       ),
@@ -488,7 +499,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// ما لم يُسلَّم وينتظر قراره: شريطٌ أحمر واحد، وزرّه يفتح القرار
   Widget _processing(HomeData d) => Tap(
-    radius: 18,
+    radius: 16,
     shadow: brand.glow(.35),
     onTap: () => _open('processing'),
     child: Ink(
@@ -513,14 +524,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ حالة الشحنات
 
-  /// أربع حالاتٍ حول زرّ «إنشاء شحنة» الأحمر، وخطوطٌ تصلها به
+  /// قطر زرّ الوسط بحلقته: صغيرٌ لتظهر الخطوط التي تصله بالحالات الأربع
+  static const _halo = 74.0;
+
+  /// أربع حالاتٍ حول زرّ «إنشاء شحنة» الأحمر، وخطوطٌ منحنية تصلها به — بقياس الشاشة نفسها
   Widget _hub(HomeData d) {
     final s = d.stats;
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Palette.line),
         boxShadow: cardShadow,
       ),
@@ -533,112 +547,154 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  Text('حالة الشحنات', style: display(17, w7, Palette.ink)),
+                  Text('حالة الشحنات', style: display(14.5, w7, Palette.ink)),
                   const Spacer(),
-                  const Chev(size: 9, left: true, stroke: 1.7),
+                  const Chev(size: 8, left: true, stroke: 1.6),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 250,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                const Positioned.fill(child: CustomPaint(painter: _Links(Palette.muted))),
-                Column(
+          const SizedBox(height: 6),
+          LayoutBuilder(
+            builder: (context, box) {
+              // البطاقة ربع العرض وزيادة، فيبقى بينها وبين الزرّ مكانٌ للخطوط
+              final tile = (box.maxWidth * .3).clamp(84.0, 118.0);
+              return SizedBox(
+                height: 150,
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          _state(
-                            'قيد التوصيل',
-                            s.inDelivery,
-                            Icons.local_shipping_outlined,
-                            brand.main,
-                            'shipments:open',
-                          ),
-                          const Spacer(),
-                          _state(
-                            'مسلّمة',
-                            s.delivered,
-                            Icons.check_circle_outline_rounded,
-                            Palette.ok,
-                            'shipments:delivered',
-                          ),
-                        ],
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _Links(brand.main, tile: tile, halo: _halo),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          _state('تحتاج انتباهك', d.attention, Icons.schedule_rounded, brand.main, 'attention'),
-                          const Spacer(),
-                          _state('راجع مؤكّد', s.returns, Icons.history_rounded, brand.main, 'shipments:returns'),
-                        ],
-                      ),
+                    Column(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              _state(
+                                tile,
+                                'قيد التوصيل',
+                                s.inDelivery,
+                                Icons.local_shipping_outlined,
+                                brand.main,
+                                'shipments:open',
+                              ),
+                              const Spacer(),
+                              _state(
+                                tile,
+                                'مسلّمة',
+                                s.delivered,
+                                Icons.check_circle_outline_rounded,
+                                Palette.ok,
+                                'shipments:delivered',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              _state(
+                                tile,
+                                'تحتاج انتباهك',
+                                d.attention,
+                                Icons.schedule_rounded,
+                                brand.main,
+                                'attention',
+                              ),
+                              const Spacer(),
+                              _state(
+                                tile,
+                                'راجع مؤكّد',
+                                s.returns,
+                                Icons.history_rounded,
+                                brand.main,
+                                'shipments:returns',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
+                    _createButton(),
                   ],
                 ),
-                _createButton(),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _state(String label, int count, IconData icon, Color color, String screen) => SizedBox(
-    width: 112,
+  Widget _state(double width, String label, int count, IconData icon, Color color, String screen) => SizedBox(
+    width: width,
     child: Tap(
-      radius: 20,
+      radius: 16,
       onTap: () => _open(screen),
       child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: const Color(0xFFFBF7F6),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Palette.line),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
           children: [
-            Icon(icon, size: 26, color: color),
-            const SizedBox(height: 6),
-            Text(label, maxLines: 1, style: font(12.5, w7, Palette.ink, height: 1.2)),
-            Text(money(count), style: display(21, w8, Palette.ink, height: 1.25)),
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(label, maxLines: 1, style: font(11, w7, Palette.slate, height: 1.2)),
+                  ),
+                  Text(money(count), style: display(16, w8, Palette.ink, height: 1.25)),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     ),
   );
 
-  /// الزرّ الأحمر في الوسط بحلقةٍ ورديّة: يدويّاً، أو من صورة، أو بصوتك
-  Widget _createButton() => Tap(
-    radius: 60,
-    onTap: _createSheet,
-    child: Container(
-      width: 112,
-      height: 112,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: brand.main.withValues(alpha: .18), blurRadius: 26, spreadRadius: 2)],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(gradient: brand.hero, shape: BoxShape.circle, boxShadow: brand.glow(.5)),
-            child: const Icon(Icons.add_box_outlined, color: Colors.white, size: 28),
-          ),
-          const SizedBox(height: 5),
-          Text('إنشاء شحنة', style: font(12.5, w8, brand.deep, height: 1.2)),
-        ],
+  /// الزرّ الأحمر في الوسط بحلقةٍ ورديّة صغيرة: يدويّاً، أو من صورة، أو بصوتك
+  Widget _createButton() => Tooltip(
+    message: 'إنشاء شحنة',
+    child: Tap(
+      radius: _halo / 2,
+      onTap: _createSheet,
+      child: Container(
+        width: _halo,
+        height: _halo,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: brand.main.withValues(alpha: .12)),
+          boxShadow: [BoxShadow(color: brand.main.withValues(alpha: .16), blurRadius: 16, spreadRadius: 1)],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(gradient: brand.hero, shape: BoxShape.circle, boxShadow: brand.glow(.4)),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+            ),
+            const SizedBox(height: 2),
+            Text('إنشاء شحنة', style: font(9.5, w8, brand.deep, height: 1.2)),
+          ],
+        ),
       ),
     ),
   );
@@ -673,48 +729,53 @@ class _HomeScreenState extends State<HomeScreen> {
   // ------------------------------------------------------------------ الأدوات
 
   /// التفاصيل المالية برصيده، وطباعة الطلبات، وطلب مندوب استلام — والدعم في «المزيد»
-  Widget _actions(HomeData d) => IntrinsicHeight(
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          child: _action(
-            'التفاصيل المالية',
-            '${money(d.balance)} د.ع',
-            Icons.account_balance_wallet_outlined,
-            'finance',
-          ),
-        ),
-        const SizedBox(width: 8),
-        // طباعة الوصولات ظاهرةٌ في الرئيسية (docs/plan/63): ما يُدخل يُطبع ويُلصق قبل أن يأتي المندوب
-        Expanded(child: _action('طباعة الطلبات', 'وصولات ما أدخلته', Icons.print_rounded, 'labels')),
-        const SizedBox(width: 8),
-        Expanded(child: _action('طلب مندوب استلام', 'يمرّ عليك', Icons.local_shipping_outlined, 'pickups')),
-      ],
-    ),
+  Widget _actions(HomeData d) => Row(
+    children: [
+      Expanded(
+        child: _action('التفاصيل المالية', '${money(d.balance)} د.ع', Icons.account_balance_wallet_outlined, 'finance'),
+      ),
+      const SizedBox(width: 8),
+      // طباعة الوصولات ظاهرةٌ في الرئيسية (docs/plan/63): ما يُدخل يُطبع ويُلصق قبل أن يأتي المندوب
+      Expanded(child: _action('طباعة الطلبات', 'وصولات ما أدخلته', Icons.print_rounded, 'labels')),
+      const SizedBox(width: 8),
+      Expanded(child: _action('مندوب استلام', 'يمرّ عليك', Icons.hail_rounded, 'pickups')),
+    ],
   );
 
   Widget _action(String title, String sub, IconData icon, String screen) => Tap(
-    radius: 22,
+    radius: 18,
     shadow: cardShadow,
     onTap: () => _open(screen),
     child: Ink(
-      padding: const EdgeInsets.fromLTRB(6, 14, 6, 12),
+      height: 86,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color.lerp(Colors.white, brand.main, .06)!, Colors.white],
+          colors: [Color.lerp(Colors.white, brand.main, .05)!, Colors.white],
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: brand.main.withValues(alpha: .08)),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 28, color: brand.main),
-          const SizedBox(height: 6),
-          Text(title, textAlign: TextAlign.center, maxLines: 2, style: font(13, w8, Palette.ink, height: 1.3)),
-          Text(sub, textAlign: TextAlign.center, maxLines: 1, style: font(11, w6, Palette.muted, height: 1.4)),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
+            child: Icon(icon, size: 16, color: brand.main),
+          ),
+          const SizedBox(height: 5),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(title, maxLines: 1, style: font(11.5, w8, Palette.ink, height: 1.3)),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(sub, maxLines: 1, style: font(10, w6, Palette.muted, height: 1.3)),
+          ),
         ],
       ),
     ),
@@ -728,7 +789,7 @@ class _HomeScreenState extends State<HomeScreen> {
     children: [
       Row(
         children: [
-          Text('شحنات تحتاج انتباهك', style: display(18, w7, Palette.ink)),
+          Text('شحنات تحتاج انتباهك', style: display(14.5, w7, Palette.ink)),
           if (d.attentionItems.isNotEmpty) ...[
             const SizedBox(width: 6),
             Container(
@@ -783,10 +844,10 @@ class _HomeScreenState extends State<HomeScreen> {
       shadow: cardShadow,
       onTap: s.id == 0 ? null : () => openShipment(context, brand, s.id),
       child: Ink(
-        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Palette.line),
         ),
         child: Row(
@@ -797,9 +858,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.inventory_2_outlined, size: 18, color: Palette.slate),
+                      Icon(Icons.inventory_2_outlined, size: 15, color: Palette.slate),
                       const SizedBox(width: 6),
-                      Text(s.number, textDirection: TextDirection.ltr, style: font(14, w8, Palette.ink, height: 1.2)),
+                      Text(s.number, textDirection: TextDirection.ltr, style: font(12.5, w8, Palette.ink, height: 1.2)),
                       const SizedBox(width: 4),
                       Tooltip(
                         message: 'انسخ الرقم',
@@ -811,20 +872,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           },
                           child: const Padding(
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.copy_rounded, size: 15, color: Palette.muted),
+                            child: Icon(Icons.copy_rounded, size: 13, color: Palette.muted),
                           ),
                         ),
                       ),
                       const Spacer(),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(s.status, style: font(11.5, w8, brand.deep, height: 1.2)),
+                            Text(s.status, style: font(10.5, w8, brand.deep, height: 1.2)),
                             const SizedBox(width: 4),
-                            Icon(Icons.error_outline_rounded, size: 15, color: brand.deep),
+                            Icon(Icons.error_outline_rounded, size: 13, color: brand.deep),
                           ],
                         ),
                       ),
@@ -835,10 +896,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     [s.name, if (s.place.isNotEmpty) s.place].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: font(13, w7, Palette.ink, height: 1.35),
+                    style: font(12, w7, Palette.ink, height: 1.35),
                   ),
-                  if (why.isNotEmpty) Text(why, style: font(12, w7, brand.main, height: 1.45)),
-                  Text('${money(s.amount)} د.ع · ${when(s.at)}', style: font(11.5, w6, Palette.muted, height: 1.4)),
+                  if (why.isNotEmpty) Text(why, style: font(11, w7, brand.main, height: 1.45)),
+                  Text('${money(s.amount)} د.ع · ${when(s.at)}', style: font(10.5, w6, Palette.muted, height: 1.4)),
                 ],
               ),
             ),
@@ -851,14 +912,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// أعمدةٌ متدرّجة تمتلئ بلون الشركة بنسبةٍ حقيقيّة — وما بقي باهت
+/// أعمدةٌ متدرّجة صغيرة تمتلئ بلون الشركة بنسبةٍ حقيقيّة — وما بقي باهت
 class _Bars extends StatelessWidget {
   const _Bars({required this.fill, required this.color});
 
   final double fill;
   final Color color;
 
-  static const _n = 7;
+  static const _n = 6;
 
   @override
   Widget build(BuildContext context) {
@@ -870,12 +931,12 @@ class _Bars extends StatelessWidget {
       children: [
         for (var i = 0; i < _n; i++)
           Container(
-            width: 5,
-            height: 10 + i * 4.0,
-            margin: const EdgeInsets.only(left: 3),
+            width: 4,
+            height: 6 + i * 3.0,
+            margin: const EdgeInsets.only(left: 2.5),
             decoration: BoxDecoration(
               color: i < on ? color.withValues(alpha: .45 + .55 * (i + 1) / _n) : color.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
       ],
@@ -883,36 +944,43 @@ class _Bars extends StatelessWidget {
   }
 }
 
-/// خطوطٌ منحنية تصل الحالات الأربع بزرّ الوسط
+/// خطوطٌ منحنية من الحافّة الداخلية لكلّ حالة إلى حلقة زرّ الوسط — ونقطةٌ عند كلّ طرف
 class _Links extends CustomPainter {
-  const _Links(this.color);
+  const _Links(this.color, {required this.tile, required this.halo});
 
   final Color color;
+  final double tile;
+  final double halo;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: .45)
+    final line = Paint()
+      ..color = color.withValues(alpha: .35)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
+      ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
+    final dot = Paint()..color = color.withValues(alpha: .55);
     final c = Offset(size.width / 2, size.height / 2);
-    const tile = 112.0;
+    final r = halo / 2 + 2;
+    // نصف ارتفاع كلّ صفّ: بطاقتان فوق وتحت بينهما 8
+    final rowY = (size.height - 8) / 4 + 4;
     for (final dx in [-1.0, 1.0]) {
       for (final dy in [-1.0, 1.0]) {
-        // من حافّة البطاقة الداخلية إلى حافّة الدائرة
-        final from = Offset(c.dx + dx * (size.width / 2 - tile), c.dy + dy * size.height / 4);
-        final to = Offset(c.dx + dx * 34, c.dy + dy * 44);
+        final from = Offset(c.dx + dx * (size.width / 2 - tile), c.dy + dy * rowY);
+        final to = Offset(c.dx + dx * r * .72, c.dy + dy * r * .72);
         final path = Path()
           ..moveTo(from.dx, from.dy)
-          ..cubicTo(to.dx, from.dy, to.dx, from.dy, to.dx, to.dy);
-        canvas.drawPath(path, paint);
+          ..cubicTo(to.dx + dx * 6, from.dy, to.dx + dx * 6, from.dy, to.dx, to.dy);
+        canvas
+          ..drawPath(path, line)
+          ..drawCircle(from, 2.6, dot)
+          ..drawCircle(to, 2.6, dot);
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _Links old) => old.color != color;
+  bool shouldRepaint(covariant _Links old) => old.color != color || old.tile != tile || old.halo != halo;
 }
 
 /// الإعلانات تنزلق بالإصبع، وتتقلّب وحدها كلّ خمس ثوانٍ، ونقاطها أسفلها. إعلانات الشركة من

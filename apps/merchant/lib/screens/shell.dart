@@ -226,8 +226,8 @@ class _ShellState extends State<Shell> {
   }
 }
 
-/// الشريط السفلي (docs/plan/76): أبيض بحافّةٍ علويّة مدوّرة، والصفحة المفتوحة على خلفيةٍ ورديّة فاتحة
-/// بأيقونتها واسمها بلون الشركة.
+/// الشريط السفلي (docs/plan/76): أبيض بحافّةٍ علويّة مدوّرة، والصفحة المفتوحة على خلفيةٍ ورديّة فاتحة.
+/// وفي وسطه زرّ المسح الأحمر مرفوعاً: يمسح الوصل المطبوع ويُكتب الطلب عليه، أو يفتح «طلب جديد».
 class _NavBar extends StatelessWidget {
   const _NavBar({required this.brand, required this.index, required this.onTap});
 
@@ -238,7 +238,7 @@ class _NavBar extends StatelessWidget {
   static const _items = [
     ('الرئيسية', Icons.home_outlined, Icons.home_rounded),
     ('شحناتي', Icons.inventory_2_outlined, Icons.inventory_2_rounded),
-    ('إنشاء شحنة', Icons.add_circle_outline_rounded, Icons.add_circle_rounded),
+    ('امسح وأنشئ', Icons.qr_code_scanner_rounded, Icons.qr_code_scanner_rounded),
     ('المالية', Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded),
     ('المزيد', Icons.more_horiz_rounded, Icons.more_horiz_rounded),
   ];
@@ -247,15 +247,15 @@ class _NavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(8, 8, 8, bottom > 0 ? bottom : 10),
+      padding: EdgeInsets.fromLTRB(6, 6, 6, bottom > 0 ? bottom : 8),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(top: BorderSide(color: Palette.line)),
         boxShadow: [BoxShadow(color: Color(0x2226181A), blurRadius: 28, spreadRadius: -14, offset: Offset(0, -10))],
       ),
       child: SizedBox(
-        height: 64,
+        height: 54,
         child: Row(children: [for (var i = 0; i < _items.length; i++) Expanded(child: _item(i))]),
       ),
     );
@@ -265,6 +265,47 @@ class _NavBar extends StatelessWidget {
     final (label, icon, filled) = _items[i];
     final active = i == index;
     final color = active ? brand.main : Palette.slate;
+
+    // زرّ المسح في الوسط: دائرةٌ حمراء مرفوعة بحلقةٍ بيضاء — لا يضيع بين الأيقونات
+    if (i == 2) {
+      return Tooltip(
+        message: 'امسح الوصل أو أنشئ شحنة',
+        child: GestureDetector(
+          onTap: () => onTap(i),
+          behavior: HitTestBehavior.opaque,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              Positioned(
+                top: -24,
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: brand.hero,
+                    border: Border.all(color: Colors.white, width: 4),
+                    boxShadow: brand.glow(.55),
+                  ),
+                  child: Icon(icon, size: 23, color: Colors.white),
+                ),
+              ),
+              Positioned(
+                bottom: 2,
+                left: 0,
+                right: 0,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(label, maxLines: 1, style: font(10.5, w8, Palette.ink, height: 1)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Tooltip(
       message: label,
       child: GestureDetector(
@@ -275,14 +316,17 @@ class _NavBar extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
             color: active ? brand.soft : Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(active ? filled : icon, size: 25, color: color),
-              const SizedBox(height: 4),
-              Text(label, maxLines: 1, style: font(11.5, active ? w8 : w6, color, height: 1)),
+              Icon(active ? filled : icon, size: 21, color: color),
+              const SizedBox(height: 3),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(label, maxLines: 1, style: font(10.5, active ? w8 : w6, color, height: 1)),
+              ),
             ],
           ),
         ),
@@ -369,7 +413,7 @@ class _AccountState extends State<_Account> {
         // تحت شريط الحالة؛ وفي نسخة العرض على الويب تحت شريط حالةٍ مرسوم
         padding: EdgeInsets.fromLTRB(16, top > 0 ? top + 6 : 34, 16, 130),
         children: [
-          Text('حسابي', style: display(28, w7, Palette.ink, height: 1.3)),
+          Text('المزيد', style: display(20, w8, Palette.ink, height: 1.3)),
           const SizedBox(height: 10),
           WhiteCard(
             radius: 24,
@@ -377,17 +421,13 @@ class _AccountState extends State<_Account> {
             child: Row(
               children: [
                 Container(
-                  width: 56,
-                  height: 56,
+                  width: 44,
+                  height: 44,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: brand.hero,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: brand.glow(),
-                  ),
+                  decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
                   child: Text(
                     name.isEmpty ? '؟' : name.characters.first,
-                    style: display(26, w7, Colors.white, height: 1),
+                    style: display(19, w8, brand.main, height: 1),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -395,7 +435,7 @@ class _AccountState extends State<_Account> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: display(18, w7, Palette.ink)),
+                      Text(name, style: display(15.5, w8, Palette.ink)),
                       if (session != null) Text(session.companyName, style: font(12.5, w6, Palette.muted)),
                       // بأيّ نظامٍ هذه النسخة مربوطة: أوّل ما يُسأل حين لا يصل شيء
                       if (!AppConfig.demo)
@@ -423,13 +463,15 @@ class _AccountState extends State<_Account> {
                     if (i > 0) const Divider(height: 1, indent: 60, color: Palette.line),
                     ListTile(
                       onTap: () => screen == 'receive' ? _scan() : widget.onOpen(screen),
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
                       leading: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
-                        child: Icon(icon, size: 18, color: brand.deep),
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
+                        child: Icon(icon, size: 17, color: brand.main),
                       ),
-                      title: Text(label, style: font(14, w7, Palette.ink)),
+                      title: Text(label, style: font(13, w7, Palette.ink)),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
