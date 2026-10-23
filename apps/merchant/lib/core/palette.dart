@@ -81,9 +81,13 @@ class Brand {
 }
 
 /// خطّ «القاهرة» بمقاسات التصميم.
+/// النصّ كلّه أصغر قليلاً من قياسه المكتوب (docs/plan/78): كان كبيراً على الهاتف في كلّ مكان — وأصغر
+/// خطٍّ لا ينزل عن ٩٫٥ فيبقى يُقرأ
+const textScale = .9;
+
 TextStyle font(double size, FontWeight weight, Color color, {double height = 1.25}) => TextStyle(
   fontFamily: 'Cairo',
-  fontSize: size,
+  fontSize: size * textScale < 9.5 ? (size < 9.5 ? size : 9.5) : size * textScale,
   fontWeight: weight,
   color: color,
   height: height,

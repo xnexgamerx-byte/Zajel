@@ -81,9 +81,9 @@ class _MerchantAppState extends State<MerchantApp> {
         scaffoldBackgroundColor: Palette.bg,
         colorScheme: ColorScheme.fromSeed(seedColor: brand.main, primary: brand.main, surface: Colors.white),
       ),
-      // خطّ الهاتف المكبَّر يُحترم حتى حدٍّ لا ينكسر عنده التصميم (docs/plan/77)
+      // خطّ الهاتف المكبَّر لا يكبّر التطبيق فوق قياسه (docs/plan/77، 78): التصميم بقياسه هو
       builder: (context, child) => MediaQuery.withClampedTextScaling(
-        maxScaleFactor: 1.12,
+        maxScaleFactor: 1.0,
         child: Directionality(textDirection: TextDirection.rtl, child: child!),
       ),
       home: signedIn

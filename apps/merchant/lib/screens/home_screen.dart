@@ -524,8 +524,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ حالة الشحنات
 
-  /// قطر زرّ الوسط بحلقته: صغيرٌ لتظهر الخطوط التي تصله بالحالات الأربع
+  /// مساحة زرّ الوسط واسمه، وقطر الزرّ نفسه: صغيران لتظهر الخطوط التي تصله بالحالات الأربع
   static const _halo = 74.0;
+  static const _button = 44.0;
 
   /// أربع حالاتٍ حول زرّ «إنشاء شحنة» الأحمر، وخطوطٌ منحنية تصلها به — بقياس الشاشة نفسها
   Widget _hub(HomeData d) {
@@ -566,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Positioned.fill(
                       child: CustomPaint(
-                        painter: _Links(brand.main, tile: tile, halo: _halo),
+                        painter: _Links(Palette.muted, tile: tile, button: _button),
                       ),
                     ),
                     Column(
@@ -667,32 +668,26 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   );
 
-  /// الزرّ الأحمر في الوسط بحلقةٍ ورديّة صغيرة: يدويّاً، أو من صورة، أو بصوتك
+  /// الزرّ الأحمر في الوسط بلا حلقة، واسمه تحته: يدويّاً، أو من صورة، أو بصوتك
   Widget _createButton() => Tooltip(
     message: 'إنشاء شحنة',
-    child: Tap(
-      radius: _halo / 2,
+    child: GestureDetector(
       onTap: _createSheet,
-      child: Container(
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
         width: _halo,
         height: _halo,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-          border: Border.all(color: brand.main.withValues(alpha: .12)),
-          boxShadow: [BoxShadow(color: brand.main.withValues(alpha: .16), blurRadius: 16, spreadRadius: 1)],
-        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(gradient: brand.hero, shape: BoxShape.circle, boxShadow: brand.glow(.4)),
-              child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+              width: _button,
+              height: _button,
+              decoration: BoxDecoration(gradient: brand.hero, shape: BoxShape.circle, boxShadow: brand.glow(.45)),
+              child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
             ),
-            const SizedBox(height: 2),
-            Text('إنشاء شحنة', style: font(9.5, w8, brand.deep, height: 1.2)),
+            const SizedBox(height: 4),
+            Text('إنشاء شحنة', maxLines: 1, style: font(10.5, w8, brand.deep, height: 1.1)),
           ],
         ),
       ),
@@ -944,43 +939,54 @@ class _Bars extends StatelessWidget {
   }
 }
 
-/// خطوطٌ منحنية من الحافّة الداخلية لكلّ حالة إلى حلقة زرّ الوسط — ونقطةٌ عند كلّ طرف
+/// خطوط الوصل كما في التصميم: من الحافّة الداخلية لكلّ حالةٍ خطٌّ أفقيّ، ينعطف بقوسٍ ناعم نحو الزرّ،
+/// وتلتقي حالتا كلّ جانبٍ عند جنب الزرّ كقوسٍ «}» — رماديّةٌ رفيعة بلا نقاط
 class _Links extends CustomPainter {
-  const _Links(this.color, {required this.tile, required this.halo});
+  const _Links(this.color, {required this.tile, required this.button});
 
   final Color color;
   final double tile;
-  final double halo;
+  final double button;
 
   @override
   void paint(Canvas canvas, Size size) {
     final line = Paint()
-      ..color = color.withValues(alpha: .35)
+      ..color = color.withValues(alpha: .45)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    final dot = Paint()..color = color.withValues(alpha: .55);
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
     final c = Offset(size.width / 2, size.height / 2);
-    final r = halo / 2 + 2;
-    // نصف ارتفاع كلّ صفّ: بطاقتان فوق وتحت بينهما 8
+    // مركز الزرّ أعلى قليلاً من وسط البطاقة: اسمه تحته
+    final buttonY = c.dy - 8;
+    final r = button / 2;
+    // نصف ارتفاع كلّ صفّ: صفّان بينهما 8
     final rowY = (size.height - 8) / 4 + 4;
+    const bend = 12.0;
+
     for (final dx in [-1.0, 1.0]) {
+      // حيث ينزل الخطّ عموديّاً: بعيداً عن الزرّ قليلاً، فيلتفّ إلى جنبه
+      final rail = c.dx + dx * (r + 14);
+      final meet = Offset(c.dx + dx * (r + 3), buttonY);
       for (final dy in [-1.0, 1.0]) {
         final from = Offset(c.dx + dx * (size.width / 2 - tile), c.dy + dy * rowY);
-        final to = Offset(c.dx + dx * r * .72, c.dy + dy * r * .72);
         final path = Path()
           ..moveTo(from.dx, from.dy)
-          ..cubicTo(to.dx + dx * 6, from.dy, to.dx + dx * 6, from.dy, to.dx, to.dy);
-        canvas
-          ..drawPath(path, line)
-          ..drawCircle(from, 2.6, dot)
-          ..drawCircle(to, 2.6, dot);
+          // أفقيّاً من البطاقة إلى قبيل المنعطف
+          ..lineTo(rail + dx * bend, from.dy)
+          // ينعطف نحو الوسط
+          ..quadraticBezierTo(rail, from.dy, rail, from.dy - dy * bend)
+          // عموديّاً إلى قبيل مستوى الزرّ
+          ..lineTo(rail, buttonY + dy * bend)
+          // ويلتفّ إلى جنب الزرّ
+          ..quadraticBezierTo(rail, buttonY, meet.dx, meet.dy);
+        canvas.drawPath(path, line);
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _Links old) => old.color != color || old.tile != tile || old.halo != halo;
+  bool shouldRepaint(covariant _Links old) => old.color != color || old.tile != tile || old.button != button;
 }
 
 /// الإعلانات تنزلق بالإصبع، وتتقلّب وحدها كلّ خمس ثوانٍ، ونقاطها أسفلها. إعلانات الشركة من
