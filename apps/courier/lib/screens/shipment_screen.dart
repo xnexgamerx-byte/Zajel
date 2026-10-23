@@ -7,14 +7,13 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../core/whatsapp.dart';
 import '../widgets/bits.dart';
-import '../widgets/digits.dart';
 import '../widgets/page.dart';
 import '../widgets/whatsapp.dart';
 import 'scan_screen.dart';
 import 'shipment_sheets.dart';
 
-/// الشحنة عند الباب (docs/plan/66): الزبون والعنوان والمبلغ، والكود إن كانت بكود، ثم
-/// سُلّمت · لم تُسلَّم · مؤجلة. المبلغ يُعرض ولا يُعدَّل: تغييره طلبٌ إلى الكول سنتر.
+/// الشحنة عند الباب (docs/plan/66): الزبون والعنوان والمبلغ، ثم سُلّمت · لم تُسلَّم · مؤجلة — بلا كود
+/// تسليم (docs/plan/76). المبلغ يُعرض ولا يُعدَّل: تغييره طلبٌ إلى الكول سنتر.
 class ShipmentScreen extends StatefulWidget {
   const ShipmentScreen({super.key, required this.brand, required this.id});
 
@@ -26,10 +25,8 @@ class ShipmentScreen extends StatefulWidget {
 }
 
 class _ShipmentScreenState extends State<ShipmentScreen> {
-  final code = TextEditingController();
   ShipmentDetail? s;
   String? error;
-  String? codeError;
   bool busy = false;
 
   /// ما مُسح من الطرد قبل التسجيل (docs/plan/72) — يُرسل مع الإجراء ويطابقه النظام
@@ -41,14 +38,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
   @override
   void initState() {
     super.initState();
-    code.addListener(() => setState(() => codeError = null));
     _load();
-  }
-
-  @override
-  void dispose() {
-    code.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -64,10 +54,6 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
 
   Future<void> _deliver({bool partial = false}) async {
     final d = s!;
-    if (d.needsCode && code.text.trim().length < 4) {
-      setState(() => codeError = 'اطلب كود التسليم من الزبون واكتبه هنا.');
-      return;
-    }
     final amount = partial ? d.partialAmount! : d.amount;
     final ok = await confirm(
       context,
@@ -99,7 +85,6 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         action,
         reasonId: reasonId,
         note: note,
-        code: code.text.trim(),
         scan: scanned,
         until: until,
         lat: here?.lat,
@@ -118,9 +103,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
       if (mounted) navigator.pop(true);
     } on ApiError catch (e) {
       if (!mounted) return;
-      if (e.fields.containsKey('delivery_code')) {
-        setState(() => codeError = e.fields['delivery_code']);
-      } else if (e.fields.containsKey('scan')) {
+      if (e.fields.containsKey('scan')) {
         // ما مُسح ليس هذا الطرد: يُمسح من جديد
         setState(() => (scanned = null, scanError = e.fields['scan']));
       } else {
@@ -195,7 +178,6 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                           _customer(d),
                           const SizedBox(height: 12),
                           _amount(d),
-                          if (d.needsCode && d.canAct) ...[const SizedBox(height: 12), _code()],
                           if (_hasDetails(d)) ...[const SizedBox(height: 12), _details(d)],
                           if (!d.canAct && !d.canResume && !d.waiting) ...[
                             const SizedBox(height: 12),
@@ -400,52 +382,6 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
     );
   }
 
-  Widget _code() => WhiteCard(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('كود التسليم', style: font(15, w8, Palette.ink)),
-        Text('اطلبه من الزبون قبل التسليم', style: font(12, w6, Palette.slate)),
-        const SizedBox(height: 12),
-        Container(
-          height: 58,
-          decoration: BoxDecoration(
-            color: Palette.field,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: codeError != null ? Palette.bad : Palette.line,
-              width: codeError != null ? 1.4 : 1,
-            ),
-          ),
-          child: TextField(
-            controller: code,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.ltr,
-            maxLength: 10,
-            inputFormatters: const [LatinDigits()],
-            style: font(24, w8, Palette.ink).copyWith(letterSpacing: 10),
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: '····',
-              hintStyle: font(24, w8, Palette.muted).copyWith(letterSpacing: 10),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-        if (codeError != null) ErrorNote(codeError!),
-        const SizedBox(height: 8),
-        Text(
-          'خمس محاولات خاطئة في الساعة، ثم يُقفل الكود',
-          textAlign: TextAlign.center,
-          style: font(11.5, w6, Palette.slate),
-        ),
-      ],
-    ),
-  );
-
   bool _hasDetails(ShipmentDetail d) =>
       (d.notes ?? '').isNotEmpty || (d.description ?? '').isNotEmpty || d.fragile || d.allowOpen || d.attempts > 0;
 
@@ -625,7 +561,6 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
   Widget _actions(ShipmentDetail d) {
     // لا شيء قبل مسح الطرد إن طُلب (docs/plan/72)
     final scanMissing = d.needsScan && scanned == null;
-    final codeMissing = scanMissing || (d.needsCode && code.text.trim().length < 4);
     final partial = d.actions.contains('partially_delivered') && d.partialAmount != null;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
@@ -637,7 +572,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // «سُلّمت» لا تُفعَّل قبل كود التسليم إن كانت الشحنة بكود (docs/plan/66). والألوان ألوان النتيجة
+          // «سُلّمت» بلا كود تسليم (docs/plan/76) — ولا تُفعَّل قبل مسح الطرد إن فُتح المسح. والألوان ألوان النتيجة
           // نفسها (docs/plan/74): سُلّمت أخضر، لم تُسلَّم (راجع) أحمر، مؤجلة أصفر — تُعرف قبل أن تُقرأ
           _Outcome(
             label: d.ticket?.open == true ? 'سُلّمت بالمبلغ الأصلي' : 'سُلّمت',
@@ -645,7 +580,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
             color: OutcomeColors.delivered,
             filled: true,
             busy: busy,
-            onTap: busy || codeMissing ? null : () => _deliver(),
+            onTap: busy || scanMissing ? null : () => _deliver(),
           ),
           if (partial) ...[
             const SizedBox(height: 8),
@@ -653,7 +588,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
               label: 'واصل جزئي بـ ${money(d.partialAmount!)}',
               icon: Icons.call_split_rounded,
               color: OutcomeColors.delivered,
-              onTap: busy || codeMissing ? null : () => _deliver(partial: true),
+              onTap: busy || scanMissing ? null : () => _deliver(partial: true),
             ),
           ],
           const SizedBox(height: 8),

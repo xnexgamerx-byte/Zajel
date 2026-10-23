@@ -57,7 +57,7 @@ class CashSummary {
   bool get near => limitReached || (percent ?? 0) >= 75;
 }
 
-/// «تحتاج انتباهك»: تذكرة · كود · راجع
+/// «تحتاج انتباهك»: تذكرة · راجع
 class Attention {
   Attention({required this.kind, required this.id, required this.number, required this.text});
 
@@ -196,7 +196,6 @@ class TaskRow {
     this.city,
     this.landmark,
     required this.amount,
-    this.needsCode = false,
     this.fragile = false,
     this.hasNote = false,
     this.ticketStatus,
@@ -218,7 +217,6 @@ class TaskRow {
       city: j['city'] as String?,
       landmark: j['landmark'] as String?,
       amount: _int(j['amount']),
-      needsCode: j['needs_code'] as bool? ?? false,
       fragile: j['fragile'] as bool? ?? false,
       hasNote: j['has_note'] as bool? ?? false,
       ticketStatus: ticket?['status'] as String?,
@@ -238,7 +236,6 @@ class TaskRow {
   final String? city;
   final String? landmark;
   final int amount;
-  final bool needsCode;
   final bool fragile;
   final bool hasNote;
   final String? ticketStatus;
@@ -333,7 +330,7 @@ class Ticket {
   bool get open => status == 'open';
 }
 
-/// الشحنة كاملةً كما في شاشة المندوب — بلا كود التسليم: يُطلب من الزبون فقط
+/// الشحنة كاملةً كما في شاشة المندوب — بلا كود تسليم (docs/plan/76)
 class ShipmentDetail {
   ShipmentDetail({
     required this.id,
@@ -352,7 +349,6 @@ class ShipmentDetail {
     this.merchant,
     this.merchantPhone,
     required this.amount,
-    this.needsCode = false,
     this.needsScan = false,
     this.pieces = 1,
     this.description,
@@ -394,7 +390,6 @@ class ShipmentDetail {
       merchant: m['name'] as String?,
       merchantPhone: m['phone'] as String?,
       amount: _int(j['amount']),
-      needsCode: j['needs_code'] as bool? ?? false,
       needsScan: j['needs_scan'] as bool? ?? false,
       pieces: _int(j['pieces']),
       description: j['description'] as String?,
@@ -432,7 +427,6 @@ class ShipmentDetail {
 
   /// يُمسح الطرد قبل أيّ تسجيلٍ عند الباب (docs/plan/72)
   final bool needsScan;
-  final bool needsCode;
   final int pieces;
   final String? description;
   final String? notes;

@@ -7,13 +7,13 @@ import 'config.dart';
 import 'demo.dart';
 import 'models.dart';
 
-/// خطأٌ يُعرض للمندوب كما كتبه النظام («كود التسليم غير صحيح.»)
+/// خطأٌ يُعرض للمندوب كما كتبه النظام («اختر السبب»)
 class ApiError implements Exception {
   ApiError(this.message, {this.unauthorised = false, this.notFound = false, this.fields = const {}});
 
   final String message;
 
-  /// أخطاء النموذج بحقولها: {delivery_code: «كود التسليم غير صحيح.»}
+  /// أخطاء النموذج بحقولها: {failure_reason_id: «اختر السبب…»}
   final Map<String, String> fields;
 
   /// انتهى الدخول (رمزٌ أُبطل أو حسابٌ أُوقف): يعود إلى شاشة الدخول
@@ -136,14 +136,13 @@ class Api {
     String action, {
     int? reasonId,
     String? note,
-    String? code,
     String? scan,
     DateTime? until,
     double? lat,
     double? lng,
   }) async {
     if (AppConfig.demo) {
-      return Demo.act(id, action, reasonId: reasonId, note: note, code: code, scan: scan, until: until);
+      return Demo.act(id, action, reasonId: reasonId, note: note, scan: scan, until: until);
     }
     final body = await _send(
       http.post(
@@ -153,7 +152,6 @@ class Api {
           'action': action,
           'failure_reason_id': ?reasonId,
           if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
-          if (code != null && code.isNotEmpty) 'delivery_code': code,
           if (scan != null && scan.isNotEmpty) 'scan': scan,
           if (until != null) 'until': until.toIso8601String(),
           'lat': ?lat,

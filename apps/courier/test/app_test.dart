@@ -95,9 +95,8 @@ void main() {
       '78٪ من السقف',
       'سُلّمت اليوم',
       'راجع بيدي',
-      'تحتاج انتباهك (5)',
+      'تحتاج انتباهك (3)',
       'طلب تغيير المبلغ ينتظر جواب الكول سنتر',
-      'يُسلَّم بكود من الزبون',
       'راجعٌ بيدك: سلّمه للمخزن',
     ]) {
       await tester.ensureVisible(find.textContaining(text).first);
@@ -113,7 +112,8 @@ void main() {
 
     expect(find.text('بغداد — المنصور (2)'), findsOneWidget);
     expect(find.text('ينتظر جواب الكول سنتر على المبلغ'), findsOneWidget);
-    expect(find.text('يُسلَّم بكود'), findsNWidgets(2));
+    // لا كود تسليم (docs/plan/76)
+    expect(find.textContaining('بكود'), findsNothing);
 
     await tester.enterText(find.byType(TextField), '180212');
     await tester.pump(const Duration(milliseconds: 400));
@@ -190,28 +190,14 @@ void main() {
     expect(Reminders.body(at(DateTime(2026, 10, 22, 16))), contains('الشحنة 180181 — الكرادة'));
   });
 
-  testWidgets('شحنةٌ بكود: «سُلّمت» لا تعمل قبل الكود، والكود الخاطئ يُرفض، والصحيح يُسلّمها', (tester) async {
+  testWidgets('«سُلّمت» بلا كودٍ ولا إجراءٍ آخر: تأكيدٌ واحد ويُسجَّل', (tester) async {
     await _start(tester);
     await _openShipment(tester, '180201');
 
     expect(find.text('زينب علي'), findsOneWidget);
-    expect(find.text('كود التسليم'), findsOneWidget);
     expect(find.text('اتصل قبل الوصول بربع ساعة'), findsOneWidget);
-    // الكود لا يُعرض أبداً — يُطلب من الزبون
-    expect(find.textContaining('4821'), findsNothing);
+    expect(find.textContaining('كود'), findsNothing);
 
-    await tester.tap(find.text('سُلّمت'));
-    await tester.pumpAndSettle();
-    expect(find.text('سُلّمت الشحنة؟'), findsNothing, reason: 'الزرّ مقفلٌ بلا كود');
-
-    await tester.enterText(find.byType(TextField), '١١١١');
-    await tester.pump();
-    await _tap(tester, find.text('سُلّمت'));
-    await _tap(tester, find.text('نعم، سُلّمت'));
-    expect(find.text('كود التسليم غير صحيح.'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), '4821');
-    await tester.pump();
     await _tap(tester, find.text('سُلّمت'));
     expect(find.textContaining('قبضت 25,000 د.ع'), findsOneWidget);
     await _tap(tester, find.text('نعم، سُلّمت'));
@@ -287,9 +273,9 @@ void main() {
     }
 
     await _tab(tester, 'المزيد');
-    await tester.scrollUntilVisible(find.text('أشارك موقعي ما دام التطبيق مفتوحاً'), 200);
-    expect(find.text('أشارك موقعي ما دام التطبيق مفتوحاً'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('الراجع بيدي'), -200);
+    // الموقع مشغّلٌ دائماً: لا مفتاح يطفئه (docs/plan/76)
+    expect(find.byType(Switch), findsNothing);
+    expect(find.text('أشارك موقعي ما دام التطبيق مفتوحاً'), findsNothing);
     expect(find.textContaining('نسخة عرضٍ'), findsOneWidget);
     await _tap(tester, find.text('الراجع بيدي'));
     expect(find.text(tag('180190')), findsOneWidget);

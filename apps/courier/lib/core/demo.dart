@@ -4,12 +4,11 @@ import 'palette.dart';
 
 /// نسخة العرض (config/demo.json): بياناتٌ وهميّة للاختبارات ومطابقة التصميم — لا نظام ولا زبائن حقيقيّون.
 ///
-/// تتبع قواعد النظام نفسها حتى تُختبر الشاشات عليها: الشحنة بكودٍ لا تُسلَّم بلا كودها، والسبب
+/// تتبع قواعد النظام نفسها حتى تُختبر الشاشات عليها: التسليم بلا كود (docs/plan/76)، والسبب
 /// إلزامي، وبعض الأسباب تحتاج توضيحاً، والواصل الجزئي بعد اعتماد الكول سنتر وحده.
 class Demo {
   static final session = Session(name: 'مندوب تجريبي', companyName: 'الزاجل', initial: 'ز');
 
-  static const _code = '4821';
   static int _tickets = 0;
 
   static List<_Parcel> _parcels = _seed();
@@ -44,16 +43,7 @@ class Demo {
   }
 
   static List<_Parcel> _seed() => [
-    _Parcel(
-      180201,
-      'زينب علي',
-      'الكرادة',
-      'شارع 62',
-      25000,
-      code: true,
-      fragile: true,
-      note: 'اتصل قبل الوصول بربع ساعة',
-    ),
+    _Parcel(180201, 'زينب علي', 'الكرادة', 'شارع 62', 25000, fragile: true, note: 'اتصل قبل الوصول بربع ساعة'),
     _Parcel(180203, 'حسين كاظم', 'الكرادة', 'الكرادة داخل', 30000)
       ..ticket = Ticket(
         number: 'TK-000101',
@@ -63,7 +53,7 @@ class Demo {
         statusLabel: 'بانتظار الكول سنتر',
         requested: 25000,
       ),
-    _Parcel(180207, 'مصطفى عادل', 'الكرادة', 'بجانب الصيدلية', 40000, code: true),
+    _Parcel(180207, 'مصطفى عادل', 'الكرادة', 'بجانب الصيدلية', 40000),
     _Parcel(180209, 'نور الهدى', 'الكرادة', 'الكرادة خارج', 15000),
     _Parcel(180212, 'علي حسن', 'المنصور', 'شارع 14', 20000),
     _Parcel(180215, 'رنا جاسم', 'المنصور', 'قرب الجامع', 35000)
@@ -205,8 +195,6 @@ class Demo {
               ? 'طلب تغيير المبلغ ينتظر جواب الكول سنتر'
               : 'اعتُمد واصلٌ جزئي بمبلغ ${money(p.ticket!.approved!)}',
         ),
-      for (final p in _out.where((p) => p.code))
-        Attention(kind: 'code', id: p.id, number: '${p.id}', text: 'يُسلَّم بكود من الزبون'),
       for (final p in _returns)
         Attention(kind: 'return', id: p.id, number: '${p.id}', text: 'راجعٌ بيدك: سلّمه للمخزن'),
     ],
@@ -282,7 +270,6 @@ class Demo {
     String action, {
     int? reasonId,
     String? note,
-    String? code,
     String? scan,
     DateTime? until,
   }) async {
@@ -324,12 +311,6 @@ class Demo {
       final partial = action == 'partially_delivered';
       if (partial && p.ticket?.status != 'approved') {
         throw _field('action', 'الواصل الجزئي بموافقة الكول سنتر: اطلب تغيير المبلغ وانتظر اعتماده.');
-      }
-      if (p.code && code != _code) {
-        throw _field(
-          'delivery_code',
-          (code ?? '').isEmpty ? 'هذه الشحنة تُسلَّم بكود: اطلبه من الزبون.' : 'كود التسليم غير صحيح.',
-        );
       }
       final collected = partial ? p.ticket!.approved! : p.amount;
       p.status = partial ? 'partially_delivered' : 'delivered';
@@ -622,7 +603,6 @@ class _Parcel {
     this.city,
     this.landmark,
     this.amount, {
-    this.code = false,
     this.fragile = false,
     this.note,
     this.status = 'out_for_delivery',
@@ -633,7 +613,6 @@ class _Parcel {
   final String city;
   final String landmark;
   final int amount;
-  final bool code;
   final bool fragile;
   final String? note;
   String status;
@@ -678,7 +657,6 @@ class _Parcel {
     city: city,
     landmark: landmark,
     amount: returning ? 0 : amount,
-    needsCode: code,
     fragile: fragile,
     hasNote: note != null,
     ticketStatus: ticket?.status,
@@ -708,7 +686,6 @@ class _Parcel {
       merchant: 'متجر تجريبي',
       merchantPhone: '07800000000',
       amount: amount,
-      needsCode: code,
       needsScan: canAct && Demo.scanParcels,
       pieces: 1,
       description: 'ملابس',

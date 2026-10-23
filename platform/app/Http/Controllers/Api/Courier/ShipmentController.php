@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * الشحنة في تطبيق المندوب (docs/plan/66): ما تعرضه شاشته في الموقع، وما يسجّله عند الباب
- * بالقواعد نفسها (RecordCourierOutcome). كود التسليم لا يُعاد أبداً: يُطلب من الزبون فقط.
+ * بالقواعد نفسها (RecordCourierOutcome) — بلا كود تسليم (docs/plan/76).
  */
 class ShipmentController extends Controller
 {
@@ -58,7 +58,6 @@ class ShipmentController extends Controller
             'collected_amount' => ['prohibited'],
             'failure_reason_id' => ['nullable', 'integer'],
             'note' => ['nullable', 'string', 'max:500'],
-            'delivery_code' => ['nullable', 'string', 'max:10'],
             // الطرد ممسوحٌ في يده (docs/plan/72)
             'scan' => ['nullable', 'string', 'max:300'],
             // موعد المؤجّلة (docs/plan/75): يُفحص في CourierOutcomeRules
@@ -173,7 +172,6 @@ class ShipmentController extends Controller
             'city' => $shipment->city?->name_ar,
             'landmark' => $shipment->landmark,
             'amount' => $returning ? 0 : (int) $shipment->cod_amount,
-            'needs_code' => filled($shipment->delivery_code),
             'fragile' => (bool) $shipment->is_fragile,
             'has_note' => filled($shipment->notes),
             'ticket' => $ticket ? ['status' => $ticket->status, 'label' => $ticket->statusLabel()] : null,
@@ -218,7 +216,6 @@ class ShipmentController extends Controller
             'amount' => (int) $shipment->cod_amount,
             // يُمسح الطرد قبل أيّ تسجيل (docs/plan/72)
             'needs_scan' => $canAct && ScanParcel::required(),
-            'needs_code' => filled($shipment->delivery_code),
             'pieces' => (int) $shipment->pieces_count,
             'description' => $shipment->description,
             'notes' => $shipment->notes,

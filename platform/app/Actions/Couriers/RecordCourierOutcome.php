@@ -31,7 +31,7 @@ class RecordCourierOutcome
     public function __construct(protected ChangeShipmentStatus $change) {}
 
     /**
-     * @param  array{collected_amount?: ?int, failure_reason_id?: ?int, note?: ?string, delivery_code?: ?string, scan?: ?string, until?: ?string, lat?: ?float, lng?: ?float}  $data
+     * @param  array{collected_amount?: ?int, failure_reason_id?: ?int, note?: ?string, scan?: ?string, until?: ?string, lat?: ?float, lng?: ?float}  $data
      *
      * @throws ValidationException خطأٌ لكل حقل، كما في الشاشة
      */

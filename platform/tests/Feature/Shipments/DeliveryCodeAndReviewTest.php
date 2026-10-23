@@ -18,10 +18,8 @@ use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
- * خياران من بطاقة العميل في المعتاد:
- *
- * «كود تسليم الشحنة» — يُعطى الكود للتاجر فالزبون، ولا يسلّم المندوب إلّا به.
- * «وضع شحنات العميل تحت المراجعة» — لا تخرج شحناته مع مندوبٍ حتى تُجاز.
+ * «كود تسليم الشحنة» أُلغي (docs/plan/76): المندوب يسلّم الطلب بلا إجراءٍ آخر عند الباب، ولا كود يُولَّد
+ * لشحنةٍ جديدة — وما بقي في بطاقة العميل خيار «وضع شحناته تحت المراجعة»: لا تخرج مع مندوبٍ حتى تُجاز.
  */
 class DeliveryCodeAndReviewTest extends TestCase
 {
@@ -96,102 +94,50 @@ class DeliveryCodeAndReviewTest extends TestCase
         });
     }
 
-    private function deliver(Shipment $shipment, ?string $code)
+    private function deliver(Shipment $shipment)
     {
         return $this->actingAs($this->courierUser)
-            ->post($this->host().'/courier/shipments/'.$shipment->id, array_filter([
-                'action' => 'delivered', 'collected_amount' => 50_000, 'delivery_code' => $code,
-            ], fn ($v) => $v !== null));
+            ->post($this->host().'/courier/shipments/'.$shipment->id, ['action' => 'delivered', 'collected_amount' => 50_000]);
     }
 
-    // --------------------------------------------------------- كود التسليم
+    // --------------------------------------------------------- بلا كود تسليم
 
-    public function test_the_merchant_sets_both_options_on_the_customer_card(): void
+    public function test_the_merchant_card_sets_review_and_no_delivery_code(): void
     {
+        $this->actingAs($this->owner)->get($this->host()."/merchants/{$this->merchant->id}/edit")
+            ->assertOk()->assertDontSee('requires_delivery_code', false);
+
         $this->actingAs($this->owner)
             ->put($this->host()."/merchants/{$this->merchant->id}", [
                 'business_name' => $this->merchant->business_name, 'phone' => $this->merchant->phone,
                 'governorate_id' => $this->baghdad()->id, 'settlement_cycle' => 'weekly', 'payout_method' => 'cash',
-                'status' => 'active', 'requires_delivery_code' => '1', 'hold_for_review' => '1',
+                'status' => 'active', 'hold_for_review' => '1',
             ])
             ->assertSessionHasNoErrors();
 
-        $merchant = Tenancy::runFor($this->company, fn () => $this->merchant->fresh());
-        $this->assertTrue($merchant->requires_delivery_code);
-        $this->assertTrue($merchant->hold_for_review);
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => $this->merchant->fresh())->hold_for_review);
     }
 
-    public function test_a_code_merchants_shipment_gets_a_code_the_merchant_sees_and_the_api_does_not(): void
+    public function test_no_code_is_made_and_the_courier_delivers_without_one(): void
     {
-        $plain = $this->shipment();
-        $this->assertNull($plain->delivery_code);
-
-        $this->merchantWith(['requires_delivery_code' => true]);
-        $shipment = $this->shipment();
-
-        $this->assertMatchesRegularExpression('/^\d{4}$/', $shipment->delivery_code);
-        $this->assertArrayNotHasKey('delivery_code', $shipment->toArray());
-
-        $merchantUser = Tenancy::runFor($this->company, fn () => User::create([
-            'name' => 'تاجر', 'phone' => '07790000001', 'password' => 'password',
-            'role' => UserRole::Merchant, 'merchant_id' => $this->merchant->id, 'is_active' => true,
-        ]));
-
-        $this->actingAs($merchantUser)->get($this->host().'/portal/shipments/'.$shipment->id)
-            ->assertOk()->assertSee($shipment->delivery_code);
-
-        // المندوب يُسأل عنه ولا يُعطاه
-        $this->outForDelivery($shipment);
-        $this->actingAs($this->courierUser)->get($this->host().'/courier/shipments/'.$shipment->id)
-            ->assertOk()->assertSee('كود التسليم من الزبون')
-            ->assertDontSee('>'.$shipment->delivery_code.'<', false)
-            ->assertDontSee('value="'.$shipment->delivery_code.'"', false);
-    }
-
-    public function test_the_courier_delivers_only_with_the_right_code(): void
-    {
+        // ولو بقي العميل معلَّماً من قبل: لا كود لشحنته الجديدة
         $this->merchantWith(['requires_delivery_code' => true]);
         $shipment = $this->outForDelivery($this->shipment());
-        $wrong = $shipment->delivery_code === '0000' ? '1111' : '0000';
+        $this->assertNull($shipment->delivery_code);
 
-        $this->deliver($shipment, null)->assertSessionHasErrors(['delivery_code' => 'هذه الشحنة تُسلَّم بكود: اطلبه من الزبون.']);
-        $this->deliver($shipment, $wrong)->assertSessionHasErrors(['delivery_code' => 'كود التسليم غير صحيح.']);
-        $this->assertSame(ShipmentStatus::OutForDelivery, $shipment->fresh()->status);
-
-        // يُكتب بالأرقام العربية كما يقرؤه الزبون
-        $arabic = strtr($shipment->delivery_code, ['0' => '٠', '1' => '١', '2' => '٢', '3' => '٣', '4' => '٤',
-            '5' => '٥', '6' => '٦', '7' => '٧', '8' => '٨', '9' => '٩']);
-
-        $this->deliver($shipment, $arabic)->assertSessionHasNoErrors()->assertRedirect($this->host().'/courier');
+        $this->actingAs($this->courierUser)->get($this->host().'/courier/shipments/'.$shipment->id)
+            ->assertOk()->assertDontSee('كود التسليم');
+        $this->deliver($shipment)->assertSessionHasNoErrors()->assertRedirect($this->host().'/courier');
         $this->assertSame(ShipmentStatus::Delivered, $shipment->fresh()->status);
     }
 
-    public function test_a_failed_attempt_needs_no_code(): void
+    public function test_an_old_shipment_that_carries_a_code_is_delivered_without_it(): void
     {
-        $this->merchantWith(['requires_delivery_code' => true]);
         $shipment = $this->outForDelivery($this->shipment());
-        $reason = Tenancy::runFor($this->company, fn () => \App\Models\FailureReason::query()->value('id'));
+        Tenancy::runFor($this->company, fn () => $shipment->forceFill(['delivery_code' => '4821'])->save());
 
-        $this->actingAs($this->courierUser)
-            ->post($this->host().'/courier/shipments/'.$shipment->id, ['action' => 'failed_attempt', 'failure_reason_id' => $reason])
-            ->assertSessionHasNoErrors();
-
-        $this->assertSame(ShipmentStatus::FailedAttempt, $shipment->fresh()->status);
-    }
-
-    public function test_five_wrong_codes_lock_the_shipment_even_to_the_right_one(): void
-    {
-        $this->merchantWith(['requires_delivery_code' => true]);
-        $shipment = $this->outForDelivery($this->shipment());
-        $wrong = $shipment->delivery_code === '0000' ? '1111' : '0000';
-
-        foreach (range(1, 5) as $_) {
-            $this->deliver($shipment, $wrong)->assertSessionHasErrors('delivery_code');
-        }
-
-        $this->deliver($shipment, $shipment->delivery_code)
-            ->assertSessionHasErrors(['delivery_code' => 'محاولاتٌ كثيرة بكودٍ خاطئ. اتّصل بالشركة.']);
-        $this->assertSame(ShipmentStatus::OutForDelivery, $shipment->fresh()->status);
+        $this->deliver($shipment)->assertSessionHasNoErrors();
+        $this->assertSame(ShipmentStatus::Delivered, $shipment->fresh()->status);
     }
 
     // ------------------------------------------------------- تحت المراجعة

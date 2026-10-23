@@ -37,7 +37,6 @@ class ActionController extends Controller
             'collected_amount'  => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'failure_reason_id' => ['nullable', 'integer'],
             'note'              => ['nullable', 'string', 'max:500'],
-            'delivery_code'     => ['nullable', 'string', 'max:10'],
             // الطرد ممسوحٌ في يده (docs/plan/72)
             'scan'              => ['nullable', 'string', 'max:300'],
             'lat'               => ['nullable', 'numeric', 'between:-90,90'],

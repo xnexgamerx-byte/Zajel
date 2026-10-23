@@ -141,7 +141,7 @@ class HomeController extends Controller
     }
 
     /**
-     * «تحتاج انتباهك»: طلب تغيير مبلغٍ ينتظر أو اعتُمد، وشحنةٌ تُسلَّم بكود، وراجعٌ بيده.
+     * «تحتاج انتباهك»: طلب تغيير مبلغٍ ينتظر أو اعتُمد، وراجعٌ بيده.
      *
      * @return list<array{kind: string, id: int, number: string, text: string}>
      */
@@ -164,15 +164,6 @@ class HomeController extends Controller
                     ? 'طلب تغيير المبلغ ينتظر جواب الكول سنتر'
                     : 'اعتُمد واصلٌ جزئي بمبلغ '.number_format((int) $ticket->approved_amount),
             ];
-        }
-
-        $coded = Shipment::query()->where('delivery_courier_id', $courier->id)
-            ->where('status', ShipmentStatus::OutForDelivery->value)
-            ->whereNotNull('delivery_code')->where('delivery_code', '!=', '')
-            ->latest('assigned_at')->limit(5)->get(['id', 'number']);
-
-        foreach ($coded as $shipment) {
-            $items[] = ['kind' => 'code', 'id' => $shipment->id, 'number' => $shipment->number, 'text' => 'يُسلَّم بكود من الزبون'];
         }
 
         foreach ((clone $returns)->orderBy('status_changed_at')->limit(5)->get(['id', 'number']) as $shipment) {

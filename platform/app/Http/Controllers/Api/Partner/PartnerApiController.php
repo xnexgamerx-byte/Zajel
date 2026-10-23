@@ -168,7 +168,6 @@ class PartnerApiController extends Controller
             $errors = CourierOutcomeRules::errors($shipment, $to, [
                 'failure_reason_id' => $data['reason_id'] ?? null,
                 'note' => $data['note'] ?? null,
-                'delivery_code' => $data['delivery_code'] ?? null,
             ], null);
 
             if ($errors) {
@@ -266,7 +265,8 @@ class PartnerApiController extends Controller
             'status_changed_at' => $shipment->status_changed_at?->toIso8601String(),
             // المبلغ الذي يُقبض من الزبون عند التسليم، كما على الوصل
             'amount_to_collect' => $toReturn ? 0 : (int) $shipment->cod_amount,
-            'needs_delivery_code' => filled($shipment->delivery_code),
+            // لا كود تسليم (docs/plan/76): يبقى الحقل لأنظمةٍ تقرؤه، ولا يُطلب كودٌ أبداً
+            'needs_delivery_code' => false,
             'recipient' => [
                 'name' => $shipment->recipient_name,
                 'phone' => $shipment->recipient_phone,

@@ -182,42 +182,29 @@ class _MoreScreenState extends State<MoreScreen> {
             ),
           ),
         ),
-        const SectionTitle('الموقع'),
-        WhiteCard(
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          child: ValueListenableBuilder<bool>(
-            valueListenable: LocationShare.instance.enabled,
-            builder: (context, on, _) => Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 2),
-                  child: Icon(Icons.location_on_outlined, color: Palette.slate, size: 21),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('أشارك موقعي ما دام التطبيق مفتوحاً', style: font(14, w7, Palette.ink)),
-                      const SizedBox(height: 3),
-                      Text(
-                        'يساعد التاجر والمكتب على معرفة وقت وصولك. لا يُرسل شيء وأنت خارج التطبيق.',
-                        style: font(12, w5, Palette.slate, height: 1.5),
-                      ),
-                      ValueListenableBuilder<String?>(
-                        valueListenable: LocationShare.instance.problem,
-                        builder: (context, problem, _) => problem == null || !on
-                            ? const SizedBox.shrink()
-                            : Text(problem, style: font(12, w7, Palette.warn, height: 1.6)),
-                      ),
-                    ],
+        // الموقع مشغّلٌ دائماً ولا مفتاح له (docs/plan/76): يُرى هنا فقط إن أطفأه الهاتف أو رفض إذنه
+        ValueListenableBuilder<String?>(
+          valueListenable: LocationShare.instance.problem,
+          builder: (context, problem, _) => problem == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Palette.warn.withValues(alpha: .08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Palette.warn.withValues(alpha: .35)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_off_outlined, color: Palette.warn, size: 21),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(problem, style: font(12.5, w7, Palette.warn, height: 1.5))),
+                      ],
+                    ),
                   ),
                 ),
-                Switch(value: on, activeTrackColor: brand.main, onChanged: (v) => LocationShare.instance.setEnabled(v)),
-              ],
-            ),
-          ),
         ),
         const SectionTitle('الحساب'),
         Text(

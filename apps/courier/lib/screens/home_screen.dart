@@ -438,7 +438,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _attention(Attention a) {
     final (label, color) = switch (a.kind) {
       'ticket' => ('تذكرة', Palette.warn),
-      'code' => ('كود', Palette.info),
       _ => ('راجع', Palette.bad),
     };
     return Tap(

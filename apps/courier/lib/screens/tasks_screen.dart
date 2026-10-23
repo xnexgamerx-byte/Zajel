@@ -319,15 +319,11 @@ class _TasksScreenState extends State<TasksScreen> {
                   Text(r.place, maxLines: 1, overflow: TextOverflow.ellipsis, style: font(12.5, w6, Palette.slate)),
                   if (waiting) Text('ينتظر جواب الكول سنتر على المبلغ', style: font(12, w7, Palette.warn, height: 1.5)),
                   if (r.failure != null) Text('آخر سبب: ${r.failure}', style: font(12, w6, Palette.warn, height: 1.5)),
-                  if (r.needsCode || r.fragile || r.hasNote) ...[
+                  if (r.fragile || r.hasNote) ...[
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
-                      children: [
-                        if (r.needsCode) const Pill('يُسلَّم بكود', color: Palette.info),
-                        if (r.fragile) const Pill('قابل للكسر'),
-                        if (r.hasNote) const Pill('ملاحظة'),
-                      ],
+                      children: [if (r.fragile) const Pill('قابل للكسر'), if (r.hasNote) const Pill('ملاحظة')],
                     ),
                   ],
                 ],

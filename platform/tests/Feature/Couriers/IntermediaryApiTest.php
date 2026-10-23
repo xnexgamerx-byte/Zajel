@@ -232,24 +232,18 @@ class IntermediaryApiTest extends TestCase
         $this->getJson($this->url('/me'), $this->auth($token))->assertJsonPath('held.total', 0);
     }
 
-    public function test_a_delivery_code_is_required_and_cannot_be_guessed(): void
+    /** لا كود تسليم (docs/plan/76): ولو حمل وصلٌ قديم كوداً، يُسلَّم بلا إجراءٍ آخر */
+    public function test_delivered_needs_no_delivery_code(): void
     {
         $token = $this->key();
         $shipment = $this->ship('علي');
         Tenancy::runFor($this->company, fn () => $shipment->forceFill(['delivery_code' => '4821'])->save());
-        $url = $this->url('/shipments/'.$shipment->number.'/status');
 
         $this->getJson($this->url('/shipments/'.$shipment->number), $this->auth($token))
-            ->assertJsonPath('data.needs_delivery_code', true)->assertJsonMissingPath('data.delivery_code');
-
-        $this->postJson($url, ['action' => 'delivered'], $this->auth($token))->assertUnprocessable()->assertJsonValidationErrors('delivery_code');
-        for ($i = 0; $i < 5; $i++) {
-            $this->postJson($url, ['action' => 'delivered', 'delivery_code' => '000'.$i], $this->auth($token))->assertUnprocessable();
-        }
-        // بعد خمس محاولاتٍ خاطئة يُقفل حتى الكود الصحيح
-        $this->postJson($url, ['action' => 'delivered', 'delivery_code' => '4821'], $this->auth($token))
-            ->assertUnprocessable()->assertJsonValidationErrors('delivery_code');
-        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+            ->assertJsonPath('data.needs_delivery_code', false)->assertJsonMissingPath('data.delivery_code');
+        $this->postJson($this->url('/shipments/'.$shipment->number.'/status'), ['action' => 'delivered'], $this->auth($token))
+            ->assertOk();
+        $this->assertSame(ShipmentStatus::Delivered, $this->fresh($shipment)->status);
     }
 
     public function test_tracking_notes_show_in_the_merchants_timeline_without_changing_the_status(): void

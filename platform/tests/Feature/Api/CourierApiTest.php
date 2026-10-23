@@ -180,8 +180,7 @@ class CourierApiTest extends TestCase
     public function test_home_shows_what_is_in_hand_the_cash_and_what_needs_attention(): void
     {
         $this->ship('زينب علي');
-        $coded = $this->ship('علي حسن');
-        Tenancy::runFor($this->company, fn () => $coded->forceFill(['delivery_code' => '4821'])->save());
+        $this->ship('علي حسن');
 
         $this->getJson($this->api('/courier/home'), $this->auth($this->token()))->assertOk()
             ->assertJsonPath('name', 'مندوب الكرادة')
@@ -189,8 +188,8 @@ class CourierApiTest extends TestCase
             ->assertJsonPath('in_hand.to_collect', 80_000)
             ->assertJsonPath('cash.in_hand', 0)
             ->assertJsonPath('cash.limit', 1_000_000)
-            ->assertJsonPath('attention.0.kind', 'code')
-            ->assertJsonPath('attention.0.number', $coded->number);
+            // لا كود تسليم (docs/plan/76): لا شيء يحتاج انتباهه بعد
+            ->assertJsonPath('attention', []);
     }
 
     public function test_tasks_are_grouped_by_area_searchable_and_only_mine(): void
@@ -226,7 +225,7 @@ class CourierApiTest extends TestCase
             ->assertJsonPath('data.recipient.name', 'زينب علي')
             ->assertJsonPath('data.address.landmark', 'قرب مدرسة النور')
             ->assertJsonPath('data.amount', 40_000)
-            ->assertJsonPath('data.needs_code', true)
+            ->assertJsonMissingPath('data.needs_code')
             ->assertJsonPath('data.actions', ['delivered', 'failed_attempt', 'postponed']);
         $this->assertStringNotContainsString('4821', $response->getContent());
 
@@ -344,20 +343,14 @@ class CourierApiTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('action');
     }
 
-    public function test_a_delivery_code_is_needed_and_locks_after_five_wrong_tries(): void
+    /** لا كود تسليم (docs/plan/76): ولو حمل وصلٌ قديم كوداً، يسلّمه المندوب بلا إجراءٍ آخر */
+    public function test_delivered_needs_no_delivery_code(): void
     {
         $shipment = $this->ship('زينب علي');
         Tenancy::runFor($this->company, fn () => $shipment->forceFill(['delivery_code' => '4821'])->save());
-        $token = $this->token();
-        $url = $this->api('/courier/shipments/'.$shipment->id.'/act');
 
-        $this->postJson($url, ['action' => 'delivered'], $this->auth($token))->assertUnprocessable()->assertJsonValidationErrors('delivery_code');
-        for ($i = 0; $i < 5; $i++) {
-            $this->postJson($url, ['action' => 'delivered', 'delivery_code' => '000'.$i], $this->auth($token))->assertUnprocessable();
-        }
-        $this->postJson($url, ['action' => 'delivered', 'delivery_code' => '4821'], $this->auth($token))
-            ->assertUnprocessable()->assertJsonValidationErrors('delivery_code');
-        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+        $this->postJson($this->api('/courier/shipments/'.$shipment->id.'/act'), ['action' => 'delivered'], $this->auth($this->token()))
+            ->assertOk()->assertJsonPath('data.status', 'delivered');
     }
 
     public function test_a_partial_delivery_waits_for_the_call_centre_and_then_uses_its_amount(): void

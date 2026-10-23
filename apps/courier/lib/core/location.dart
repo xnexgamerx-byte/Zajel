@@ -1,24 +1,22 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'api.dart';
 import 'config.dart';
 
-/// «أشارك موقعي ما دام التطبيق مفتوحاً» (docs/plan/66 §القرار ١): كلّ دقيقتين والتطبيق أمام
-/// المندوب، ويتوقّف حين يُغلق أو يُصغَّر — لا خدمة خلفية ولا إذن «دائماً». المفتاح في «المزيد».
+/// موقع المندوب (docs/plan/66 §القرار ١): كلّ دقيقتين والتطبيق أمام المندوب، ويتوقّف حين يُغلق أو
+/// يُصغَّر — لا خدمة خلفية ولا إذن «دائماً». ودائماً مشغّل (docs/plan/76): لا مفتاح يطفئه، شرطُ الشركة
+/// على مناديبها.
 class LocationShare with WidgetsBindingObserver {
   LocationShare._();
 
   static final instance = LocationShare._();
 
   static const _every = Duration(minutes: 2);
-  static const _storage = FlutterSecureStorage();
-  static const _key = 'share_location';
 
-  /// مفتاح «المزيد» — مفعّلٌ ما لم يطفئه المندوب
+  /// مشغّلٌ دائماً — ولا يُقرأ ما أطفأه المندوب في نسخةٍ سابقة
   final enabled = ValueNotifier<bool>(true);
 
   /// رفض الهاتف الإذن، أو الموقع مطفأ فيه: يُقال في «المزيد» لماذا لا يُرسَل
@@ -33,9 +31,7 @@ class LocationShare with WidgetsBindingObserver {
   Future<void> start() async {
     if (_started) return;
     _started = true;
-    if (_live) {
-      enabled.value = await _storage.read(key: _key) != 'off';
-    }
+    enabled.value = true;
     WidgetsBinding.instance.addObserver(this);
     _resume();
   }
@@ -45,12 +41,6 @@ class LocationShare with WidgetsBindingObserver {
     _timer?.cancel();
     _timer = null;
     WidgetsBinding.instance.removeObserver(this);
-  }
-
-  Future<void> setEnabled(bool on) async {
-    enabled.value = on;
-    if (_live) await _storage.write(key: _key, value: on ? 'on' : 'off');
-    on ? _resume() : _pause();
   }
 
   @override

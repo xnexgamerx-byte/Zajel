@@ -6,9 +6,7 @@ use App\Enums\ShipmentStatus;
 use App\Models\FailureReason;
 use App\Models\Shipment;
 use App\Models\ShipmentTicket;
-use App\Support\Phone;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\RateLimiter;
 
 /**
  * شروط ما يسجّله المندوب عند الباب — من شاشته أو من نظام الشركة الوسيطة (docs/plan/64).
@@ -53,26 +51,7 @@ class CourierOutcomeRules
             }
         }
 
-        // كود التسليم: من الزبون عند الباب — خمس محاولاتٍ في الساعة لكل شحنة، فلا يُخمَّن
-        if ($shipment->delivery_code && in_array($to, [ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered], true)) {
-            $key = 'delivery-code:'.$shipment->id;
-
-            if (RateLimiter::tooManyAttempts($key, 5)) {
-                return ['delivery_code' => 'محاولاتٌ كثيرة بكودٍ خاطئ. اتّصل بالشركة.'];
-            }
-
-            $typed = Phone::latinDigits(trim((string) ($data['delivery_code'] ?? '')));
-
-            if (! hash_equals($shipment->delivery_code, $typed)) {
-                RateLimiter::hit($key, 3600);
-
-                return ['delivery_code' => $typed === ''
-                    ? 'هذه الشحنة تُسلَّم بكود: اطلبه من الزبون.'
-                    : 'كود التسليم غير صحيح.'];
-            }
-
-            RateLimiter::clear($key);
-        }
+        // لا كود تسليم (docs/plan/76): المندوب يسلّم الطلب بلا إجراءٍ آخر عند الباب، ولو حمل وصلٌ قديم كوداً
 
         return [];
     }
