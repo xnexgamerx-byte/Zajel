@@ -40,6 +40,9 @@ class _ShellState extends State<Shell> {
   /// شريحة «شحناتي» التي تفتحها الرئيسية (عدّادٌ أو بطاقةٌ أو «عرض الكل»)
   final shipmentsFilter = ValueNotifier<String>('all');
 
+  /// بحث الرئيسية يفتح «شحناتي» والمؤشّر في خانة البحث (docs/plan/76)
+  final searchNow = ValueNotifier<int>(0);
+
   /// حُفظت شحنةٌ جديدة: تُعاد الرئيسية و«شحناتي» بأرقامها
   final refresh = ValueNotifier<int>(0);
 
@@ -54,6 +57,7 @@ class _ShellState extends State<Shell> {
   @override
   void dispose() {
     shipmentsFilter.dispose();
+    searchNow.dispose();
     refresh.dispose();
     scanned.dispose();
     reading.dispose();
@@ -82,6 +86,15 @@ class _ShellState extends State<Shell> {
       tool(context, brand).then((_) => refresh.value++);
       return;
     }
+    // من الرئيسية (docs/plan/76): المسح، و«حسابي» من زرّ الإعدادات
+    if (screen == 'scan') {
+      _scan();
+      return;
+    }
+    if (screen == 'account') {
+      setState(() => tab = 4);
+      return;
+    }
     if (screen == 'create:ai' || screen == 'create:voice') {
       _read(voice: screen == 'create:voice');
       return;
@@ -103,6 +116,7 @@ class _ShellState extends State<Shell> {
       };
     }
     setState(() => tab = target);
+    if (parts.length > 1 && parts[1] == 'search') searchNow.value++;
   }
 
   /// «إنشاء بالذكاء الاصطناعي» و«بالتسجيل الصوتي»: يُقرأ الطلب ثم يُفتح «طلب جديد» مملوءاً
@@ -175,7 +189,7 @@ class _ShellState extends State<Shell> {
         onOpen: _open,
         refresh: refresh,
       ),
-      ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh),
+      ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh, focusSearch: searchNow),
       CreateScreen(
         brand: brand,
         onCreated: () => refresh.value++,
@@ -212,8 +226,8 @@ class _ShellState extends State<Shell> {
   }
 }
 
-/// الشريط السفلي (تصميم ز): أبيض بحافّةٍ علويّة مدوّرة وظلٍّ دافئ، وفي وسطه «طلب جديد» دائرةٌ حمراء
-/// مرفوعة بحلقةٍ بيضاء. الصفحة المفتوحة أيقونتها ممتلئة بلون الشركة وفوقها خطٌّ صغير.
+/// الشريط السفلي (docs/plan/76): أبيض بحافّةٍ علويّة مدوّرة، والصفحة المفتوحة على خلفيةٍ ورديّة فاتحة
+/// بأيقونتها واسمها بلون الشركة.
 class _NavBar extends StatelessWidget {
   const _NavBar({required this.brand, required this.index, required this.onTap});
 
@@ -224,24 +238,24 @@ class _NavBar extends StatelessWidget {
   static const _items = [
     ('الرئيسية', Icons.home_outlined, Icons.home_rounded),
     ('شحناتي', Icons.inventory_2_outlined, Icons.inventory_2_rounded),
-    ('طلب جديد', Icons.add_rounded, Icons.add_rounded),
+    ('إنشاء شحنة', Icons.add_circle_outline_rounded, Icons.add_circle_rounded),
     ('المالية', Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded),
-    ('حسابي', Icons.person_outline_rounded, Icons.person_rounded),
+    ('المزيد', Icons.more_horiz_rounded, Icons.more_horiz_rounded),
   ];
 
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
     return Container(
-      padding: EdgeInsets.only(bottom: bottom > 0 ? bottom : 12),
+      padding: EdgeInsets.fromLTRB(8, 8, 8, bottom > 0 ? bottom : 10),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
         border: Border(top: BorderSide(color: Palette.line)),
         boxShadow: [BoxShadow(color: Color(0x2226181A), blurRadius: 28, spreadRadius: -14, offset: Offset(0, -10))],
       ),
       child: SizedBox(
-        height: 62,
+        height: 64,
         child: Row(children: [for (var i = 0; i < _items.length; i++) Expanded(child: _item(i))]),
       ),
     );
@@ -250,54 +264,28 @@ class _NavBar extends StatelessWidget {
   Widget _item(int i) {
     final (label, icon, filled) = _items[i];
     final active = i == index;
-    final color = active ? brand.deep : Palette.muted;
-
-    if (i == 2) {
-      return Tooltip(
-        message: label,
-        child: GestureDetector(
-          onTap: () => onTap(i),
-          behavior: HitTestBehavior.opaque,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.topCenter,
+    final color = active ? brand.main : Palette.slate;
+    return Tooltip(
+      message: label,
+      child: GestureDetector(
+        onTap: () => onTap(i),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            color: active ? brand.soft : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Positioned(
-                top: -28,
-                child: Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: brand.hero,
-                    border: Border.all(color: Colors.white, width: 4),
-                    boxShadow: brand.glow(.6),
-                  ),
-                  child: const Icon(Icons.add_rounded, size: 28, color: Colors.white),
-                ),
-              ),
-              Positioned(bottom: 8, child: Text(label, style: font(11.5, w8, Palette.ink, height: 1))),
+              Icon(active ? filled : icon, size: 25, color: color),
+              const SizedBox(height: 4),
+              Text(label, maxLines: 1, style: font(11.5, active ? w8 : w6, color, height: 1)),
             ],
           ),
         ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: () => onTap(i),
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        children: [
-          Container(
-            width: 24,
-            height: 3,
-            decoration: BoxDecoration(gradient: active ? brand.hero : null, borderRadius: BorderRadius.circular(2)),
-          ),
-          const SizedBox(height: 7),
-          Icon(active ? filled : icon, size: 23, color: color),
-          const SizedBox(height: 4),
-          Text(label, style: font(11.5, active ? w8 : w6, color, height: 1)),
-        ],
       ),
     );
   }

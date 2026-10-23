@@ -38,14 +38,23 @@ Finder _hint(String hint) => find.byWidgetPredicate(
 
 String _value(WidgetTester tester, String hint) => tester.widget<TextField>(_hint(hint)).controller!.text;
 
+/// «إنشاء شحنة» في وسط الرئيسية، ثم طريقته (docs/plan/76)
+Future<void> _create(WidgetTester tester, String how) async {
+  await tester.ensureVisible(find.text('إنشاء شحنة').first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('إنشاء شحنة').first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(how));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(_loadCairo);
 
   testWidgets('صور كثيرة مرّة واحدة: تُرفع وتُقرأ معاً، والناقص يُكمَل، ثم تُنشأ كلّها', (tester) async {
     await _start(tester);
 
-    await tester.tap(find.text('من صورة'));
-    await tester.pumpAndSettle();
+    await _create(tester, 'من صورة أو رسالة');
     await tester.tap(find.text('صور كثيرة مرّة واحدة'));
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 60));
@@ -87,8 +96,7 @@ void main() {
   testWidgets('بالذكاء الاصطناعي: رسالة الزبون تملأ «طلب جديد» للمراجعة', (tester) async {
     await _start(tester);
 
-    await tester.tap(find.text('من صورة'));
-    await tester.pumpAndSettle();
+    await _create(tester, 'من صورة أو رسالة');
     expect(find.text('لقطة شاشة'), findsOneWidget);
 
     // بلا رسالة: يقول ما يُنتظر منه
@@ -117,8 +125,7 @@ void main() {
   testWidgets('بالتسجيل الصوتي: يسجّل حتى «أوقف» ثم يُكتب ما سُمع', (tester) async {
     await _start(tester);
 
-    await tester.tap(find.text('بصوتك'));
-    await tester.pumpAndSettle();
+    await _create(tester, 'بصوتي');
     expect(find.text('اضغط المايك وتكلّم'), findsOneWidget);
 
     await tester.tap(find.byTooltip('تكلّم'));

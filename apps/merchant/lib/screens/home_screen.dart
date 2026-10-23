@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' show pi;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -19,12 +18,11 @@ import 'shipment_screen.dart';
 String baghdadGreeting([DateTime? now]) =>
     (now ?? DateTime.now()).toUtc().add(const Duration(hours: 3)).hour < 12 ? 'صباح الخير' : 'مساء الخير';
 
-/// رئيسية التاجر (تصميم ز، docs/plan/70): التحيّة بصورته، والإعلانات تنزلق، ورحلة شحناته محطّةً
-/// محطّة، وإنشاء الطلب، و«للمعالجة» و«تحتاج انتباهك»، ثم آخر الشحنات. والمال في «المالية»، والأدوات
-/// في «حسابي».
+/// رئيسية التاجر (docs/plan/76): التحيّة واسمه بخطٍّ كبير، والبحث والمسح، ورقما «سُلّمت اليوم» و«إجمالي
+/// الشحنات»، وحالة الشحنات الأربع حول زرّ «إنشاء شحنة»، ثم المالية وطباعة الطلبات وطلب الاستلام، و«شحنات تحتاج
+/// انتباهك» مكان آخر الشحنات.
 ///
-/// القياسات من ملف التصميم مكبّرةً لتُقرأ على الهاتف (docs/plan/59): لا نصّ أصغر من ١١، والاسم
-/// الطويل ينكسر سطرين ولا يصغر.
+/// القياسات مكبّرةً لتُقرأ على الهاتف (docs/plan/59): لا نصّ أصغر من ١١، والاسم الطويل ينكسر سطرين.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.brand, required this.companyName, this.onOpen, this.refresh});
 
@@ -173,18 +171,19 @@ class _HomeScreenState extends State<HomeScreen> {
           // نسخة العرض على الهاتف تقول ذلك صراحةً: لا تُحسب على النظام
           if (AppConfig.demo && !kIsWeb) _pad(const DemoNote()),
           _header(d),
+          const SizedBox(height: 16),
+          _pad(_search()),
+          const SizedBox(height: 14),
+          _pad(_stats(d.stats)),
+          // ما تعثّر ينتظر قراره: شريطٌ لا يُغفل عنه، ويختفي حين لا شيء
+          if (d.processing > 0) ...[const SizedBox(height: 12), _pad(_processing(d))],
+          const SizedBox(height: 14),
+          _pad(_hub(d)),
           const SizedBox(height: 12),
-          _pad(_banner(d)),
-          const SizedBox(height: 12),
-          // تصميم ز (docs/plan/70): المال في «المالية» وحدها — والرئيسية رحلة الشحنات، ثم الإنشاء،
-          // ثم «للمعالجة» بلونٍ لا يُغفل عنه، ثم «تحتاج انتباهك»
-          _pad(_journey(d.stats)),
-          const SizedBox(height: 14),
-          _pad(_create()),
-          const SizedBox(height: 14),
-          _pad(_processing(d)),
-          const SizedBox(height: 14),
-          _pad(_recent(d)),
+          _pad(_actions(d)),
+          if (d.banners.isNotEmpty) ...[const SizedBox(height: 14), _pad(_banner(d))],
+          const SizedBox(height: 18),
+          _pad(_attention(d)),
         ],
       ),
     );
@@ -199,39 +198,49 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ الترويسة
 
+  /// التحيّة كبيرةً واسمه تحتها بخطٍّ عريض، وصورته في الطرف الآخر، والجرس والإعدادات أعلاها
   Widget _header(HomeData d) {
-    final hasLogo = picked != null || d.logo != null;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _avatar(d),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${baghdadGreeting()}، ${d.name}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: font(16, w8, Palette.ink, height: 1.3),
-                ),
-                Text(
-                  hasLogo ? 'هنا ملخّص أعمالك اليوم' : 'اضغط الدائرة لتضع صورتك أو شعارك',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: font(12, w5, Palette.slate, height: 1.3),
-                ),
-              ],
-            ),
+          Row(
+            children: [
+              _round(Icons.settings_outlined, 'حسابي', () => _open('account')),
+              const SizedBox(width: 10),
+              _bellButton(d.unread),
+              const Spacer(),
+              _avatar(d),
+            ],
           ),
-          const SizedBox(width: 8),
-          _bellButton(d.unread),
+          const SizedBox(height: 8),
+          Text(baghdadGreeting(), style: display(24, w6, Palette.muted, height: 1.2)),
+          Text(d.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(30, w8, Palette.ink, height: 1.25)),
+          Text(
+            'شحناتك مع ${widget.companyName}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: font(14, w6, Palette.slate, height: 1.5),
+          ),
         ],
       ),
     );
   }
+
+  Widget _round(IconData icon, String tip, VoidCallback onTap) => Tooltip(
+    message: tip,
+    child: Tap(
+      radius: 24,
+      onTap: onTap,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: cardShadow),
+        child: Icon(icon, size: 23, color: Palette.ink),
+      ),
+    ),
+  );
 
   Widget _avatar(HomeData d) {
     final Widget image;
@@ -334,240 +343,141 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   );
 
-  // ------------------------------------------------------------------ رحلة شحناتك
+  // ------------------------------------------------------------------ البحث
 
-  /// المحطّات الأربع حلقاتٍ بأرقامها: كلّ حلقةٍ بلون محطّتها، وقدر امتلائها نصيبها من شحنات اليوم
-  Widget _journey(Stats s) {
-    final stations = [
-      (s.waiting, 'بانتظار مندوب', 'shipments:open', _Station.waiting),
-      (s.warehouse, 'بالمخزن', 'shipments:open', _Station.warehouse),
-      (s.courier, 'قيد التوصيل', 'shipments:open', _Station.courier(brand)),
-      (s.deliveredToday, 'سُلّمت اليوم', 'shipments:delivered', _Station.delivered),
-    ];
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 14, 10, 14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.white, Color(0xFFFFF9F8)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Palette.line),
-        boxShadow: cardShadow,
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Row(
-              children: [
-                Text('رحلة شحناتك الآن', style: display(17, w7, Palette.ink, height: 1.3)),
-                const Spacer(),
-                Text('${money(s.total)} شحنة إجمالاً', style: font(11.5, w6, Palette.muted)),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final (count, label, screen, station) in stations)
-                Expanded(child: _station(count, label, screen, station, s.total)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _station(int count, String label, String screen, _Station station, int total) {
-    final share = total > 0 ? count / total : 0.0;
-    return Tap(
-      radius: 16,
-      onTap: () => _open(screen),
-      child: Column(
-        children: [
-          SizedBox(
-            width: _Station.size,
-            height: _Station.size,
-            child: CustomPaint(
-              painter: _RingPainter(share, station),
-              // الرقم داخل الحلقة لا يمسّها: يصغر إن طال («1,250»)
-              child: Padding(
-                padding: const EdgeInsets.all(_Station.stroke + 4),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(money(count), style: display(16, w7, station.deep, height: 1)),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            style: font(11.5, station.now ? w8 : w6, station.now ? Palette.ink : Palette.slate, height: 1.3),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------------ أنشئ طلباً
-
-  /// زرٌّ أحمر كبير للإدخال، وتحته ثلاث بطاقات: من صورة، وبصوتك، واطلب استلام — ثم طباعة الوصولات
-  Widget _create() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Tap(
-          shadow: brand.glow(.6),
-          radius: 22,
-          onTap: () => _open('create'),
-          child: Ink(
-            height: 68,
-            decoration: BoxDecoration(gradient: brand.hero, borderRadius: BorderRadius.circular(22)),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: Stack(
-                children: [
-                  PositionedDirectional(end: 30, top: -50, child: _halo(120, .08)),
-                  PositionedDirectional(end: -36, bottom: -64, child: _halo(120, .06)),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(18, 0, 11, 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('طلب جديد', style: display(19, w7, Colors.white, height: 1.25)),
-                              Text(
-                                'الزبون والمبلغ والعنوان بخطوةٍ واحدة',
-                                style: font(11.5, w6, Colors.white.withValues(alpha: .88)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x80280004),
-                                blurRadius: 16,
-                                spreadRadius: -6,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Icon(Icons.add_rounded, size: 24, color: brand.main),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _option('من صورة', 'لقطة أو رسالة', Icons.photo_camera_rounded, 'create:ai')),
-              const SizedBox(width: 8),
-              Expanded(child: _option('بصوتك', 'قلها وتتعبّى', Icons.mic_rounded, 'create:voice')),
-              const SizedBox(width: 8),
-              Expanded(child: _option('اطلب استلام', 'مندوب يمرّ عليك', Icons.hail_rounded, 'pickups')),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        // طباعة الوصولات (docs/plan/63): ظاهرةٌ تحت الإنشاء — ما يُدخل يُطبع ويُلصق قبل أن يأتي المندوب
-        Tap(
+  /// «ابحث برقم الشحنة أو اسم الزبون» يفتح «شحناتي» بالبحث، ومربّع المسح بجانبه
+  Widget _search() => Row(
+    children: [
+      Tooltip(
+        message: 'امسح باركود',
+        child: Tap(
           radius: 16,
-          onTap: () => _open('labels'),
-          child: Ink(
-            height: 48,
+          onTap: () => _open('scan'),
+          child: Container(
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Palette.line),
+              boxShadow: cardShadow,
+            ),
+            child: const Icon(Icons.qr_code_scanner_rounded, size: 24, color: Palette.ink),
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Tap(
+          radius: 16,
+          onTap: () => _open('shipments:search'),
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Palette.line),
+              boxShadow: cardShadow,
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.print_rounded, size: 19, color: brand.deep),
-                const SizedBox(width: 8),
-                Text('طباعة وصولات الطلبات المدخلة', style: font(13.5, w8, Palette.ink)),
+                Expanded(
+                  child: Text(
+                    'ابحث برقم الشحنة أو اسم الزبون…',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: font(13, w5, Palette.muted),
+                  ),
+                ),
+                const Icon(Icons.search_rounded, size: 24, color: Palette.ink),
               ],
             ),
           ),
         ),
-      ],
+      ),
+    ],
+  );
+
+  // ------------------------------------------------------------------ الرقمان
+
+  /// «سُلّمت اليوم» و«إجمالي الشحنات»: رقمٌ كبير، وأعمدةٌ تمتلئ بنسبةٍ حقيقيّة — ما سُلّم من خرجة اليوم،
+  /// ونسبة التسليم من كلّ ما أرسل
+  Widget _stats(Stats s) {
+    final today = s.deliveredToday + s.courier;
+    final rate = s.total == 0 ? 0 : (s.delivered * 100 / s.total).round();
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _stat(
+              'سُلّمت اليوم',
+              s.deliveredToday,
+              Icons.local_shipping_outlined,
+              today == 0 ? 0 : s.deliveredToday / today,
+              s.courier == 0 ? 'لا شيء مع المندوب الآن' : '${money(s.courier)} مع المندوب الآن',
+              'shipments:delivered',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _stat(
+              'إجمالي الشحنات',
+              s.total,
+              Icons.inventory_2_outlined,
+              rate / 100,
+              'نسبة التسليم $rate٪',
+              'shipments',
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _halo(double size, double alpha) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: Colors.white.withValues(alpha: alpha),
-    ),
-  );
-
-  Widget _option(String title, String sub, IconData icon, String screen) {
+  Widget _stat(String label, int value, IconData icon, double fill, String note, String screen) {
     return Tap(
+      radius: 24,
       shadow: cardShadow,
-      radius: 22,
       onTap: () => _open(screen),
       child: Ink(
-        padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.white, Color(0xFFFFF8F7)],
+            colors: [Color.lerp(Colors.white, brand.main, .07)!, Colors.white],
           ),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Palette.line),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: brand.main.withValues(alpha: .10)),
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color.lerp(Colors.white, brand.main, .07)!, Color.lerp(Colors.white, brand.main, .22)!],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: brand.main.withValues(alpha: .10)),
-                boxShadow: [
-                  BoxShadow(
-                    color: brand.main.withValues(alpha: .35),
-                    blurRadius: 12,
-                    spreadRadius: -6,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Icon(icon, size: 21, color: brand.deep),
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
+              child: Icon(icon, size: 23, color: brand.main),
             ),
-            const SizedBox(height: 7),
-            Text(title, textAlign: TextAlign.center, maxLines: 1, style: font(13, w8, Palette.ink, height: 1.3)),
-            Text(sub, textAlign: TextAlign.center, maxLines: 2, style: font(11, w5, Palette.muted, height: 1.3)),
+            const SizedBox(height: 8),
+            Text(label, style: font(13.5, w7, Palette.ink)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(money(value), style: display(30, w8, Palette.ink, height: 1.15)),
+                  ),
+                ),
+                _Bars(fill: fill, color: brand.main),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(note, maxLines: 1, overflow: TextOverflow.ellipsis, style: font(11.5, w6, Palette.slate)),
           ],
         ),
       ),
@@ -576,216 +486,364 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ للمعالجة
 
-  /// بطاقةٌ داكنة بشريطٍ مخطّط كشريط التحذير: لا يُغفل عنها، وزرّها يفتح القرار
-  Widget _processing(HomeData d) {
-    final n = d.processing;
-    return Tap(
-      shadow: const [BoxShadow(color: Color(0x6626181A), blurRadius: 24, spreadRadius: -10, offset: Offset(0, 12))],
-      radius: 22,
-      onTap: n == 0 ? null : () => _open('processing'),
-      child: Ink(
-        decoration: BoxDecoration(color: Palette.ink, borderRadius: BorderRadius.circular(22)),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: Column(
-            children: [
-              SizedBox(
-                height: 8,
-                width: double.infinity,
-                child: CustomPaint(painter: _Stripes(brand.main)),
+  /// ما لم يُسلَّم وينتظر قراره: شريطٌ أحمر واحد، وزرّه يفتح القرار
+  Widget _processing(HomeData d) => Tap(
+    radius: 18,
+    shadow: brand.glow(.35),
+    onTap: () => _open('processing'),
+    child: Ink(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(gradient: brand.hero, borderRadius: BorderRadius.circular(18)),
+      child: Row(
+        children: [
+          const Icon(Icons.support_agent_rounded, color: Colors.white, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('${money(d.processing)} لم يستلمها زبونها — قرّر فيها', style: font(13.5, w8, Colors.white)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            child: Text('عالجها', style: font(13, w8, brand.deep)),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  // ------------------------------------------------------------------ حالة الشحنات
+
+  /// أربع حالاتٍ حول زرّ «إنشاء شحنة» الأحمر، وخطوطٌ تصلها به
+  Widget _hub(HomeData d) {
+    final s = d.stats;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: Palette.line),
+        boxShadow: cardShadow,
+      ),
+      child: Column(
+        children: [
+          Tap(
+            radius: 10,
+            onTap: () => _open('shipments'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Text('حالة الشحنات', style: display(17, w7, Palette.ink)),
+                  const Spacer(),
+                  const Chev(size: 9, left: true, stroke: 1.7),
+                ],
               ),
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 14, 14),
-                child: Row(
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 250,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Positioned.fill(child: CustomPaint(painter: _Links(Palette.muted))),
+                Column(
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text('للمعالجة', style: font(12, w8, Color.lerp(brand.coral, Colors.white, .35)!)),
-                          Text(
-                            n == 0 ? 'لا شيء ينتظر قرارك' : '${money(n)} لم يستلمها زبونها',
-                            style: display(18, w7, Colors.white, height: 1.35),
+                          _state(
+                            'قيد التوصيل',
+                            s.inDelivery,
+                            Icons.local_shipping_outlined,
+                            brand.main,
+                            'shipments:open',
                           ),
-                          Text(
-                            n == 0 ? 'كلّ ما تعثّر عولج.' : 'اتّصل به وقرّر: إعادة توصيل أو تأجيل أو راجع',
-                            style: font(12, w5, Colors.white.withValues(alpha: .8), height: 1.4),
+                          const Spacer(),
+                          _state(
+                            'مسلّمة',
+                            s.delivered,
+                            Icons.check_circle_outline_rounded,
+                            Palette.ok,
+                            'shipments:delivered',
                           ),
                         ],
                       ),
                     ),
-                    if (n > 0) ...[
-                      const SizedBox(width: 10),
-                      Container(
-                        height: 44,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(gradient: brand.hero, borderRadius: BorderRadius.circular(14)),
-                        child: Text('عالجها', style: font(14, w8, Colors.white)),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          _state('تحتاج انتباهك', d.attention, Icons.schedule_rounded, brand.main, 'attention'),
+                          const Spacer(),
+                          _state('راجع مؤكّد', s.returns, Icons.history_rounded, brand.main, 'shipments:returns'),
+                        ],
                       ),
-                    ],
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------------ تحتاج انتباهك · آخر الشحنات
-
-  /// «تحتاج انتباهك» أوّلاً حين يكون فيها شيء — هي الأهمّ (docs/plan/61) — وزرّان يبدّلان بينهما
-  bool? showRecent;
-
-  Widget _switch(HomeData d, bool recent) {
-    Widget chip(String label, bool on, VoidCallback tap) => Tap(
-      radius: 20,
-      onTap: tap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: on ? brand.main : const Color(0xFFF5ECEA),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(label, style: font(12.5, w8, on ? Colors.white : Palette.slate, height: 1.2)),
-      ),
-    );
-    return Row(
-      children: [
-        chip(
-          'تحتاج انتباهك${d.attentionItems.isEmpty ? '' : ' (${d.attentionItems.length})'}',
-          !recent,
-          () => setState(() => showRecent = false),
-        ),
-        const SizedBox(width: 6),
-        chip('آخر الشحنات', recent, () => setState(() => showRecent = true)),
-      ],
-    );
-  }
-
-  Widget _recent(HomeData d) {
-    final recent = showRecent ?? d.attentionItems.isEmpty;
-    return WhiteCard(
-      padding: const EdgeInsets.only(top: 10, bottom: 4),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Expanded(child: _switch(d, recent)),
-                Tap(
-                  radius: 10,
-                  onTap: () => _open('shipments'),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                    child: Row(
-                      children: [
-                        Text('عرض الكل', style: font(12.5, w8, brand.main, height: 1.2)),
-                        const SizedBox(width: 4),
-                        Chev(size: 8, color: brand.main, left: true, stroke: 1.7),
-                      ],
-                    ),
-                  ),
-                ),
+                _createButton(),
               ],
             ),
           ),
-          const SizedBox(height: 4),
-          if (!recent) ...[
-            if (d.attentionItems.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                child: Text(
-                  'لا شيء يحتاج انتباهك الآن.',
-                  textAlign: TextAlign.center,
-                  style: font(12.5, w5, Palette.slate),
-                ),
-              ),
-            for (final item in d.attentionItems) ...[
-              const Divider(height: 1, thickness: .6, indent: 12, endIndent: 12, color: Color(0xFFF0E3E1)),
-              _row(item.row, detail: item),
-            ],
-          ] else if (d.recent.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              child: Text(
-                'لا شحنات بعد — أنشئ أوّل شحنة من الزرّ الأحمر.',
-                textAlign: TextAlign.center,
-                style: font(12.5, w5, Palette.slate),
-              ),
-            ),
-          if (recent)
-            for (var i = 0; i < d.recent.length; i++) ...[
-              const Divider(height: 1, thickness: .6, indent: 12, endIndent: 12, color: Color(0xFFF0E3E1)),
-              _row(d.recent[i]),
-            ],
         ],
       ),
     );
   }
 
-  Widget _row(RecentShipment s, {AttentionItem? detail}) {
-    return InkWell(
+  Widget _state(String label, int count, IconData icon, Color color, String screen) => SizedBox(
+    width: 112,
+    child: Tap(
+      radius: 20,
+      onTap: () => _open(screen),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFBF7F6),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Palette.line),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 26, color: color),
+            const SizedBox(height: 6),
+            Text(label, maxLines: 1, style: font(12.5, w7, Palette.ink, height: 1.2)),
+            Text(money(count), style: display(21, w8, Palette.ink, height: 1.25)),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  /// الزرّ الأحمر في الوسط بحلقةٍ ورديّة: يدويّاً، أو من صورة، أو بصوتك
+  Widget _createButton() => Tap(
+    radius: 60,
+    onTap: _createSheet,
+    child: Container(
+      width: 112,
+      height: 112,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: brand.main.withValues(alpha: .18), blurRadius: 26, spreadRadius: 2)],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(gradient: brand.hero, shape: BoxShape.circle, boxShadow: brand.glow(.5)),
+            child: const Icon(Icons.add_box_outlined, color: Colors.white, size: 28),
+          ),
+          const SizedBox(height: 5),
+          Text('إنشاء شحنة', style: font(12.5, w8, brand.deep, height: 1.2)),
+        ],
+      ),
+    ),
+  );
+
+  Future<void> _createSheet() async {
+    final screen = await showSheet<String>(
+      context,
+      SheetFrame(
+        title: 'إنشاء شحنة',
+        text: 'اكتبها، أو صوّر الطلب، أو قله بصوتك — وتتعبّى وحدها.',
+        children: [
+          for (final (label, icon, screen) in [
+            ('أكتبها بنفسي', Icons.edit_note_rounded, 'create'),
+            ('من صورة أو رسالة', Icons.photo_camera_rounded, 'create:ai'),
+            ('بصوتي', Icons.mic_rounded, 'create:voice'),
+          ]) ...[
+            SheetButton(
+              brand: brand,
+              label: label,
+              icon: icon,
+              outlined: screen != 'create',
+              onTap: () => Navigator.of(context).pop(screen),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+    if (screen != null) _open(screen);
+  }
+
+  // ------------------------------------------------------------------ الأدوات
+
+  /// التفاصيل المالية برصيده، وطباعة الطلبات، وطلب مندوب استلام — والدعم في «المزيد»
+  Widget _actions(HomeData d) => IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: _action(
+            'التفاصيل المالية',
+            '${money(d.balance)} د.ع',
+            Icons.account_balance_wallet_outlined,
+            'finance',
+          ),
+        ),
+        const SizedBox(width: 8),
+        // طباعة الوصولات ظاهرةٌ في الرئيسية (docs/plan/63): ما يُدخل يُطبع ويُلصق قبل أن يأتي المندوب
+        Expanded(child: _action('طباعة الطلبات', 'وصولات ما أدخلته', Icons.print_rounded, 'labels')),
+        const SizedBox(width: 8),
+        Expanded(child: _action('طلب مندوب استلام', 'يمرّ عليك', Icons.local_shipping_outlined, 'pickups')),
+      ],
+    ),
+  );
+
+  Widget _action(String title, String sub, IconData icon, String screen) => Tap(
+    radius: 22,
+    shadow: cardShadow,
+    onTap: () => _open(screen),
+    child: Ink(
+      padding: const EdgeInsets.fromLTRB(6, 14, 6, 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color.lerp(Colors.white, brand.main, .06)!, Colors.white],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: brand.main.withValues(alpha: .08)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 28, color: brand.main),
+          const SizedBox(height: 6),
+          Text(title, textAlign: TextAlign.center, maxLines: 2, style: font(13, w8, Palette.ink, height: 1.3)),
+          Text(sub, textAlign: TextAlign.center, maxLines: 1, style: font(11, w6, Palette.muted, height: 1.4)),
+        ],
+      ),
+    ),
+  );
+
+  // ------------------------------------------------------------------ تحتاج انتباهك
+
+  /// «شحنات تحتاج انتباهك» مكان «آخر الشحنات»: لماذا، وكم حاولنا، وإلى متى أُجّلت
+  Widget _attention(HomeData d) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        children: [
+          Text('شحنات تحتاج انتباهك', style: display(18, w7, Palette.ink)),
+          if (d.attentionItems.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(10)),
+              child: Text('${d.attentionItems.length}', style: font(11.5, w8, Colors.white)),
+            ),
+          ],
+          const Spacer(),
+          Tap(
+            radius: 10,
+            onTap: () => _open('attention'),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Row(
+                children: [
+                  Text('عرض الكل', style: font(12.5, w7, Palette.slate)),
+                  const SizedBox(width: 4),
+                  const Chev(size: 8, left: true, stroke: 1.6),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      if (d.attentionItems.isEmpty)
+        WhiteCard(
+          padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+          child: Column(
+            children: [
+              const Icon(Icons.verified_rounded, color: Palette.ok, size: 30),
+              const SizedBox(height: 6),
+              Text('لا شيء يحتاج انتباهك الآن.', style: font(13, w7, Palette.slate)),
+            ],
+          ),
+        )
+      else
+        for (final item in d.attentionItems.take(6)) ...[_card(item), const SizedBox(height: 8)],
+    ],
+  );
+
+  Widget _card(AttentionItem item) {
+    final s = item.row;
+    final why = [
+      if (item.reason != null) item.reason!,
+      if (item.attempts > 0) 'محاولات: ${item.attempts}',
+      if (item.until != null) 'مؤجّلة إلى ${when(item.until)}',
+    ].join(' · ');
+    return Tap(
+      radius: 20,
+      shadow: cardShadow,
       onTap: s.id == 0 ? null : () => openShipment(context, brand, s.id),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+      child: Ink(
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Palette.line),
+        ),
         child: Row(
           children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                    children: [
+                      Icon(Icons.inventory_2_outlined, size: 18, color: Palette.slate),
+                      const SizedBox(width: 6),
+                      Text(s.number, textDirection: TextDirection.ltr, style: font(14, w8, Palette.ink, height: 1.2)),
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: 'انسخ الرقم',
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: s.number));
+                            toast(context, 'نُسخ ${s.number}');
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.copy_rounded, size: 15, color: Palette.muted),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(s.status, style: font(11.5, w8, brand.deep, height: 1.2)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.error_outline_rounded, size: 15, color: brand.deep),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   Text(
-                    s.name,
+                    [s.name, if (s.place.isNotEmpty) s.place].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: font(13.5, w7, Palette.ink, height: 1.3),
+                    style: font(13, w7, Palette.ink, height: 1.35),
                   ),
-                  Text(s.place, style: font(12, w7, Palette.ink, height: 1.35)),
-                  Text(when(s.at), style: font(11, w5, Palette.slate, height: 1.3)),
-                  Text(
-                    '#${s.number}',
-                    textDirection: TextDirection.ltr,
-                    style: font(11, w5, Palette.muted, height: 1.3),
-                  ),
-                  // لماذا تحتاج انتباهه، وكم حاولنا، وإلى متى أُجّلت
-                  if (detail != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text(
-                        [
-                          if (detail.reason != null) detail.reason!,
-                          if (detail.attempts > 0) 'محاولات: ${detail.attempts}',
-                          if (detail.until != null) 'مؤجّلة إلى ${when(detail.until)}',
-                        ].join(' · '),
-                        style: font(11.5, w7, brand.main, height: 1.4),
-                      ),
-                    ),
+                  if (why.isNotEmpty) Text(why, style: font(12, w7, brand.main, height: 1.45)),
+                  Text('${money(s.amount)} د.ع · ${when(s.at)}', style: font(11.5, w6, Palette.muted, height: 1.4)),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('${money(s.amount)} د.ع', style: font(14, w8, brand.main, height: 1.3)),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: s.urgent ? brand.coral : Palette.pill,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(s.status, style: font(11, w8, Colors.white, height: 1.3)),
-                ),
-              ],
-            ),
-            const SizedBox(width: 8),
-            const Chev(size: 8),
+            const SizedBox(width: 6),
+            const Chev(size: 8, left: true, stroke: 1.6),
           ],
         ),
       ),
@@ -793,97 +851,68 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// لون محطّةٍ في «رحلة شحناتك»: فاتحٌ وأصليٌّ للحلقة، وداكنٌ لرقمها
-class _Station {
-  const _Station(this.light, this.main, this.deep) : now = false;
+/// أعمدةٌ متدرّجة تمتلئ بلون الشركة بنسبةٍ حقيقيّة — وما بقي باهت
+class _Bars extends StatelessWidget {
+  const _Bars({required this.fill, required this.color});
 
-  _Station.courier(Brand brand)
-    : light = Color.lerp(brand.main, Colors.white, .22)!,
-      main = brand.main,
-      deep = brand.deep,
-      now = true;
+  final double fill;
+  final Color color;
 
-  static const size = 58.0;
-  static const stroke = 8.0;
-  static const waiting = _Station(Color(0xFFF7C668), Color(0xFFD9870B), Color(0xFFA9650A));
-  static const warehouse = _Station(Color(0xFF86B6EA), Color(0xFF2F6DB5), Color(0xFF22528A));
-  static const delivered = _Station(Color(0xFF7DD597), Color(0xFF239048), Color(0xFF1A6B35));
-
-  final Color light;
-  final Color main;
-  final Color deep;
-
-  /// المحطّة التي فيها الشحنات الآن: رقمها وعنوانها بأثقل خطّ
-  final bool now;
-}
-
-/// حلقةٌ بمسارٍ رماديٍّ فاتح، وقوسٌ من لون المحطّة بقدر نصيبها — تبدأ من أعلى الدائرة
-class _RingPainter extends CustomPainter {
-  const _RingPainter(this.share, this.station);
-
-  final double share;
-  final _Station station;
+  static const _n = 7;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    const stroke = _Station.stroke;
-    final rect = (Offset.zero & size).deflate(stroke / 2);
-    canvas.drawArc(
-      rect,
-      0,
-      2 * pi,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..color = const Color(0xFFF0E6E4),
-    );
-    if (share <= 0) return;
-    canvas.drawArc(
-      rect,
-      -pi / 2,
-      2 * pi * share.clamp(0.0, 1.0),
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round
-        ..shader = SweepGradient(
-          startAngle: -pi / 2,
-          endAngle: 3 * pi / 2,
-          colors: [station.light, station.main],
-        ).createShader(rect),
+  Widget build(BuildContext context) {
+    final on = (fill.clamp(0, 1) * _n).round();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      textDirection: TextDirection.ltr,
+      children: [
+        for (var i = 0; i < _n; i++)
+          Container(
+            width: 5,
+            height: 10 + i * 4.0,
+            margin: const EdgeInsets.only(left: 3),
+            decoration: BoxDecoration(
+              color: i < on ? color.withValues(alpha: .45 + .55 * (i + 1) / _n) : color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+      ],
     );
   }
-
-  @override
-  bool shouldRepaint(_RingPainter old) => old.share != share || old.station.main != station.main;
 }
 
-class _Stripes extends CustomPainter {
-  _Stripes(this.color);
+/// خطوطٌ منحنية تصل الحالات الأربع بزرّ الوسط
+class _Links extends CustomPainter {
+  const _Links(this.color);
 
   final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = Palette.ink);
-    final paint = Paint()..color = color;
-    for (var x = -size.height; x < size.width + size.height; x += 20) {
-      canvas.drawPath(
-        Path()
-          ..moveTo(x, size.height)
-          ..lineTo(x + 10, size.height)
-          ..lineTo(x + 10 + size.height, 0)
-          ..lineTo(x + size.height, 0)
-          ..close(),
-        paint,
-      );
+    final paint = Paint()
+      ..color = color.withValues(alpha: .45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    final c = Offset(size.width / 2, size.height / 2);
+    const tile = 112.0;
+    for (final dx in [-1.0, 1.0]) {
+      for (final dy in [-1.0, 1.0]) {
+        // من حافّة البطاقة الداخلية إلى حافّة الدائرة
+        final from = Offset(c.dx + dx * (size.width / 2 - tile), c.dy + dy * size.height / 4);
+        final to = Offset(c.dx + dx * 34, c.dy + dy * 44);
+        final path = Path()
+          ..moveTo(from.dx, from.dy)
+          ..cubicTo(to.dx, from.dy, to.dx, from.dy, to.dx, to.dy);
+        canvas.drawPath(path, paint);
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _Stripes old) => old.color != color;
+  bool shouldRepaint(covariant _Links old) => old.color != color;
 }
 
 /// الإعلانات تنزلق بالإصبع، وتتقلّب وحدها كلّ خمس ثوانٍ، ونقاطها أسفلها. إعلانات الشركة من

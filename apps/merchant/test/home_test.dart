@@ -30,47 +30,45 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final text in [
-      '، أحمد',
-      // «رحلة شحناتك» محطّةً محطّة (docs/plan/70)
-      'رحلة شحناتك الآن',
-      'بانتظار مندوب',
-      'بالمخزن',
-      'قيد التوصيل',
+      // الترويسة والبحث (docs/plan/76)
+      'أحمد',
+      'شحناتك مع',
+      'ابحث برقم الشحنة أو اسم الزبون',
+      // الرقمان بنسبةٍ حقيقيّة
       'سُلّمت اليوم',
-      // «أنشئ طلباً»: زرٌّ أحمر وثلاث بطاقات، ثم طباعة الوصولات (docs/plan/63)
-      'الزبون والمبلغ والعنوان بخطوةٍ واحدة',
-      'من صورة',
-      'بصوتك',
-      'اطلب استلام',
-      'طباعة وصولات الطلبات المدخلة',
-      'للمعالجة',
+      'إجمالي الشحنات',
+      'نسبة التسليم',
+      // ما ينتظر قراره
       'عالجها',
-      'عرض الكل',
-      // «تحتاج انتباهك» أوّلاً بتفاصيلها (docs/plan/61)
-      'تحتاج انتباهك (3)',
+      // حالة الشحنات حول «إنشاء شحنة»
+      'حالة الشحنات',
+      'قيد التوصيل',
+      'مسلّمة',
+      'راجع مؤكّد',
+      'إنشاء شحنة',
+      // المالية بالرصيد، وطباعة الطلبات ظاهرة، وطلب الاستلام
+      'التفاصيل المالية',
+      '1,750,000',
+      'طباعة الطلبات',
+      'طلب مندوب استلام',
+      // «شحنات تحتاج انتباهك» مكان آخر الشحنات
+      'شحنات تحتاج انتباهك',
       'الزبون طلب التأجيل',
-      'طلب جديد',
+      'عرض الكل',
     ]) {
       await _reveal(tester, find.textContaining(text));
       expect(find.textContaining(text), findsWidgets, reason: text);
     }
+    expect(find.text('شحناتي الأخيرة'), findsNothing);
+    expect(find.text('آخر الشحنات'), findsNothing);
 
-    // الراجعة لا تُعدّ على «رحلة شحناتك» — لها «كشوفات الرواجع» (docs/plan/70)
-    expect(find.textContaining('راجعة إليك'), findsNothing);
-
-    // المال في «المالية» وحدها لا في الرئيسية (docs/plan/70)
-    expect(find.textContaining('1,750,000'), findsNothing);
-    expect(find.textContaining('المتاح للسحب'), findsNothing);
-    // والأدوات في «حسابي» لا في الرئيسية (docs/plan/59)
-    expect(find.text('أدوات سريعة'), findsNothing);
-
-    // و«آخر الشحنات» بضغطة
-    await tester.scrollUntilVisible(find.text('آخر الشحنات'), 300, scrollable: _vertical);
-    await tester.drag(_vertical, const Offset(0, -200));
+    // «إنشاء شحنة» في الوسط يسأل: يدويّاً، أو من صورة، أو بصوتك
+    await _reveal(tester, find.text('إنشاء شحنة').first);
+    await tester.tap(find.text('إنشاء شحنة').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('آخر الشحنات'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('#ZA-20260124', skipOffstage: false), findsWidgets);
+    for (final text in ['أكتبها بنفسي', 'من صورة أو رسالة', 'بصوتي']) {
+      expect(find.text(text), findsOneWidget, reason: text);
+    }
   });
 
   testWidgets('شحناتي: الشرائح والبحث وفتح الشحنة', (tester) async {
@@ -81,7 +79,14 @@ void main() {
     await tester.pumpWidget(const MerchantApp(signedIn: true));
     await tester.pumpAndSettle();
 
-    // محطّة «سُلّمت اليوم» في الرئيسية تفتح «شحناتي» على شريحة المسلَّمة
+    // بحث الرئيسية يفتح «شحناتي» والمؤشّر في خانة البحث
+    await tester.tap(find.textContaining('ابحث برقم الشحنة أو اسم الزبون'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(_hint('ابحث بالاسم أو الهاتف أو رقم الوصل')).focusNode!.hasFocus, isTrue);
+    await tester.tap(find.text('الرئيسية'));
+    await tester.pumpAndSettle();
+
+    // «سُلّمت اليوم» في الرئيسية تفتح «شحناتي» على شريحة المسلَّمة
     await tester.tap(find.text('سُلّمت اليوم').first);
     await tester.pumpAndSettle();
     expect(find.text('شحناتي'), findsWidgets);
@@ -121,8 +126,11 @@ void main() {
     await tester.pumpWidget(const MerchantApp(signedIn: true));
     await tester.pumpAndSettle();
 
-    // «طلب جديد» الأحمر في الرئيسية يفتح النموذج على محافظة التاجر
-    await tester.tap(find.text('الزبون والمبلغ والعنوان بخطوةٍ واحدة'));
+    // «إنشاء شحنة» في الرئيسية ثم «أكتبها بنفسي» يفتح النموذج على محافظة التاجر
+    await _reveal(tester, find.text('إنشاء شحنة').first);
+    await tester.tap(find.text('إنشاء شحنة').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('أكتبها بنفسي'));
     await tester.pumpAndSettle();
     expect(find.text('بغداد'), findsOneWidget);
 

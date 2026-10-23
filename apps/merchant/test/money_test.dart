@@ -28,13 +28,13 @@ Future<void> _start(WidgetTester tester) async {
 void main() {
   setUpAll(_loadCairo);
 
-  testWidgets('للمعالجة: بطاقة الرئيسية تفتحها، والتأجيل يُسجَّل ويُخرج الشحنة', (tester) async {
+  testWidgets('للمعالجة: شريط الرئيسية يفتحها، والتأجيل يُسجَّل ويُخرج الشحنة', (tester) async {
     await _start(tester);
 
-    await _reveal(tester, find.text('للمعالجة'));
-    await tester.ensureVisible(find.text('للمعالجة').first);
+    await _reveal(tester, find.text('عالجها'));
+    await tester.ensureVisible(find.text('عالجها').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('للمعالجة').first);
+    await tester.tap(find.text('عالجها').first);
     await tester.pumpAndSettle();
 
     for (final text in [

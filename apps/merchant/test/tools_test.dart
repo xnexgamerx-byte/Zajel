@@ -23,8 +23,8 @@ Future<void> _open(WidgetTester tester, String tool) async {
 
   await tester.pumpWidget(const MerchantApp(signedIn: true));
   await tester.pumpAndSettle();
-  // من «حسابي» في الشريط السفلي
-  await tester.tap(find.text('حسابي'));
+  // من «المزيد» في الشريط السفلي
+  await tester.tap(find.text('المزيد'));
   await tester.pumpAndSettle();
   // «حسابي» قد يطول عن الشاشة
   await tester.ensureVisible(find.text(tool).last);

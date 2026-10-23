@@ -12,7 +12,7 @@ import 'shipment_screen.dart';
 /// «شحناتي»: بحثٌ بالاسم أو الهاتف أو رقم الوصل، وشرائح بأعدادها (هي عدّادات الرئيسية
 /// نفسها)، والقائمة تتحمّل صفحةً بعد صفحة كلّما نزلت.
 class ShipmentsScreen extends StatefulWidget {
-  const ShipmentsScreen({super.key, required this.brand, required this.filter, this.refresh});
+  const ShipmentsScreen({super.key, required this.brand, required this.filter, this.refresh, this.focusSearch});
 
   final Brand brand;
 
@@ -22,12 +22,16 @@ class ShipmentsScreen extends StatefulWidget {
   /// بعد حفظ شحنةٍ جديدة: تُعاد القائمة
   final Listenable? refresh;
 
+  /// بحث الرئيسية (docs/plan/76): يُفتح هنا والمؤشّر في خانة البحث
+  final Listenable? focusSearch;
+
   @override
   State<ShipmentsScreen> createState() => _ShipmentsScreenState();
 }
 
 class _ShipmentsScreenState extends State<ShipmentsScreen> {
   final search = TextEditingController();
+  final searchFocus = FocusNode();
   final scroll = ScrollController();
   Timer? debounce;
 
@@ -49,6 +53,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
     super.initState();
     widget.filter.addListener(_reload);
     widget.refresh?.addListener(_reload);
+    widget.focusSearch?.addListener(_focus);
     scroll.addListener(() {
       if (scroll.position.pixels > scroll.position.maxScrollExtent - 300) _more();
     });
@@ -59,7 +64,9 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
   void dispose() {
     widget.filter.removeListener(_reload);
     widget.refresh?.removeListener(_reload);
+    widget.focusSearch?.removeListener(_focus);
     debounce?.cancel();
+    searchFocus.dispose();
     search.dispose();
     scroll.dispose();
     super.dispose();
@@ -123,11 +130,16 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
     );
   }
 
+  void _focus() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) searchFocus.requestFocus();
+  });
+
   Widget _search() => Container(
     height: 44,
     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: cardShadow),
     child: TextField(
       controller: search,
+      focusNode: searchFocus,
       onChanged: _typed,
       textInputAction: TextInputAction.search,
       onSubmitted: (_) => _reload(),
