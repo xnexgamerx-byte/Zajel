@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:courier_app/core/config.dart';
 import 'package:courier_app/core/demo.dart';
+import 'package:courier_app/core/models.dart';
 import 'package:courier_app/core/palette.dart';
+import 'package:courier_app/core/reminders.dart';
 import 'package:courier_app/core/whatsapp.dart';
 import 'package:courier_app/main.dart';
 import 'package:courier_app/screens/login_screen.dart';
@@ -86,8 +88,8 @@ void main() {
     for (final text in [
       'مندوب تجريبي',
       'بيدك الآن',
-      '6',
-      '165,000',
+      '7',
+      '184,000',
       'النقد بيدك',
       '2,340,000',
       '78٪ من السقف',
@@ -122,9 +124,70 @@ void main() {
     await tester.enterText(find.byType(TextField), '');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
-    await _tap(tester, find.text('الراجع 1'));
+    await _tap(tester, find.text('الراجع'));
     expect(find.text(tag('180190')), findsOneWidget);
-    expect(find.text('راجع'), findsWidgets);
+    // ما لم يُسلَّم ولم يُقرَّر فيه بعد: في «الراجع» ينتظر، لا يختفي (docs/plan/75)
+    expect(find.text('لم تُسلَّم — تنتظر قرار المعالجة (1)'), findsOneWidget);
+    expect(find.text(tag('180188')), findsOneWidget);
+    expect(find.text('تنتظر المعالجة'), findsOneWidget);
+  });
+
+  testWidgets('إعادة التوصيل والمؤجل: كلٌّ في خانته، والمؤجّلة بموعدها', (tester) async {
+    await _start(tester);
+    await _openTasks(tester);
+
+    // ما أعاده الكول سنتر ليس مع ما خرج أوّل مرّة
+    expect(find.text(tag('180186')), findsNothing);
+    await _tap(tester, find.text('إعادة توصيل').first);
+    expect(find.text(tag('180186')), findsOneWidget);
+    expect(find.text('إعادة توصيل'), findsWidgets);
+
+    await _tap(tester, find.text('المؤجل'));
+    expect(find.text('موعدها اليوم (1)'), findsOneWidget);
+    expect(find.text('موعدها غداً (1)'), findsOneWidget);
+    expect(find.text('اليوم 4:00 م'), findsOneWidget);
+
+    // «أوصلها الآن»: تعود إليه في «إعادة التوصيل» ويُسجَّل عليها عند الباب
+    await _tap(tester, find.text(tag('180181')));
+    expect(find.text('موعدها اليوم 4:00 م'), findsOneWidget);
+    await _tap(tester, find.text('أوصلها الآن'));
+    expect(find.text('الشحنة 180181 معك للتوصيل الآن.'), findsOneWidget);
+    expect(find.text('سُلّمت'), findsOneWidget);
+  });
+
+  testWidgets('«مؤجلة» تسأل عن الموعد، والرئيسية تذكّر به', (tester) async {
+    await _start(tester);
+    // مواعيد اليوم وغداً أوّل الرئيسية
+    expect(find.text('مواعيد التسليم'), findsOneWidget);
+    expect(find.text('اليوم 4:00 م'), findsOneWidget);
+    expect(find.text('منى جاسم · الكرادة'), findsOneWidget);
+
+    await _openShipment(tester, '180209');
+    await _tap(tester, find.text('مؤجلة'));
+    await _tap(tester, find.text('الزبون طلب التأجيل'));
+    await tester.enterText(find.byType(TextField).last, 'بعد العصر');
+    await _tap(tester, find.text('حفظ'));
+    expect(find.textContaining('متى الموعد؟'), findsOneWidget);
+    await _tap(tester, find.text('غداً'));
+    await _tap(tester, find.text('العصر 4:00'));
+    await _tap(tester, find.text('حفظ'));
+
+    await _tap(tester, find.text('المؤجل'));
+    expect(find.text('موعدها غداً (2)'), findsOneWidget);
+    expect(find.text('غداً 4:00 م'), findsOneWidget);
+  });
+
+  test('التنبيه: قبل الموعد بربع ساعة، أو التاسعة صباح يومه، ولا تنبيه لما فات', () {
+    final now = DateTime(2026, 10, 22, 12);
+    Appointment at(DateTime t) => Appointment(id: 1, number: '180181', recipient: 'منى جاسم', at: t, city: 'الكرادة');
+    expect(Reminders.remindAt(at(DateTime(2026, 10, 22, 16)), now: now), DateTime(2026, 10, 22, 15, 45));
+    expect(Reminders.remindAt(at(DateTime(2026, 10, 23)), now: now), DateTime(2026, 10, 23, 9));
+    expect(Reminders.remindAt(at(DateTime(2026, 10, 22, 12, 10)), now: now), isNull);
+    expect(Reminders.remindAt(at(DateTime(2026, 10, 22)), now: now), isNull);
+    expect(appointmentLabel(DateTime(2026, 10, 22, 16), now: now), 'اليوم 4:00 م');
+    expect(appointmentLabel(DateTime(2026, 10, 23, 10, 30), now: now), 'غداً 10:30 ص');
+    expect(appointmentLabel(DateTime(2026, 10, 20), now: now), 'فات منذ يومين');
+    expect(Reminders.body(at(DateTime(2026, 10, 22, 16))), contains('الشحنة 180181 — الكرادة'));
   });
 
   testWidgets('شحنةٌ بكود: «سُلّمت» لا تعمل قبل الكود، والكود الخاطئ يُرفض، والصحيح يُسلّمها', (tester) async {

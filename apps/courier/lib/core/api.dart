@@ -91,7 +91,7 @@ class Api {
     return HomeData.fromJson(await _send(http.get(_uri('/courier/home'), headers: _headers)));
   }
 
-  /// «مهامي»: delivery أو returns، ويُبحث برقم الوصل أو الاسم أو الهاتف
+  /// «مهامي»: delivery أو redelivery أو postponed أو returns، ويُبحث برقم الوصل أو الاسم أو الهاتف
   Future<TaskList> tasks({String kind = 'delivery', String q = ''}) async {
     if (AppConfig.demo) return Demo.tasks(kind, q);
     final uri = _uri('/courier/tasks').replace(queryParameters: {'kind': kind, if (q.isNotEmpty) 'q': q});
@@ -138,10 +138,13 @@ class Api {
     String? note,
     String? code,
     String? scan,
+    DateTime? until,
     double? lat,
     double? lng,
   }) async {
-    if (AppConfig.demo) return Demo.act(id, action, reasonId: reasonId, note: note, code: code, scan: scan);
+    if (AppConfig.demo) {
+      return Demo.act(id, action, reasonId: reasonId, note: note, code: code, scan: scan, until: until);
+    }
     final body = await _send(
       http.post(
         _uri('/courier/shipments/$id/act'),
@@ -152,12 +155,20 @@ class Api {
           if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
           if (code != null && code.isNotEmpty) 'delivery_code': code,
           if (scan != null && scan.isNotEmpty) 'scan': scan,
+          if (until != null) 'until': until.toIso8601String(),
           'lat': ?lat,
           'lng': ?lng,
         }),
       ),
     );
     return Outcome(body['message'] as String? ?? 'سُجِّلت.', ShipmentDetail.fromJson((body['data'] as Map).cast()));
+  }
+
+  /// «أوصلها الآن» (docs/plan/75): المؤجّلة بيده تخرج للتوصيل في موعدها
+  Future<Outcome> resume(int id) async {
+    if (AppConfig.demo) return Demo.resume(id);
+    final body = await _send(http.post(_uri('/courier/shipments/$id/resume'), headers: _headers));
+    return Outcome(body['message'] as String? ?? 'معك للتوصيل.', ShipmentDetail.fromJson((body['data'] as Map).cast()));
   }
 
   /// «الزبون يريد يدفع غير المبلغ؟» — price (السعر تغيّر) أو partial (أخذ جزءاً وأرجع الباقي)

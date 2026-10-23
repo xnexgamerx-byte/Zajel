@@ -31,8 +31,8 @@ class _TasksScreenState extends State<TasksScreen> {
   TaskList? data;
   String? error;
 
-  /// عدد الراجع على شريحته، يُعرف من أوّل تحميل
-  int? returns;
+  /// عدد كلّ خانة على شريحتها، من النظام بلا بحث
+  Map<String, int> counts = const {};
 
   Brand get brand => widget.brand;
 
@@ -58,12 +58,7 @@ class _TasksScreenState extends State<TasksScreen> {
     try {
       final d = await Api.instance.tasks(kind: kind, q: search.text.trim());
       if (!mounted || kind != widget.kind.value) return;
-      setState(() => (data = d, error = null));
-      if (kind == 'returns' && search.text.isEmpty) returns = d.count;
-      if (kind == 'delivery') {
-        final r = await Api.instance.tasks(kind: 'returns');
-        if (mounted) setState(() => returns = r.count);
-      }
+      setState(() => (data = d, error = null, counts = d.counts.isEmpty ? counts : d.counts));
     } on ApiError catch (e) {
       if (mounted) setState(() => error = e.message);
     }
@@ -98,12 +93,17 @@ class _TasksScreenState extends State<TasksScreen> {
                 TextSpan(
                   children: [
                     TextSpan(text: '${d.count} شحنة', style: font(12.5, w6, Palette.slate)),
-                    if (d.kind == 'delivery') ...[
+                    if (d.kind == 'delivery' || d.kind == 'redelivery') ...[
                       TextSpan(text: ' · للتحصيل ', style: font(12.5, w6, Palette.slate)),
                       TextSpan(text: money(d.toCollect), style: font(12.5, w8, Palette.ink)),
                       TextSpan(text: ' د.ع', style: font(12.5, w6, Palette.slate)),
                     ] else
-                      TextSpan(text: ' · سلّمها للمخزن', style: font(12.5, w6, Palette.slate)),
+                      TextSpan(
+                        text: d.kind == 'postponed'
+                            ? ' · بمواعيدها، الأقرب أوّلاً'
+                            : ' · الراجع للمخزن، وما ينتظر المعالجة يبقى معك',
+                        style: font(12.5, w6, Palette.slate),
+                      ),
                   ],
                 ),
               ),
@@ -123,16 +123,25 @@ class _TasksScreenState extends State<TasksScreen> {
                       title: 'لا نتائج',
                       text: 'لا شحنة بيدك برقم أو اسم «${search.text}».',
                     )
-                  : kind == 'returns'
-                  ? const Empty(
-                      icon: Icons.assignment_return_outlined,
-                      title: 'لا راجع بيدك',
-                      text: 'ما يرجع معك يظهر هنا حتى تسلّمه للمخزن.',
-                    )
-                  : const Empty(
-                      icon: Icons.inventory_2_outlined,
-                      title: 'لا شحنات بيدك الآن',
-                      text: 'حين يُسلّمك المخزن شحناتٍ للتوصيل تظهر هنا مجمّعةً بالمنطقة.',
+                  : Empty(
+                      icon: switch (kind) {
+                        'returns' => Icons.assignment_return_outlined,
+                        'postponed' => Icons.event_available_rounded,
+                        'redelivery' => Icons.replay_rounded,
+                        _ => Icons.inventory_2_outlined,
+                      },
+                      title: switch (kind) {
+                        'returns' => 'لا راجع بيدك',
+                        'postponed' => 'لا مؤجّلة بيدك',
+                        'redelivery' => 'لا إعادة توصيل',
+                        _ => 'لا شحنات بيدك الآن',
+                      },
+                      text: switch (kind) {
+                        'returns' => 'ما يرجع معك، وما لم يُسلَّم وينتظر قرار المعالجة، يظهر هنا حتى يُحسم.',
+                        'postponed' => 'ما تؤجّله بموعدٍ يظهر هنا، ويذكّرك التطبيق في موعده.',
+                        'redelivery' => 'ما يعيده الكول سنتر إليك بعد محاولةٍ فاشلة يظهر هنا.',
+                        _ => 'حين يُسلّمك المخزن شحناتٍ للتوصيل تظهر هنا مجمّعةً بالمنطقة.',
+                      },
                     )
             else
               for (final g in d.groups) ...[
@@ -157,25 +166,55 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
+  /// الخانات الأربع (docs/plan/75) بألوان نتيجتها: التوصيل، وإعادته، والمؤجل أصفر، والراجع أحمر
   Widget _segments(String kind, TaskList? d) {
-    Widget seg(String value, String label, int? count) {
+    Widget seg(String value, String label, IconData icon, Color color) {
       final on = kind == value;
+      final count = counts[value];
       return Expanded(
         child: Tap(
-          radius: 10,
+          radius: 12,
           onTap: on ? null : () => widget.kind.value = value,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            height: 38,
-            alignment: Alignment.center,
+            height: 58,
+            padding: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
               color: on ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: on ? cardShadow : null,
             ),
-            child: Text(
-              count == null ? label : '$label $count',
-              style: font(13.5, on ? w8 : w6, on ? Palette.ink : Palette.slate),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 16, color: on ? color : Palette.muted),
+                    if (count != null && count > 0) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 18),
+                        height: 18,
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: on ? color : Palette.muted.withValues(alpha: .18),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Text('$count', style: font(10.5, w8, on ? Colors.white : Palette.slate, height: 1)),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: font(12, on ? w8 : w6, on ? Palette.ink : Palette.slate, height: 1.2),
+                ),
+              ],
             ),
           ),
         ),
@@ -184,11 +223,13 @@ class _TasksScreenState extends State<TasksScreen> {
 
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: Palette.eye, borderRadius: BorderRadius.circular(13)),
+      decoration: BoxDecoration(color: Palette.eye, borderRadius: BorderRadius.circular(15)),
       child: Row(
         children: [
-          seg('delivery', 'التوصيل', kind == 'delivery' && search.text.isEmpty ? d?.count : null),
-          seg('returns', 'الراجع', returns),
+          seg('delivery', 'التوصيل', Icons.local_shipping_outlined, brand.main),
+          seg('redelivery', 'إعادة توصيل', Icons.replay_rounded, OutcomeColors.delivered),
+          seg('postponed', 'المؤجل', Icons.event_repeat_rounded, OutcomeColors.postponed),
+          seg('returns', 'الراجع', Icons.assignment_return_outlined, OutcomeColors.returned),
         ],
       ),
     );
@@ -226,6 +267,25 @@ class _TasksScreenState extends State<TasksScreen> {
     ),
   );
 
+  /// موعد المؤجّلة على سطرها: أحمر إن فات، وأصفر غير ذلك
+  Widget _until(DateTime at) {
+    final now = DateTime.now();
+    final past = DateTime(at.year, at.month, at.day).isBefore(DateTime(now.year, now.month, now.day));
+    final color = past ? OutcomeColors.returned : OutcomeColors.postponed;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(color: OutcomeColors.soft(color), borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.alarm_rounded, size: 13, color: OutcomeColors.ink(color)),
+          const SizedBox(width: 3),
+          Text(appointmentLabel(at), style: font(11, w8, OutcomeColors.ink(color))),
+        ],
+      ),
+    );
+  }
+
   Widget _row(TaskRow r) {
     final waiting = r.ticketStatus == 'open';
     final approved = r.ticketStatus == 'approved';
@@ -246,7 +306,11 @@ class _TasksScreenState extends State<TasksScreen> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Number(r.number),
-                      if (r.status != 'out_for_delivery') Pill(r.statusLabel, color: statusColor(r.status)),
+                      if (r.status != 'out_for_delivery' && !r.waiting && r.until == null)
+                        Pill(r.statusLabel, color: statusColor(r.status)),
+                      if (r.redelivery) const Pill('إعادة توصيل', color: OutcomeColors.delivered),
+                      if (r.waiting) const Pill('تنتظر المعالجة', color: OutcomeColors.returned),
+                      if (r.until != null) _until(r.until!),
                       if (waiting) const Pill('تذكرة', color: Palette.warn),
                       if (approved) const Pill('جزئي معتمد', color: Palette.ok),
                     ],

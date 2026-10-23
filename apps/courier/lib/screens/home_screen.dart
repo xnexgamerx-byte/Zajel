@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/reminders.dart';
 import '../widgets/bits.dart';
 import '../widgets/cash_card.dart';
 import '../widgets/page.dart';
@@ -45,6 +46,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final d = await Api.instance.home();
       if (mounted) setState(() => (data = d, error = null));
+      // مواعيد المؤجّلة: تنبيه الهاتف في موعد كلٍّ منها (docs/plan/75)
+      Reminders.sync(d.appointments);
     } on ApiError catch (e) {
       if (mounted) setState(() => error = e.message);
     }
@@ -73,6 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _header(d),
           const SizedBox(height: 16),
+          // ما فات موعده أو موعده اليوم أو غداً: أوّل ما يراه حتى لا ينساه (docs/plan/75)
+          if (_due(d).isNotEmpty) ...[_appointments(d), const SizedBox(height: 12)],
           if (d.delivers) ...[
             _inHand(d),
             const SizedBox(height: 12),
@@ -335,6 +340,98 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 8),
         tile(d.returns, 'راجع بيدي', Palette.bad, 'returns'),
       ],
+    );
+  }
+
+  /// المواعيد القريبة: ما فات، واليوم، وغداً
+  List<Appointment> _due(HomeData d) {
+    final now = DateTime.now();
+    final end = DateTime(now.year, now.month, now.day).add(const Duration(days: 2));
+    return d.appointments.where((a) => a.at.isBefore(end)).toList();
+  }
+
+  /// «مواعيدك»: بطاقةٌ صفراء بلون المؤجل، كلّ موعدٍ بيومه وساعته، ويفتح شحنته
+  Widget _appointments(HomeData d) {
+    final due = _due(d);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    const color = OutcomeColors.postponed;
+    final ink = OutcomeColors.ink(color);
+    return Container(
+      decoration: BoxDecoration(
+        color: OutcomeColors.soft(color),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: color.withValues(alpha: .55)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 6, 4),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.alarm_rounded, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('مواعيد التسليم', style: font(15, w8, ink)),
+                      Text(
+                        'مؤجّلةٌ بيدك حان موعدها أو قرب — يذكّرك الهاتف في وقتها',
+                        style: font(11.5, w6, Palette.slate, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => widget.onOpen('postponed'),
+                  child: Text('المؤجل (${d.appointments.length})', style: font(12, w8, ink)),
+                ),
+              ],
+            ),
+          ),
+          for (final a in due.take(4))
+            Tap(
+              onTap: () => widget.onOpen('shipment:${a.id}'),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: a.at.isBefore(today) ? OutcomeColors.returned : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        appointmentLabel(a.at),
+                        style: font(11, w8, a.at.isBefore(today) ? Colors.white : ink),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        [a.recipient, if ((a.city ?? '').isNotEmpty) a.city!].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: font(13, w7, Palette.ink),
+                      ),
+                    ),
+                    Number(a.number, size: 12.5),
+                    const SizedBox(width: 4),
+                    const Chev(size: 8, stroke: 1.6),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 6),
+        ],
+      ),
     );
   }
 

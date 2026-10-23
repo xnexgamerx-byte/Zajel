@@ -7,9 +7,10 @@ import '../widgets/bits.dart';
 import '../widgets/digits.dart';
 import '../widgets/page.dart';
 
-/// «لم تُسلَّم» و«مؤجلة»: السبب إلزامي، وبعض الأسباب تحتاج توضيحاً — ويعود (السبب، الملاحظة)
-Future<(int, String)?> showReasons(BuildContext context, Brand brand, {required bool postpone}) =>
-    showSheet<(int, String)>(context, _ReasonsSheet(brand: brand, postpone: postpone));
+/// «لم تُسلَّم» و«مؤجلة»: السبب إلزامي، وبعض الأسباب تحتاج توضيحاً — ويعود (السبب، الملاحظة، الموعد).
+/// وللمؤجّلة موعدها (docs/plan/75): يومٌ وساعةٌ إن شاء، ومنه تذكيره في الرئيسية وتنبيه الهاتف.
+Future<(int, String, DateTime?)?> showReasons(BuildContext context, Brand brand, {required bool postpone}) =>
+    showSheet<(int, String, DateTime?)>(context, _ReasonsSheet(brand: brand, postpone: postpone));
 
 class _ReasonsSheet extends StatefulWidget {
   const _ReasonsSheet({required this.brand, required this.postpone});
@@ -26,6 +27,17 @@ class _ReasonsSheetState extends State<_ReasonsSheet> {
   List<Reason>? reasons;
   Reason? picked;
   String? error;
+
+  /// يوم الموعد وساعته — للمؤجّلة
+  DateTime? day;
+  TimeOfDay? time;
+
+  static const _times = [
+    ('الصبح', TimeOfDay(hour: 10, minute: 0)),
+    ('الظهر', TimeOfDay(hour: 13, minute: 0)),
+    ('العصر', TimeOfDay(hour: 16, minute: 0)),
+    ('المساء', TimeOfDay(hour: 19, minute: 0)),
+  ];
 
   @override
   void initState() {
@@ -60,8 +72,85 @@ class _ReasonsSheetState extends State<_ReasonsSheet> {
       setState(() => error = 'السبب «${r.name}» يحتاج توضيحاً.');
       return;
     }
-    Navigator.of(context).pop((r.id, note.text.trim()));
+    if (widget.postpone && day == null) {
+      setState(() => error = 'متى الموعد؟ اختر اليوم — ويذكّرك التطبيق به.');
+      return;
+    }
+    final d = day;
+    final at = d == null ? null : DateTime(d.year, d.month, d.day, time?.hour ?? 0, time?.minute ?? 0);
+    Navigator.of(context).pop((r.id, note.text.trim(), at));
   }
+
+  DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  Future<void> _pickDay() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: day ?? _today.add(const Duration(days: 1)),
+      firstDate: _today,
+      lastDate: _today.add(const Duration(days: 30)),
+      helpText: 'يوم التسليم',
+    );
+    if (picked != null) setState(() => (day = picked, error = null));
+  }
+
+  /// الموعد: اليوم، غداً، بعد غد، أو يومٌ يختاره — وساعةٌ إن اتّفق عليها
+  List<Widget> _when() {
+    final days = [('اليوم', 0), ('غداً', 1), ('بعد غد', 2)];
+    final custom = day != null && day!.difference(_today).inDays > 2;
+    return [
+      const FieldLabel('موعد التسليم'),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final (label, n) in days)
+            _chip(label, day == _today.add(Duration(days: n)), () {
+              setState(() => (day = _today.add(Duration(days: n)), error = null));
+            }),
+          _chip(custom ? '${day!.day}/${day!.month}' : 'يومٌ آخر', custom, _pickDay, icon: Icons.event_rounded),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          _chip('بلا ساعة', time == null, () => setState(() => time = null)),
+          for (final (label, t) in _times)
+            _chip('$label ${t.hour > 12 ? t.hour - 12 : t.hour}:00', time == t, () => setState(() => time = t)),
+        ],
+      ),
+      const SizedBox(height: 4),
+    ];
+  }
+
+  Widget _chip(String label, bool on, VoidCallback onTap, {IconData? icon}) => Tap(
+    radius: 20,
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: on ? OutcomeColors.soft(OutcomeColors.postponed) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: on ? OutcomeColors.postponed : Palette.line, width: on ? 1.4 : 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 15, color: on ? OutcomeColors.ink(OutcomeColors.postponed) : Palette.slate),
+            const SizedBox(width: 4),
+          ],
+          Text(label, style: font(12.5, on ? w8 : w6, on ? OutcomeColors.ink(OutcomeColors.postponed) : Palette.ink)),
+        ],
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +165,7 @@ class _ReasonsSheetState extends State<_ReasonsSheet> {
           Center(child: CircularProgressIndicator(color: widget.brand.main))
         else if (list != null)
           for (final r in list) _option(r),
+        if (picked != null && widget.postpone) ..._when(),
         if (picked != null) ...[
           FieldLabel(picked!.requiresNote ? 'التوضيح (مطلوب)' : 'ملاحظة (اختيارية)'),
           InputBox(controller: note, hint: 'ما قاله الزبون أو ما حدث عند الباب', lines: 2, maxLength: 500),

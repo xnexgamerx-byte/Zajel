@@ -178,3 +178,21 @@ class OutcomeColors {
   /// النصّ على الخلفية الفاتحة: الأصفر يُغمَّق ليُقرأ
   static Color ink(Color c) => c == postponed ? const Color(0xFF9A6400) : Color.lerp(c, Colors.black, .12)!;
 }
+
+/// موعد المؤجّلة كما يُقرأ: «اليوم 4:00 م»، «غداً»، «الخميس 23/10 10:00 ص»، «فات منذ يومين»
+String appointmentLabel(DateTime at, {DateTime? now}) {
+  final n = now ?? DateTime.now();
+  final days = DateTime(at.year, at.month, at.day).difference(DateTime(n.year, n.month, n.day)).inDays;
+  final hasTime = at.hour != 0 || at.minute != 0;
+  final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  final time = hasTime ? ' $h:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'ص' : 'م'}' : '';
+  const weekdays = ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+  return switch (days) {
+    -2 => 'فات منذ يومين',
+    < -2 => 'فات منذ ${-days} أيام',
+    -1 => 'كان أمس',
+    0 => 'اليوم$time',
+    1 => 'غداً$time',
+    _ => '${weekdays[at.weekday - 1]} ${at.day}/${at.month}$time',
+  };
+}

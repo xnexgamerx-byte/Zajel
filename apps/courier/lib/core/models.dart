@@ -93,6 +93,7 @@ class HomeData {
     this.pickups = 0,
     this.chat = false,
     this.chatUnread = false,
+    this.appointments = const [],
   });
 
   factory HomeData.fromJson(Map<String, dynamic> j) {
@@ -116,6 +117,7 @@ class HomeData {
       pickups: _int(j['pickups']),
       chat: j['chat'] is Map,
       chatUnread: (j['chat'] as Map?)?['unread'] as bool? ?? false,
+      appointments: [for (final a in _list(j['appointments'])) Appointment.fromJson(a)],
     );
   }
 
@@ -144,6 +146,43 @@ class HomeData {
   /// المحادثة مع المكتب مفتوحةٌ للشركة، وفيها ما لم يُقرأ
   final bool chat;
   final bool chatUnread;
+
+  /// مواعيد المؤجّلة بيده (docs/plan/75): تذكيرٌ في الرئيسية وتنبيهٌ في موعدها
+  final List<Appointment> appointments;
+}
+
+/// موعد تسليم شحنةٍ مؤجّلة
+class Appointment {
+  Appointment({
+    required this.id,
+    required this.number,
+    required this.recipient,
+    required this.at,
+    this.phone,
+    this.city,
+    this.amount = 0,
+  });
+
+  factory Appointment.fromJson(Map<String, dynamic> j) => Appointment(
+    id: _int(j['id']),
+    number: j['number'] as String? ?? '',
+    recipient: j['recipient'] as String? ?? '',
+    phone: j['phone'] as String?,
+    city: j['city'] as String?,
+    amount: _int(j['amount']),
+    at: _at(j['at']) ?? DateTime.now(),
+  );
+
+  final int id;
+  final String number;
+  final String recipient;
+  final String? phone;
+  final String? city;
+  final int amount;
+  final DateTime at;
+
+  /// موعدٌ بساعته — وما كان منتصف الليل فموعده اليوم كلّه
+  bool get hasTime => at.hour != 0 || at.minute != 0;
 }
 
 /// سطر الشحنة في «مهامي»
@@ -163,6 +202,9 @@ class TaskRow {
     this.ticketStatus,
     this.ticketLabel,
     this.failure,
+    this.until,
+    this.waiting = false,
+    this.redelivery = false,
   });
 
   factory TaskRow.fromJson(Map<String, dynamic> j) {
@@ -182,6 +224,9 @@ class TaskRow {
       ticketStatus: ticket?['status'] as String?,
       ticketLabel: ticket?['label'] as String?,
       failure: j['failure'] as String?,
+      until: _at(j['until']),
+      waiting: j['waiting'] as bool? ?? false,
+      redelivery: j['redelivery'] as bool? ?? false,
     );
   }
 
@@ -200,40 +245,59 @@ class TaskRow {
   final String? ticketLabel;
   final String? failure;
 
+  /// موعد المؤجّلة، وما لم يُسلَّم ينتظر قرار المعالجة، وما أُعيد إليه بعد قرار (docs/plan/75)
+  final DateTime? until;
+  final bool waiting;
+  final bool redelivery;
+
   /// «زينب علي · شارع 62»
   String get place => [recipient, if ((landmark ?? '').isNotEmpty) landmark!].join(' · ');
 }
 
 class TaskGroup {
-  TaskGroup({required this.governorate, this.city, required this.items});
+  TaskGroup({this.governorate = '—', this.city, this.label, required this.items});
 
   factory TaskGroup.fromJson(Map<String, dynamic> j) => TaskGroup(
     governorate: j['governorate'] as String? ?? '—',
     city: j['city'] as String?,
+    label: j['title'] as String?,
     items: [for (final r in _list(j['items'])) TaskRow.fromJson(r)],
   );
 
   final String governorate;
   final String? city;
+
+  /// المؤجل بموعده والراجع بحاله: عنوانٌ من النظام بدل المحافظة
+  final String? label;
   final List<TaskRow> items;
 
-  String get title => city == null ? governorate : '$governorate — $city';
+  String get title => label ?? (city == null ? governorate : '$governorate — $city');
 }
 
 class TaskList {
-  TaskList({required this.kind, required this.count, required this.toCollect, required this.groups});
+  TaskList({
+    required this.kind,
+    required this.count,
+    required this.toCollect,
+    required this.groups,
+    this.counts = const {},
+  });
 
   factory TaskList.fromJson(Map<String, dynamic> j) => TaskList(
     kind: j['kind'] as String? ?? 'delivery',
     count: _int(j['count']),
     toCollect: _int(j['to_collect']),
     groups: [for (final g in _list(j['groups'])) TaskGroup.fromJson(g)],
+    counts: {for (final e in ((j['counts'] as Map?) ?? const {}).entries) '${e.key}': _int(e.value)},
   );
 
   final String kind;
   final int count;
   final int toCollect;
   final List<TaskGroup> groups;
+
+  /// عدد كلّ خانة: التوصيل، وإعادة التوصيل، والمؤجل، والراجع
+  final Map<String, int> counts;
 }
 
 /// طلب تغيير المبلغ إلى الكول سنتر
@@ -301,6 +365,9 @@ class ShipmentDetail {
     this.actions = const [],
     this.partialAmount,
     this.type = 'delivery',
+    this.until,
+    this.canResume = false,
+    this.waiting = false,
   });
 
   factory ShipmentDetail.fromJson(Map<String, dynamic> j) {
@@ -339,6 +406,9 @@ class ShipmentDetail {
       ticket: t == null ? null : Ticket.fromJson(t),
       actions: [for (final x in (j['actions'] as List?) ?? const []) '$x'],
       partialAmount: j['partial_amount'] == null ? null : _int(j['partial_amount']),
+      until: _at(j['until']),
+      canResume: j['can_resume'] as bool? ?? false,
+      waiting: j['waiting'] as bool? ?? false,
     );
   }
 
@@ -377,6 +447,11 @@ class ShipmentDetail {
 
   /// الواصل الجزئي بما اعتمده الكول سنتر وحده
   final int? partialAmount;
+
+  /// المؤجّلة بموعدها، و«أوصلها الآن» لها وهي بيده، وما لم يُسلَّم ينتظر المعالجة (docs/plan/75)
+  final DateTime? until;
+  final bool canResume;
+  final bool waiting;
 
   bool get canAct => actions.isNotEmpty;
 

@@ -77,7 +77,24 @@ class Demo {
         approved: 20000,
       ),
     _Parcel(180190, 'سارة محمد', 'الأعظمية', 'شارع عشرين', 18000, status: 'returning'),
+    // ما بعد الباب (docs/plan/75): أعادها الكول سنتر إليه، ومؤجّلتان بموعدهما، وأخرى تنتظر قرار المعالجة
+    _Parcel(180186, 'كرار عادل', 'الدورة', 'قرب السوق', 19000)
+      ..redelivery = true
+      ..failure = 'لا يرد على الهاتف',
+    _Parcel(180181, 'منى جاسم', 'الكرادة', 'شارع 52', 30000, status: 'postponed')
+      ..until = _today(16)
+      ..failure = 'الزبون طلب التأجيل',
+    _Parcel(180178, 'عمر فاضل', 'زيونة', 'قرب الجسر', 27000, status: 'postponed')
+      ..until = _today(11).add(const Duration(days: 1))
+      ..failure = 'الزبون طلب التأجيل',
+    _Parcel(180188, 'سجى محمد', 'المنصور', 'شارع 14', 22000, status: 'failed_attempt')..failure = 'الهاتف مغلق',
   ];
+
+  /// ساعةٌ من اليوم
+  static DateTime _today(int hour) {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour);
+  }
 
   static List<Movement> _seedMoves() => [
     Movement(
@@ -124,6 +141,16 @@ class Demo {
   static Iterable<_Parcel> get _returns =>
       _parcels.where((p) => p.status == 'returning' || p.status == 'partially_delivered');
 
+  /// الخانات الأربع كما في النظام (docs/plan/75)
+  static Iterable<_Parcel> _kind(String kind) => switch (kind) {
+    'redelivery' => _out.where((p) => p.redelivery),
+    'postponed' => _parcels.where((p) => p.status == 'postponed'),
+    'returns' => _parcels.where(
+      (p) => p.status == 'returning' || p.status == 'partially_delivered' || p.status == 'failed_attempt',
+    ),
+    _ => _out.where((p) => !p.redelivery),
+  };
+
   static _Parcel _get(int id) =>
       _parcels.firstWhere((p) => p.id == id, orElse: () => throw ApiError('الشحنة ليست بيدك.', notFound: true));
 
@@ -154,6 +181,20 @@ class Demo {
     pickups: _pickups.length,
     chat: true,
     chatUnread: _chatUnread,
+    appointments: [
+      for (final p in _kind(
+        'postponed',
+      ).where((p) => p.until != null).toList()..sort((a, b) => a.until!.compareTo(b.until!)))
+        Appointment(
+          id: p.id,
+          number: '${p.id}',
+          recipient: p.name,
+          phone: p.phone,
+          city: p.city,
+          amount: p.amount,
+          at: p.until!,
+        ),
+    ],
     attention: [
       for (final p in _out.where((p) => p.ticket != null && p.ticket!.status != 'rejected'))
         Attention(
@@ -172,26 +213,51 @@ class Demo {
   );
 
   static Future<TaskList> tasks(String kind, String q) async {
-    final source = kind == 'returns' ? _returns : _out;
     final term = q.trim();
-    final found = source.where((p) => term.isEmpty || '${p.id}'.contains(term) || p.name.contains(term)).toList();
+    final found = _kind(kind).where((p) => term.isEmpty || '${p.id}'.contains(term) || p.name.contains(term)).toList();
     final groups = <String, List<_Parcel>>{};
-    for (final p in found) {
-      groups.putIfAbsent(p.city, () => []).add(p);
+    String key(_Parcel p) => switch (kind) {
+      'postponed' => p.dayTitle,
+      'returns' => p.status == 'failed_attempt' ? 'لم تُسلَّم — تنتظر قرار المعالجة' : 'راجع — سلّمه للمخزن',
+      _ => p.city,
+    };
+    if (kind == 'postponed') found.sort((a, b) => (a.until ?? DateTime(9999)).compareTo(b.until ?? DateTime(9999)));
+    // ما ينتظر قرار المعالجة أوّلاً
+    if (kind == 'returns') {
+      found.sort((a, b) => (b.status == 'failed_attempt' ? 1 : 0) - (a.status == 'failed_attempt' ? 1 : 0));
     }
+    for (final p in found) {
+      groups.putIfAbsent(key(p), () => []).add(p);
+    }
+    final byPlace = kind == 'delivery' || kind == 'redelivery';
     return TaskList(
       kind: kind,
       count: found.length,
-      toCollect: kind == 'returns' ? 0 : found.fold(0, (s, p) => s + p.amount),
+      toCollect: byPlace ? found.fold(0, (s, p) => s + p.amount) : 0,
+      counts: {
+        for (final k in ['delivery', 'redelivery', 'postponed', 'returns']) k: _kind(k).length,
+      },
       groups: [
         for (final e in groups.entries)
-          TaskGroup(
-            governorate: 'بغداد',
-            city: e.key,
-            items: [for (final p in e.value) p.row(returning: kind == 'returns')],
-          ),
+          byPlace
+              ? TaskGroup(governorate: 'بغداد', city: e.key, items: [for (final p in e.value) p.row()])
+              : TaskGroup(
+                  label: e.key,
+                  items: [for (final p in e.value) p.row(returning: kind == 'returns' && p.status != 'failed_attempt')],
+                ),
       ],
     );
+  }
+
+  /// «أوصلها الآن»: المؤجّلة بيده تعود للتوصيل
+  static Future<Outcome> resume(int id) async {
+    final p = _get(id);
+    if (p.status != 'postponed') throw _field('action', 'الشحنة ${p.id} «${p.label}»: ليست مؤجّلة بيدك.');
+    p
+      ..status = 'out_for_delivery'
+      ..redelivery = true
+      ..until = null;
+    return Outcome('الشحنة ${p.id} معك للتوصيل الآن.', p.detail());
   }
 
   static Future<ShipmentDetail> shipment(int id) async => _get(id).detail();
@@ -211,7 +277,15 @@ class Demo {
     Reason(id: 5, name: 'الزبون رفض الاستلام', requiresNote: true),
   ];
 
-  static Future<Outcome> act(int id, String action, {int? reasonId, String? note, String? code, String? scan}) async {
+  static Future<Outcome> act(
+    int id,
+    String action, {
+    int? reasonId,
+    String? note,
+    String? code,
+    String? scan,
+    DateTime? until,
+  }) async {
     final p = _get(id);
     if (p.status != 'out_for_delivery') {
       throw _field('action', 'هذه الشحنة لم تعد بيدك.');
@@ -233,9 +307,18 @@ class Demo {
       if (reason.requiresNote && (note ?? '').trim().isEmpty) {
         throw _field('note', 'السبب «${reason.name}» يحتاج توضيحاً.');
       }
+      final now = DateTime.now();
+      if (action == 'postponed' &&
+          until != null &&
+          (until.isBefore(DateTime(now.year, now.month, now.day)) ||
+              until.isAfter(now.add(const Duration(days: 31))))) {
+        throw _field('until', 'الموعد من اليوم إلى شهرٍ قادم.');
+      }
       p
         ..status = action
-        ..failure = reason.name;
+        ..failure = reason.name
+        ..redelivery = false
+        ..until = action == 'postponed' ? until : null;
       action == 'failed_attempt' ? _failed++ : _postponed++;
     } else {
       final partial = action == 'partially_delivered';
@@ -557,6 +640,25 @@ class _Parcel {
   String? failure;
   Ticket? ticket;
 
+  /// أعادها الكول سنتر إليه بعد محاولةٍ فاشلة، وموعد المؤجّلة (docs/plan/75)
+  bool redelivery = false;
+  DateTime? until;
+
+  String get phone => '07700000${id % 1000}';
+
+  String get dayTitle {
+    final at = until;
+    if (at == null) return 'بلا موعد';
+    final now = DateTime.now();
+    final days = DateTime(at.year, at.month, at.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+    return switch (days) {
+      < 0 => 'فات موعدها',
+      0 => 'موعدها اليوم',
+      1 => 'موعدها غداً',
+      _ => 'بعد ذلك',
+    };
+  }
+
   String get label => switch (status) {
     'out_for_delivery' => 'قيد التوصيل',
     'delivered' => 'واصل',
@@ -582,6 +684,9 @@ class _Parcel {
     ticketStatus: ticket?.status,
     ticketLabel: ticket?.statusLabel,
     failure: failure,
+    until: status == 'postponed' ? until : null,
+    waiting: status == 'failed_attempt',
+    redelivery: status == 'out_for_delivery' && redelivery,
   );
 
   ShipmentDetail detail() {
@@ -593,7 +698,7 @@ class _Parcel {
       status: status,
       statusLabel: label,
       recipient: name,
-      phone: '07700000${id % 1000}',
+      phone: phone,
       governorate: 'بغداد',
       city: city,
       address: landmark,
@@ -616,6 +721,9 @@ class _Parcel {
           ? ['delivered', if (partial != null) 'partially_delivered', 'failed_attempt', 'postponed']
           : const [],
       partialAmount: partial,
+      until: status == 'postponed' ? until : null,
+      canResume: status == 'postponed',
+      waiting: status == 'failed_attempt',
     );
   }
 }

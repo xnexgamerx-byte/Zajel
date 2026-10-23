@@ -82,10 +82,12 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
 
   Future<void> _notDelivered({required bool postpone}) async {
     final picked = await showReasons(context, brand, postpone: postpone);
-    if (picked != null) await _act(postpone ? 'postponed' : 'failed_attempt', reasonId: picked.$1, note: picked.$2);
+    if (picked != null) {
+      await _act(postpone ? 'postponed' : 'failed_attempt', reasonId: picked.$1, note: picked.$2, until: picked.$3);
+    }
   }
 
-  Future<void> _act(String action, {int? reasonId, String? note}) async {
+  Future<void> _act(String action, {int? reasonId, String? note, DateTime? until}) async {
     if (busy) return;
     setState(() => busy = true);
     final messenger = ScaffoldMessenger.of(context);
@@ -99,6 +101,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         note: note,
         code: code.text.trim(),
         scan: scanned,
+        until: until,
         lat: here?.lat,
         lng: here?.lng,
       );
@@ -186,13 +189,15 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                         children: [
+                          // مؤجّلةٌ بموعدها، أو لم تُسلَّم وتنتظر قرار المعالجة (docs/plan/75)
+                          if (d.status == 'postponed' || d.waiting) ...[_stateCard(d), const SizedBox(height: 12)],
                           if (d.needsScan && d.canAct) ...[_scanCard(d), const SizedBox(height: 12)],
                           _customer(d),
                           const SizedBox(height: 12),
                           _amount(d),
                           if (d.needsCode && d.canAct) ...[const SizedBox(height: 12), _code()],
                           if (_hasDetails(d)) ...[const SizedBox(height: 12), _details(d)],
-                          if (!d.canAct) ...[
+                          if (!d.canAct && !d.canResume && !d.waiting) ...[
                             const SizedBox(height: 12),
                             Text(
                               'لا إجراء على هذه الشحنة الآن: حالتها «${d.statusLabel}».',
@@ -205,6 +210,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                     ),
                   ),
                   if (d.canAct) _actions(d),
+                  if (d.canResume) _resumeBar(d),
                 ],
               ),
       ),
@@ -535,6 +541,85 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         ),
       ),
     );
+  }
+
+  /// بطاقة الحال: المؤجّلة بموعدها أصفر، وما ينتظر قرار المعالجة أحمر — بلونَي أزرارهما
+  Widget _stateCard(ShipmentDetail d) {
+    final postponed = d.status == 'postponed';
+    final color = postponed ? OutcomeColors.postponed : OutcomeColors.returned;
+    final ink = OutcomeColors.ink(color);
+    final until = d.until;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: OutcomeColors.soft(color),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: .5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
+            child: Icon(
+              postponed ? Icons.event_repeat_rounded : Icons.hourglass_top_rounded,
+              color: Colors.white,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  postponed ? (until == null ? 'مؤجّلة بلا موعد' : 'موعدها ${appointmentLabel(until)}') : 'لم تُسلَّم',
+                  style: font(15, w8, ink),
+                ),
+                Text(
+                  postponed
+                      ? 'ابقها معك. يذكّرك التطبيق في موعدها، فاضغط «أوصلها الآن» وسجّلها عند الباب.'
+                      : 'تنتظر قرار الكول سنتر: إعادة توصيل أو تأجيل أو إرجاع. ابقها معك حتى يُقرَّر.',
+                  style: font(12, w6, Palette.slate, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// «أوصلها الآن»: المؤجّلة بيده تعود للتوصيل فيُسجَّل عليها عند الباب
+  Widget _resumeBar(ShipmentDetail d) => Container(
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      boxShadow: [BoxShadow(color: Palette.shadow, blurRadius: 12, offset: Offset(0, -2))],
+    ),
+    child: _Outcome(
+      label: 'أوصلها الآن',
+      icon: Icons.local_shipping_rounded,
+      color: OutcomeColors.delivered,
+      filled: true,
+      busy: busy,
+      onTap: busy ? null : () => _resume(d),
+    ),
+  );
+
+  Future<void> _resume(ShipmentDetail d) async {
+    setState(() => busy = true);
+    try {
+      final done = await Api.instance.resume(d.id);
+      if (!mounted) return;
+      toast(context, done.message);
+      setState(() => s = done.shipment);
+    } on ApiError catch (e) {
+      if (mounted) toast(context, e.message, bad: true);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   Widget _actions(ShipmentDetail d) {

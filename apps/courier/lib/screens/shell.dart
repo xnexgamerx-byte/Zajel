@@ -6,6 +6,7 @@ import '../core/config.dart';
 import '../core/location.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/reminders.dart';
 import '../core/whatsapp.dart';
 import '../widgets/page.dart';
 import 'cash_screen.dart';
@@ -53,12 +54,16 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
     WhatsAppTemplate.courier = widget.session?.name ?? '';
     WhatsAppTemplate.company = widget.session?.companyName ?? '';
     WhatsAppTemplate.load();
+    // تنبيه موعد المؤجّلة يفتح شحنته (docs/plan/75)
+    Reminders.init();
+    Reminders.opened.addListener(_fromReminder);
     WidgetsBinding.instance.addObserver(this);
     _startPolling();
   }
 
   @override
   void dispose() {
+    Reminders.opened.removeListener(_fromReminder);
     WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     LocationShare.instance.stop();
@@ -94,6 +99,15 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
     refresh.value++;
   }
 
+  void _fromReminder() {
+    final id = Reminders.opened.value;
+    if (id == null) return;
+    Reminders.opened.value = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openShipment(id);
+    });
+  }
+
   void _open(String screen) {
     if (screen.startsWith('shipment:')) {
       _openShipment(int.parse(screen.split(':')[1]));
@@ -112,10 +126,12 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
       page().then((_) => refresh.value++);
       return;
     }
-    if (screen == 'tasks' || screen == 'returns') tasksKind.value = screen == 'returns' ? 'returns' : 'delivery';
+    // «مهامي» بخاناتها الأربع (docs/plan/75): التوصيل، وإعادة التوصيل، والمؤجل، والراجع
+    const kinds = {'tasks': 'delivery', 'redelivery': 'redelivery', 'postponed': 'postponed', 'returns': 'returns'};
+    if (kinds.containsKey(screen)) tasksKind.value = kinds[screen]!;
     setState(
       () => tab = switch (screen) {
-        'tasks' || 'returns' => 1,
+        'tasks' || 'redelivery' || 'postponed' || 'returns' => 1,
         'cash' => 3,
         'more' => 4,
         _ => 0,
