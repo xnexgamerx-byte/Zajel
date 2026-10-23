@@ -112,6 +112,7 @@ use App\Http\Controllers\Tenant\ShipmentTicketController;
 use App\Http\Controllers\Tenant\ShipmentTrashController;
 use App\Http\Controllers\Tenant\ShipmentWaybillController;
 use App\Http\Controllers\Tenant\StaffChatController;
+use App\Http\Controllers\Tenant\StaffPerformanceController;
 use App\Http\Controllers\Tenant\TransferController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\UserGrantController;
@@ -407,6 +408,9 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/reports/entries', [ReferenceReportController::class, 'entries'])->name('reports.entries');
                 Route::get('/reports/portal', [ReferenceReportController::class, 'portal'])->name('reports.portal');
                 Route::get('/reports/processing', [ReferenceReportController::class, 'processing'])->name('reports.processing');
+                // أداء الموظّفين لمن يدير حساباتهم وحده: لا ترى الموظّفة أرقام زميلاتها (docs/plan/74)
+                Route::get('/reports/staff', [StaffPerformanceController::class, 'index'])
+                    ->middleware('can:settings.users')->name('reports.staff');
                 Route::get('/reports/stuck', [ReferenceReportController::class, 'stuck'])->name('reports.stuck');
                 Route::get('/reports/special-prices', [ReferenceReportController::class, 'specialPrices'])->name('reports.special-prices');
                 Route::get('/reports/unconfirmed', [ReferenceReportController::class, 'unconfirmed'])->name('reports.unconfirmed');

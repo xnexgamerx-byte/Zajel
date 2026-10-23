@@ -74,12 +74,7 @@ class ProcessingController extends Controller
             'can_ask' => FeatureGate::enabled(Feature::Conversations) && $s->merchant !== null,
             'actions' => ProcessFailedAttempt::ACTIONS,
             // محادثتا الشحنة: التاجر عنها، ومندوبها عنها — بترتيب الكتابة
-            'merchant_chat' => $conversation ? $conversation->messages->sortBy('id')->values()->map(fn ($m) => [
-                'mine' => $m->author === Converse::STAFF,
-                'author' => $m->author_name,
-                'body' => $m->body,
-                'at' => $m->created_at?->toIso8601String(),
-            ]) : [],
+            'merchant_chat' => $conversation ? $conversation->messages->sortBy('id')->values()->map(fn ($m) => self::messageJson($m)) : [],
             'courier_chat' => $courier->map(fn (CourierMessage $m) => [
                 'mine' => $m->author === CourierChat::STAFF,
                 'author' => $m->author_name,

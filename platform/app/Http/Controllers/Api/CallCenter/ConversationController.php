@@ -10,6 +10,7 @@ use App\Models\Conversation;
 use App\Support\FeatureGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * محادثات التجّار في تطبيق الكول سنتر (docs/plan/73): ما ينتظر ردّنا الأقدم أوّلاً، ومن فتحت
@@ -51,13 +52,7 @@ class ConversationController extends Controller
         }
 
         return response()->json(['data' => $this->row($c, $claim, $request) + [
-            'messages' => $c->messages->sortBy('id')->values()->map(fn ($m) => [
-                'mine' => $m->author === Converse::STAFF,
-                'author' => $m->author_name,
-                'body' => $m->body,
-                'file' => $m->attachment_name,
-                'at' => $m->created_at?->toIso8601String(),
-            ]),
+            'messages' => $c->messages->sortBy('id')->values()->map(fn ($m) => self::messageJson($m)),
         ]]);
     }
 
@@ -93,6 +88,14 @@ class ConversationController extends Controller
     private function gate(Request $request): void
     {
         abort_unless(FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply'), 403);
+    }
+
+    /** صورة التاجر أو ملفّه — لمن ترى المحادثة */
+    public function file(Request $request, int $conversation, int $message): StreamedResponse
+    {
+        $c = $this->find($request, $conversation);
+
+        return $c->messages()->whereKey($message)->firstOrFail()->attachmentResponse();
     }
 
     private function find(Request $request, int $id): Conversation

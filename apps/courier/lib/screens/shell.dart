@@ -6,6 +6,7 @@ import '../core/config.dart';
 import '../core/location.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/whatsapp.dart';
 import '../widgets/page.dart';
 import 'cash_screen.dart';
 import 'home_screen.dart';
@@ -48,6 +49,10 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     LocationShare.instance.start();
+    // رسالة واتساب للزبون تُملأ باسمه وشركته (docs/plan/74)
+    WhatsAppTemplate.courier = widget.session?.name ?? '';
+    WhatsAppTemplate.company = widget.session?.companyName ?? '';
+    WhatsAppTemplate.load();
     WidgetsBinding.instance.addObserver(this);
     _startPolling();
   }

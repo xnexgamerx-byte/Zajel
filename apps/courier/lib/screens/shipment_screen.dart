@@ -5,9 +5,11 @@ import '../core/api.dart';
 import '../core/location.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/whatsapp.dart';
 import '../widgets/bits.dart';
 import '../widgets/digits.dart';
 import '../widgets/page.dart';
+import '../widgets/whatsapp.dart';
 import 'scan_screen.dart';
 import 'shipment_sheets.dart';
 
@@ -226,15 +228,34 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                     child: Text(d.phone, style: font(13, w6, Palette.slate)),
                   ),
                   if ((d.phoneAlt ?? '').isNotEmpty)
-                    Tap(
-                      radius: 6,
-                      onTap: () => _call(d.phoneAlt!),
-                      child: Text('رقم ثانٍ: ${d.phoneAlt}', style: font(12, w7, brand.main, height: 1.6)),
+                    Row(
+                      children: [
+                        Tap(
+                          radius: 6,
+                          onTap: () => _call(d.phoneAlt!),
+                          child: Text('رقم ثانٍ: ${d.phoneAlt}', style: font(12, w7, brand.main, height: 1.6)),
+                        ),
+                        const SizedBox(width: 6),
+                        WhatsAppButton(
+                          phone: d.phoneAlt,
+                          size: 24,
+                          tooltip: 'واتساب الرقم الثاني',
+                          text: () => WhatsAppTemplate.fill(WhatsAppTemplate.text.value, d),
+                        ),
+                      ],
                     ),
                 ],
               ),
             ),
-            if (d.phone.isNotEmpty)
+            if (d.phone.isNotEmpty) ...[
+              // واتساب الزبون ورسالته جاهزة من القالب (docs/plan/74)
+              WhatsAppButton(
+                phone: d.phone,
+                size: 48,
+                tooltip: 'واتساب الزبون',
+                text: () => WhatsAppTemplate.fill(WhatsAppTemplate.text.value, d),
+              ),
+              const SizedBox(width: 8),
               Tooltip(
                 message: 'اتصل بالزبون',
                 child: Tap(
@@ -248,6 +269,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                   ),
                 ),
               ),
+            ],
           ],
         ),
         const SizedBox(height: 12),
@@ -285,6 +307,8 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
           Row(
             children: [
               Expanded(child: Text('التاجر: ${d.merchant ?? ''}', style: font(12.5, w6, Palette.slate))),
+              WhatsAppButton(phone: d.merchantPhone, size: 30, tooltip: 'واتساب التاجر'),
+              const SizedBox(width: 6),
               Tap(
                 radius: 8,
                 onTap: () => _call(d.merchantPhone!),
@@ -528,20 +552,22 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // «سُلّمت» لا تُفعَّل قبل كود التسليم إن كانت الشحنة بكود (docs/plan/66)
-          SheetButton(
-            brand: brand,
+          // «سُلّمت» لا تُفعَّل قبل كود التسليم إن كانت الشحنة بكود (docs/plan/66). والألوان ألوان النتيجة
+          // نفسها (docs/plan/74): سُلّمت أخضر، لم تُسلَّم (راجع) أحمر، مؤجلة أصفر — تُعرف قبل أن تُقرأ
+          _Outcome(
             label: d.ticket?.open == true ? 'سُلّمت بالمبلغ الأصلي' : 'سُلّمت',
-            icon: Icons.check_circle_outline_rounded,
+            icon: Icons.check_circle_rounded,
+            color: OutcomeColors.delivered,
+            filled: true,
             busy: busy,
-            onTap: codeMissing ? null : () => _deliver(),
+            onTap: busy || codeMissing ? null : () => _deliver(),
           ),
           if (partial) ...[
             const SizedBox(height: 8),
-            SheetButton(
-              brand: brand,
-              outlined: true,
+            _Outcome(
               label: 'واصل جزئي بـ ${money(d.partialAmount!)}',
+              icon: Icons.call_split_rounded,
+              color: OutcomeColors.delivered,
               onTap: busy || codeMissing ? null : () => _deliver(partial: true),
             ),
           ],
@@ -549,15 +575,21 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
           Row(
             children: [
               Expanded(
-                child: _secondary(
-                  'لم تُسلَّم',
-                  Palette.warn,
-                  scanMissing ? null : () => _notDelivered(postpone: false),
+                child: _Outcome(
+                  label: 'لم تُسلَّم',
+                  icon: Icons.assignment_return_rounded,
+                  color: OutcomeColors.returned,
+                  onTap: busy || scanMissing ? null : () => _notDelivered(postpone: false),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _secondary('مؤجلة', Palette.ink, scanMissing ? null : () => _notDelivered(postpone: true)),
+                child: _Outcome(
+                  label: 'مؤجلة',
+                  icon: Icons.event_repeat_rounded,
+                  color: OutcomeColors.postponed,
+                  onTap: busy || scanMissing ? null : () => _notDelivered(postpone: true),
+                ),
               ),
             ],
           ),
@@ -565,17 +597,66 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
       ),
     );
   }
+}
 
-  Widget _secondary(String label, Color color, VoidCallback? onTap) => SizedBox(
-    height: 48,
-    child: OutlinedButton(
-      onPressed: busy ? null : onTap,
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(color: color.withValues(alpha: .4)),
-        backgroundColor: color == Palette.warn ? Palette.warn.withValues(alpha: .06) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+/// زرّ نتيجةٍ بلونها: الممتلئ لـ«سُلّمت»، والباقي بخلفيةٍ فاتحة من لونه وحدٍّ منه
+class _Outcome extends StatelessWidget {
+  const _Outcome({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.filled = false,
+    this.busy = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool filled;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = filled ? Colors.white : OutcomeColors.ink(color);
+    return Tap(
+      radius: 16,
+      onTap: onTap,
+      shadow: filled && onTap != null
+          ? [
+              BoxShadow(
+                color: color.withValues(alpha: .45),
+                blurRadius: 18,
+                spreadRadius: -6,
+                offset: const Offset(0, 8),
+              ),
+            ]
+          : null,
+      child: Opacity(
+        opacity: onTap == null && !busy ? .45 : 1,
+        child: Ink(
+          height: filled ? 54 : 50,
+          decoration: BoxDecoration(
+            gradient: filled ? LinearGradient(colors: [color, Color.lerp(color, Colors.black, .18)!]) : null,
+            color: filled ? null : OutcomeColors.soft(color),
+            borderRadius: BorderRadius.circular(16),
+            border: filled ? null : Border.all(color: color.withValues(alpha: .55), width: 1.3),
+          ),
+          child: busy
+              ? Center(
+                  child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: fg)),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: filled ? 22 : 19, color: fg),
+                    const SizedBox(width: 7),
+                    Text(label, style: font(filled ? 16 : 14.5, w8, fg)),
+                  ],
+                ),
+        ),
       ),
-      child: Text(label, style: font(14, w8, color)),
-    ),
-  );
+    );
+  }
 }

@@ -375,6 +375,8 @@ class _CaseScreenState extends State<CaseScreen> {
                 ],
               ),
             ),
+            WhatsAppButton(phone: d.phone, size: 58, shadow: true),
+            const SizedBox(width: 10),
             Tooltip(
               message: 'اتصل بالزبون',
               child: Tap(
@@ -412,10 +414,15 @@ class _CaseScreenState extends State<CaseScreen> {
           ),
         ],
         if ((d.phoneAlt ?? '').isNotEmpty)
-          TextButton.icon(
-            onPressed: () => callPhone(d.phoneAlt),
-            icon: const Icon(Icons.call_outlined, size: 16, color: Queue.couriers),
-            label: Text('الهاتف البديل', style: font(12.5, w7, Queue.couriers)),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: () => callPhone(d.phoneAlt),
+                icon: const Icon(Icons.call_outlined, size: 16, color: Queue.couriers),
+                label: Text('الهاتف البديل', style: font(12.5, w7, Queue.couriers)),
+              ),
+              WhatsAppButton(phone: d.phoneAlt, size: 30),
+            ],
           ),
       ],
     ),

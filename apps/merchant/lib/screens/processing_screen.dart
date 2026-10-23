@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../widgets/whatsapp.dart';
 import '../widgets/bits.dart';
 import 'shipment_screen.dart';
 
@@ -235,16 +237,16 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
           const SizedBox(height: 10),
           Row(
             children: [
-              _contact(Icons.call_rounded, 'اتّصل', () => _launch(Uri(scheme: 'tel', path: item.phone))),
+              _contact(
+                Icon(Icons.call_rounded, size: 16, color: brand.main),
+                'اتّصل',
+                () => _launch(Uri(scheme: 'tel', path: item.phone)),
+              ),
               const SizedBox(width: 6),
               _contact(
-                Icons.chat_rounded,
+                const FaIcon(FontAwesomeIcons.whatsapp, size: 16, color: Color(0xFF128C4A)),
                 'واتساب',
-                () => _launch(
-                  Uri.parse(
-                    'https://wa.me/${item.phone.startsWith('0') ? '964${item.phone.substring(1)}' : item.phone}',
-                  ),
-                ),
+                () => openWhatsApp(item.phone),
               ),
             ],
           ),
@@ -271,7 +273,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     child: Text(text, style: font(10.5, w8, Colors.white, height: 1.3)),
   );
 
-  Widget _contact(IconData icon, String label, VoidCallback onTap) => Tap(
+  Widget _contact(Widget icon, String label, VoidCallback onTap) => Tap(
     radius: 10,
     onTap: onTap,
     child: Container(
@@ -280,7 +282,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: brand.main),
+          icon,
           const SizedBox(width: 5),
           Text(label, style: font(12, w7, Palette.ink)),
         ],

@@ -51,6 +51,9 @@ class Api {
     if (_token != null) 'Authorization': 'Bearer $_token',
   };
 
+  /// الصور في المحادثات تُطلب برمز الموظّفة
+  Map<String, String> get fileHeaders => {if (_token != null) 'Authorization': 'Bearer $_token'};
+
   Future<bool> restore() async {
     if (AppConfig.demo) return false;
     _token = await _storage.read(key: _tokenKey);

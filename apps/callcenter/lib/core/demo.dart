@@ -282,6 +282,13 @@ class Demo {
         body: 'السلام عليكم، الشحنة 180240 من يومين بالمخزن، شنو السبب؟',
         at: _ago(48),
       ),
+      ChatLine(
+        mine: false,
+        author: 'متجر الوردة',
+        body: '',
+        file: ChatFile(name: 'waybill.jpg', image: true, size: '184 ك.ب'),
+        at: _ago(47),
+      ),
     ]),
     _Conv(
       202,

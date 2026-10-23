@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../widgets/whatsapp.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import 'create_screen.dart' show LatinDigits;
@@ -161,6 +162,7 @@ class _PickupsScreenState extends State<PickupsScreen> {
                     icon: Icon(Icons.call_rounded, size: 16, color: brand.main),
                     label: Text('اتّصل', style: font(12, w8, brand.main)),
                   ),
+                if (p.courierPhone != null) WhatsAppButton(phone: p.courierPhone, size: 32, tooltip: 'واتساب المندوب'),
               ],
             ),
           ),

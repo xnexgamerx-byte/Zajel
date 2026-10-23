@@ -135,6 +135,8 @@ void main() {
     await _start(tester);
     await _tab(tester, 'المحادثات');
     await _tap(tester, find.text('متجر الوردة'));
+    // صورة التاجر في المحادثة (بلا رابطٍ في نسخة العرض: اسمها وحجمها)
+    expect(find.text('waybill.jpg · 184 ك.ب'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'الشحنة خرجت مع المندوب اليوم');
     await _tap(tester, find.byTooltip('أرسل'));
     expect(find.text('الشحنة خرجت مع المندوب اليوم'), findsOneWidget);

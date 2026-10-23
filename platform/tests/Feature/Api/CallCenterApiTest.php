@@ -16,6 +16,8 @@ use App\Models\ShipmentTicket;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -220,6 +222,22 @@ class CallCenterApiTest extends TestCase
         $this->postJson($this->api("/callcenter/conversations/{$conversation->id}/reply"), ['body' => 'وصلت المخزن'], $sara)->assertCreated();
         $this->postJson($this->api("/callcenter/conversations/{$conversation->id}/close"), [], $sara)->assertOk();
         $this->assertSame('closed', Tenancy::runFor($this->company, fn () => $conversation->refresh()->status));
+    }
+
+    public function test_the_merchants_photo_shows_in_the_conversation(): void
+    {
+        Storage::fake('local');
+        $conversation = Tenancy::runFor($this->company, fn () => app(Converse::class)->start(
+            $this->merchant, 'بخصوص الوصل', 'هذا الوصل', $this->owner, Converse::MERCHANT, null,
+            UploadedFile::fake()->image('waybill.jpg', 600, 800),
+        ));
+        $sara = $this->as($this->sara);
+
+        $file = $this->getJson($this->api("/callcenter/conversations/{$conversation->id}"), $sara)->assertOk()
+            ->assertJsonPath('data.messages.0.file.image', true)
+            ->assertJsonPath('data.messages.0.file.name', 'waybill.jpg')
+            ->json('data.messages.0.file.url');
+        $this->get($file, $sara)->assertOk()->assertHeader('Content-Type', 'image/jpeg');
     }
 
     public function test_a_shipment_is_found_by_its_number_or_phone_with_its_history(): void

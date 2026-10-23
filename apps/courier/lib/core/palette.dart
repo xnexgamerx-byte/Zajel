@@ -165,3 +165,16 @@ String parcels(int n) => switch (n % 100) {
   >= 11 && <= 99 => '$n طرداً',
   _ => '$n طرد',
 };
+
+/// ألوان نتيجة التوصيل في أزرارها (docs/plan/74): سُلّمت أخضر، لم تُسلَّم (راجع) أحمر، مؤجلة أصفر
+class OutcomeColors {
+  static const delivered = Color(0xFF1E9E52);
+  static const returned = Color(0xFFD92D20);
+  static const postponed = Color(0xFFE8A317);
+
+  /// خلفيةٌ فاتحةٌ من اللون
+  static Color soft(Color c) => Color.lerp(c, Colors.white, .88)!;
+
+  /// النصّ على الخلفية الفاتحة: الأصفر يُغمَّق ليُقرأ
+  static Color ink(Color c) => c == postponed ? const Color(0xFF9A6400) : Color.lerp(c, Colors.black, .12)!;
+}

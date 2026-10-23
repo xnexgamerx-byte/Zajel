@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:courier_app/core/config.dart';
 import 'package:courier_app/core/demo.dart';
 import 'package:courier_app/core/palette.dart';
+import 'package:courier_app/core/whatsapp.dart';
 import 'package:courier_app/main.dart';
 import 'package:courier_app/screens/login_screen.dart';
 import 'package:flutter/material.dart';
@@ -54,7 +55,10 @@ Future<void> _openShipment(WidgetTester tester, String number) async {
 
 void main() {
   setUpAll(_loadCairo);
-  setUp(Demo.reset);
+  setUp(() {
+    Demo.reset();
+    WhatsAppTemplate.text.value = WhatsAppTemplate.suggested;
+  });
 
   testWidgets('الدخول باسم التطبيق ونصّ المكتب', (tester) async {
     await tester.pumpWidget(
@@ -220,7 +224,9 @@ void main() {
     }
 
     await _tab(tester, 'المزيد');
+    await tester.scrollUntilVisible(find.text('أشارك موقعي ما دام التطبيق مفتوحاً'), 200);
     expect(find.text('أشارك موقعي ما دام التطبيق مفتوحاً'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('الراجع بيدي'), -200);
     expect(find.textContaining('نسخة عرضٍ'), findsOneWidget);
     await _tap(tester, find.text('الراجع بيدي'));
     expect(find.text(tag('180190')), findsOneWidget);
@@ -334,5 +340,45 @@ void main() {
     await _tap(tester, find.text('سجّل استلام طردان'));
     expect(find.text('استُلم طردان من متجر الوردة.'), findsOneWidget);
     expect(find.text('متجر الوردة'), findsNothing);
+  });
+
+  testWidgets('رسالة واتساب للزبون: تُكتب في «المزيد» وتُملأ من الشحنة', (tester) async {
+    await _start(tester);
+    await _tab(tester, 'المزيد');
+    await tester.scrollUntilVisible(find.text('رسالة واتساب للزبون'), 200);
+    await _tap(tester, find.text('رسالة واتساب للزبون'));
+    expect(find.text('كما يراها الزبون'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'هلا ');
+    await tester.pump();
+    await _tap(tester, find.text('اسم الزبون'));
+    await tester.enterText(
+      find.byType(TextField),
+      '${tester.widget<TextField>(find.byType(TextField)).controller!.text}، الوصل ',
+    );
+    await tester.pump();
+    await _tap(tester, find.text('رقم الوصل'));
+    expect(find.text('هلا علي حسين، الوصل 180240'), findsOneWidget);
+    await _tap(tester, find.text('احفظ الرسالة'));
+    expect(WhatsAppTemplate.text.value, 'هلا {الزبون}، الوصل {الوصل}');
+  });
+
+  test('واتساب: الرقم العراقيّ دوليّاً والرسالة في الرابط', () {
+    expect(whatsappNumber('0770 123 4567'), '9647701234567');
+    expect(whatsappNumber('+964 770 123 4567'), '9647701234567');
+    expect(whatsappNumber('7701234567'), '9647701234567');
+    expect(whatsappNumber(''), isNull);
+    expect(
+      whatsappUri('07701234567', text: 'هلا علي')!.toString(),
+      'https://wa.me/9647701234567?text=${Uri.encodeComponent('هلا علي')}',
+    );
+    expect(
+      WhatsAppTemplate.fillWith('مرحباً {الزبون}، الوصل {الوصل} بـ{المبلغ}', {
+        '{الزبون}': 'علي',
+        '{الوصل}': '180240',
+        '{المبلغ}': '35,000',
+      }),
+      'مرحباً علي، الوصل 180240 بـ35,000',
+    );
   });
 }

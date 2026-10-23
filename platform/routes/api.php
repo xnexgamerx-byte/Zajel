@@ -126,6 +126,8 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
                     ->middleware('throttle:60,1')->name('conversations.reply');
                 Route::post('/conversations/{conversation}/close', [CallCenterConversationController::class, 'close'])->whereNumber('conversation')->name('conversations.close');
                 Route::post('/conversations/{conversation}/release', [CallCenterConversationController::class, 'release'])->whereNumber('conversation')->name('conversations.release');
+                Route::get('/conversations/{conversation}/files/{message}', [CallCenterConversationController::class, 'file'])
+                    ->whereNumber(['conversation', 'message'])->name('conversations.file');
             });
 
             Route::get('/shipments', [CallCenterShipmentController::class, 'index'])->name('shipments.index');

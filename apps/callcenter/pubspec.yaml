@@ -12,6 +12,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_secure_storage: ^11.2.0
+  font_awesome_flutter: ^11.0.0
   http: ^1.6.0
   mobile_scanner: ^7.4.2
   url_launcher: ^6.3.3

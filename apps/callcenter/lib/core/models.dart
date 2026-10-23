@@ -1,3 +1,5 @@
+import 'config.dart';
+
 // ما تعيده واجهة الكول سنتر (/api/v1/callcenter/…، docs/plan/73) — بأسماء حقولها في النظام نفسها.
 
 int _int(Object? v) => v is int ? v : (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
@@ -232,14 +234,31 @@ class ChatLine {
     author: j['author'] as String? ?? '',
     body: j['body'] as String? ?? '',
     at: _at(j['at']),
-    file: j['file'] as String?,
+    file: j['file'] is Map ? ChatFile.fromJson((j['file'] as Map).cast()) : null,
   );
 
   final bool mine;
   final String author;
   final String body;
   final DateTime? at;
-  final String? file;
+  final ChatFile? file;
+}
+
+/// صورة التاجر أو ملفّه في المحادثة (docs/plan/74): تُفتح برمز الموظّفة
+class ChatFile {
+  ChatFile({required this.name, this.image = false, this.size = '', this.url = ''});
+
+  factory ChatFile.fromJson(Map<String, dynamic> j) => ChatFile(
+    name: j['name'] as String? ?? 'ملف',
+    image: j['image'] as bool? ?? false,
+    size: j['size'] as String? ?? '',
+    url: media(j['url'] as String? ?? ''),
+  );
+
+  final String name;
+  final bool image;
+  final String size;
+  final String url;
 }
 
 /// شحنةٌ للمعالجة: محاولةٌ فاشلة تنتظر قراراً

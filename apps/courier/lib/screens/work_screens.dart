@@ -7,6 +7,7 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import '../widgets/whatsapp.dart';
 import 'pickup_scan_screen.dart';
 
 /// «اليوم» و«الاستلام» و«حصصي» (docs/plan/71): شاشات المندوب في الموقع نفسها، فوق الشريط.
@@ -286,6 +287,8 @@ class PickupsScreen extends StatelessWidget {
                   onTap: () => launchUrl(Uri(scheme: 'tel', path: p.phone)),
                 ),
               ),
+              const SizedBox(width: 8),
+              WhatsAppButton(phone: p.phone, size: 50, tooltip: 'واتساب التاجر'),
               const SizedBox(width: 8),
             ],
             Expanded(

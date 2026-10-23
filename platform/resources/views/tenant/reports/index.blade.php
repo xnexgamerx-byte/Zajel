@@ -12,6 +12,7 @@
 <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
     @foreach ([
         ['reports.returns', 'أسباب الراجع', 'أسباب الرجوع مصنّفة، ومَن تتكرّر عنده.'],
+        ['reports.staff', 'أداء الموظّفين', 'ما حسمه كلّ موظّفٍ من تذاكر ومعالجات وردود، وما هو بالضبط — أسبوعياً وشهرياً وسنوياً.'],
         ['reports.couriers', 'أداء المندوبين', 'مَن يوصّل ومَن يُرجع، وكم بيد كلٍّ منهم.'],
         ['reports.merchants', 'أداء التجّار', 'حجم كل تاجر ونسبة راجعه.'],
         ['reports.governorates', 'الأداء بالمحافظات', 'أين ننجح وأين نفشل جغرافياً.'],
@@ -41,6 +42,7 @@
         {{-- المالية منها لمن يرى أرباح الشركة وحده --}}
         @continue(in_array($route, ['reports.profit', 'reports.returns-money', 'reports.merchant-profit', 'reports.courier-overcharge'], true) && ! auth()->user()->can('reports.financial'))
         @continue($route === 'money.position' && ! auth()->user()->can('money.view'))
+        @continue($route === 'reports.staff' && ! auth()->user()->can('settings.users'))
         <a href="{{ route($route, $period->query()) }}"
            class="card p-5 transition hover:border-brand">
             <h2 class="font-bold text-ink-900">{{ $title }}</h2>

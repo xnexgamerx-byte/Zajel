@@ -269,12 +269,19 @@ class _ConversationScreenState extends State<ConversationScreen> {
           children: [
             PageBar(
               title: d?.merchant.name ?? 'المحادثة',
-              subtitle: d == null ? null : [d.subject, if (d.shipment != null) 'الوصل ${tag(d.shipment!)}'].join(' · '),
+              subtitle: d == null
+                  ? null
+                  // «بخصوص الوصل 000256» لا يُكرَّر بعده رقمه
+                  : [
+                      d.subject,
+                      if (d.shipment != null && !d.subject.contains(d.shipment!)) 'الوصل ${tag(d.shipment!)}',
+                    ].join(' · '),
               trailing: d == null
                   ? null
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if ((d.merchant.phone ?? '').isNotEmpty) WhatsAppButton(phone: d.merchant.phone, size: 36),
                         if ((d.merchant.phone ?? '').isNotEmpty)
                           IconButton(
                             tooltip: 'اتصل بالتاجر',

@@ -112,7 +112,8 @@ class StaffNavigationTest extends TestCase
                 && in_array('staff', $route->gatherMiddleware(), true)
                 && ! str_contains($route->uri(), '{'))
             ->map(fn ($route) => $route->getName())
-            ->filter();
+            // واجهات التطبيقات (api.callcenter.… للكول سنتر) بياناتٌ لا شاشات في الموقع
+            ->filter(fn (?string $name) => $name !== null && ! str_starts_with($name, 'api.'));
 
         // حارسٌ لا يرى شاشاتٍ لا يحرس شيئاً
         $this->assertGreaterThan(30, $screens->count());

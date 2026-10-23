@@ -9,6 +9,7 @@ import '../core/api.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../widgets/whatsapp.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import 'support_screen.dart';
@@ -149,9 +150,6 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
   Future<void> _launch(Uri uri) async {
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) _toast('تعذّر فتحه على هذا الجهاز.');
   }
-
-  /// 07801234567 ← 9647801234567 لرابط واتساب
-  static String _intl(String phone) => phone.startsWith('0') ? '964${phone.substring(1)}' : phone;
 
   @override
   Widget build(BuildContext context) {
@@ -484,7 +482,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
               ),
               _round(Icons.call_rounded, 'اتصال', () => _launch(Uri(scheme: 'tel', path: phone))),
               const SizedBox(width: 8),
-              _round(Icons.chat_rounded, 'واتساب', () => _launch(Uri.parse('https://wa.me/${_intl(phone)}'))),
+              WhatsAppButton(phone: phone, tooltip: 'واتساب الزبون'),
             ],
           ),
           const Divider(height: 20, color: Palette.line),
@@ -584,9 +582,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
           child: SizedBox(
             height: 46,
             child: FilledButton.icon(
-              onPressed: phone.isEmpty
-                  ? null
-                  : () => _launch(Uri.parse('https://wa.me/${_intl(phone)}?text=${Uri.encodeComponent(message)}')),
+              onPressed: phone.isEmpty ? null : () => _launch(whatsappUri(phone, text: message)!),
               style: FilledButton.styleFrom(
                 backgroundColor: brand.main,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

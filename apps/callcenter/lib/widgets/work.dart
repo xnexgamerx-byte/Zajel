@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import 'bits.dart';
@@ -10,6 +12,56 @@ import 'page.dart';
 Future<void> callPhone(String? phone) async {
   if (phone == null || phone.isEmpty) return;
   await launchUrl(Uri(scheme: 'tel', path: phone));
+}
+
+/// لون واتساب نفسه: يُعرف زرّه من بعيد
+const whatsappGreen = Color(0xFF25D366);
+
+/// الرقم كما يريده واتساب: دوليٌّ بلا «+» ولا صفر — 07701234567 ← 9647701234567
+String? whatsappNumber(String? phone) {
+  var n = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+  if (n.startsWith('00')) n = n.substring(2);
+  if (n.startsWith('0')) n = '964${n.substring(1)}';
+  if (n.length == 10 && n.startsWith('7')) n = '964$n';
+  return n.length < 8 ? null : n;
+}
+
+/// محادثة واتساب مباشرةً مع الرقم — في تطبيق واتساب لا في المتصفّح
+Future<void> openWhatsApp(String? phone, {String? text}) async {
+  final n = whatsappNumber(phone);
+  if (n == null) return;
+  final query = (text ?? '').trim().isEmpty ? '' : '?text=${Uri.encodeComponent(text!.trim())}';
+  await launchUrl(Uri.parse('https://wa.me/$n$query'), mode: LaunchMode.externalApplication);
+}
+
+/// زرّ واتساب المستدير، بجانب كلّ زرّ اتّصال
+class WhatsAppButton extends StatelessWidget {
+  const WhatsAppButton({super.key, required this.phone, this.size = 38, this.text, this.shadow = false});
+
+  final String? phone;
+  final double size;
+  final String? text;
+  final bool shadow;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'واتساب',
+    child: Tap(
+      radius: size / 2,
+      shadow: shadow
+          ? const [BoxShadow(color: Color(0x5525D366), blurRadius: 18, spreadRadius: -6, offset: Offset(0, 8))]
+          : null,
+      onTap: () => openWhatsApp(phone, text: text),
+      child: Ink(
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(color: whatsappGreen, shape: BoxShape.circle),
+        child: Center(
+          child: FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white, size: size * .5),
+        ),
+      ),
+    ),
+  );
 }
 
 /// من تعالج الطلب، في سطر القائمة: «تعالجها أنت» أخضر، و«تعالجها زينب» بقفلٍ كهرمانيّ
@@ -136,7 +188,9 @@ class PersonRow extends StatelessWidget {
             ],
           ),
         ),
-        if ((party.phone ?? '').isNotEmpty)
+        if ((party.phone ?? '').isNotEmpty) ...[
+          WhatsAppButton(phone: party.phone, size: 36),
+          const SizedBox(width: 6),
           Tooltip(
             message: 'اتصل بـ${party.name ?? role}',
             child: Tap(
@@ -156,6 +210,7 @@ class PersonRow extends StatelessWidget {
               ),
             ),
           ),
+        ],
       ],
     ),
   );
@@ -197,9 +252,13 @@ class ChatBubbles extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(m.body, style: font(13.5, w6, m.mine ? Colors.white : Palette.ink, height: 1.55)),
+                  if (m.body.isNotEmpty)
+                    Text(m.body, style: font(13.5, w6, m.mine ? Colors.white : Palette.ink, height: 1.55)),
                   if (m.file != null)
-                    Text('📎 ${m.file}', style: font(11.5, w7, m.mine ? Colors.white : brand.deep, height: 1.6)),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 2),
+                      child: ChatAttachment(file: m.file!, mine: m.mine, brand: brand),
+                    ),
                   Text(
                     '${m.author} · ${when(m.at)}',
                     style: font(10.5, w6, m.mine ? Colors.white.withValues(alpha: .78) : Palette.muted, height: 1.6),
@@ -279,6 +338,89 @@ class Panel extends StatelessWidget {
         if (title != null) ...[Text(title!, style: font(12.5, w8, Palette.muted)), const SizedBox(height: 6)],
         child,
       ],
+    ),
+  );
+}
+
+/// صورة التاجر في المحادثة تُرى في مكانها، وتُكبَّر بلمسة. وما ليس صورة يُذكر باسمه وحجمه
+class ChatAttachment extends StatelessWidget {
+  const ChatAttachment({super.key, required this.file, required this.mine, required this.brand});
+
+  final ChatFile file;
+  final bool mine;
+  final Brand brand;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!file.image || file.url.isEmpty) return _name();
+    return Tooltip(
+      message: 'كبّر الصورة',
+      child: GestureDetector(
+        onTap: () =>
+            Navigator.of(context)
+                .push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => PhotoScreen(file: file))),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            file.url,
+            headers: Api.instance.fileHeaders,
+            width: 230,
+            height: 230,
+            fit: BoxFit.cover,
+            loadingBuilder: (_, child, progress) => progress == null
+                ? child
+                : Container(
+                    width: 230,
+                    height: 230,
+                    color: mine ? Colors.white.withValues(alpha: .15) : Palette.eye,
+                    alignment: Alignment.center,
+                    child: CircularProgressIndicator(strokeWidth: 2.2, color: mine ? Colors.white : brand.main),
+                  ),
+            errorBuilder: (_, _, _) => _name(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _name() => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(
+        file.image ? Icons.image_outlined : Icons.attach_file_rounded,
+        size: 16,
+        color: mine ? Colors.white : brand.deep,
+      ),
+      const SizedBox(width: 4),
+      Flexible(
+        child: Text(
+          [file.name, if (file.size.isNotEmpty) file.size].join(' · '),
+          style: font(11.5, w7, mine ? Colors.white : brand.deep, height: 1.5),
+        ),
+      ),
+    ],
+  );
+}
+
+/// الصورة بملء الشاشة: تُقرّب بالأصابع
+class PhotoScreen extends StatelessWidget {
+  const PhotoScreen({super.key, required this.file});
+
+  final ChatFile file;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    appBar: AppBar(
+      backgroundColor: Colors.black,
+      foregroundColor: Colors.white,
+      title: Text(file.name, style: font(13, w7, Colors.white)),
+    ),
+    body: InteractiveViewer(
+      maxScale: 5,
+      child: Center(
+        child: Image.network(file.url, headers: Api.instance.fileHeaders, fit: BoxFit.contain),
+      ),
     ),
   );
 }

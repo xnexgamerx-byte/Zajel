@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../core/api.dart';
 import '../core/config.dart';
 import '../core/location.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/whatsapp.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import '../widgets/whatsapp.dart';
+import 'whatsapp_template_screen.dart';
 
 /// «المزيد» (docs/plan/66، 71): المندوب وشركته، وشاشاته كلّها بحسب ما يعمله (توصيل، استلام، أو كلاهما)،
 /// والإشعارات والمحادثة مع المكتب، ومشاركة الموقع، والخروج.
@@ -147,6 +151,37 @@ class _MoreScreenState extends State<MoreScreen> {
         _list(work),
         const SectionTitle('التواصل'),
         _list(talk),
+        const SizedBox(height: 10),
+        // رسالة واتساب للزبون: تُكتب مرّة وتُرسل بضغطة (docs/plan/74)
+        WhiteCard(
+          child: Material(
+            type: MaterialType.transparency,
+            child: ValueListenableBuilder<String>(
+              valueListenable: WhatsAppTemplate.text,
+              builder: (context, template, _) => ListTile(
+                onTap: () =>
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => WhatsAppTemplateScreen(brand: brand))),
+                leading: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: whatsappGreen.withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(child: FaIcon(FontAwesomeIcons.whatsapp, size: 19, color: Color(0xFF128C4A))),
+                ),
+                title: Text('رسالة واتساب للزبون', style: font(14, w7, Palette.ink)),
+                subtitle: Text(
+                  template.isEmpty ? 'بلا رسالة — يُفتح واتساب فارغاً' : template,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: font(11.5, w6, Palette.muted),
+                ),
+                trailing: const Chev(size: 9, stroke: 1.6, color: Palette.muted),
+              ),
+            ),
+          ),
+        ),
         const SectionTitle('الموقع'),
         WhiteCard(
           padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),

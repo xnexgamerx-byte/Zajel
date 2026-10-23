@@ -136,6 +136,7 @@ final class StaffNavigation
                 ['reports.index', 'كل التقارير', ['reports.index'], 'reports.view'],
                 ['reports.daily', 'الحركة اليومية', ['reports.daily'], 'reports.view'],
                 ['reports.returns', 'أسباب الراجع', ['reports.returns'], 'reports.view'],
+                ['reports.staff', 'أداء الموظّفين', ['reports.staff'], 'settings.users'],
                 ['reports.couriers', 'أداء المندوبين', ['reports.couriers'], 'reports.view'],
                 ['reports.merchants', 'أداء التجّار', ['reports.merchants'], 'reports.view'],
                 ['reports.governorates', 'الأداء بالمحافظات', ['reports.governorates'], 'reports.view'],
