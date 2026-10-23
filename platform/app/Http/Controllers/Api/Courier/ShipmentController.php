@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Courier;
 
 use App\Actions\Couriers\RecordCourierOutcome;
 use App\Actions\Couriers\ScanParcel;
+use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Actions\Shipments\ShipmentTickets;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
@@ -14,6 +15,7 @@ use App\Models\ShipmentTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * الشحنة في تطبيق المندوب (docs/plan/66): ما تعرضه شاشته في الموقع، وما يسجّله عند الباب
@@ -59,6 +61,8 @@ class ShipmentController extends Controller
             'delivery_code' => ['nullable', 'string', 'max:10'],
             // الطرد ممسوحٌ في يده (docs/plan/72)
             'scan' => ['nullable', 'string', 'max:300'],
+            // موعد المؤجّلة (docs/plan/75): يُفحص في CourierOutcomeRules
+            'until' => ['nullable', 'date'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
         ], [
@@ -66,12 +70,39 @@ class ShipmentController extends Controller
         ], [
             'failure_reason_id' => 'السبب',
             'note' => 'الملاحظة',
+            'until' => 'الموعد',
         ]);
 
         $done = $outcome->handle($courier, $request->user(), $shipment, $data['action'], $data);
 
         return response()->json([
             'message' => RecordCourierOutcome::message($done),
+            'data' => self::detail($done, $courier),
+        ]);
+    }
+
+    /**
+     * «أوصلها الآن» (docs/plan/75): المؤجّلة بيده يُخرجها للتوصيل في موعدها — أو قبله إن طلب الزبون —
+     * فتعود إلى «إعادة التوصيل» ويسجّل عليها عند الباب كغيرها.
+     */
+    public function resume(Request $request, Shipment $shipment, ChangeShipmentStatus $change): JsonResponse
+    {
+        $courier = $this->courier($request);
+        $this->ensureMine($shipment, $courier, delivery: true);
+
+        if ($shipment->status !== ShipmentStatus::Postponed) {
+            throw ValidationException::withMessages(['action' => "الشحنة {$shipment->number} «{$shipment->statusLabel()}»: ليست مؤجّلة بيدك."]);
+        }
+
+        $done = $change->handle($shipment, ShipmentStatus::OutForDelivery, $request->user(), [
+            'actor_type' => 'courier',
+            'courier_id' => $courier->id,
+            'redelivery' => true,
+            'note' => 'أخرجها المندوب للتوصيل في موعدها',
+        ]);
+
+        return response()->json([
+            'message' => "الشحنة {$done->number} معك للتوصيل الآن.",
             'data' => self::detail($done, $courier),
         ]);
     }
@@ -147,6 +178,10 @@ class ShipmentController extends Controller
             'has_note' => filled($shipment->notes),
             'ticket' => $ticket ? ['status' => $ticket->status, 'label' => $ticket->statusLabel()] : null,
             'failure' => $shipment->lastFailureReason?->name_ar,
+            // المؤجّلة بموعدها، وما لم يُسلَّم ينتظر قرار المعالجة، وما أُعيد إليه بعد قرار (docs/plan/75)
+            'until' => $shipment->status === ShipmentStatus::Postponed ? $shipment->scheduled_at?->toIso8601String() : null,
+            'waiting' => $shipment->status === ShipmentStatus::FailedAttempt,
+            'redelivery' => $shipment->status === ShipmentStatus::OutForDelivery && $shipment->redelivery_at !== null,
         ];
     }
 
@@ -198,6 +233,9 @@ class ShipmentController extends Controller
                 fn ($a) => $a !== 'partially_delivered' || $partial !== null,
             )) : [],
             'partial_amount' => $partial?->approved_amount,
+            'until' => $shipment->status === ShipmentStatus::Postponed ? $shipment->scheduled_at?->toIso8601String() : null,
+            'can_resume' => $shipment->status === ShipmentStatus::Postponed && (int) $shipment->delivery_courier_id === $courier->id,
+            'waiting' => $shipment->status === ShipmentStatus::FailedAttempt,
         ];
     }
 

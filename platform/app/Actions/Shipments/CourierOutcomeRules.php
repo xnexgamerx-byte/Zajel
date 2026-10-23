@@ -7,6 +7,7 @@ use App\Models\FailureReason;
 use App\Models\Shipment;
 use App\Models\ShipmentTicket;
 use App\Support\Phone;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 
 /**
@@ -40,6 +41,15 @@ class CourierOutcomeRules
 
             if ($reason->requires_note && ! trim((string) ($data['note'] ?? ''))) {
                 return ['note' => "السبب «{$reason->name_ar}» يحتاج توضيحاً."];
+            }
+        }
+
+        // موعد المؤجّلة (docs/plan/75): من اليوم إلى شهرٍ — ومنه تذكير المندوب في موعده
+        if ($to === ShipmentStatus::Postponed && filled($data['until'] ?? null)) {
+            $until = rescue(fn () => Carbon::parse($data['until']), null, false);
+
+            if (! $until || $until->lt(today()) || $until->gt(today()->addDays(30)->endOfDay())) {
+                return ['until' => 'الموعد من اليوم إلى شهرٍ قادم.'];
             }
         }
 

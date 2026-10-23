@@ -81,9 +81,9 @@ class HomeController extends Controller
             // ما أنجزته اليوم: تذاكر حسمتها، وشحنات عالجتها
             'today' => [
                 'tickets' => ShipmentTicket::query()->where('handled_by_user_id', $user->id)
-                    ->whereDate('handled_at', today())->count(),
+                    ->whereOnDate('handled_at', today())->count(),
                 'processed' => ShipmentEvent::query()->where('event_type', 'processed')->where('actor_type', 'user')
-                    ->where('actor_id', $user->id)->whereDate('created_at', today())->count(),
+                    ->where('actor_id', $user->id)->whereOnDate('created_at', today())->count(),
             ],
         ]);
     }

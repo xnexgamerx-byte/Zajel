@@ -73,6 +73,8 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::get('/shipments/{shipment}', [CourierShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.show');
             Route::post('/shipments/{shipment}/act', [CourierShipmentController::class, 'act'])->whereNumber('shipment')
                 ->middleware('throttle:60,1')->name('shipments.act');
+            Route::post('/shipments/{shipment}/resume', [CourierShipmentController::class, 'resume'])->whereNumber('shipment')
+                ->middleware('throttle:60,1')->name('shipments.resume');
             Route::get('/shipments/{shipment}/ticket', [CourierShipmentController::class, 'ticket'])->whereNumber('shipment')->name('shipments.ticket');
             Route::post('/shipments/{shipment}/ticket', [CourierShipmentController::class, 'openTicket'])->whereNumber('shipment')
                 ->middleware('throttle:20,1')->name('shipments.ticket.store');
@@ -102,24 +104,29 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
         Route::prefix('callcenter')->name('callcenter.')->middleware(['abilities:callcenter', 'staff'])->group(function () {
             Route::get('/home', CallCenterHomeController::class)->name('home');
 
-            Route::get('/tickets', [CallCenterTicketController::class, 'index'])->name('tickets.index');
-            Route::get('/tickets/{ticket}', [CallCenterTicketController::class, 'show'])->whereNumber('ticket')->name('tickets.show');
-            Route::post('/tickets/{ticket}/claim', [CallCenterTicketController::class, 'claim'])->whereNumber('ticket')->name('tickets.claim');
-            Route::post('/tickets/{ticket}/release', [CallCenterTicketController::class, 'release'])->whereNumber('ticket')->name('tickets.release');
-            Route::post('/tickets/{ticket}/approve', [CallCenterTicketController::class, 'approve'])->whereNumber('ticket')->name('tickets.approve');
-            Route::post('/tickets/{ticket}/reject', [CallCenterTicketController::class, 'reject'])->whereNumber('ticket')->name('tickets.reject');
+            // كلّ طابورٍ بصلاحيته كما في الموقع: التذاكر، وحالة الشحنات، والردّ على التجّار
+            Route::middleware('can:tickets.handle')->group(function () {
+                Route::get('/tickets', [CallCenterTicketController::class, 'index'])->name('tickets.index');
+                Route::get('/tickets/{ticket}', [CallCenterTicketController::class, 'show'])->whereNumber('ticket')->name('tickets.show');
+                Route::post('/tickets/{ticket}/claim', [CallCenterTicketController::class, 'claim'])->whereNumber('ticket')->name('tickets.claim');
+                Route::post('/tickets/{ticket}/release', [CallCenterTicketController::class, 'release'])->whereNumber('ticket')->name('tickets.release');
+                Route::post('/tickets/{ticket}/approve', [CallCenterTicketController::class, 'approve'])->whereNumber('ticket')->name('tickets.approve');
+                Route::post('/tickets/{ticket}/reject', [CallCenterTicketController::class, 'reject'])->whereNumber('ticket')->name('tickets.reject');
+            });
 
-            Route::get('/processing', [CallCenterProcessingController::class, 'index'])->name('processing.index');
-            Route::get('/processing/{shipment}', [CallCenterProcessingController::class, 'show'])->whereNumber('shipment')->name('processing.show');
-            Route::post('/processing/{shipment}/claim', [CallCenterProcessingController::class, 'claim'])->whereNumber('shipment')->name('processing.claim');
-            Route::post('/processing/{shipment}/release', [CallCenterProcessingController::class, 'release'])->whereNumber('shipment')->name('processing.release');
-            Route::post('/processing/{shipment}/decide', [CallCenterProcessingController::class, 'decide'])->whereNumber('shipment')->name('processing.decide');
-            Route::post('/processing/{shipment}/merchant', [CallCenterProcessingController::class, 'merchant'])->whereNumber('shipment')
-                ->middleware('throttle:60,1')->name('processing.merchant');
-            Route::post('/processing/{shipment}/courier', [CallCenterProcessingController::class, 'courier'])->whereNumber('shipment')
-                ->middleware('throttle:60,1')->name('processing.courier');
+            Route::middleware('can:shipments.status')->group(function () {
+                Route::get('/processing', [CallCenterProcessingController::class, 'index'])->name('processing.index');
+                Route::get('/processing/{shipment}', [CallCenterProcessingController::class, 'show'])->whereNumber('shipment')->name('processing.show');
+                Route::post('/processing/{shipment}/claim', [CallCenterProcessingController::class, 'claim'])->whereNumber('shipment')->name('processing.claim');
+                Route::post('/processing/{shipment}/release', [CallCenterProcessingController::class, 'release'])->whereNumber('shipment')->name('processing.release');
+                Route::post('/processing/{shipment}/decide', [CallCenterProcessingController::class, 'decide'])->whereNumber('shipment')->name('processing.decide');
+                Route::post('/processing/{shipment}/merchant', [CallCenterProcessingController::class, 'merchant'])->whereNumber('shipment')
+                    ->middleware('throttle:60,1')->name('processing.merchant');
+                Route::post('/processing/{shipment}/courier', [CallCenterProcessingController::class, 'courier'])->whereNumber('shipment')
+                    ->middleware('throttle:60,1')->name('processing.courier');
+            });
 
-            Route::middleware('feature:conversations')->group(function () {
+            Route::middleware(['feature:conversations', 'can:support.reply'])->group(function () {
                 Route::get('/conversations', [CallCenterConversationController::class, 'index'])->name('conversations.index');
                 Route::get('/conversations/{conversation}', [CallCenterConversationController::class, 'show'])->whereNumber('conversation')->name('conversations.show');
                 Route::post('/conversations/{conversation}/reply', [CallCenterConversationController::class, 'reply'])->whereNumber('conversation')

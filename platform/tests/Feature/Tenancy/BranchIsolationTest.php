@@ -271,7 +271,8 @@ class BranchIsolationTest extends TestCase
         $checked = 0;
 
         foreach (Route::getRoutes() as $route) {
-            if (! in_array('staff', $route->gatherMiddleware(), true)
+            // واجهات التطبيقات تُدخل برمزٍ لا بجلسة — عزلها في اختباراتها (CallCenterApiTest)
+            if (! in_array('staff', $route->gatherMiddleware(), true) || str_starts_with($route->uri(), 'api/')
                 || ! preg_match_all('/\{(\w+)\??\}/', $route->uri(), $params)) {
                 continue;
             }

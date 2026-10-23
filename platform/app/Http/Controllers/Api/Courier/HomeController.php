@@ -77,6 +77,20 @@ class HomeController extends Controller
             ],
             'returns' => (clone $returns)->count(),
             'attention' => $this->attention($courier, $returns),
+            // مواعيد المؤجّلة بيده (docs/plan/75): تُذكَّر بها الرئيسية، ويُنبّهه الهاتف في موعدها
+            'appointments' => Shipment::query()->where('delivery_courier_id', $courier->id)
+                ->where('status', ShipmentStatus::Postponed->value)->whereNotNull('scheduled_at')
+                ->with('city:id,name_ar')->orderBy('scheduled_at')->limit(100)
+                ->get(['id', 'number', 'recipient_name', 'recipient_phone', 'city_id', 'scheduled_at', 'cod_amount'])
+                ->map(fn (Shipment $s) => [
+                    'id' => $s->id,
+                    'number' => $s->number,
+                    'recipient' => $s->recipient_name,
+                    'phone' => $s->recipient_phone,
+                    'city' => $s->city?->name_ar,
+                    'amount' => (int) $s->cod_amount,
+                    'at' => $s->scheduled_at?->toIso8601String(),
+                ])->values(),
         ]);
     }
 

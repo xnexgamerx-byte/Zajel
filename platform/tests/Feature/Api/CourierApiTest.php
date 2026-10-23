@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Actions\Notify\Announce;
 use App\Actions\Shipments\CreateShipment;
+use App\Actions\Shipments\ProcessFailedAttempt;
 use App\Actions\Shipments\SendOutForDelivery;
 use App\Actions\Shipments\ShipmentTickets;
 use App\Actions\Support\CourierChat;
@@ -287,6 +288,60 @@ class CourierApiTest extends TestCase
 
         $this->postJson($url, ['action' => 'postponed', 'failure_reason_id' => $needsNote->id, 'note' => 'الغد بعد الظهر'], $this->auth($token))
             ->assertOk()->assertJsonPath('data.status', 'postponed');
+    }
+
+    /**
+     * خانات «مهامي» الأربع (docs/plan/75): ما لم يُسلَّم يبقى في «الراجع» ينتظر المعالجة ولا يختفي،
+     * وما أُعيد إليه في «إعادة التوصيل»، والمؤجّلة بموعدها في «المؤجل».
+     */
+    public function test_failed_postponed_and_redelivered_each_have_their_tab(): void
+    {
+        $failed = $this->ship('علي حسين');
+        $postponed = $this->ship('زينب علي');
+        $redelivered = $this->ship('حسين كاظم');
+        $fresh = $this->ship('نور الهدى');
+        $token = $this->token();
+        $reason = $this->reason();
+
+        $this->postJson($this->api("/courier/shipments/{$failed->id}/act"),
+            ['action' => 'failed_attempt', 'failure_reason_id' => $reason->id], $this->auth($token))->assertOk();
+        $this->postJson($this->api("/courier/shipments/{$redelivered->id}/act"),
+            ['action' => 'failed_attempt', 'failure_reason_id' => $reason->id], $this->auth($token))->assertOk();
+        Tenancy::runFor($this->company, fn () => app(ProcessFailedAttempt::class)
+            ->handle($this->fresh($redelivered), 'redeliver', $this->staff));
+
+        // المؤجّلة بموعد: من اليوم إلى شهر
+        $act = $this->api("/courier/shipments/{$postponed->id}/act");
+        $this->postJson($act, ['action' => 'postponed', 'failure_reason_id' => $reason->id, 'until' => today()->subDay()->toDateString()],
+            $this->auth($token))->assertUnprocessable()->assertJsonValidationErrors('until');
+        $at = today()->addDay()->setTime(16, 0);
+        $this->postJson($act, ['action' => 'postponed', 'failure_reason_id' => $reason->id, 'until' => $at->toIso8601String()],
+            $this->auth($token))->assertOk()->assertJsonPath('data.until', $at->toIso8601String())->assertJsonPath('data.can_resume', true);
+
+        $tab = fn (string $kind) => $this->getJson($this->api('/courier/tasks?kind='.$kind), $this->auth($token))->assertOk();
+
+        $delivery = $tab('delivery')->assertJsonPath('count', 1)
+            ->assertJsonPath('counts', ['delivery' => 1, 'redelivery' => 1, 'postponed' => 1, 'returns' => 1]);
+        $this->assertSame($fresh->number, $delivery->json('groups.0.items.0.number'));
+
+        $tab('redelivery')->assertJsonPath('count', 1)->assertJsonPath('groups.0.items.0.number', $redelivered->number)
+            ->assertJsonPath('groups.0.items.0.redelivery', true)->assertJsonPath('to_collect', 40_000);
+        $tab('postponed')->assertJsonPath('groups.0.title', 'موعدها غداً')
+            ->assertJsonPath('groups.0.items.0.number', $postponed->number)->assertJsonPath('groups.0.items.0.until', $at->toIso8601String());
+        // لم تُسلَّم ولم يُقرَّر فيها: في «الراجع» تنتظر، لا تختفي
+        $tab('returns')->assertJsonPath('groups.0.title', 'لم تُسلَّم — تنتظر قرار المعالجة')
+            ->assertJsonPath('groups.0.items.0.number', $failed->number)->assertJsonPath('groups.0.items.0.waiting', true);
+
+        // الرئيسية تذكّره بموعدها
+        $this->getJson($this->api('/courier/home'), $this->auth($token))->assertOk()
+            ->assertJsonPath('appointments.0.number', $postponed->number)->assertJsonPath('appointments.0.at', $at->toIso8601String());
+
+        // «أوصلها الآن»: تعود إليه في «إعادة التوصيل» ويُسجَّل عليها عند الباب
+        $this->postJson($this->api("/courier/shipments/{$postponed->id}/resume"), [], $this->auth($token))
+            ->assertOk()->assertJsonPath('data.status', 'out_for_delivery');
+        $tab('redelivery')->assertJsonPath('count', 2);
+        $this->postJson($this->api("/courier/shipments/{$fresh->id}/resume"), [], $this->auth($token))
+            ->assertUnprocessable()->assertJsonValidationErrors('action');
     }
 
     public function test_a_delivery_code_is_needed_and_locks_after_five_wrong_tries(): void

@@ -9,6 +9,7 @@ use App\Models\Courier;
 use App\Models\Shipment;
 use App\Models\ShipmentTicket;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -30,7 +31,7 @@ class RecordCourierOutcome
     public function __construct(protected ChangeShipmentStatus $change) {}
 
     /**
-     * @param  array{collected_amount?: ?int, failure_reason_id?: ?int, note?: ?string, delivery_code?: ?string, scan?: ?string, lat?: ?float, lng?: ?float}  $data
+     * @param  array{collected_amount?: ?int, failure_reason_id?: ?int, note?: ?string, delivery_code?: ?string, scan?: ?string, until?: ?string, lat?: ?float, lng?: ?float}  $data
      *
      * @throws ValidationException خطأٌ لكل حقل، كما في الشاشة
      */
@@ -67,6 +68,9 @@ class RecordCourierOutcome
             'ticket_id' => $partial?->id,
             'failure_reason_id' => $data['failure_reason_id'] ?? null,
             'note' => $data['note'] ?? null,
+            // المؤجّلة إلى موعدٍ اتّفق عليه مع الزبون (docs/plan/75)
+            'scheduled_at' => $to === ShipmentStatus::Postponed && filled($data['until'] ?? null)
+                ? Carbon::parse($data['until']) : null,
             'lat' => $data['lat'] ?? null,
             'lng' => $data['lng'] ?? null,
         ], fn ($v) => $v !== null));

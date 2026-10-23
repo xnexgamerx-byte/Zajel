@@ -10,6 +10,7 @@ use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Models\Company;
 use App\Models\Courier;
+use App\Models\Governorate;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\ShipmentTicket;
@@ -222,6 +223,38 @@ class CallCenterApiTest extends TestCase
         $this->postJson($this->api("/callcenter/conversations/{$conversation->id}/reply"), ['body' => 'وصلت المخزن'], $sara)->assertCreated();
         $this->postJson($this->api("/callcenter/conversations/{$conversation->id}/close"), [], $sara)->assertOk();
         $this->assertSame('closed', Tenancy::runFor($this->company, fn () => $conversation->refresh()->status));
+    }
+
+    /** موظّفةٌ لمحافظةٍ أخرى لا تفتح برقمه ما ليس لها: تذكرةً ولا شحنةً للمعالجة ولا محادثتها */
+    public function test_an_agent_reaches_only_her_governorates_by_id(): void
+    {
+        $ticket = $this->ticket();
+        $failed = $this->failed();
+        $conversation = Tenancy::runFor($this->company, fn () => app(Converse::class)->start(
+            $this->merchant, 'بخصوص الوصل', 'وين؟', $this->owner, Converse::MERCHANT, $failed->number,
+        ));
+        Tenancy::runFor($this->company, fn () => $this->zainab->governorates()->attach(
+            Governorate::query()->whereKeyNot($this->baghdad()->id)->value('id'),
+        ));
+        $zainab = $this->as($this->zainab);
+
+        foreach ([
+            ['get', "/callcenter/tickets/{$ticket->id}"],
+            ['post', "/callcenter/tickets/{$ticket->id}/claim"],
+            ['post', "/callcenter/tickets/{$ticket->id}/approve"],
+            ['get', "/callcenter/processing/{$failed->id}"],
+            ['post', "/callcenter/processing/{$failed->id}/claim"],
+            ['post', "/callcenter/processing/{$failed->id}/decide"],
+            ['post', "/callcenter/processing/{$failed->id}/merchant"],
+            ['get', "/callcenter/conversations/{$conversation->id}"],
+            ['post', "/callcenter/conversations/{$conversation->id}/reply"],
+        ] as [$method, $path]) {
+            ($method === 'get'
+                ? $this->getJson($this->api($path), $zainab)
+                : $this->postJson($this->api($path), ['body' => 'x', 'approved_amount' => 45_000, 'action' => 'redeliver'], $zainab))
+                ->assertNotFound();
+        }
+        $this->getJson($this->api('/callcenter/tickets'), $zainab)->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_the_merchants_photo_shows_in_the_conversation(): void

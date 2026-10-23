@@ -152,7 +152,8 @@ class BranchVisibilityTest extends TestCase
         foreach (Route::getRoutes() as $route) {
             $writes = (bool) array_intersect($route->methods(), ['POST', 'PUT', 'PATCH', 'DELETE']);
 
-            if (! $writes || ! in_array('staff', $route->gatherMiddleware(), true)
+            // واجهات التطبيقات تُدخل برمزٍ لا بجلسة — عزلها في اختباراتها (CallCenterApiTest)
+            if (! $writes || ! in_array('staff', $route->gatherMiddleware(), true) || str_starts_with($route->uri(), 'api/')
                 || ! str_contains($route->uri(), '{shipment}') || str_contains($route->uri(), '{bag}')) {
                 continue;
             }

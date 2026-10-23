@@ -30,6 +30,9 @@ class RouteCoverageTest extends TestCase
         'home.customize.update',
         // كل موظّفٍ يراسل زملاءه (docs/plan/41): ومن يُراسَل يُفحص في StaffChatController
         'staff-chat.send',
+        // الحجز (docs/plan/73) بصلاحية نوع الطلب: التذكرة والمعالجة والمحادثة — في ClaimController
+        'claims.take',
+        'claims.release',
     ];
 
     public function test_every_staff_route_that_writes_is_guarded_by_an_ability(): void
