@@ -16,6 +16,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * نوعان: «السعر تغيّر» — يُعدَّل مبلغ الشحنة فور الاعتماد ويسلّم المندوب «واصل»؛
  * و«أخذ جزءاً وأرجع الباقي» — يُفتح للمندوب «واصل جزئي» بالمبلغ المعتمد وحده.
+ *
+ * ومن تطبيق المندوب (docs/plan/80) يُطلب وقد سلّم: «سُلّمت مع تغيير السعر» أو «واصل جزئي» بعدد
+ * القطع الراجعة (finalize) — فالاعتماد يسجّلها بنفسه واصلةً بالمبلغ المعتمد، بلا خطوةٍ ثانية منه.
  */
 class ShipmentTicket extends Model
 {
@@ -41,6 +44,8 @@ class ShipmentTicket extends Model
             'current_amount'   => 'integer',
             'requested_amount' => 'integer',
             'approved_amount'  => 'integer',
+            'finalize'         => 'boolean',
+            'returned_pieces'  => 'integer',
             'handled_at'       => 'datetime',
             'used_at'          => 'datetime',
         ];

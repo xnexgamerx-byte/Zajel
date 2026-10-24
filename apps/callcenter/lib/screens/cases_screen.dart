@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/whatsapp_template.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
@@ -297,6 +298,26 @@ class _CaseScreenState extends State<CaseScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(14, 4, 14, 20),
                         children: [
+                          WaybillBar(
+                            brand: brand,
+                            number: d.number,
+                            full: waybillText(
+                              number: d.number,
+                              recipient: d.recipient,
+                              phone: d.phone,
+                              phoneAlt: d.phoneAlt,
+                              place: d.place,
+                              address: d.address,
+                              landmark: d.landmark,
+                              amount: d.amount,
+                              merchant: d.merchant.name,
+                              status: 'لم يُسلَّم${d.reason == null ? '' : ' — ${d.reason}'}',
+                              description: d.description,
+                              pieces: d.pieces,
+                              notes: d.notes,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           _customer(d),
                           const SizedBox(height: 12),
                           Panel(
@@ -349,7 +370,8 @@ class _CaseScreenState extends State<CaseScreen> {
     );
   }
 
-  /// الزبون بكبيرٍ أعلى الصفحة: الاتصال أوّل ما يُعمل
+  /// الزبون بكبيرٍ أعلى الصفحة: الاتصال أوّل ما يُعمل — بالخط أو واتساب برسالة الشحنة، وهاتفه ظاهرٌ يُنسخ
+  /// (docs/plan/80). وسبب المحاولة بتوضيحه كما كتبه المندوب
   Widget _customer(CaseItem d) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -364,36 +386,21 @@ class _CaseScreenState extends State<CaseScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(d.recipient, style: display(20, w7, Palette.ink)),
-                  Text(d.place, style: font(12.5, w7, Palette.slate)),
-                ],
-              ),
-            ),
-            WhatsAppButton(phone: d.phone, size: 58, shadow: true),
-            const SizedBox(width: 10),
-            Tooltip(
-              message: 'اتصل بالزبون',
-              child: Tap(
-                radius: 30,
-                shadow: const [
-                  BoxShadow(color: Color(0x551F8A4C), blurRadius: 18, spreadRadius: -6, offset: Offset(0, 8)),
-                ],
-                onTap: () => callPhone(d.phone),
-                child: Ink(
-                  width: 58,
-                  height: 58,
-                  decoration: const BoxDecoration(color: Queue.couriers, shape: BoxShape.circle),
-                  child: const Icon(Icons.call_rounded, color: Colors.white, size: 27),
-                ),
-              ),
-            ),
-          ],
+        CustomerCard(
+          brand: brand,
+          big: true,
+          name: d.recipient,
+          place: d.place,
+          phone: d.phone,
+          phoneAlt: d.phoneAlt,
+          message: WhatsAppTemplate.fill(
+            recipient: d.recipient,
+            number: d.number,
+            amount: d.amount,
+            merchant: d.merchant.name,
+            place: d.place,
+            reason: d.reason,
+          ),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -406,6 +413,18 @@ class _CaseScreenState extends State<CaseScreen> {
             Pill('${money(d.amount)} د.ع', color: Palette.ink, size: 11),
           ],
         ),
+        // التوضيح الذي كُتب مع السبب (docs/plan/80): «تغيير عنوان — إلى الكرادة قرب الجسر»
+        if ((d.reasonNote ?? '').isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text('توضيح المندوب: ${d.reasonNote}', style: font(12.5, w7, Palette.ink, height: 1.5)),
+          ),
+        ],
         if ((d.address ?? '').isNotEmpty || (d.landmark ?? '').isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(
@@ -413,17 +432,6 @@ class _CaseScreenState extends State<CaseScreen> {
             style: font(12.5, w6, Palette.ink, height: 1.5),
           ),
         ],
-        if ((d.phoneAlt ?? '').isNotEmpty)
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () => callPhone(d.phoneAlt),
-                icon: const Icon(Icons.call_outlined, size: 16, color: Queue.couriers),
-                label: Text('الهاتف البديل', style: font(12.5, w7, Queue.couriers)),
-              ),
-              WhatsAppButton(phone: d.phoneAlt, size: 30),
-            ],
-          ),
       ],
     ),
   );

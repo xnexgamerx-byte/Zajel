@@ -116,18 +116,26 @@ class ShipmentController extends Controller
             'kind' => ['required', Rule::in(array_keys(ShipmentTicket::KINDS))],
             'requested_amount' => ['required', 'integer', 'min:0', 'max:'.ShipmentTickets::MAX_AMOUNT],
             'reason' => ['required', 'string', 'min:3', 'max:255'],
+            // سلّمها وينتظر (docs/plan/80): الاعتماد يسجّلها واصلةً — والجزئيّ بعدد القطع الراجعة
+            'finalize' => ['nullable', 'boolean'],
+            'returned_pieces' => ['nullable', 'integer', 'min:1', 'max:'.ShipmentTickets::MAX_PIECES],
         ], [
             'kind.required' => 'اختر: السعر تغيّر، أم أخذ الزبون جزءاً من الطلب؟',
             'reason.required' => 'اكتب ما قاله الزبون — به تقرّر الكول سنتر.',
         ], [
             'kind' => 'السبب', 'requested_amount' => 'المبلغ الذي سيدفعه الزبون', 'reason' => 'ما قاله الزبون',
+            'returned_pieces' => 'عدد القطع الراجعة',
         ]);
+        $finalize = $request->boolean('finalize');
 
         // الحالة الافتراضية من قاعدة البيانات: تُقرأ بعد الإنشاء
-        $ticket = $tickets->open($shipment, $courier, $request->user(), $data['kind'], (int) $data['requested_amount'], $data['reason'])->refresh();
+        $ticket = $tickets->open($shipment, $courier, $request->user(), $data['kind'], (int) $data['requested_amount'], $data['reason'],
+            $finalize, isset($data['returned_pieces']) ? (int) $data['returned_pieces'] : null)->refresh();
 
         return response()->json([
-            'message' => "أُرسل طلبك {$ticket->number} إلى الكول سنتر. لا تسلّم بالمبلغ الجديد حتى يُعتمد.",
+            'message' => $finalize
+                ? "أُرسل {$ticket->number} للموظّف. حين يوافق تُسجَّل الشحنة ".($ticket->kind === 'partial' ? '«واصل جزئي»' : '«سُلّمت»').' وحدها.'
+                : "أُرسل طلبك {$ticket->number} إلى الكول سنتر. لا تسلّم بالمبلغ الجديد حتى يُعتمد.",
             'data' => self::ticketData($ticket),
         ], 201);
     }
@@ -180,6 +188,9 @@ class ShipmentController extends Controller
             'until' => $shipment->status === ShipmentStatus::Postponed ? $shipment->scheduled_at?->toIso8601String() : null,
             'waiting' => $shipment->status === ShipmentStatus::FailedAttempt,
             'redelivery' => $shipment->status === ShipmentStatus::OutForDelivery && $shipment->redelivery_at !== null,
+            // باقي الواصل الجزئي في الراجع (docs/plan/80): كم قطعةً رجعت، وبكم
+            'returned_pieces' => $shipment->wasDelivered() ? $shipment->returned_pieces : null,
+            'returned_value' => $shipment->wasDelivered() ? max(0, (int) $shipment->cod_amount - (int) $shipment->collected_amount) : null,
         ];
     }
 
@@ -254,6 +265,10 @@ class ShipmentController extends Controller
             'status_label' => $ticket->statusLabel(),
             'requested_amount' => (int) $ticket->requested_amount,
             'approved_amount' => $ticket->approved_amount,
+            // سلّم وينتظر: الاعتماد يسجّلها وحده (docs/plan/80)
+            'finalize' => (bool) $ticket->finalize,
+            'returned_pieces' => $ticket->returned_pieces,
+            'reply' => $ticket->reply,
         ];
     }
 

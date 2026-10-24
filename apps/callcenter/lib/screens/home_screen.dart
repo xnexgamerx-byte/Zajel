@@ -6,9 +6,12 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import 'board_screen.dart';
+import 'template_screen.dart';
 
-/// رئيسية الكول سنتر (docs/plan/73): «الآن» أوّلاً — أشدّ ما ينتظرها بزرٍّ واحد — ثم الطوابير
-/// الأربعة بألوانها وأقدم ما فيها، ثم ما تعالجه هي فتعود إليه، وما أنجزته اليوم.
+/// رئيسية الكول سنتر (docs/plan/73، 80): «الآن» أوّلاً — أشدّ ما ينتظرها بزرٍّ واحد — ثم الطوابير
+/// الأربعة بألوانها وأقدم ما فيها، ثم «حالة الشحنات» بخاناتها الأربع، وما تعالجه هي فتعود إليه، وما
+/// أنجزته اليوم بأنواعه — وكلٌّ يُفتح بتفاصيله.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
@@ -37,6 +40,9 @@ class _HomeScreenState extends State<HomeScreen> {
   HomeData? data;
   String? error;
 
+  /// «حالة الشحنات» (docs/plan/80): قيد التوصيل، مؤجل، إعادة توصيل، راجع مؤكد
+  List<BoardKind> board = const [];
+
   Brand get brand => widget.brand;
 
   @override
@@ -58,6 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => (data = d, error = null));
       widget.onData(d);
+      // الخانات وحدها: تعذّرها لا يُخفي الرئيسية
+      try {
+        final b = await Api.instance.board();
+        if (mounted) setState(() => board = b);
+      } on ApiError catch (_) {}
     } on ApiError catch (e) {
       if (mounted) setState(() => error = e.message);
     }
@@ -75,6 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
             style: font(12, w6, Palette.slate, height: 1.6),
           ),
           const SizedBox(height: 14),
+          // رسالة واتساب للزبون من الشحنة (docs/plan/80): تُكتب مرّة وتُملأ من كلّ شحنة
+          SheetButton(
+            brand: brand,
+            label: 'رسالة واتساب للزبون',
+            icon: Icons.edit_note_rounded,
+            onTap: () => Navigator.of(context).pop(false),
+          ),
+          const SizedBox(height: 8),
           SheetButton(
             brand: brand,
             label: 'تسجيل الخروج من هذا الجهاز',
@@ -85,7 +104,22 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (out == true) await widget.onLogout();
+    if (out == false && mounted) {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => WhatsAppTemplateScreen(brand: brand)));
+    }
   }
+
+  Future<void> _board(String kind) async {
+    final message = await openBoard(context, brand, kind);
+    if (message != null && mounted) toast(context, message);
+    widget.refresh.value++;
+  }
+
+  Future<void> _done(String kind, {String? action}) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => DoneScreen(brand: brand, kind: kind, action: action),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _queues(d),
+                      if (board.isNotEmpty) ...[const SectionTitle('حالة الشحنات'), _boardTiles()],
                       if (d.mine.isNotEmpty) ...[const SectionTitle('أعالجها الآن'), _mine(d)],
                       const SectionTitle('أنجزتِ اليوم'),
                       _today(d),
@@ -395,23 +430,134 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   );
 
-  Widget _today(HomeData d) => Row(
+  /// الخانات الأربع (docs/plan/80): أيقونةٌ بلونها أعلاها، ثم اسمها، ثم عددها — في الوسط، وكلٌّ يفتح قائمته
+  Widget _boardTiles() => GridView.count(
+    crossAxisCount: 2,
+    shrinkWrap: true,
+    padding: EdgeInsets.zero,
+    physics: const NeverScrollableScrollPhysics(),
+    mainAxisSpacing: 10,
+    crossAxisSpacing: 10,
+    childAspectRatio: 1.9,
     children: [
-      Expanded(child: _figure('تذاكر حسمتِها', d.todayTickets, brand.main)),
-      const SizedBox(width: 10),
-      Expanded(child: _figure('شحنات عالجتِها', d.todayProcessed, Queue.processing)),
+      for (final k in board)
+        Builder(
+          builder: (context) {
+            final v = BoardView.of(k.kind);
+            return Tap(
+              radius: 20,
+              shadow: cardShadow,
+              onTap: () => _board(k.kind),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Color.lerp(Palette.line, v.color, .2)!),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(color: v.soft, shape: BoxShape.circle),
+                      child: Icon(v.icon, size: 19, color: v.ink),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(k.label, style: font(12.5, w8, Palette.slate, height: 1.2)),
+                    Text(money(k.count), style: display(20, w7, Palette.ink, height: 1.25)),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
     ],
   );
 
-  Widget _figure(String label, int n, Color color) => WhiteCard(
-    radius: 20,
-    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-    child: Row(
-      children: [
-        Text('$n', style: display(26, w7, color, height: 1.1)),
-        const SizedBox(width: 10),
-        Expanded(child: Text(label, style: font(12.5, w7, Palette.slate, height: 1.3))),
-      ],
+  /// ما أنجزته اليوم بأنواعه (docs/plan/80): قرارات المعالجة الثلاثة، وتذاكر المبلغ التي حسمتها للمناديب —
+  /// وكلٌّ يُفتح بتفاصيله
+  Widget _today(HomeData d) => Column(
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: _figure(
+              'إعادة توصيل',
+              d.todayActions['redeliver'] ?? 0,
+              Queue.couriers,
+              () => _done('processed', action: 'redeliver'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _figure(
+              'مؤجل',
+              d.todayActions['postpone'] ?? 0,
+              BoardView.yellowInk,
+              () => _done('processed', action: 'postpone'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _figure(
+              'راجع مؤكد',
+              d.todayActions['return'] ?? 0,
+              Palette.returnRed,
+              () => _done('processed', action: 'return'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Tap(
+        radius: 20,
+        shadow: cardShadow,
+        onTap: () => _done('tickets'),
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+          child: Row(
+            children: [
+              Text('${d.todayTickets}', style: display(24, w7, brand.main, height: 1.1)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('تذاكر المبلغ حسمتِها', style: font(13, w8, Palette.ink, height: 1.3)),
+                    Text(
+                      'طلبات المناديب لتغيير المبلغ: اعتمدتِها أو رفضتِها',
+                      style: font(11, w6, Palette.muted, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+              const Chev(size: 9, stroke: 1.6, color: Palette.muted),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+
+  Widget _figure(String label, int n, Color color, VoidCallback onTap) => Tap(
+    radius: 18,
+    shadow: cardShadow,
+    onTap: onTap,
+    child: Ink(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+      child: Column(
+        children: [
+          Text('$n', style: display(24, w7, n == 0 ? Palette.line : color, height: 1.1)),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, maxLines: 1, style: font(12, w7, Palette.slate, height: 1.3)),
+          ),
+        ],
+      ),
     ),
   );
 }

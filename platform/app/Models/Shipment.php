@@ -66,6 +66,7 @@ class Shipment extends Model
             'status_changed_at' => 'datetime',
             'scheduled_at'      => 'datetime',
             'printed_at'        => 'datetime',
+            'returned_pieces'   => 'integer',
             'picked_up_at'      => 'datetime',
             'assigned_at'       => 'datetime',
             'redelivery_at'     => 'datetime',
@@ -505,10 +506,29 @@ class Shipment extends Model
     public function returnReason(): ?string
     {
         if ($this->wasDelivered()) {
-            return $this->type === 'exchange' ? 'القطعة القديمة من استبدال' : 'باقي واصلٍ جزئي';
+            return $this->type === 'exchange' ? 'القطعة القديمة من استبدال' : 'باقي واصلٍ جزئي'.$this->returnedPart();
         }
 
         return $this->lastFailureReason?->name_ar;
+    }
+
+    /**
+     * ما رجع من الواصل الجزئي (docs/plan/80): « — 2 قطعة بقيمة 20,000» — عددٌ كتبه المندوب، وقيمته ما لم
+     * يدفعه الزبون من مبلغ الطلب. فارغٌ لما لا جزء راجعاً له.
+     */
+    public function returnedPart(): string
+    {
+        if (! $this->wasDelivered() || $this->type === 'exchange') {
+            return '';
+        }
+
+        $value = max(0, (int) $this->cod_amount - (int) $this->collected_amount);
+        $parts = array_filter([
+            $this->returned_pieces ? "{$this->returned_pieces} قطعة" : null,
+            $value > 0 ? 'بقيمة '.number_format($value) : null,
+        ]);
+
+        return $parts === [] ? '' : ' — '.implode(' ', $parts);
     }
 
     /**

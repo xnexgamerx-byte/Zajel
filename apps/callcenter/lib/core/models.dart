@@ -120,6 +120,7 @@ class HomeData {
     this.mine = const [],
     this.todayTickets = 0,
     this.todayProcessed = 0,
+    this.todayActions = const {},
   });
 
   factory HomeData.fromJson(Map<String, dynamic> j) {
@@ -136,6 +137,7 @@ class HomeData {
       mine: [for (final m in _list(j['mine'])) MyClaim.fromJson(m)],
       todayTickets: _int(today['tickets']),
       todayProcessed: _int(today['processed']),
+      todayActions: {for (final e in _map(today['actions']).entries) e.key: _int(e.value)},
     );
   }
 
@@ -153,6 +155,9 @@ class HomeData {
   final List<MyClaim> mine;
   final int todayTickets;
   final int todayProcessed;
+
+  /// ما عالجته اليوم بأنواعه (docs/plan/80): redeliver · postpone · return
+  final Map<String, int> todayActions;
 }
 
 /// «طلب تغيير المبلغ» من المندوب عند الباب (docs/plan/30)
@@ -175,6 +180,8 @@ class TicketItem {
     Party? merchant,
     this.claim,
     this.effect,
+    this.finalize = false,
+    this.returnedPieces,
   }) : courier = courier ?? Party(),
        merchant = merchant ?? Party();
 
@@ -198,8 +205,16 @@ class TicketItem {
       merchant: Party.fromJson(j['merchant']),
       claim: ClaimInfo.fromJson(j['claim']),
       effect: j['effect'] as String?,
+      finalize: j['finalize'] as bool? ?? false,
+      returnedPieces: j['returned_pieces'] == null ? null : _int(j['returned_pieces']),
     );
   }
+
+  /// سلّمها المندوب وينتظر (docs/plan/80): اعتمادها يسجّلها واصلة
+  final bool finalize;
+
+  /// القطع التي رجعت معه في الواصل الجزئي
+  final int? returnedPieces;
 
   final int id;
   final String number;
@@ -286,6 +301,9 @@ class CaseItem {
     this.canAsk = false,
     this.merchantChat = const [],
     this.courierChat = const [],
+    this.reasonNote,
+    this.description,
+    this.pieces = 1,
   }) : merchant = merchant ?? Party(),
        courier = courier ?? Party();
 
@@ -312,7 +330,15 @@ class CaseItem {
     canAsk: j['can_ask'] as bool? ?? false,
     merchantChat: [for (final m in _list(j['merchant_chat'])) ChatLine.fromJson(m)],
     courierChat: [for (final m in _list(j['courier_chat'])) ChatLine.fromJson(m)],
+    reasonNote: j['reason_note'] as String?,
+    description: j['description'] as String?,
+    pieces: j['pieces'] == null ? 1 : _int(j['pieces']),
   );
+
+  /// التوضيح المكتوب مع السبب (docs/plan/80): «تغيير عنوان — إلى الكرادة…»
+  final String? reasonNote;
+  final String? description;
+  final int pieces;
 
   final int id;
   final String number;
@@ -397,6 +423,11 @@ class FoundShipment {
     required this.status,
     required this.statusLabel,
     this.amount = 0,
+    this.courier,
+    this.reason,
+    this.until,
+    this.withCourier,
+    this.since,
   });
 
   factory FoundShipment.fromJson(Map<String, dynamic> j) => FoundShipment(
@@ -409,6 +440,11 @@ class FoundShipment {
     status: j['status'] as String? ?? '',
     statusLabel: j['status_label'] as String? ?? '',
     amount: _int(j['amount']),
+    courier: j['courier'] is String ? j['courier'] as String : null,
+    reason: j['reason'] as String?,
+    until: _at(j['until']),
+    withCourier: j['with_courier'] as bool?,
+    since: _at(j['since']),
   );
 
   final int id;
@@ -420,20 +456,143 @@ class FoundShipment {
   final String status;
   final String statusLabel;
   final int amount;
+
+  /// في خانات «حالة الشحنات» (docs/plan/80): مندوبها، وآخر سبب، وموعد المؤجّلة، والراجع بيد المندوب أم بالمخزن
+  final String? courier;
+  final String? reason;
+  final DateTime? until;
+  final bool? withCourier;
+  final DateTime? since;
+}
+
+/// خانةٌ من «حالة الشحنات» (docs/plan/80): in_delivery · postponed · redelivery · returns
+class BoardKind {
+  BoardKind({required this.kind, required this.label, required this.count});
+
+  factory BoardKind.fromJson(Map<String, dynamic> j) =>
+      BoardKind(kind: j['kind'] as String? ?? '', label: j['label'] as String? ?? '', count: _int(j['count']));
+
+  final String kind;
+  final String label;
+  final int count;
+}
+
+/// ما في الخانة، وعددها كلّها
+class BoardPage {
+  BoardPage({required this.kind, required this.label, required this.count, required this.items});
+
+  factory BoardPage.fromJson(Map<String, dynamic> j) => BoardPage(
+    kind: j['kind'] as String? ?? '',
+    label: j['label'] as String? ?? '',
+    count: _int(j['count']),
+    items: [for (final s in _list(j['data'])) FoundShipment.fromJson(s)],
+  );
+
+  final String kind;
+  final String label;
+  final int count;
+  final List<FoundShipment> items;
+}
+
+/// سطرٌ في «أنجزتِ اليوم» (docs/plan/80): قرار معالجة، أو تذكرة مبلغٍ حسمتها
+class DoneItem {
+  DoneItem({
+    required this.id,
+    this.shipmentId,
+    this.number,
+    this.recipient,
+    required this.title,
+    this.action,
+    this.label = '',
+    this.note,
+    this.by,
+    this.at,
+  });
+
+  factory DoneItem.fromJson(Map<String, dynamic> j) => DoneItem(
+    id: _int(j['id']),
+    shipmentId: j['shipment_id'] == null ? null : _int(j['shipment_id']),
+    number: j['number'] as String?,
+    recipient: j['recipient'] as String?,
+    title: j['title'] as String? ?? '',
+    action: j['action'] as String?,
+    label: j['label'] as String? ?? '',
+    note: j['note'] as String?,
+    by: j['by'] as String?,
+    at: _at(j['at']),
+  );
+
+  final int id;
+  final int? shipmentId;
+  final String? number;
+  final String? recipient;
+  final String title;
+
+  /// redeliver · postpone · return — أو approved · rejected للتذاكر
+  final String? action;
+  final String label;
+  final String? note;
+  final String? by;
+  final DateTime? at;
+}
+
+/// تحديثٌ تختاره الموظّفة لشحنة: الحالة وما تحتاجه — سبب، أو مبلغ، أو مندوب
+class Transition {
+  Transition({required this.value, required this.label, this.needs = const []});
+
+  factory Transition.fromJson(Map<String, dynamic> j) => Transition(
+    value: j['value'] as String? ?? '',
+    label: j['label'] as String? ?? '',
+    needs: [for (final n in (j['needs'] as List?) ?? const []) '$n'],
+  );
+
+  final String value;
+  final String label;
+
+  /// reason · amount · courier
+  final List<String> needs;
+}
+
+/// سبب عدم التسليم، وهل يحتاج توضيحاً
+class ReasonOption {
+  ReasonOption({required this.id, required this.name, this.note = false});
+
+  factory ReasonOption.fromJson(Map<String, dynamic> j) =>
+      ReasonOption(id: _int(j['id']), name: j['name'] as String? ?? '', note: j['note'] as bool? ?? false);
+
+  final int id;
+  final String name;
+  final bool note;
+}
+
+/// مندوبٌ يُختار للتوصيل
+class CourierOption {
+  CourierOption({required this.id, required this.name});
+
+  factory CourierOption.fromJson(Map<String, dynamic> j) =>
+      CourierOption(id: _int(j['id']), name: j['name'] as String? ?? '');
+
+  final int id;
+  final String name;
 }
 
 /// سطرٌ في سجلّ الشحنة
 class EventLine {
-  EventLine({required this.status, this.note, this.by, this.at});
+  EventLine({required this.status, this.note, this.by, this.at, this.type = 'status_change'});
 
   factory EventLine.fromJson(Map<String, dynamic> j) => EventLine(
     status: j['status'] as String? ?? '',
     note: j['note'] as String?,
     by: j['by'] as String?,
     at: _at(j['at']),
+    type: j['type'] as String? ?? 'status_change',
   );
 
+  /// الحالة، أو نوع الحدث لما لا يغيّرها: «تعديل بيانات»، «طلب تغيير المبلغ»…
   final String status;
+
+  /// status_change · edited · ticket · processed…
+  final String type;
   final String? note;
   final String? by;
   final DateTime? at;
@@ -452,6 +611,14 @@ class ShipmentDetail {
     Party? courier,
     this.processing = false,
     this.events = const [],
+    this.reasonNote,
+    this.until,
+    this.pieces = 1,
+    this.description,
+    this.transitions = const [],
+    this.reasons = const [],
+    this.couriers = const [],
+    this.canReopen = false,
   }) : merchant = merchant ?? Party(),
        courier = courier ?? Party();
 
@@ -467,7 +634,31 @@ class ShipmentDetail {
     courier: Party.fromJson(j['courier']),
     processing: j['processing'] as bool? ?? false,
     events: [for (final e in _list(j['events'])) EventLine.fromJson(e)],
+    reasonNote: j['reason_note'] as String?,
+    until: _at(j['until']),
+    pieces: j['pieces'] == null ? 1 : _int(j['pieces']),
+    description: j['description'] as String?,
+    transitions: [for (final t in _list(j['transitions'])) Transition.fromJson(t)],
+    reasons: [for (final r in _list(j['reasons'])) ReasonOption.fromJson(r)],
+    couriers: [for (final c in _list(j['couriers'])) CourierOption.fromJson(c)],
+    canReopen: j['can_reopen'] as bool? ?? false,
   );
+
+  /// التوضيح المكتوب مع السبب (docs/plan/80)
+  final String? reasonNote;
+
+  /// موعد المؤجّلة
+  final DateTime? until;
+  final int pieces;
+  final String? description;
+
+  /// ما تحدّثها إليه الموظّفة من التطبيق، وما يحتاجه كلٌّ منها
+  final List<Transition> transitions;
+  final List<ReasonOption> reasons;
+  final List<CourierOption> couriers;
+
+  /// راجعٌ مؤكَّد يعود للتوصيل بسببٍ تكتبه
+  final bool canReopen;
 
   final FoundShipment found;
   final String? phoneAlt;

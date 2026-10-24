@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Actions\Shipments\ChangeStatusInBulk;
-use App\Actions\Shipments\ProcessFailedAttempt;
 use App\Actions\Shipments\SendOutForDelivery;
+use App\Actions\Shipments\StaffStatusUpdate;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Concerns\ReportsBulkOutcome;
 use App\Http\Controllers\Controller;
@@ -21,54 +20,10 @@ class ShipmentStatusController extends Controller
 {
     use ReportsBulkOutcome;
 
-    public function __construct(protected ChangeShipmentStatus $changeStatus) {}
-
-    /** تغيير حالة شحنة واحدة من صفحة تفاصيلها. */
-    public function update(ChangeStatusRequest $request, Shipment $shipment, ProcessFailedAttempt $process): RedirectResponse
+    /** تغيير حالة شحنة واحدة من صفحة تفاصيلها — بالطريق نفسه الذي يحدّث به تطبيق الكول سنتر */
+    public function update(ChangeStatusRequest $request, Shipment $shipment, StaffStatusUpdate $update): RedirectResponse
     {
-        // «إعادة توصيل» و«واصل إجباري» من القائمة نفسها (docs/plan/53)
-        if ($request->validated('status') === ChangeStatusRequest::REDELIVER) {
-            if ($shipment->status === ShipmentStatus::FailedAttempt) {
-                // كما في «شحنات لم تُسلَّم»: تُسجَّل معالجةً باسمه
-                $process->handle($shipment, 'redeliver', $request->user(), 'staff', null, $request->validated('note'), $request->ip());
-            } else {
-                $this->changeStatus->handle($shipment, ShipmentStatus::OutForDelivery, $request->user(), array_filter([
-                    'courier_id' => $request->validated('courier_id') ?: $shipment->delivery_courier_id,
-                    'redelivery' => true,
-                    'note'       => $request->validated('note') ?: 'إعادة توصيل',
-                ], fn ($v) => $v !== null));
-            }
-
-            return back()->with('success', "أُعيدت الشحنة {$shipment->number} للتوصيل.");
-        }
-
-        if ($request->validated('status') === ChangeStatusRequest::FORCE_DELIVERED) {
-            $this->changeStatus->handle($shipment, ShipmentStatus::Delivered, $request->user(), array_filter([
-                'force'            => true,
-                'forced_reason'    => $request->validated('force_delivered_reason'),
-                'collected_amount' => (int) $request->validated('collected_amount'),
-                'note'             => $request->validated('note'),
-            ], fn ($v) => $v !== null));
-
-            return back()->with('success', "سُجّلت الشحنة {$shipment->number} «واصل» إجبارياً، وسُجّل السبب باسمك.");
-        }
-
-        $to = ShipmentStatus::from($request->validated('status'));
-
-        $this->changeStatus->handle($shipment, $to, $request->user(), array_filter([
-            'courier_id'        => $request->validated('courier_id'),
-            'hub_id'            => $request->validated('hub_id'),
-            'failure_reason_id' => $request->validated('failure_reason_id'),
-            'note'              => $request->validated('note'),
-            'collected_amount'  => $request->validated('collected_amount'),
-            'force'             => $request->boolean('force') ?: null,
-            'retry'             => $request->boolean('retry') ?: null,
-            'forced_reason'     => $request->boolean('force') ? $request->validated('forced_reason') : null,
-        ], fn ($v) => $v !== null));
-
-        return back()->with('success', $request->boolean('force')
-            ? "تم تحديث الشحنة {$shipment->number} إلى «{$to->label()}» إجبارياً، وسُجّل السبب باسمك."
-            : "تم تحديث الشحنة {$shipment->number} إلى «{$to->label()}».");
+        return back()->with('success', $update->handle($shipment, $request->validated(), $request->user(), $request->ip()));
     }
 
     /**

@@ -169,19 +169,28 @@ class Api {
     return Outcome(body['message'] as String? ?? 'معك للتوصيل.', ShipmentDetail.fromJson((body['data'] as Map).cast()));
   }
 
-  /// «الزبون يريد يدفع غير المبلغ؟» — price (السعر تغيّر) أو partial (أخذ جزءاً وأرجع الباقي)
+  /// «الزبون دفع غير المبلغ» — price (سُلّمت بسعرٍ آخر) أو partial (أخذ جزءاً وأرجع الباقي). وfinalize
+  /// (docs/plan/80): سلّمها وينتظر الموظّف، فالموافقة تسجّلها — والجزئيّ بعدد القطع الراجعة
   Future<(String, Ticket)> openTicket(
     int id, {
     required String kind,
     required int amount,
     required String reason,
+    bool finalize = false,
+    int? returnedPieces,
   }) async {
-    if (AppConfig.demo) return Demo.openTicket(id, kind, amount, reason);
+    if (AppConfig.demo) return Demo.openTicket(id, kind, amount, reason, returnedPieces: returnedPieces);
     final body = await _send(
       http.post(
         _uri('/courier/shipments/$id/ticket'),
         headers: _headers,
-        body: jsonEncode({'kind': kind, 'requested_amount': amount, 'reason': reason}),
+        body: jsonEncode({
+          'kind': kind,
+          'requested_amount': amount,
+          'reason': reason,
+          'finalize': finalize,
+          'returned_pieces': ?returnedPieces,
+        }),
       ),
     );
     return (body['message'] as String? ?? 'أُرسل طلبك إلى الكول سنتر.', Ticket.fromJson((body['data'] as Map).cast()));

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\CallCenter;
 
+use App\Actions\Shipments\ProcessFailedAttempt;
 use App\Actions\Support\Claims;
 use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
@@ -10,7 +11,6 @@ use App\Models\Conversation;
 use App\Models\CourierThread;
 use App\Models\Governorate;
 use App\Models\Shipment;
-use App\Models\ShipmentEvent;
 use App\Models\ShipmentTicket;
 use App\Models\WorkClaim;
 use App\Support\FeatureGate;
@@ -44,6 +44,7 @@ class HomeController extends Controller
         $oldestChat = $conversations ? (clone $conversations)->min('last_message_at') : null;
 
         $mine = $user->handledGovernorateIds();
+        $processed = BoardController::processedToday($user)->get(['id', 'meta']);
 
         return response()->json([
             'greeting' => $hour < 12 ? 'صباح الخير' : 'مساء الخير',
@@ -78,12 +79,13 @@ class HomeController extends Controller
                 'title' => self::title($c),
                 'since' => $c->claimed_at?->toIso8601String(),
             ])->values(),
-            // ما أنجزته اليوم: تذاكر حسمتها، وشحنات عالجتها
+            // ما أنجزته اليوم (docs/plan/80): قرارات المعالجة بأنواعها، وتذاكر المبلغ التي حسمتها — وكلٌّ يُفتح بتفاصيله
             'today' => [
                 'tickets' => ShipmentTicket::query()->where('handled_by_user_id', $user->id)
                     ->whereOnDate('handled_at', today())->count(),
-                'processed' => ShipmentEvent::query()->where('event_type', 'processed')->where('actor_type', 'user')
-                    ->where('actor_id', $user->id)->whereOnDate('created_at', today())->count(),
+                'processed' => $processed->count(),
+                'actions' => collect(array_keys(ProcessFailedAttempt::ACTIONS))
+                    ->mapWithKeys(fn ($a) => [$a => $processed->filter(fn ($e) => ($e->meta['action'] ?? null) === $a)->count()]),
             ],
         ]);
     }

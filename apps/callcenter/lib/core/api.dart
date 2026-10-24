@@ -224,6 +224,47 @@ class Api {
     return ShipmentDetail.fromJson(((await _get('/callcenter/shipments/$id'))['data'] as Map).cast());
   }
 
+  /// «حدّثي الحالة» (docs/plan/80): بقواعد صفحة الشحنة في الموقع نفسها
+  Future<String> updateStatus(int id, String status, {int? reasonId, String? note, int? amount, int? courierId}) async {
+    if (AppConfig.demo) return Demo.updateStatus(id, status, reasonId: reasonId, note: note, amount: amount);
+    return _message(
+      await _post('/callcenter/shipments/$id/status', {
+        'status': status,
+        'failure_reason_id': ?reasonId,
+        if ((note ?? '').trim().isNotEmpty) 'note': note!.trim(),
+        'collected_amount': ?amount,
+        'courier_id': ?courierId,
+      }),
+    );
+  }
+
+  /// راجعٌ مؤكَّد يعود للتوصيل: اقتنع الزبون أو اتّفق معه التاجر — والسبب إلزاميّ
+  Future<String> reopen(int id, String note) async {
+    if (AppConfig.demo) return Demo.reopen(id, note);
+    return _message(await _post('/callcenter/shipments/$id/reopen', {'note': note.trim()}));
+  }
+
+  // ---------------------------------------------------------------- حالة الشحنات و«أنجزتِ اليوم»
+
+  /// الخانات الأربع بعددها (docs/plan/80)
+  Future<List<BoardKind>> board() async {
+    if (AppConfig.demo) return Demo.board();
+    final body = await _get('/callcenter/board');
+    return [for (final k in body['data'] as List) BoardKind.fromJson((k as Map).cast())];
+  }
+
+  Future<BoardPage> boardList(String kind, {String q = ''}) async {
+    if (AppConfig.demo) return Demo.boardList(kind, q);
+    return BoardPage.fromJson(await _get('/callcenter/board/$kind', {if (q.trim().isNotEmpty) 'q': q.trim()}));
+  }
+
+  /// processed: قرارات المعالجة اليوم · tickets: تذاكر المبلغ التي حسمتها اليوم
+  Future<List<DoneItem>> done(String kind) async {
+    if (AppConfig.demo) return Demo.done(kind);
+    final body = await _get('/callcenter/done', {'kind': kind});
+    return [for (final d in body['data'] as List) DoneItem.fromJson((d as Map).cast())];
+  }
+
   // ---------------------------------------------------------------- الطلبات
 
   Future<Map<String, dynamic>> _get(String path, [Map<String, String>? query]) =>

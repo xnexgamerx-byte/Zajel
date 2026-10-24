@@ -116,6 +116,15 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   Text(tag(t.number), style: font(13, w8, Palette.ink)),
                   const SizedBox(width: 8),
                   Pill(t.kindLabel, color: t.kind == 'price' ? brand.deep : Queue.processing, size: 10.5),
+                  // سلّمها المندوب وينتظر (docs/plan/80): اعتمادها يسجّلها واصلة
+                  if (t.finalize) ...[
+                    const SizedBox(width: 6),
+                    Pill(
+                      t.returnedPieces == null ? 'سلّمها — ينتظرك' : 'رجعت ${t.returnedPieces} قطعة',
+                      color: Queue.couriers,
+                      size: 10.5,
+                    ),
+                  ],
                   const Spacer(),
                   WaitChip(t.waitingMinutes, late: t.late),
                 ],

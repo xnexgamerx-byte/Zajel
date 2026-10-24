@@ -22,14 +22,30 @@ class ShipmentTickets
 {
     public const MAX_AMOUNT = 100_000_000;
 
+    /** أكثر ما يُكتب من القطع الراجعة في واصلٍ جزئيّ */
+    public const MAX_PIECES = 999;
+
     public function __construct(
         protected SequenceGenerator $sequences,
         protected UpdateShipment $update,
+        protected ChangeShipmentStatus $change,
     ) {}
 
-    public function open(Shipment $shipment, Courier $courier, User $actor, string $kind, int $amount, string $reason): ShipmentTicket
-    {
-        return DB::transaction(function () use ($shipment, $courier, $actor, $kind, $amount, $reason) {
+    /**
+     * $finalize: المندوب سلّم وينتظر (docs/plan/80) — الاعتماد يسجّلها واصلةً بنفسه. والواصل الجزئيّ
+     * منه بعدد القطع التي رجعت معه ($pieces).
+     */
+    public function open(
+        Shipment $shipment,
+        Courier $courier,
+        User $actor,
+        string $kind,
+        int $amount,
+        string $reason,
+        bool $finalize = false,
+        ?int $pieces = null,
+    ): ShipmentTicket {
+        return DB::transaction(function () use ($shipment, $courier, $actor, $kind, $amount, $reason, $finalize, $pieces) {
             $shipment = Shipment::query()->lockForUpdate()->findOrFail($shipment->id);
 
             if ($shipment->status !== ShipmentStatus::OutForDelivery || (int) $shipment->delivery_courier_id !== $courier->id) {
@@ -48,6 +64,10 @@ class ShipmentTickets
 
             $this->checkAmount($shipment, $kind, $amount, 'requested_amount');
 
+            if ($kind === 'partial' && $finalize && ($pieces === null || $pieces < 1 || $pieces > self::MAX_PIECES)) {
+                throw ValidationException::withMessages(['returned_pieces' => 'كم قطعةً رجعت معك؟ اكتب عددها.']);
+            }
+
             $ticket = ShipmentTicket::create([
                 'number'            => $this->sequences->next('shipment_ticket'),
                 'shipment_id'       => $shipment->id,
@@ -58,10 +78,15 @@ class ShipmentTickets
                 'current_amount'    => (int) $shipment->cod_amount,
                 'requested_amount'  => $amount,
                 'reason'            => $reason,
+                'finalize'          => $finalize,
+                'returned_pieces'   => $kind === 'partial' ? $pieces : null,
             ]);
 
-            $this->log($shipment, $actor, 'courier', "طلب المندوب تغيير المبلغ ({$ticket->number}): "
+            $this->log($shipment, $actor, 'courier', ($finalize
+                ? ($kind === 'price' ? "سلّمها المندوب بسعرٍ آخر وينتظر الموافقة ({$ticket->number}): " : "واصلٌ جزئيّ ينتظر الموافقة ({$ticket->number}): ")
+                : "طلب المندوب تغيير المبلغ ({$ticket->number}): ")
                 .number_format($ticket->current_amount).' ← '.number_format($amount)
+                .($kind === 'partial' && $pieces ? " — رجعت {$pieces} قطعة" : '')
                 .' — '.$ticket->kindLabel().'. '.$reason, $courier->id);
 
             return $ticket;
@@ -90,11 +115,42 @@ class ShipmentTickets
                     .number_format($amount).(filled($reply) ? ' — '.$reply : ''), $ticket->courier_id);
             }
 
+            // سلّم المندوب وانتظر (docs/plan/80): الاعتماد يسجّلها واصلةً بالمبلغ المعتمد، باسم المندوب
+            if ($ticket->finalize) {
+                $this->finalize($ticket, $shipment->refresh(), $amount, $actor);
+                $done['used_at'] = now();
+            }
+
             $ticket->update($done);
             Claims::clear(Claims::TICKET, $ticket->id);
 
             return $ticket;
         });
+    }
+
+    /**
+     * «سُلّمت مع تغيير السعر» واصلٌ بالمبلغ الجديد، و«واصل جزئي» بما دفعه الزبون وعدد القطع الراجعة —
+     * يُكتب باسم المندوب الذي سلّم، وبموافقة الموظّف في الملاحظة. والقطع الراجعة على الشحنة: يراها
+     * المخزن في الراجع، والتاجر في إيصال راجعه.
+     */
+    protected function finalize(ShipmentTicket $ticket, Shipment $shipment, int $amount, User $actor): void
+    {
+        $courierUser = User::query()->find($ticket->opened_by_user_id) ?? $actor;
+        $partial = $ticket->kind === 'partial';
+
+        if ($partial) {
+            $shipment->forceFill(['returned_pieces' => $ticket->returned_pieces])->save();
+        }
+
+        $this->change->handle($shipment, $partial ? ShipmentStatus::PartiallyDelivered : ShipmentStatus::Delivered, $courierUser, [
+            'actor_type' => 'courier',
+            'actor_name' => $ticket->courier?->name ?? $courierUser->name,
+            'courier_id' => $ticket->courier_id,
+            'collected_amount' => $amount,
+            'ticket_id' => $ticket->id,
+            'note' => ($partial ? 'واصل جزئي' : 'سُلّمت بالسعر الجديد')." بموافقة {$actor->name} ({$ticket->number})"
+                .($partial && $ticket->returned_pieces ? " — رجعت {$ticket->returned_pieces} قطعة" : ''),
+        ]);
     }
 
     public function reject(ShipmentTicket $ticket, string $reply, User $actor): ShipmentTicket

@@ -39,6 +39,12 @@ class ChangeStatusRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    /** الشحنة التي تُحدَّث: من رابط صفحتها في الموقع، ومن رقمها في تطبيق الكول سنتر */
+    public function shipment(): Shipment
+    {
+        return $this->route('shipment');
+    }
+
     public function rules(): array
     {
         return [
@@ -60,8 +66,7 @@ class ChangeStatusRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            /** @var Shipment $shipment */
-            $shipment = $this->route('shipment');
+            $shipment = $this->shipment();
 
             if ($this->input('status') === self::REDELIVER) {
                 $this->checkRedeliver($validator, $shipment);

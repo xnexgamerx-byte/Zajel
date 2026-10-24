@@ -204,6 +204,8 @@ class TaskRow {
     this.until,
     this.waiting = false,
     this.redelivery = false,
+    this.returnedPieces,
+    this.returnedValue,
   });
 
   factory TaskRow.fromJson(Map<String, dynamic> j) {
@@ -225,8 +227,14 @@ class TaskRow {
       until: _at(j['until']),
       waiting: j['waiting'] as bool? ?? false,
       redelivery: j['redelivery'] as bool? ?? false,
+      returnedPieces: j['returned_pieces'] == null ? null : _int(j['returned_pieces']),
+      returnedValue: j['returned_value'] == null ? null : _int(j['returned_value']),
     );
   }
+
+  /// باقي الواصل الجزئي في «الراجع» (docs/plan/80): كم قطعةً رجعت معه، وبكم
+  final int? returnedPieces;
+  final int? returnedValue;
 
   final int id;
   final String number;
@@ -307,6 +315,9 @@ class Ticket {
     required this.statusLabel,
     required this.requested,
     this.approved,
+    this.finalize = false,
+    this.returnedPieces,
+    this.reply,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> j) => Ticket(
@@ -317,7 +328,19 @@ class Ticket {
     statusLabel: j['status_label'] as String? ?? '',
     requested: _int(j['requested_amount']),
     approved: j['approved_amount'] == null ? null : _int(j['approved_amount']),
+    finalize: j['finalize'] as bool? ?? false,
+    returnedPieces: j['returned_pieces'] == null ? null : _int(j['returned_pieces']),
+    reply: j['reply'] as String?,
   );
+
+  /// سلّمها وينتظر الموظّف: موافقته تسجّلها وحدها (docs/plan/80)
+  final bool finalize;
+
+  /// القطع التي رجعت معه في الواصل الجزئي
+  final int? returnedPieces;
+
+  /// ردّ الموظّف، وسبب الرفض خاصّةً
+  final String? reply;
 
   final String number;
   final String kind;

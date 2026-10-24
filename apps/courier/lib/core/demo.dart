@@ -334,7 +334,13 @@ class Demo {
     return Outcome('سُجِّلت الشحنة ${p.id}: ${p.label}.', p.detail());
   }
 
-  static Future<(String, Ticket)> openTicket(int id, String kind, int amount, String reason) async {
+  static Future<(String, Ticket)> openTicket(
+    int id,
+    String kind,
+    int amount,
+    String reason, {
+    int? returnedPieces,
+  }) async {
     final p = _get(id);
     if (p.ticket != null) {
       throw _field('requested_amount', 'طلبك ${p.ticket!.number} بانتظار الكول سنتر — انتظر جوابه.');
@@ -347,9 +353,14 @@ class Demo {
       status: 'open',
       statusLabel: 'بانتظار الكول سنتر',
       requested: amount,
+      finalize: true,
+      returnedPieces: returnedPieces,
     );
     p.ticket = ticket;
-    return ('أُرسل طلبك ${ticket.number} إلى الكول سنتر. لا تسلّم بالمبلغ الجديد حتى يُعتمد.', ticket);
+    return (
+      'أُرسل ${ticket.number} للموظّف. حين يوافق تُسجَّل الشحنة ${kind == 'partial' ? '«واصل جزئي»' : '«سُلّمت»'} وحدها.',
+      ticket,
+    );
   }
 
   static Future<CashPage> cash() async => CashPage(

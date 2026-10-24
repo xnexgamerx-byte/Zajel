@@ -225,15 +225,19 @@ class _ReasonsSheetState extends State<_ReasonsSheet> {
   }
 }
 
-/// «الزبون يريد يدفع غير المبلغ؟» — طلبٌ إلى الكول سنتر، ويعود نصّ النظام إن أُرسل
-Future<String?> showTicketSheet(BuildContext context, Brand brand, ShipmentDetail shipment) =>
-    showSheet<String>(context, _TicketSheet(brand: brand, shipment: shipment));
+/// «سُلّمت مع تغيير السعر» أو «واصل جزئي» (docs/plan/80): سلّم المندوب، ويكتب ما قبضه — والجزئيّ بعدد
+/// القطع الراجعة معه — فيصل الموظّف. حين يوافق تُسجَّل الشحنة وحدها. ويعود نصّ النظام إن أُرسل.
+Future<String?> showTicketSheet(BuildContext context, Brand brand, ShipmentDetail shipment, {required String kind}) =>
+    showSheet<String>(context, _TicketSheet(brand: brand, shipment: shipment, kind: kind));
 
 class _TicketSheet extends StatefulWidget {
-  const _TicketSheet({required this.brand, required this.shipment});
+  const _TicketSheet({required this.brand, required this.shipment, required this.kind});
 
   final Brand brand;
   final ShipmentDetail shipment;
+
+  /// price: سُلّمت كاملةً بسعرٍ آخر · partial: أخذ الزبون بعضها
+  final String kind;
 
   @override
   State<_TicketSheet> createState() => _TicketSheetState();
@@ -242,14 +246,11 @@ class _TicketSheet extends StatefulWidget {
 class _TicketSheetState extends State<_TicketSheet> {
   final amount = TextEditingController();
   final reason = TextEditingController();
-  String? kind;
+  int pieces = 1;
   String? error;
   bool busy = false;
 
-  static const _kinds = [
-    ('price', 'السعر تغيّر', 'اتّفق الزبون مع التاجر على مبلغٍ آخر'),
-    ('partial', 'أخذ جزءاً وأرجع الباقي', 'يدفع عن القطع التي أخذها، والباقي يرجع معك'),
-  ];
+  bool get partial => widget.kind == 'partial';
 
   @override
   void dispose() {
@@ -259,26 +260,26 @@ class _TicketSheetState extends State<_TicketSheet> {
   }
 
   Future<void> _send() async {
-    final value = int.tryParse(amount.text.replaceAll(' ', ''));
-    if (kind == null) {
-      setState(() => error = 'اختر: السعر تغيّر، أم أخذ الزبون جزءاً من الطلب؟');
-      return;
-    }
+    final value = int.tryParse(amount.text.replaceAll(RegExp(r'[^0-9]'), ''));
     if (value == null) {
-      setState(() => error = 'اكتب المبلغ الذي سيدفعه الزبون.');
+      setState(() => error = 'اكتب المبلغ الذي قبضته من الزبون.');
       return;
     }
     if (reason.text.trim().length < 3) {
-      setState(() => error = 'اكتب ما قاله الزبون — به تقرّر الكول سنتر.');
+      setState(
+        () => error = partial ? 'اكتب ماذا أخذ الزبون وماذا رجع.' : 'اكتب لماذا تغيّر السعر — به يقرّر الموظّف.',
+      );
       return;
     }
     setState(() => (busy = true, error = null));
     try {
       final (message, _) = await Api.instance.openTicket(
         widget.shipment.id,
-        kind: kind!,
+        kind: widget.kind,
         amount: value,
         reason: reason.text.trim(),
+        finalize: true,
+        returnedPieces: partial ? pieces : null,
       );
       if (mounted) Navigator.of(context).pop(message);
     } on ApiError catch (e) {
@@ -290,48 +291,12 @@ class _TicketSheetState extends State<_TicketSheet> {
 
   @override
   Widget build(BuildContext context) => SheetFrame(
-    title: 'اطلب تغيير المبلغ',
-    text: 'المبلغ الآن ${money(widget.shipment.amount)} د.ع. يصل طلبك للكول سنتر، ولا تسلّم بالمبلغ الجديد حتى يُعتمد.',
+    title: partial ? 'واصل جزئي' : 'سُلّمت مع تغيير السعر',
+    text:
+        'المبلغ الأصلي ${money(widget.shipment.amount)} د.ع. يصل الموظّف، وحين يوافق تُسجَّل الشحنة '
+        '${partial ? '«واصل جزئي»' : '«سُلّمت»'} وحدها.',
     children: [
-      for (final (value, label, hint) in _kinds)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Tap(
-            radius: 12,
-            onTap: () => setState(() => (kind = value, error = null)),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: kind == value ? widget.brand.softer : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: kind == value ? widget.brand.main : Palette.line,
-                  width: kind == value ? 1.4 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    kind == value ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                    size: 20,
-                    color: kind == value ? widget.brand.main : Palette.muted,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(label, style: font(14, w7, Palette.ink)),
-                        Text(hint, style: font(11.5, w5, Palette.slate)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      const FieldLabel('المبلغ الذي سيدفعه الزبون (د.ع)'),
+      FieldLabel(partial ? 'ما دفعه الزبون عن القطع التي أخذها (د.ع)' : 'المبلغ الذي قبضته (د.ع)'),
       InputBox(
         controller: amount,
         hint: '20 000',
@@ -339,11 +304,49 @@ class _TicketSheetState extends State<_TicketSheet> {
         formatters: const [LatinDigits(), Thousands()],
         ltr: true,
       ),
-      const FieldLabel('ما قاله الزبون'),
-      InputBox(controller: reason, hint: 'مثلاً: أخذ قطعتين من ثلاث', lines: 2, maxLength: 255),
+      if (partial) ...[
+        const FieldLabel('كم قطعةً رجعت معك؟'),
+        Row(
+          children: [
+            _step(Icons.remove_rounded, pieces > 1 ? () => setState(() => pieces--) : null),
+            Expanded(
+              child: Text('$pieces قطعة', textAlign: TextAlign.center, style: font(18, w8, Palette.ink)),
+            ),
+            _step(Icons.add_rounded, pieces < 999 ? () => setState(() => pieces++) : null),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'ترجع مع الراجع للمخزن، وتصل تاجرها بعددها وقيمتها في إيصال الراجع.',
+            style: font(11.5, w6, Palette.slate, height: 1.5),
+          ),
+        ),
+      ],
+      FieldLabel(partial ? 'ماذا أخذ الزبون وماذا رجع' : 'لماذا تغيّر السعر'),
+      InputBox(
+        controller: reason,
+        hint: partial ? 'مثلاً: أخذ قطعة من ثلاث' : 'مثلاً: التاجر اتّفق معه على خصم',
+        lines: 2,
+        maxLength: 255,
+      ),
       if (error != null) ErrorNote(error!),
       const SizedBox(height: 14),
-      SheetButton(brand: widget.brand, label: 'أرسل للكول سنتر', icon: Icons.send_rounded, busy: busy, onTap: _send),
+      SheetButton(brand: widget.brand, label: 'أرسل للموظّف', icon: Icons.send_rounded, busy: busy, onTap: _send),
     ],
+  );
+
+  Widget _step(IconData icon, VoidCallback? onTap) => Tap(
+    radius: 14,
+    onTap: onTap,
+    child: Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: onTap == null ? Palette.line : OutcomeColors.soft(OutcomeColors.delivered),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Icon(icon, color: onTap == null ? Palette.muted : OutcomeColors.delivered),
+    ),
   );
 }

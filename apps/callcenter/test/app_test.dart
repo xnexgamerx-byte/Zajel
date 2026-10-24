@@ -73,8 +73,10 @@ void main() {
       'للمعالجة',
       'محادثات التجّار',
       'رسائل المناديب',
+      'حالة الشحنات',
+      'قيد التوصيل',
       'أنجزتِ اليوم',
-      'تذاكر حسمتِها',
+      'تذاكر المبلغ حسمتِها',
     ]) {
       await tester.ensureVisible(find.text(text).first);
       expect(find.text(text), findsWidgets, reason: text);
@@ -155,5 +157,99 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('سجلّها'), findsOneWidget);
     expect(find.text('في المعالجة — افتحيها'), findsOneWidget);
+  });
+
+  testWidgets('حالة الشحنات: كلّ خانةٍ قائمتها، والراجع المؤكد يعود للتوصيل بسببه', (tester) async {
+    await _start(tester);
+
+    // المؤجل بموعده
+    await _tap(tester, find.text('مؤجل').first);
+    expect(find.text('اتُّفق مع الزبون على موعد — ما فات موعده أو اليوم أوّلاً'), findsOneWidget);
+    expect(find.text('زهراء كريم'), findsOneWidget);
+    expect(find.textContaining('موعدها'), findsWidgets);
+    expect(find.text('علي حسين'), findsNothing);
+    await _tap(tester, find.byTooltip('رجوع'));
+
+    // الراجع المؤكد: ما زال بيد المندوب، فيعود للتوصيل بسببٍ تكتبه
+    await _tap(tester, find.text('راجع مؤكد').first);
+    expect(find.textContaining('بيد المندوب أحمد كريم'), findsOneWidget);
+    expect(find.textContaining('استُلم في المخزن'), findsOneWidget);
+    await _tap(tester, find.text('أحمد ناصر'));
+    await _tap(tester, find.text('أعيديها للتوصيل'));
+    await _tap(tester, find.text('أعيديها'));
+    expect(find.text('اكتبي لماذا تعود للتوصيل: من اتّفق مع الزبون وعلى ماذا.'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'اتّصلت بالزبون واقتنع بالاستلام اليوم');
+    await _tap(tester, find.text('أعيديها'));
+    expect(find.text('عادت 180331 للتوصيل مع مندوبها — «إعادة توصيل».'), findsOneWidget);
+  });
+
+  testWidgets('أنجزتِ اليوم: كلّ قرارٍ يُفتح بتفاصيله، وتذاكر المبلغ بما حُسم', (tester) async {
+    await _start(tester);
+
+    await _tap(tester, find.text('إعادة توصيل').last);
+    expect(find.text('ما عالجتِه اليوم'), findsOneWidget);
+    expect(find.text('يستلم بعد العصر'), findsOneWidget);
+    expect(find.text('رفض نهائياً'), findsNothing);
+    await _tap(tester, find.text('الكل 7'));
+    expect(find.text('رفض نهائياً'), findsOneWidget);
+    await _tap(tester, find.byTooltip('رجوع'));
+
+    await _tap(tester, find.text('تذاكر المبلغ حسمتِها'));
+    expect(find.text('50,000 ← 45,000 د.ع'), findsOneWidget);
+    expect(find.text('التاجر لا يقبل البيع الجزئي'), findsOneWidget);
+  });
+
+  testWidgets('الشحنة: الرقم والوصل يُنسخان، والهاتف ظاهر، والتواصل بالخط أو واتساب، والتحديث بقواعده', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.byTooltip('ابحث عن شحنة'));
+    await tester.enterText(find.byType(TextField), '180301');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(find.text('سجلّها'), findsOneWidget);
+
+    // تعديل البيانات في السجلّ باسمه، لا بحالةٍ مكرّرة
+    expect(find.text('تعديل بيانات'), findsOneWidget);
+
+    expect(find.text(tag('180301')), findsNWidgets(2));
+    // الحافظة في الاختبار: ما نُسخ يُقرأ
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String?;
+      return null;
+    });
+    await _tap(tester, find.byIcon(Icons.copy_rounded).first);
+    expect(copied, '180301');
+    expect(find.text('نُسخ رقم الوصل 180301'), findsOneWidget);
+    await _tap(tester, find.text('الوصل كاملاً'));
+    expect(find.text('نُسخ الوصل كاملاً'), findsOneWidget);
+    expect(copied, contains('الهاتف: 07801234567'));
+    expect(copied, contains('المبلغ: 35,000 د.ع'));
+
+    expect(find.text('07801234567'), findsOneWidget);
+    await _tap(tester, find.byTooltip('تواصلي مع الزبون'));
+    expect(find.text('اتصال بالخط'), findsOneWidget);
+    expect(find.text('واتساب برسالة الشحنة'), findsOneWidget);
+    expect(find.textContaining('الوصل 180301'), findsWidgets);
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+
+    await _tap(tester, find.text('حدّثي الحالة'));
+    await _tap(tester, find.text('لم يُسلَّم').last);
+    await _tap(tester, find.text('تغيير عنوان · يحتاج توضيحاً'));
+    await _tap(tester, find.text('حدّثي'));
+    expect(find.textContaining('يحتاج توضيحاً — يظهر مع السبب'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'العنوان الجديد: الكرادة قرب الجسر');
+    await _tap(tester, find.text('حدّثي'));
+    expect(find.text('تم تحديث الشحنة 180301.'), findsOneWidget);
+  });
+
+  testWidgets('المعالجة: توضيح المندوب مع السبب، ورسالة واتساب من القالب', (tester) async {
+    await _start(tester);
+    await _tab(tester, 'المعالجة');
+    await _tap(tester, find.text('منى جاسم'));
+    expect(find.textContaining('توضيح المندوب: اتّصلت مرّتين'), findsOneWidget);
+    expect(find.text('07801234567'), findsOneWidget);
+    await _tap(tester, find.byTooltip('تواصلي مع الزبون'));
+    expect(find.textContaining('حاول المندوب توصيله ولم يتمّ (لا يرد على الهاتف)'), findsOneWidget);
   });
 }

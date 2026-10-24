@@ -124,8 +124,8 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
     if (code != null && mounted) setState(() => (scanned = code, scanError = null));
   }
 
-  Future<void> _ticket() async {
-    final made = await showTicketSheet(context, brand, s!);
+  Future<void> _ticket(String kind) async {
+    final made = await showTicketSheet(context, brand, s!, kind: kind);
     if (made != null && mounted) {
       toast(context, made);
       _load();
@@ -331,7 +331,9 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
           if (d.canAct) ...[
             const SizedBox(height: 6),
             Text(
-              'المبلغ لا يتغيّر عند الباب. إن قال الزبون مبلغاً آخر، اطلب تغيير المبلغ من الكول سنتر.',
+              t?.open == true
+                  ? 'اسحب للأسفل لترى جواب الموظّف.'
+                  : 'دفع الزبون غير هذا المبلغ؟ اختر «سُلّمت مع تغيير السعر» أو «واصل جزئي» تحت، وينتظر الموظّف.',
               style: font(12, w6, Palette.slate, height: 1.55),
             ),
             if (t != null) ...[
@@ -347,13 +349,19 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                 ),
                 child: Text(
                   switch (t.status) {
+                    'open' when t.finalize =>
+                      'بانتظار موافقة الموظّف (${t.number}): ${t.kind == 'partial' ? 'واصل جزئي' : 'سُلّمت بسعرٍ آخر'} '
+                          'بـ ${money(t.requested)} د.ع${t.returnedPieces != null ? ' ورجعت ${t.returnedPieces} قطعة' : ''}. '
+                          'حين يوافق تُسجَّل وحدها.',
                     'open' =>
                       'طلبك ${t.number} (${t.kindLabel}: ${money(t.requested)}) ينتظر جواب الكول سنتر. لا تسلّم بالمبلغ الجديد حتى يُعتمد.',
                     'approved' =>
                       d.partialAmount != null
                           ? 'اعتُمد واصلٌ جزئي بمبلغ ${money(d.partialAmount!)} د.ع — سجّله بزرّ «واصل جزئي».'
                           : 'اعتُمد طلبك ${t.number}: المبلغ صار ${money(d.amount)} د.ع.',
-                    _ => 'رُفض طلبك ${t.number}: المبلغ يبقى ${money(d.amount)} د.ع.',
+                    _ =>
+                      'رُفض طلبك ${t.number}: المبلغ يبقى ${money(d.amount)} د.ع.'
+                          '${(t.reply ?? '').isEmpty ? '' : ' — ${t.reply}'}',
                   },
                   style: font(
                     12.5,
@@ -361,18 +369,6 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                     t.open ? Palette.warn : (t.status == 'approved' ? Palette.ok : Palette.bad),
                     height: 1.55,
                   ),
-                ),
-              ),
-            ],
-            if (t == null || t.status == 'rejected') ...[
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: busy ? null : _ticket,
-                icon: Icon(Icons.edit_note_rounded, color: brand.main, size: 19),
-                label: Text('اطلب تغيير المبلغ', style: font(13, w7, brand.main)),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: brand.border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ],
@@ -589,6 +585,30 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
               icon: Icons.call_split_rounded,
               color: OutcomeColors.delivered,
               onTap: busy || scanMissing ? null : () => _deliver(partial: true),
+            ),
+          ] else if (d.ticket?.open != true) ...[
+            // دفع الزبون غير المبلغ (docs/plan/80): يسلّم ويكتب ما قبضه، والموظّف يوافق فتُسجَّل وحدها
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _Outcome(
+                    label: 'سُلّمت مع تغيير السعر',
+                    icon: Icons.price_change_rounded,
+                    color: OutcomeColors.delivered,
+                    onTap: busy || scanMissing ? null : () => _ticket('price'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _Outcome(
+                    label: 'واصل جزئي',
+                    icon: Icons.call_split_rounded,
+                    color: OutcomeColors.delivered,
+                    onTap: busy || scanMissing ? null : () => _ticket('partial'),
+                  ),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 8),

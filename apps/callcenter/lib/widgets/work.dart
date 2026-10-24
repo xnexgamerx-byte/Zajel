@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -32,6 +33,347 @@ Future<void> openWhatsApp(String? phone, {String? text}) async {
   if (n == null) return;
   final query = (text ?? '').trim().isEmpty ? '' : '?text=${Uri.encodeComponent(text!.trim())}';
   await launchUrl(Uri.parse('https://wa.me/$n$query'), mode: LaunchMode.externalApplication);
+}
+
+/// ينسخ النصّ ويقول ما نُسخ (docs/plan/80): رقم الوصل، وهاتف الزبون، والوصل كاملاً
+Future<void> copyText(BuildContext context, String text, String what) async {
+  await Clipboard.setData(ClipboardData(text: text));
+  HapticFeedback.selectionClick();
+  if (context.mounted) toast(context, 'نُسخ $what');
+}
+
+/// ما يُنسخ بـ«انسخي الوصل كاملاً»: كلّ ما في الوصل سطراً سطراً، يُلصق في واتساب أو رسالة
+String waybillText({
+  required String number,
+  required String recipient,
+  String? phone,
+  String? phoneAlt,
+  String? place,
+  String? address,
+  String? landmark,
+  required int amount,
+  String? merchant,
+  String? status,
+  String? description,
+  int? pieces,
+  String? notes,
+}) => [
+  'الوصل: $number',
+  'الزبون: $recipient',
+  if ((phone ?? '').isNotEmpty) 'الهاتف: $phone',
+  if ((phoneAlt ?? '').isNotEmpty) 'الهاتف البديل: $phoneAlt',
+  if ((place ?? '').isNotEmpty) 'المنطقة: $place',
+  if ((address ?? '').isNotEmpty || (landmark ?? '').isNotEmpty)
+    'العنوان: ${[address, landmark].whereType<String>().where((t) => t.isNotEmpty).join(' — ')}',
+  'المبلغ: ${money(amount)} د.ع',
+  if ((merchant ?? '').isNotEmpty) 'المتجر: $merchant',
+  if ((description ?? '').isNotEmpty) 'المحتوى: $description${pieces != null ? ' · $pieces قطعة' : ''}',
+  if ((status ?? '').isNotEmpty) 'الحالة: $status',
+  if ((notes ?? '').isNotEmpty) 'ملاحظة: $notes',
+].join('\n');
+
+/// «اتصلي بالزبون» (docs/plan/80): بالخط، أو واتساب برسالة الشحنة من القالب، أو واتساب بلا رسالة —
+/// تختار ولا تنسخ رقماً
+Future<void> contactCustomer(
+  BuildContext context,
+  Brand brand, {
+  required String? phone,
+  required String message,
+}) async {
+  if ((phone ?? '').isEmpty) return;
+  final choice = await showSheet<String>(
+    context,
+    SheetFrame(
+      title: 'التواصل مع الزبون',
+      text: phone!,
+      children: [
+        SheetButton(
+          brand: brand,
+          label: 'اتصال بالخط',
+          icon: Icons.call_rounded,
+          onTap: () => Navigator.of(context).pop('call'),
+        ),
+        const SizedBox(height: 8),
+        _WhatsAppChoice(
+          label: 'واتساب برسالة الشحنة',
+          sub: message.isEmpty ? 'القالب فارغ: تُفتح المحادثة بلا رسالة' : message,
+          onTap: () => Navigator.of(context).pop('message'),
+        ),
+        const SizedBox(height: 8),
+        SheetButton(
+          brand: brand,
+          label: 'واتساب بلا رسالة',
+          icon: Icons.chat_outlined,
+          outlined: true,
+          onTap: () => Navigator.of(context).pop('whatsapp'),
+        ),
+      ],
+    ),
+  );
+  switch (choice) {
+    case 'call':
+      await callPhone(phone);
+    case 'message':
+      await openWhatsApp(phone, text: message);
+    case 'whatsapp':
+      await openWhatsApp(phone);
+  }
+}
+
+/// خيار واتساب الأخضر، ونصّ الرسالة تحته كما ستُرسل
+class _WhatsAppChoice extends StatelessWidget {
+  const _WhatsAppChoice({required this.label, required this.sub, required this.onTap});
+
+  final String label;
+  final String sub;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tap(
+    radius: 16,
+    onTap: onTap,
+    child: Ink(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9F9EE),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBDE9CB)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(color: whatsappGreen, shape: BoxShape.circle),
+            child: const Center(child: FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white, size: 19)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: font(14, w8, const Color(0xFF13743A))),
+                Text(
+                  sub,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: font(11.5, w6, Palette.slate, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// الزبون كما يُعرض في الشحنة والمعالجة (docs/plan/80): اسمه ومنطقته، وهاتفه ظاهراً يُنسخ بلمسة، وزرّ
+/// «تواصلي» يسأل: بالخط أم واتساب برسالة الشحنة
+class CustomerCard extends StatelessWidget {
+  const CustomerCard({
+    super.key,
+    required this.brand,
+    required this.name,
+    required this.place,
+    required this.phone,
+    required this.message,
+    this.phoneAlt,
+    this.big = false,
+  });
+
+  final Brand brand;
+  final String name;
+  final String place;
+  final String? phone;
+  final String? phoneAlt;
+
+  /// رسالة واتساب من القالب، مملوءةً من الشحنة
+  final String message;
+
+  /// في المعالجة: الزبون أوّل ما في الصفحة
+  final bool big;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        children: [
+          Container(
+            width: big ? 46 : 38,
+            height: big ? 46 : 38,
+            decoration: BoxDecoration(
+              color: Queue.couriers.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(big ? 16 : 13),
+            ),
+            child: Icon(Icons.person_rounded, size: big ? 23 : 19, color: Queue.couriers),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name.isEmpty ? 'الزبون' : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: big ? display(19, w7, Palette.ink) : font(14.5, w8, Palette.ink),
+                ),
+                if (place.isNotEmpty) Text(place, style: font(12, w7, Palette.slate, height: 1.4)),
+              ],
+            ),
+          ),
+          if ((phone ?? '').isNotEmpty) ...[
+            WhatsAppButton(phone: phone, size: big ? 50 : 38, text: message, shadow: big),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'تواصلي مع الزبون',
+              child: Tap(
+                radius: 30,
+                shadow: big
+                    ? const [
+                        BoxShadow(color: Color(0x551F8A4C), blurRadius: 18, spreadRadius: -6, offset: Offset(0, 8)),
+                      ]
+                    : null,
+                onTap: () => contactCustomer(context, brand, phone: phone, message: message),
+                child: Ink(
+                  width: big ? 50 : 38,
+                  height: big ? 50 : 38,
+                  decoration: const BoxDecoration(color: Queue.couriers, shape: BoxShape.circle),
+                  child: Icon(Icons.call_rounded, color: Colors.white, size: big ? 24 : 19),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      if ((phone ?? '').isNotEmpty) ...[const SizedBox(height: 8), _PhoneLine(label: 'الهاتف', phone: phone!)],
+      if ((phoneAlt ?? '').isNotEmpty) ...[
+        const SizedBox(height: 6),
+        _PhoneLine(label: 'الهاتف البديل', phone: phoneAlt!, brand: brand, message: message),
+      ],
+    ],
+  );
+}
+
+/// رقمٌ ظاهرٌ يُنسخ بلمسة، ونسخه بزرّه
+class _PhoneLine extends StatelessWidget {
+  const _PhoneLine({required this.label, required this.phone, this.brand, this.message});
+
+  final String label;
+  final String phone;
+  final Brand? brand;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) => Tap(
+    radius: 12,
+    onTap: () => copyText(context, phone, 'رقم الزبون'),
+    child: Ink(
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Palette.line),
+      ),
+      child: Row(
+        children: [
+          Text(label, style: font(11.5, w6, Palette.muted)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              phone,
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.end,
+              style: font(15, w8, Palette.ink, height: 1.2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Icon(Icons.copy_rounded, size: 17, color: Palette.muted),
+          if (brand != null) ...[
+            const SizedBox(width: 6),
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => contactCustomer(context, brand!, phone: phone, message: message ?? ''),
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.call_rounded, size: 18, color: Queue.couriers),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+/// رقم الوصل كبيراً يُنسخ بلمسة، و«انسخي الوصل كاملاً» بجانبه (docs/plan/80)
+class WaybillBar extends StatelessWidget {
+  const WaybillBar({super.key, required this.brand, required this.number, required this.full, this.status});
+
+  final Brand brand;
+  final String number;
+
+  /// الوصل كاملاً نصّاً — waybillText
+  final String full;
+  final Widget? status;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Tap(
+          radius: 14,
+          onTap: () => copyText(context, number, 'رقم الوصل $number'),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Palette.line),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.copy_rounded, size: 17, color: brand.main),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tag(number),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: font(15.5, w8, Palette.ink, height: 1.2),
+                  ),
+                ),
+                ?status,
+              ],
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Tooltip(
+        message: 'انسخي الوصل كاملاً',
+        child: Tap(
+          radius: 14,
+          onTap: () => copyText(context, full, 'الوصل كاملاً'),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.content_copy_rounded, size: 17, color: brand.deep),
+                const SizedBox(width: 5),
+                Text('الوصل كاملاً', style: font(12.5, w8, brand.deep)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 /// زرّ واتساب المستدير، بجانب كلّ زرّ اتّصال

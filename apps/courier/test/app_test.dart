@@ -228,20 +228,29 @@ void main() {
     expect(find.text('سُجِّلت الشحنة 180209: لم يُسلَّم.'), findsOneWidget);
   });
 
-  testWidgets('المبلغ لا يتغيّر عند الباب: يُطلب من الكول سنتر، والجزئي بعد اعتماده فقط', (tester) async {
+  testWidgets('سُلّمت مع تغيير السعر وواصل جزئي بالقطع الراجعة: ينتظران الموظّف، والجزئي المعتمد يُسجَّل', (
+    tester,
+  ) async {
     await _start(tester);
     await _openShipment(tester, '180212');
 
     expect(find.text('واصل جزئي بـ 20,000'), findsNothing);
-    await _tap(tester, find.text('اطلب تغيير المبلغ'));
-    await _tap(tester, find.text('السعر تغيّر'));
+    // الجزئيّ: المبلغ وعدد القطع الراجعة
+    await _tap(tester, find.text('واصل جزئي'));
+    expect(find.text('كم قطعةً رجعت معك؟'), findsOneWidget);
+    await _tap(tester, find.byIcon(Icons.add_rounded));
+    expect(find.text('2 قطعة'), findsOneWidget);
+    Navigator.of(tester.element(find.text('كم قطعةً رجعت معك؟'))).pop();
+    await tester.pumpAndSettle();
+
+    await _tap(tester, find.text('سُلّمت مع تغيير السعر'));
     await tester.enterText(find.byType(TextField).at(0), '15000');
     await tester.enterText(find.byType(TextField).at(1), 'اتّفق مع التاجر على خصم');
-    await _tap(tester, find.text('أرسل للكول سنتر'));
+    await _tap(tester, find.text('أرسل للموظّف'));
 
-    expect(find.textContaining('إلى الكول سنتر. لا تسلّم بالمبلغ الجديد حتى يُعتمد.'), findsWidgets);
-    expect(find.textContaining('ينتظر جواب الكول سنتر'), findsOneWidget);
-    expect(find.text('اطلب تغيير المبلغ'), findsNothing);
+    expect(find.textContaining('حين يوافق تُسجَّل الشحنة «سُلّمت» وحدها.'), findsWidgets);
+    expect(find.textContaining('بانتظار موافقة الموظّف'), findsOneWidget);
+    expect(find.text('سُلّمت مع تغيير السعر'), findsNothing);
 
     // شحنةٌ اعتُمد لها واصلٌ جزئي
     await _tap(tester, find.byTooltip('رجوع'));

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CallCenter\BoardController as CallCenterBoardController;
 use App\Http\Controllers\Api\CallCenter\ConversationController as CallCenterConversationController;
 use App\Http\Controllers\Api\CallCenter\HomeController as CallCenterHomeController;
 use App\Http\Controllers\Api\CallCenter\ProcessingController as CallCenterProcessingController;
@@ -139,6 +140,17 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
 
             Route::get('/shipments', [CallCenterShipmentController::class, 'index'])->name('shipments.index');
             Route::get('/shipments/{shipment}', [CallCenterShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.show');
+
+            // «حالة الشحنات» بخاناتها، و«أنجزتِ اليوم» بتفاصيله (docs/plan/80)
+            Route::get('/board', [CallCenterBoardController::class, 'index'])->name('board.index');
+            Route::get('/board/{kind}', [CallCenterBoardController::class, 'show'])->where('kind', '[a-z_]+')->name('board.show');
+            Route::get('/done', [CallCenterBoardController::class, 'done'])->name('done');
+
+            // تحديث الحالة من التطبيق، وإعادة الراجع المؤكَّد للتوصيل
+            Route::middleware(['can:shipments.status', 'throttle:60,1'])->group(function () {
+                Route::post('/shipments/{shipment}/status', [CallCenterShipmentController::class, 'status'])->whereNumber('shipment')->name('shipments.status');
+                Route::post('/shipments/{shipment}/reopen', [CallCenterShipmentController::class, 'reopen'])->whereNumber('shipment')->name('shipments.reopen');
+            });
         });
 
         Route::prefix('merchant')->name('merchant.')->middleware(['abilities:merchant', 'merchant'])->group(function () {

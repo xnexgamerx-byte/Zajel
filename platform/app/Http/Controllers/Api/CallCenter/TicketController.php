@@ -67,7 +67,9 @@ class TicketController extends Controller
         $tickets->approve($t, (int) $data['approved_amount'], $data['reply'] ?? null, $request->user());
 
         return response()->json(['message' => "اعتُمد الطلب {$t->number} بـ".number_format((int) $data['approved_amount'])
-            .' د.ع — يراه المندوب الآن في صفحة الشحنة.']);
+            .($t->finalize
+                ? ' د.ع — وسُجّلت الشحنة '.($t->kind === 'partial' ? '«واصل جزئي».' : '«واصل».')
+                : ' د.ع — يراه المندوب الآن في صفحة الشحنة.')]);
     }
 
     public function reject(Request $request, int $ticket, ShipmentTickets $tickets): JsonResponse
@@ -105,6 +107,9 @@ class TicketController extends Controller
             'current' => (int) $t->current_amount,
             'requested' => (int) $t->requested_amount,
             'reason' => $t->reason,
+            // سلّم المندوب وينتظر: اعتمادها يسجّلها واصلة (docs/plan/80)
+            'finalize' => (bool) $t->finalize,
+            'returned_pieces' => $t->returned_pieces,
             'waiting_minutes' => self::minutesSince($t->created_at),
             'shipment' => [
                 'id' => $s?->id,
@@ -117,9 +122,13 @@ class TicketController extends Controller
             'merchant' => ['name' => $s?->merchant?->business_name, 'phone' => $s?->merchant?->phone],
             'claim' => self::claimJson($claim, $request->user()),
             // ما يعنيه الاعتماد — في التفاصيل
-            'effect' => $full ? ($t->kind === 'price'
-                ? 'الاعتماد يغيّر مبلغ الشحنة الآن (ويُكتب في سجلّها)، ويسلّم المندوب «واصل» بالمبلغ الجديد.'
-                : 'الاعتماد يفتح للمندوب «واصل جزئي» بهذا المبلغ، وباقي الطلب يرجع لتاجره راجعاً بلا أجرة راجع.') : null,
+            'effect' => $full ? match (true) {
+                $t->finalize && $t->kind === 'price' => 'سلّمها المندوب وينتظرك: الاعتماد يغيّر مبلغها ويسجّلها «واصل» بالمبلغ الجديد الآن.',
+                $t->finalize => 'سلّم المندوب بعضها وينتظرك: الاعتماد يسجّلها «واصل جزئي» بهذا المبلغ الآن، و'
+                    .($t->returned_pieces ? "{$t->returned_pieces} قطعة ترجع" : 'الباقي يرجع').' لتاجرها راجعاً بلا أجرة راجع.',
+                $t->kind === 'price' => 'الاعتماد يغيّر مبلغ الشحنة الآن (ويُكتب في سجلّها)، ويسلّم المندوب «واصل» بالمبلغ الجديد.',
+                default => 'الاعتماد يفتح للمندوب «واصل جزئي» بهذا المبلغ، وباقي الطلب يرجع لتاجره راجعاً بلا أجرة راجع.',
+            } : null,
         ];
     }
 }

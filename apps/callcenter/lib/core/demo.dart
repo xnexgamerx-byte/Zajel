@@ -17,6 +17,10 @@ class Demo {
   static int _doneTickets = 4;
   static int _doneCases = 7;
 
+  /// «حالة الشحنات» بخاناتها، و«أنجزتِ اليوم» بتفاصيله (docs/plan/80)
+  static Map<String, List<FoundShipment>> _board = _seedBoard();
+  static List<DoneItem> _done = _seedDone();
+
   /// يعيد العرض إلى أوّله — بين اختبارٍ وآخر
   static void reset() {
     _tickets = _seedTickets();
@@ -25,6 +29,8 @@ class Demo {
     _mine.clear();
     _doneTickets = 4;
     _doneCases = 7;
+    _board = _seedBoard();
+    _done = _seedDone();
   }
 
   static DateTime _ago(int minutes) => DateTime.now().subtract(Duration(minutes: minutes));
@@ -83,6 +89,9 @@ class Demo {
     ],
     todayTickets: _doneTickets,
     todayProcessed: _doneCases,
+    todayActions: {
+      for (final a in const ['redeliver', 'postpone', 'return']) a: _done.where((d) => d.action == a).length,
+    },
   );
 
   static String _title(String key) {
@@ -261,6 +270,29 @@ class Demo {
       'postpone' => 'مؤجل إلى ${until!.toIso8601String().substring(0, 10)}',
       _ => 'راجع مؤكد',
     };
+    final kind = switch (action) {
+      'redeliver' => 'redelivery',
+      'postpone' => 'postponed',
+      _ => 'returns',
+    };
+    _board[kind]!.insert(
+      0,
+      _row(
+        c.id,
+        c.number,
+        c.name,
+        c.place,
+        c.amount,
+        switch (action) {
+          'redeliver' => ('out_for_delivery', 'إعادة توصيل'),
+          'postpone' => ('postponed', 'مؤجل'),
+          _ => ('returning', 'راجع مؤكد'),
+        },
+        until: until,
+        withCourier: action == 'return' ? true : null,
+      ),
+    );
+    _log(c.id, c.number, c.name, action);
     return 'عولجت ${c.number}: $label.';
   }
 
@@ -371,6 +403,7 @@ class Demo {
         statusLabel: 'لم يُسلَّم',
         amount: c.amount,
       ),
+    for (final rows in _board.values) ...rows,
   ];
 
   static Future<List<FoundShipment>> search(String q) async {
@@ -384,8 +417,9 @@ class Demo {
   }
 
   static Future<ShipmentDetail> shipment(int id) async {
-    final s = _all.firstWhere((s) => s.id == id);
+    final s = _all.lastWhere((s) => s.id == id);
     final processing = s.status == 'failed_attempt';
+    final failed = processing || s.status == 'postponed';
     return ShipmentDetail(
       found: s,
       address: 'شارع 62، قرب المدرسة',
@@ -393,16 +427,263 @@ class Demo {
       merchant: Party(name: s.merchant, phone: '07700000001'),
       courier: Party(name: 'أحمد كريم', phone: '07720000001'),
       processing: processing,
-      reason: processing ? 'لا يرد على الهاتف' : null,
-      attempts: processing ? 1 : 0,
+      reason: failed ? (s.reason ?? 'لا يرد على الهاتف') : null,
+      reasonNote: failed ? 'اتّصل مرّتين، والزبونة طلبت تغيير العنوان إلى الكرادة قرب الجسر' : null,
+      until: s.until,
+      attempts: failed ? 1 : 0,
+      pieces: 2,
+      description: 'ملابس نسائية',
+      canReopen: s.status == 'returning' && (s.withCourier ?? false),
+      transitions: switch (s.status) {
+        'out_for_delivery' => [
+          Transition(value: 'delivered', label: 'واصل'),
+          Transition(value: 'partially_delivered', label: 'واصل جزئي', needs: const ['amount']),
+          Transition(value: 'failed_attempt', label: 'لم يُسلَّم', needs: const ['reason']),
+          Transition(value: 'postponed', label: 'مؤجل'),
+          Transition(value: 'at_hub', label: 'بالمخزن'),
+        ],
+        'postponed' => [
+          Transition(value: 'redeliver', label: 'إعادة توصيل'),
+          Transition(value: 'returning', label: 'راجع مؤكد'),
+        ],
+        _ => const [],
+      },
+      reasons: [
+        ReasonOption(id: 1, name: 'لا يرد على الهاتف'),
+        ReasonOption(id: 2, name: 'تغيير عنوان', note: true),
+        ReasonOption(id: 3, name: 'الزبون رفض الاستلام', note: true),
+      ],
       events: [
-        EventLine(status: s.statusLabel, note: processing ? 'لا يرد على الهاتف' : null, by: 'أحمد كريم', at: _ago(90)),
+        EventLine(status: s.statusLabel, note: failed ? 'لا يرد على الهاتف' : null, by: 'أحمد كريم', at: _ago(90)),
+        EventLine(
+          status: 'تعديل بيانات',
+          type: 'edited',
+          note: 'العنوان: شارع 52 ← شارع 62 — طلبت الزبونة تغيير العنوان',
+          by: 'سارة',
+          at: _ago(200),
+        ),
         EventLine(status: 'قيد التوصيل', by: 'المخزن', at: _ago(300)),
         EventLine(status: 'بالمخزن', by: 'المخزن', at: _ago(1500)),
         EventLine(status: 'تم الاستلام', by: 'مندوب الاستلام', at: _ago(1700)),
       ],
     );
   }
+
+  /// «حدّثي الحالة» في العرض: يُرفض ما يحتاج سبباً أو مبلغاً بلا ذلك، كالنظام
+  static Future<String> updateStatus(int id, String status, {int? reasonId, String? note, int? amount}) async {
+    if (status == 'failed_attempt' && reasonId == null) {
+      throw ApiError('سبب الفشل مطلوب — بلا سبب مصنَّف لا تقرير ولا محاسبة.', fields: {'failure_reason_id': '…'});
+    }
+    if (status == 'failed_attempt' && reasonId != 1 && (note ?? '').trim().isEmpty) {
+      throw ApiError('السبب يتطلّب ملاحظة توضيحية.', fields: {'note': '…'});
+    }
+    if (status == 'partially_delivered' && amount == null) {
+      throw ApiError('أدخل المبلغ المحصَّل فعلاً في التسليم الجزئي.', fields: {'collected_amount': '…'});
+    }
+    final s = _all.lastWhere((s) => s.id == id);
+    return 'تم تحديث الشحنة ${s.number}.';
+  }
+
+  static Future<String> reopen(int id, String note) async {
+    if (note.trim().isEmpty) {
+      throw ApiError('اكتبي لماذا تعود للتوصيل: من اتّفق مع الزبون وعلى ماذا.', fields: {'note': '…'});
+    }
+    final rows = _board['returns']!;
+    final s = rows.firstWhere(
+      (r) => r.id == id && (r.withCourier ?? false),
+      orElse: () => throw ApiError('لا تعود للتوصيل من هنا.', fields: {'note': '…'}),
+    );
+    rows.remove(s);
+    _board['redelivery']!.insert(
+      0,
+      _row(s.id, s.number, s.recipient, s.place, s.amount, ('out_for_delivery', 'إعادة توصيل')),
+    );
+    _doneCases++;
+    _log(s.id, s.number, s.recipient, 'redeliver', note: note);
+    return 'عادت ${s.number} للتوصيل مع مندوبها — «إعادة توصيل».';
+  }
+
+  // ------------------------------------------------------------------ حالة الشحنات (docs/plan/80)
+
+  static const _kinds = {
+    'in_delivery': 'قيد التوصيل',
+    'postponed': 'مؤجل',
+    'redelivery': 'إعادة توصيل',
+    'returns': 'راجع مؤكد',
+  };
+
+  static FoundShipment _row(
+    int id,
+    String number,
+    String name,
+    String place,
+    int amount,
+    (String, String) status, {
+    DateTime? until,
+    bool? withCourier,
+    String? reason,
+    int minutes = 120,
+  }) => FoundShipment(
+    id: id,
+    number: number,
+    recipient: name,
+    phone: '07801234567',
+    place: place,
+    merchant: 'متجر الوردة',
+    status: status.$1,
+    statusLabel: status.$2,
+    amount: amount,
+    courier: 'أحمد كريم',
+    reason: reason,
+    until: until,
+    withCourier: withCourier,
+    since: _ago(minutes),
+  );
+
+  static Map<String, List<FoundShipment>> _seedBoard() {
+    final today = DateTime.now();
+    return {
+      'in_delivery': [
+        _row(301, '180301', 'علي حسين', 'بغداد · المنصور', 35000, ('out_for_delivery', 'قيد التوصيل'), minutes: 40),
+        _row(302, '180302', 'هدى كريم', 'بغداد · الأعظمية', 48000, ('out_for_delivery', 'قيد التوصيل'), minutes: 75),
+        _row(303, '180303', 'مصطفى جبار', 'بابل · الحلة', 22000, ('out_for_delivery', 'قيد التوصيل'), minutes: 160),
+      ],
+      'postponed': [
+        _row(
+          311,
+          '180311',
+          'زهراء كريم',
+          'بغداد · الكاظمية',
+          25000,
+          ('postponed', 'مؤجل'),
+          until: today,
+          reason: 'الزبون طلب التأجيل',
+        ),
+        _row(
+          312,
+          '180312',
+          'نبأ سالم',
+          'بغداد · حي الجهاد',
+          33000,
+          ('postponed', 'مؤجل'),
+          until: today.add(const Duration(days: 2)),
+          reason: 'خارج المحافظة',
+        ),
+      ],
+      'redelivery': [
+        _row(321, '180321', 'سيف علي', 'بغداد · الشعب', 41000, ('out_for_delivery', 'إعادة توصيل'), minutes: 300),
+        _row(322, '180322', 'رنا فاضل', 'بغداد · زيونة', 27000, ('at_hub', 'إعادة توصيل — بالمخزن'), minutes: 500),
+      ],
+      'returns': [
+        _row(
+          331,
+          '180331',
+          'أحمد ناصر',
+          'بغداد · الشعب',
+          41000,
+          ('returning', 'راجع مؤكد'),
+          withCourier: true,
+          reason: 'الزبون رفض الاستلام',
+        ),
+        _row(
+          332,
+          '180332',
+          'سجى محمد',
+          'بابل · الحلة',
+          42000,
+          ('returning', 'راجع'),
+          withCourier: false,
+          reason: 'لا يرد على الهاتف',
+        ),
+      ],
+    };
+  }
+
+  static Future<List<BoardKind>> board() async => [
+    for (final e in _kinds.entries) BoardKind(kind: e.key, label: e.value, count: _board[e.key]!.length),
+  ];
+
+  static Future<BoardPage> boardList(String kind, String q) async {
+    final rows = _board[kind] ?? const <FoundShipment>[];
+    return BoardPage(
+      kind: kind,
+      label: _kinds[kind] ?? '',
+      count: rows.length,
+      items: [
+        for (final r in rows)
+          if (q.trim().isEmpty || r.number.contains(q.trim()) || r.recipient.contains(q.trim())) r,
+      ],
+    );
+  }
+
+  static void _log(int id, String number, String name, String action, {String? note}) => _done.insert(
+    0,
+    DoneItem(
+      id: _done.length + 1,
+      shipmentId: id,
+      number: number,
+      recipient: name,
+      title: _labels[action] ?? 'معالجة',
+      action: action,
+      label: _labels[action] ?? 'معالجة',
+      note: note,
+      at: DateTime.now(),
+    ),
+  );
+
+  static const _labels = {'redeliver': 'إعادة توصيل', 'postpone': 'مؤجل', 'return': 'راجع مؤكد'};
+
+  static List<DoneItem> _seedDone() => [
+    for (final (i, (action, number, name, note)) in const [
+      ('redeliver', '180321', 'سيف علي', 'يستلم بعد العصر'),
+      ('redeliver', '180322', 'رنا فاضل', null),
+      ('redeliver', '180340', 'مريم سعد', 'غيّر رقمه'),
+      ('postpone', '180311', 'زهراء كريم', 'مسافرة حتى الخميس'),
+      ('postpone', '180312', 'نبأ سالم', null),
+      ('return', '180331', 'أحمد ناصر', 'رفض نهائياً'),
+      ('return', '180332', 'سجى محمد', null),
+    ].indexed)
+      DoneItem(
+        id: i + 1,
+        shipmentId: int.parse(number.substring(3)),
+        number: number,
+        recipient: name,
+        title: _labels[action]!,
+        action: action,
+        label: _labels[action]!,
+        note: note,
+        at: _ago(30 + i * 25),
+      ),
+  ];
+
+  static Future<List<DoneItem>> done(String kind) async => kind == 'tickets'
+      ? [
+          DoneItem(
+            id: 1,
+            shipmentId: 301,
+            number: '180301',
+            recipient: 'علي حسين',
+            title: 'تذكرة TK-000188 — السعر تغيّر',
+            action: 'approved',
+            label: 'اعتُمد',
+            note: '50,000 ← 45,000 د.ع',
+            by: 'أحمد كريم',
+            at: _ago(50),
+          ),
+          DoneItem(
+            id: 2,
+            shipmentId: 302,
+            number: '180302',
+            recipient: 'هدى كريم',
+            title: 'تذكرة TK-000190 — أخذ جزءاً وأرجع الباقي',
+            action: 'rejected',
+            label: 'رُفض',
+            note: 'التاجر لا يقبل البيع الجزئي',
+            by: 'علي جبار',
+            at: _ago(95),
+          ),
+        ]
+      : List.of(_done);
 
   static String _money(int v) {
     final d = v.toString();
@@ -465,6 +746,9 @@ class _Ticket {
     courier: Party(name: courier, phone: '07720000001'),
     merchant: Party(name: merchant, phone: '07700000001'),
     claim: Demo._claim('ticket:$id', other, otherSince),
+    // الجزئيّ في العرض سلّمه المندوب وينتظر (docs/plan/80)
+    finalize: kind == 'partial',
+    returnedPieces: kind == 'partial' ? 1 : null,
     effect: full
         ? (kind == 'price'
               ? 'الاعتماد يغيّر مبلغ الشحنة الآن (ويُكتب في سجلّها)، ويسلّم المندوب «واصل» بالمبلغ الجديد.'
@@ -522,6 +806,9 @@ class _Case {
     merchant: Party(name: merchant, phone: '07700000001'),
     courier: Party(name: courier, phone: '07720000001'),
     claim: Demo._claim('processing:$id', other, otherSince),
+    reasonNote: full ? 'اتّصلت مرّتين ولم يرد، ورسالة الواتساب وصلت ولم تُقرأ' : null,
+    description: full ? 'ملابس نسائية' : null,
+    pieces: 2,
     address: full ? 'شارع 62، بيت 14' : null,
     landmark: full ? 'قرب جامع الرحمن' : null,
     myNote: note,

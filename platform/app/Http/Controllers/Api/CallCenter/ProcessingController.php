@@ -69,6 +69,10 @@ class ProcessingController extends Controller
             'landmark' => $s->landmark,
             'phone_alt' => $s->recipient_phone_alt,
             'notes' => $s->notes,
+            // التوضيح المكتوب مع السبب (docs/plan/80)
+            'reason_note' => ShipmentController::reasonNote($s),
+            'description' => $s->description,
+            'pieces' => (int) $s->pieces_count,
             'my_note' => $note,
             'can_chat' => $chat,
             'can_ask' => FeatureGate::enabled(Feature::Conversations) && $s->merchant !== null,

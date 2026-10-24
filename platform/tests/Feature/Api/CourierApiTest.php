@@ -626,4 +626,62 @@ class CourierApiTest extends TestCase
             $this->assertNotSame(ShipmentStatus::PickedUp, $second->refresh()->status);
         });
     }
+
+    public function test_delivered_with_a_new_price_waits_for_staff_and_is_recorded_on_approval(): void
+    {
+        $shipment = $this->ship('زبون السعر');
+        $headers = $this->auth($this->token());
+
+        $this->postJson($this->api("/courier/shipments/{$shipment->id}/ticket"), [
+            'kind' => 'price', 'requested_amount' => 35_000, 'reason' => 'التاجر خفّض السعر', 'finalize' => true,
+        ], $headers)->assertCreated()
+            ->assertJsonPath('data.finalize', true)
+            ->assertJsonPath('message', fn ($m) => str_contains($m, 'وحدها'));
+
+        // تنتظر الموظّف: ما زالت معه، ولم يُقيَّد شيء
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+
+        $ticket = Tenancy::runFor($this->company, fn () => ShipmentTicket::query()->where('shipment_id', $shipment->id)->firstOrFail());
+        Tenancy::runFor($this->company, fn () => app(ShipmentTickets::class)->approve($ticket, 35_000, null, $this->staff));
+
+        $done = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::Delivered, $done->status);
+        $this->assertSame(35_000, (int) $done->cod_amount);
+        $this->assertSame(35_000, (int) $done->collected_amount);
+        $event = Tenancy::runFor($this->company, fn () => ShipmentEvent::query()->where('shipment_id', $shipment->id)
+            ->where('to_status', 'delivered')->firstOrFail());
+        $this->assertSame('courier', $event->actor_type);
+        $this->assertStringContainsString('بموافقة', (string) $event->note);
+        $this->assertNotNull(Tenancy::runFor($this->company, fn () => $ticket->refresh()->used_at));
+    }
+
+    public function test_a_partial_delivery_carries_its_returned_pieces_into_the_returns(): void
+    {
+        $shipment = $this->ship('زبون الجزئي');
+        $headers = $this->auth($this->token());
+
+        // بلا عدد القطع الراجعة لا يُرسل
+        $this->postJson($this->api("/courier/shipments/{$shipment->id}/ticket"), [
+            'kind' => 'partial', 'requested_amount' => 25_000, 'reason' => 'أخذ قطعة وحدة', 'finalize' => true,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('returned_pieces');
+
+        $this->postJson($this->api("/courier/shipments/{$shipment->id}/ticket"), [
+            'kind' => 'partial', 'requested_amount' => 25_000, 'reason' => 'أخذ قطعة وحدة', 'finalize' => true, 'returned_pieces' => 2,
+        ], $headers)->assertCreated()->assertJsonPath('data.returned_pieces', 2);
+
+        $ticket = Tenancy::runFor($this->company, fn () => ShipmentTicket::query()->where('shipment_id', $shipment->id)->firstOrFail());
+        Tenancy::runFor($this->company, fn () => app(ShipmentTickets::class)->approve($ticket, 25_000, 'تمام', $this->staff));
+
+        $done = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::PartiallyDelivered, $done->status);
+        $this->assertSame(25_000, (int) $done->collected_amount);
+        $this->assertSame(2, $done->returned_pieces);
+        $this->assertSame('باقي واصلٍ جزئي — 2 قطعة بقيمة 15,000', $done->returnReason());
+
+        // في «الراجع» عند المندوب بعدد قطعه وقيمتها
+        $row = collect($this->getJson($this->api('/courier/tasks?kind=returns'), $headers)->assertOk()->json('groups'))
+            ->flatMap(fn ($g) => $g['items'])->firstWhere('id', $shipment->id);
+        $this->assertSame(2, $row['returned_pieces']);
+        $this->assertSame(15_000, $row['returned_value']);
+    }
 }

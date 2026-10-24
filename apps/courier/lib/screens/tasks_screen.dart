@@ -319,6 +319,15 @@ class _TasksScreenState extends State<TasksScreen> {
                   Text(r.place, maxLines: 1, overflow: TextOverflow.ellipsis, style: font(12.5, w6, Palette.slate)),
                   if (waiting) Text('ينتظر جواب الكول سنتر على المبلغ', style: font(12, w7, Palette.warn, height: 1.5)),
                   if (r.failure != null) Text('آخر سبب: ${r.failure}', style: font(12, w6, Palette.warn, height: 1.5)),
+                  if (r.returnedPieces != null || (r.returnedValue ?? 0) > 0)
+                    Text(
+                      [
+                        'باقي واصلٍ جزئي',
+                        if (r.returnedPieces != null) '${r.returnedPieces} قطعة',
+                        if ((r.returnedValue ?? 0) > 0) 'بقيمة ${money(r.returnedValue!)}',
+                      ].join(' · '),
+                      style: font(12, w7, OutcomeColors.returned, height: 1.5),
+                    ),
                   if (r.fragile || r.hasNote) ...[
                     const SizedBox(height: 6),
                     Wrap(

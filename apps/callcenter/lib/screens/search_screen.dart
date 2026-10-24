@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/whatsapp_template.dart';
 import '../widgets/bits.dart';
 import '../widgets/digits.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
 import 'cases_screen.dart';
+import 'status_sheets.dart';
 import 'scan_screen.dart';
 
 /// «ابحث» (docs/plan/73): «الزبون اتّصل بخصوص الوصل كذا» — برقم الوصل أو هاتف الزبون أو اسمه، أو
@@ -187,7 +189,8 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 }
 
-/// الشحنة كما تراها الموظّفة: حالتها، ومن يُتّصل به، وسجلّها خطّاً زمنيّاً
+/// الشحنة كما تراها الموظّفة: رقمها يُنسخ والوصل كاملاً، وزبونها بهاتفه ظاهراً (بالخط أو واتساب)، وسبب آخر
+/// محاولةٍ بتوضيحه، وسجلّها خطّاً زمنيّاً — ومنها تحدّث حالتها، وتعيد للتوصيل راجعاً مؤكَّداً (docs/plan/80)
 class ShipmentScreen extends StatefulWidget {
   const ShipmentScreen({super.key, required this.brand, required this.id});
 
@@ -219,6 +222,20 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
     }
   }
 
+  Future<void> _update(ShipmentDetail d) async {
+    final message = await showSheet<String>(context, StatusSheet(brand: brand, shipment: d));
+    if (message == null || !mounted) return;
+    toast(context, message);
+    await _load();
+  }
+
+  Future<void> _reopen(ShipmentDetail d) async {
+    final message = await showSheet<String>(context, ReopenSheet(brand: brand, shipment: d));
+    if (message == null || !mounted) return;
+    toast(context, message);
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = s;
@@ -235,70 +252,115 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
             Expanded(
               child: d == null
                   ? Waiting(brand: brand, error: error, onRetry: _load)
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
-                      children: [
-                        if (d.processing) ...[
-                          HeroButton(
-                            brand: brand,
-                            label: 'في المعالجة — افتحيها',
-                            icon: Icons.support_agent_rounded,
-                            onTap: () async {
-                              final message = await openCase(context, brand, d.found.id);
-                              if (message != null && context.mounted) toast(context, message);
-                              await _load();
-                            },
-                          ),
+                  : RefreshIndicator(
+                      color: brand.main,
+                      onRefresh: _load,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
+                        children: [
+                          WaybillBar(brand: brand, number: d.found.number, full: _full(d)),
                           const SizedBox(height: 12),
-                        ],
-                        Panel(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              PersonRow(
-                                role: 'الزبون · ${d.found.place}',
-                                party: Party(name: d.found.recipient, phone: d.found.phone),
-                                icon: Icons.person_rounded,
-                                color: Queue.couriers,
-                              ),
-                              if ((d.address ?? '').isNotEmpty || (d.landmark ?? '').isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsetsDirectional.only(start: 48, bottom: 6),
-                                  child: Text(
-                                    [d.address, d.landmark].whereType<String>().where((t) => t.isNotEmpty).join(' — '),
-                                    style: font(12, w6, Palette.slate, height: 1.5),
+                          if (d.processing) ...[
+                            HeroButton(
+                              brand: brand,
+                              label: 'في المعالجة — افتحيها',
+                              icon: Icons.support_agent_rounded,
+                              onTap: () async {
+                                final message = await openCase(context, brand, d.found.id);
+                                if (message != null && context.mounted) toast(context, message);
+                                await _load();
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          if (d.reason != null || d.until != null) ...[_reasonCard(d), const SizedBox(height: 12)],
+                          Panel(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                CustomerCard(
+                                  brand: brand,
+                                  name: d.found.recipient,
+                                  place: d.found.place,
+                                  phone: d.found.phone,
+                                  phoneAlt: d.phoneAlt,
+                                  message: WhatsAppTemplate.fill(
+                                    recipient: d.found.recipient,
+                                    number: d.found.number,
+                                    amount: d.found.amount,
+                                    merchant: d.found.merchant,
+                                    place: d.found.place,
+                                    reason: d.reason,
                                   ),
                                 ),
-                              PersonRow(
-                                role: 'التاجر',
-                                party: d.merchant,
-                                icon: Icons.storefront_rounded,
-                                color: Queue.merchants,
-                              ),
-                              PersonRow(
-                                role: 'المندوب',
-                                party: d.courier,
-                                icon: Icons.delivery_dining_rounded,
-                                color: brand.main,
-                              ),
-                              const Divider(height: 18, color: Palette.line),
-                              Row(
-                                children: [
-                                  Text('المبلغ', style: font(12.5, w6, Palette.slate)),
-                                  const Spacer(),
-                                  Text('${money(d.found.amount)} د.ع', style: display(16, w7, Palette.ink)),
+                                if ((d.address ?? '').isNotEmpty || (d.landmark ?? '').isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      [
+                                        d.address,
+                                        d.landmark,
+                                      ].whereType<String>().where((t) => t.isNotEmpty).join(' — '),
+                                      style: font(12.5, w6, Palette.ink, height: 1.5),
+                                    ),
+                                  ),
+                                const Divider(height: 22, color: Palette.line),
+                                PersonRow(
+                                  role: 'التاجر',
+                                  party: d.merchant,
+                                  icon: Icons.storefront_rounded,
+                                  color: Queue.merchants,
+                                ),
+                                PersonRow(
+                                  role: 'المندوب',
+                                  party: d.courier,
+                                  icon: Icons.delivery_dining_rounded,
+                                  color: brand.main,
+                                ),
+                                const Divider(height: 18, color: Palette.line),
+                                Row(
+                                  children: [
+                                    Text('المبلغ', style: font(12.5, w6, Palette.slate)),
+                                    const Spacer(),
+                                    Text('${money(d.found.amount)} د.ع', style: display(16, w7, Palette.ink)),
+                                  ],
+                                ),
+                                if ((d.description ?? '').isNotEmpty)
+                                  Text(
+                                    'المحتوى: ${d.description} · ${d.pieces} قطعة',
+                                    style: font(12, w6, Palette.slate, height: 1.6),
+                                  ),
+                                if ((d.notes ?? '').isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text('ملاحظة التاجر: ${d.notes}', style: font(12, w6, Palette.ink, height: 1.5)),
                                 ],
-                              ),
-                              if ((d.notes ?? '').isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text('ملاحظة التاجر: ${d.notes}', style: font(12, w6, Palette.ink, height: 1.5)),
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                        const SectionTitle('سجلّها'),
-                        Panel(child: _timeline(d.events)),
-                      ],
+                          if (d.canReopen || d.transitions.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            if (d.canReopen) ...[
+                              SheetButton(
+                                brand: brand,
+                                label: 'أعيديها للتوصيل',
+                                icon: Icons.replay_rounded,
+                                onTap: () => _reopen(d),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            if (d.transitions.isNotEmpty)
+                              SheetButton(
+                                brand: brand,
+                                label: 'حدّثي الحالة',
+                                icon: Icons.published_with_changes_rounded,
+                                outlined: d.canReopen,
+                                onTap: () => _update(d),
+                              ),
+                          ],
+                          const SectionTitle('سجلّها'),
+                          Panel(child: _timeline(d.events)),
+                        ],
+                      ),
                     ),
             ),
           ],
@@ -306,6 +368,54 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
       ),
     );
   }
+
+  /// سبب آخر محاولةٍ بتوضيحه كما كُتب (docs/plan/80)، وموعد المؤجّلة
+  Widget _reasonCard(ShipmentDetail d) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Queue.processingSoft,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFF2D9A6)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.info_outline_rounded, size: 20, color: Queue.processing),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (d.reason != null)
+                Text(
+                  'آخر سبب: ${d.reason}${d.attempts > 0 ? ' · المحاولة ${d.attempts}' : ''}',
+                  style: font(13, w8, Palette.ink, height: 1.4),
+                ),
+              if ((d.reasonNote ?? '').isNotEmpty)
+                Text(d.reasonNote!, style: font(12.5, w6, Palette.ink, height: 1.55)),
+              if (d.until != null) Text('موعدها: ${when(d.until)}', style: font(12, w7, Queue.processing, height: 1.5)),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  String _full(ShipmentDetail d) => waybillText(
+    number: d.found.number,
+    recipient: d.found.recipient,
+    phone: d.found.phone,
+    phoneAlt: d.phoneAlt,
+    place: d.found.place,
+    address: d.address,
+    landmark: d.landmark,
+    amount: d.found.amount,
+    merchant: d.found.merchant,
+    status: d.found.statusLabel,
+    description: d.description,
+    pieces: d.pieces,
+    notes: d.notes,
+  );
 
   Widget _timeline(List<EventLine> events) => Column(
     children: [
@@ -339,7 +449,19 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(e.status, style: font(13.5, w8, i == 0 ? Palette.ink : Palette.slate)),
+                      Row(
+                        children: [
+                          if (e.type != 'status_change' && e.type != 'processed') ...[
+                            Icon(
+                              e.type == 'edited' ? Icons.edit_note_rounded : Icons.receipt_long_rounded,
+                              size: 15,
+                              color: Queue.processing,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Expanded(child: Text(e.status, style: font(13.5, w8, i == 0 ? Palette.ink : Palette.slate))),
+                        ],
+                      ),
                       if ((e.note ?? '').isNotEmpty) Text(e.note!, style: font(12, w6, Palette.ink, height: 1.5)),
                       Text(
                         [if (e.by != null) e.by!, when(e.at)].join(' · '),

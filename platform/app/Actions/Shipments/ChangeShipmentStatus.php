@@ -126,7 +126,8 @@ class ChangeShipmentStatus
                     'status' => "الشحنة في حالة نهائية «{$from->label()}» فلا تُفتَح بالإجبار.",
                 ]);
             }
-        } elseif (! $from->canMoveTo($to) && ! $this->isIntermediaryHandover($shipment, $from, $options, $to)) {
+        } elseif (! $from->canMoveTo($to) && ! $this->isIntermediaryHandover($shipment, $from, $options, $to)
+            && ! self::isReturnRetry($shipment, $from, $to, $options)) {
             throw ValidationException::withMessages([
                 'status' => "انتقال غير مسموح: من «{$from->label()}» إلى «{$to->label()}».",
             ]);
@@ -229,7 +230,7 @@ class ChangeShipmentStatus
             | راجعٌ يعود للتوصيل بطلب التاجر (retry — docs/plan/38): يُمحى عنه أثر رجوعه، فإن
             | فشل ثانيةً ورجع لم يبدُ «مستلَماً على الرفّ» وهو بيد المندوب. ويظهر «إعادة توصيل».
             */
-            if ($from === ShipmentStatus::Returning && $to === ShipmentStatus::AtHub) {
+            if ($from === ShipmentStatus::Returning && in_array($to, [ShipmentStatus::AtHub, ShipmentStatus::OutForDelivery], true)) {
                 $attributes['return_received_at'] = null;
                 $attributes['return_received_by_user_id'] = null;
                 $attributes['return_confirmed_at'] = null;
@@ -349,6 +350,21 @@ class ChangeShipmentStatus
 
             return $shipment->refresh();
         });
+    }
+
+    /**
+     * راجعٌ مؤكَّد ما زال بيد مندوبه يعود للتوصيل معه (docs/plan/80): اقتنع الزبون بالاستلام بعد
+     * تأكيد الراجع. قرارٌ صريح (retry) وحده، لراجعٍ لم يُسلَّم منه شيء ولم يُستلم في المخزن —
+     * وما استُلم في المخزن يعود «بالمخزن» كما كان.
+     */
+    public static function isReturnRetry(Shipment $shipment, ShipmentStatus $from, ShipmentStatus $to, array $options): bool
+    {
+        return ! empty($options['retry'])
+            && $from === ShipmentStatus::Returning
+            && $to === ShipmentStatus::OutForDelivery
+            && $shipment->return_received_at === null
+            && ! $shipment->wasDelivered()
+            && ($options['courier_id'] ?? $shipment->delivery_courier_id) !== null;
     }
 
     /**
