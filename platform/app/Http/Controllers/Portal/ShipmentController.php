@@ -48,9 +48,11 @@ class ShipmentController extends Controller
                 fn ($q) => $q->where('status', $returned),
                 fn ($q) => $q->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
                     // الراجع المسلَّم في «المؤرشفة» — إلّا إن طُلب بحالته أو بُحث عنه
-                    ->when(! $request->filled('status') && ! $request->filled('q'), fn ($q) => $q->where('status', '!=', $returned)
-                        // والجديدة في «الطابعة» (docs/plan/79)، لا تختلط بما هو في الطريق
-                        ->whereNotIn('status', ShipmentStatus::enteredValues())))
+                    // والجديدة في «الطابعة» (docs/plan/79)، لا تختلط بما هو في الطريق
+                    ->when(! $request->filled('status') && ! $request->filled('q'), fn ($q) => $q->whereIn('status', array_values(array_diff(
+                        array_map(fn (ShipmentStatus $s) => $s->value, ShipmentStatus::cases()),
+                        [$returned, ...ShipmentStatus::enteredValues()],
+                    )))))
             ->when($request->query('from'), fn ($q, $d) => $q->whereFromDate($dated, $d))
             ->when($request->query('to'), fn ($q, $d) => $q->whereUntilDate($dated, $d))
             ->when($archive, fn ($q) => $q->orderByDesc('returned_at'))
