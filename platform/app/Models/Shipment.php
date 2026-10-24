@@ -65,6 +65,7 @@ class Shipment extends Model
             'status'            => ShipmentStatus::class,
             'status_changed_at' => 'datetime',
             'scheduled_at'      => 'datetime',
+            'printed_at'        => 'datetime',
             'picked_up_at'      => 'datetime',
             'assigned_at'       => 'datetime',
             'redelivery_at'     => 'datetime',

@@ -71,6 +71,38 @@ void main() {
     }
   });
 
+  testWidgets('حالة الشحنات: كلّ حالةٍ قائمتها وحدها، والجديدة ليست قيد التوصيل، والدعم في الترويسة', (tester) async {
+    tester.view.physicalSize = const Size(393 * 3, 849 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpAndSettle();
+
+    // الدعم الفني مكان الإعدادات (docs/plan/79)
+    expect(find.byTooltip('الدعم الفني'), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+
+    // «قيد التوصيل»: ما استلمه المندوب وحده، لا الجديدة التي في «الطابعة»
+    await _reveal(tester, find.text('قيد التوصيل').first);
+    await tester.tap(find.text('قيد التوصيل').first);
+    await tester.pumpAndSettle();
+    expect(find.text('استلمها المندوب، وهي في طريقها إلى زبائنك'), findsOneWidget);
+    expect(find.text('علي حسين'), findsOneWidget);
+    expect(find.text('كرار عادل'), findsOneWidget);
+    expect(find.text('مريم سعد'), findsNothing);
+    expect(find.text('زهراء كريم'), findsNothing);
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+
+    // «تحتاج انتباهك»: المؤجّلة بشارتها الصفراء
+    await _reveal(tester, find.text('تحتاج انتباهك').first);
+    await tester.tap(find.text('تحتاج انتباهك').first);
+    await tester.pumpAndSettle();
+    expect(find.text('زهراء كريم'), findsOneWidget);
+    expect(find.text('علي حسين'), findsNothing);
+  });
+
   testWidgets('شحناتي: الشرائح والبحث وفتح الشحنة', (tester) async {
     tester.view.physicalSize = const Size(393 * 3, 849 * 3);
     tester.view.devicePixelRatio = 3;

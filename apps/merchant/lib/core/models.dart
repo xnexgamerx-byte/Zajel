@@ -19,6 +19,8 @@ class HomeData {
     required this.attention,
     required this.recent,
     this.attentionItems = const [],
+    this.toPrint = 0,
+    this.printed = 0,
   });
 
   factory HomeData.fromJson(Map<String, dynamic> j) {
@@ -52,6 +54,8 @@ class HomeData {
       attentionItems: [
         for (final r in (j['attention']['items'] as List?) ?? const []) AttentionItem.fromJson((r as Map).cast()),
       ],
+      toPrint: (j['printer'] as Map?)?['to_print'] as int? ?? 0,
+      printed: (j['printer'] as Map?)?['printed'] as int? ?? 0,
     );
   }
 
@@ -81,6 +85,10 @@ class HomeData {
 
   /// «تحتاج انتباهك» بتفاصيلها (docs/plan/61): قبل آخر الشحنات في الرئيسية
   final List<AttentionItem> attentionItems;
+
+  /// «الطابعة» (docs/plan/79): الجديدة التي لم يُطبع وصلها، وما طُبع ينتظر المندوب
+  final int toPrint;
+  final int printed;
 }
 
 class Stats {
@@ -172,7 +180,7 @@ class RecentShipment {
   final String status;
   final bool urgent;
 
-  /// لون الحالة كما في النظام: green · blue · amber · red · gray · slate
+  /// لون الحالة كما في النظام: green · blue · amber · yellow (المؤجل) · red · gray · slate
   final String tone;
 }
 
@@ -1265,15 +1273,28 @@ class StatementLine {
 
 // ---------------------------------------------------------------- طباعة الوصولات (docs/plan/63)
 
-/// GET /merchant/labels: طلباته المدخلة التي لم يستلمها مندوبٌ بعد، ومقاسات الطباعة
+/// GET /merchant/labels?state=to_print|printed: «الطابعة» (docs/plan/79) — الجديدة التي لم يستلمها مندوبٌ بعد،
+/// «للطباعة» أو «مطبوعة»، وعدد كلٍّ منهما، ومقاسات الطباعة
 class LabelsPage {
-  LabelsPage({required this.shipments, required this.sizes});
+  LabelsPage({
+    required this.shipments,
+    required this.sizes,
+    this.state = 'to_print',
+    this.toPrint = 0,
+    this.printed = 0,
+  });
 
   factory LabelsPage.fromJson(Map<String, dynamic> j) => LabelsPage(
+    state: j['state'] as String? ?? 'to_print',
+    toPrint: (j['counts'] as Map?)?['to_print'] as int? ?? 0,
+    printed: (j['counts'] as Map?)?['printed'] as int? ?? 0,
     shipments: [for (final s in j['shipments'] as List) LabelRow.fromJson((s as Map).cast())],
     sizes: [for (final s in j['sizes'] as List) Choice('${(s as Map)['key']}', '${s['label']}')],
   );
 
+  final String state;
+  final int toPrint;
+  final int printed;
   final List<LabelRow> shipments;
   final List<Choice> sizes;
 }
@@ -1286,16 +1307,25 @@ class LabelRow {
     required this.place,
     required this.amount,
     this.at,
+    this.phone = '',
+    this.printedAt,
   });
 
   factory LabelRow.fromJson(Map<String, dynamic> j) => LabelRow(
     id: j['id'] as int,
     number: '${j['number']}',
     name: j['name'] as String? ?? '',
+    phone: j['phone'] as String? ?? '',
     place: j['place'] as String? ?? '',
     amount: j['amount'] as int? ?? 0,
     at: _at(j['at']),
+    printedAt: _at(j['printed_at']),
   );
+
+  final String phone;
+
+  /// أوّل طباعةٍ لوصلها — فارغٌ ما دامت «للطباعة»
+  final DateTime? printedAt;
 
   final int id;
   final String number;

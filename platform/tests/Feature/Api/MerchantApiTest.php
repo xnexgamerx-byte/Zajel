@@ -155,7 +155,8 @@ class MerchantApiTest extends TestCase
             ->assertJsonPath('name', 'أحمد')
             ->assertJsonPath('stats.total', 5)
             ->assertJsonPath('stats.delivered', 1)
-            ->assertJsonPath('stats.in_delivery', 3)
+            // «قيد التوصيل» ما هو في الطريق وحده: المتعثّرة في «للمعالجة» و«تحتاج انتباهك» (docs/plan/79)
+            ->assertJsonPath('stats.in_delivery', 1)
             ->assertJsonPath('stats.returns', 1)
             ->assertJsonPath('processing.count', 1)
             ->assertJsonPath('attention.count', 1);
@@ -228,7 +229,7 @@ class MerchantApiTest extends TestCase
         $list = $this->withToken($token)->getJson($this->api('/merchant/shipments'))->assertOk()
             ->assertJsonPath('meta.total', 4);
         $chips = collect($list->json('filters'))->pluck('count', 'key');
-        $this->assertSame(['all' => 4, 'open' => 2, 'delivered' => 1, 'processing' => 1, 'attention' => 0, 'returns' => 1], $chips->all());
+        $this->assertSame(['all' => 4, 'new' => 0, 'open' => 1, 'delivered' => 1, 'processing' => 1, 'attention' => 0, 'returns' => 1], $chips->all());
 
         $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=delivered'))->assertOk()
             ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'محمد علي');

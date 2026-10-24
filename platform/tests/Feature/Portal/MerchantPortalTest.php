@@ -120,8 +120,14 @@ class MerchantPortalTest extends TestCase
         $this->shipmentFor($this->alpha, 'زبون ألفا');
         $this->shipmentFor($this->beta, 'زبون بيتا');
 
+        // الجديدة في «الطابعة» (docs/plan/79)
         $this->actingAs($this->alphaUser)
-            ->get($this->host().'/portal/shipments')
+            ->get($this->host().'/portal/shipments?tab=print')
+            ->assertOk()
+            ->assertSee('زبون ألفا')
+            ->assertDontSee('زبون بيتا');
+        $this->actingAs($this->alphaUser)
+            ->get($this->host().'/portal/shipments?q=زبون')
             ->assertOk()
             ->assertSee('زبون ألفا')
             ->assertDontSee('زبون بيتا');

@@ -19,6 +19,7 @@ import 'requests_screen.dart';
 import 'returns_screen.dart';
 import 'scan_screen.dart';
 import 'shipments_screen.dart';
+import 'status_screen.dart';
 import 'support_screen.dart';
 import 'waybills_screen.dart';
 
@@ -86,7 +87,12 @@ class _ShellState extends State<Shell> {
       tool(context, brand).then((_) => refresh.value++);
       return;
     }
-    // من الرئيسية (docs/plan/76): المسح، و«حسابي» من زرّ الإعدادات
+    // «حالة الشحنات» في الرئيسية (docs/plan/79): كلّ حالةٍ قائمتها وحدها
+    if (parts.first == 'status' && parts.length > 1) {
+      openStatus(context, brand, parts[1]).then((_) => refresh.value++);
+      return;
+    }
+    // من الرئيسية (docs/plan/76): المسح، و«المزيد»
     if (screen == 'scan') {
       _scan();
       return;
@@ -108,6 +114,7 @@ class _ShellState extends State<Shell> {
     if (target == 1) {
       shipmentsFilter.value = switch (parts.length > 1 ? parts[1] : parts.first) {
         'delivered' => 'delivered',
+        'new' => 'new',
         'open' => 'open',
         'returns' => 'returns',
         'processing' => 'processing',
@@ -362,7 +369,7 @@ class _AccountState extends State<_Account> {
   static const _items = [
     ('كشوفات الرواجع', Icons.assignment_return_rounded, 'returns'),
     ('استلام راجع بالباركود', Icons.qr_code_scanner_rounded, 'receive'),
-    ('طباعة وصولات الطلبات المدخلة', Icons.print_rounded, 'labels'),
+    ('الطابعة — وصولات الطلبات الجديدة', Icons.print_rounded, 'labels'),
     ('للمعالجة', Icons.schedule_rounded, 'processing'),
     ('طلبات الاستلام', Icons.hail_rounded, 'pickups'),
     ('طلباتي', Icons.assignment_outlined, 'requests'),
@@ -437,12 +444,6 @@ class _AccountState extends State<_Account> {
                     children: [
                       Text(name, style: display(15.5, w8, Palette.ink)),
                       if (session != null) Text(session.companyName, style: font(12.5, w6, Palette.muted)),
-                      // بأيّ نظامٍ هذه النسخة مربوطة: أوّل ما يُسأل حين لا يصل شيء
-                      if (!AppConfig.demo)
-                        Text(
-                          'مربوط بنظام الشركة: ${Uri.parse(AppConfig.apiUrl).host}',
-                          style: font(11.5, w6, Palette.ok),
-                        ),
                     ],
                   ),
                 ),

@@ -6,6 +6,7 @@ use App\Actions\Shipments\CreateShipment;
 use App\Actions\Waybills\CreateFromWaybill;
 use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
+use App\Http\Controllers\Api\Merchant\LabelController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PortalShipmentRequest;
 use App\Models\City;
@@ -28,6 +29,11 @@ class ShipmentController extends Controller
     public function index(Request $request): View
     {
         $merchant = $request->attributes->get('merchant');
+
+        if ($request->query('tab') === 'print') {
+            return $this->printer($request, $merchant->id);
+        }
+
         $archive = $request->query('tab') === 'archive';
         $returned = ShipmentStatus::Returned->value;
         // التاريخ في الأرشيف تاريخ تسليم الراجع، وفي الجارية تاريخ الإنشاء
@@ -42,7 +48,9 @@ class ShipmentController extends Controller
                 fn ($q) => $q->where('status', $returned),
                 fn ($q) => $q->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
                     // الراجع المسلَّم في «المؤرشفة» — إلّا إن طُلب بحالته أو بُحث عنه
-                    ->when(! $request->filled('status') && ! $request->filled('q'), fn ($q) => $q->where('status', '!=', $returned)))
+                    ->when(! $request->filled('status') && ! $request->filled('q'), fn ($q) => $q->where('status', '!=', $returned)
+                        // والجديدة في «الطابعة» (docs/plan/79)، لا تختلط بما هو في الطريق
+                        ->whereNotIn('status', ShipmentStatus::enteredValues())))
             ->when($request->query('from'), fn ($q, $d) => $q->whereFromDate($dated, $d))
             ->when($request->query('to'), fn ($q, $d) => $q->whereUntilDate($dated, $d))
             ->when($archive, fn ($q) => $q->orderByDesc('returned_at'))
@@ -55,6 +63,29 @@ class ShipmentController extends Controller
             'statuses'  => ShipmentStatus::cases(),
             'archive'   => $archive,
             'archived'  => Shipment::where('merchant_id', $merchant->id)->where('status', $returned)->count(),
+            'printer'   => LabelController::counts($merchant->id),
+        ]);
+    }
+
+    /**
+     * «الطابعة» (docs/plan/79): الجديدة التي لم يستلمها المندوب — «للطباعة» ثم «مطبوعة» بعد أوّل
+     * طباعة لوصلها. يحدّد منها ما يطبع، أو يطبعها كلّها.
+     */
+    private function printer(Request $request, int $merchantId): View
+    {
+        $printed = $request->query('state') === 'printed';
+
+        return view('portal.shipments.printer', [
+            'printed'   => $printed,
+            'printer'   => LabelController::counts($merchantId),
+            'archived'  => Shipment::where('merchant_id', $merchantId)->where('status', ShipmentStatus::Returned->value)->count(),
+            'shipments' => LabelController::entered($merchantId)
+                ->with(['governorate:id,name_ar', 'city:id,name_ar'])
+                ->when($printed, fn ($q) => $q->whereNotNull('printed_at')->orderByDesc('printed_at'), fn ($q) => $q->whereNull('printed_at'))
+                ->search($request->query('q'))
+                ->latest('id')
+                ->paginate(config('zajel.per_page'))
+                ->withQueryString(),
         ]);
     }
 

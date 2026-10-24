@@ -63,6 +63,19 @@ class ShipmentLabelController extends Controller
         return $this->render($request, Shipment::query()->where('merchant_id', $merchant->id));
     }
 
+    /**
+     * «الطابعة» (docs/plan/79): ما فُتح للطباعة صار «مطبوعاً» — من التطبيق أو بوابة التاجر أو الموظّف.
+     * أوّل طباعة وحدها تُسجَّل، وإعادة الطباعة لا تغيّرها. ولا يمسّ updated_at: الطباعة ليست تعديلاً.
+     *
+     * @param  list<int>  $ids
+     */
+    public static function markPrinted(array $ids): void
+    {
+        foreach (array_chunk($ids, 500) as $chunk) {
+            Shipment::query()->whereIn('id', $chunk)->whereNull('printed_at')->toBase()->update(['printed_at' => now()]);
+        }
+    }
+
     private function render(Request $request, Builder $query, bool $all = false): View
     {
         $ids = collect((array) $request->query('ids'))->map(fn ($id) => (int) $id)->filter()->unique();
@@ -77,6 +90,8 @@ class ShipmentLabelController extends Controller
             ->get();
 
         abort_if($shipments->isEmpty(), 404, 'لا شحنات للطباعة.');
+
+        self::markPrinted($shipments->pluck('id')->all());
 
         return view('labels.print', [
             'shipments' => $shipments,

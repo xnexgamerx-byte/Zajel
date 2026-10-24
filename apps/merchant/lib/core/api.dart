@@ -270,10 +270,23 @@ class Api {
     return body['message'] as String? ?? 'أُلغي الطلب.';
   }
 
-  /// طباعة الوصولات: الطلبات المدخلة ومقاسات الطباعة
-  Future<LabelsPage> labels() async {
-    if (AppConfig.demo) return Demo.labels();
-    return LabelsPage.fromJson(await _send(http.get(_uri('/merchant/labels'), headers: _headers)));
+  /// «الطابعة» (docs/plan/79): الجديدة «للطباعة» أو «مطبوعة»، ومقاسات الطباعة
+  Future<LabelsPage> labels({String state = 'to_print'}) async {
+    if (AppConfig.demo) return Demo.labels(state);
+    return LabelsPage.fromJson(await _send(http.get(_uri('/merchant/labels?state=$state'), headers: _headers)));
+  }
+
+  /// صفحة الوصولات نفسها من رابطها الموقَّع، ليطبعها التطبيق — وفتحها يجعلها «مطبوعة»
+  Future<String> labelsPage(String url) async {
+    try {
+      final r = await http.get(Uri.parse(url), headers: {'Accept': 'text/html'}).timeout(const Duration(seconds: 40));
+      if (r.statusCode != 200) throw ApiError('تعذّر تجهيز الوصولات للطباعة (${r.statusCode}).');
+      return utf8.decode(r.bodyBytes);
+    } on ApiError {
+      rethrow;
+    } catch (_) {
+      throw ApiError('تعذّر الوصول إلى النظام. تأكّد من الإنترنت وحاول ثانية.');
+    }
   }
 
   /// رابطٌ موقَّعٌ لساعة: صفحة الطباعة في متصفّح الهاتف بالشحنات المحدّدة والمقاس المختار

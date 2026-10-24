@@ -29,6 +29,9 @@ trait ReadsMerchantStats
         return [
             'total'     => (int) $rows->sum('c'),
             'open'      => (int) $open->sum('c'),
+            // «قيد التوصيل» على البطاقة: ما استلمه المندوب — والجديدة في «الطابعة» (docs/plan/79)
+            'in_delivery' => (int) $rows->whereIn('status', ShipmentStatus::inDeliveryValues())->sum('c'),
+            'new'       => (int) $rows->whereIn('status', ShipmentStatus::enteredValues())->sum('c'),
             'delivered' => $of(ShipmentStatus::Delivered),
             'returned'  => $of(ShipmentStatus::Returned),
             'cod_open'  => (int) $open->sum('cod'),

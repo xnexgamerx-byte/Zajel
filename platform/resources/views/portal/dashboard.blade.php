@@ -24,7 +24,7 @@
 {{-- الأعداد بحاوياتٍ ملوّنة بمعناها: في الطريق أزرق، والواصل أخضر، وما يحتاجه كهرمانيّ --}}
 <div class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
     @foreach ([
-        ['قيد التوصيل', $counts['open'], 'bg-info-soft text-info-deep', 'truck', route('portal.shipments.index')],
+        ['قيد التوصيل', $counts['in_delivery'], 'bg-info-soft text-info-deep', 'truck', route('portal.shipments.index')],
         ['مسلَّمة', $counts['delivered'], 'bg-ok-soft text-ok-deep', 'check', route('portal.shipments.index', ['status' => 'delivered'])],
         ['تحتاج انتباهك', $attention->count(), 'bg-warn-soft text-warn-deep', 'alert', $merchant->can_process ? route('portal.processing.index') : null],
         ['راجعة', $counts['returned'], 'bg-aeblack-100 text-aeblack-800', 'undo', route('portal.shipments.index', ['status' => 'returned'])],
@@ -40,6 +40,14 @@
         </{{ $tag }}>
     @endforeach
 </div>
+@if ($counts['new'])
+    {{-- الجديدة في «الطابعة» لا في «قيد التوصيل» (docs/plan/79) --}}
+    <a href="{{ route('portal.shipments.index', ['tab' => 'print']) }}" class="card mb-5 flex items-center gap-3 p-4 hover:bg-ink-50">
+        <x-icon name="printer" class="size-6 text-[var(--brand)]"/>
+        <span class="font-semibold">الطابعة</span>
+        <span class="text-sm text-ink-600">{{ \App\Support\Arabic::shipments($counts['new']) }} جديدة لم يستلمها المندوب — اطبع وصولها</span>
+    </a>
+@endif
 @if ($deliveredToday)
     <p class="-mt-2 mb-5 text-sm font-semibold text-ok-700">وصل اليوم {{ \App\Support\Arabic::shipments($deliveredToday) }}.</p>
 @endif

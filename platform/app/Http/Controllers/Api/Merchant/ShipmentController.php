@@ -21,6 +21,8 @@ class ShipmentController extends Controller
     /** شرائح القائمة بترتيبها في التطبيق — وكلٌّ يطابق عدّاده في الرئيسية */
     public const FILTERS = [
         'all' => 'الكل',
+        // الجديدة في «الطابعة» لا في «قيد التوصيل» (docs/plan/79)
+        'new' => 'جديدة',
         'open' => 'قيد التوصيل',
         'delivered' => 'مسلمة',
         'processing' => 'للمعالجة',
@@ -131,8 +133,12 @@ class ShipmentController extends Controller
             'amount' => (int) $s->cod_amount,
             'at' => ($s->status_changed_at ?? $s->created_at)?->toIso8601String(),
             'status' => $s->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $s->statusLabel(),
-            // «للمعالجة» بلون الشركة في التطبيق، والراجع أحمر (docs/plan/50)
-            'tone' => $s->status === ShipmentStatus::FailedAttempt ? 'urgent' : $s->statusColor(),
+            // «للمعالجة» بلون الشركة في التطبيق، والراجع أحمر (docs/plan/50)، والمؤجل أصفر (docs/plan/79)
+            'tone' => match ($s->status) {
+                ShipmentStatus::FailedAttempt => 'urgent',
+                ShipmentStatus::Postponed => 'yellow',
+                default => $s->statusColor(),
+            },
             'urgent' => in_array($s->status, [
                 ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed, ShipmentStatus::Returning,
             ], true),
@@ -145,7 +151,8 @@ class ShipmentController extends Controller
         $values = fn (ShipmentStatus ...$s) => array_map(fn ($x) => $x->value, $s);
 
         return match ($filter) {
-            'open' => $q->whereIn('status', ShipmentStatus::openValues()),
+            'new' => $q->whereIn('status', ShipmentStatus::enteredValues()),
+            'open' => $q->whereIn('status', ShipmentStatus::inDeliveryValues()),
             'delivered' => $q->whereIn('status', $values(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered)),
             'processing' => $q->where('status', ShipmentStatus::FailedAttempt->value),
             'attention' => $q->whereIn('status', $values(ShipmentStatus::Postponed, ShipmentStatus::Returning)),
@@ -170,7 +177,8 @@ class ShipmentController extends Controller
 
         return [
             'all' => (int) $rows->sum(),
-            'open' => (int) $rows->only(ShipmentStatus::openValues())->sum(),
+            'new' => (int) $rows->only(ShipmentStatus::enteredValues())->sum(),
+            'open' => (int) $rows->only(ShipmentStatus::inDeliveryValues())->sum(),
             'delivered' => $of(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered),
             'processing' => $of(ShipmentStatus::FailedAttempt),
             'attention' => $of(ShipmentStatus::Postponed, ShipmentStatus::Returning),

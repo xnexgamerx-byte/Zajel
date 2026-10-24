@@ -161,8 +161,8 @@ void main() {
     expect(find.text('غيّروا عنوان الاستلام رجاءً'), findsOneWidget);
   });
 
-  testWidgets('طباعة الوصولات: المدخلة كلّها محدّدة، يُلغى منها، ثم المقاس', (tester) async {
-    await _open(tester, 'طباعة وصولات الطلبات المدخلة');
+  testWidgets('الطابعة: للطباعة كلّها محدّدة، يُلغى منها، ثم المقاس — ومطبوعة تُعاد', (tester) async {
+    await _open(tester, 'الطابعة — وصولات الطلبات الجديدة');
     expect(find.text('المحدّد 4 من 4'), findsOneWidget);
     expect(find.text('اطبع 4 وصل'), findsOneWidget);
 
@@ -186,7 +186,20 @@ void main() {
     await tester.tap(find.text('ملصق ٨×١٢'));
     await tester.tap(find.text('اطبع'));
     await tester.pumpAndSettle();
-    expect(find.text('في النسخة التجريبية لا تُفتح صفحة الطباعة.'), findsOneWidget);
+    expect(find.text('في النسخة التجريبية لا تُطبع الوصولات.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    // «الطابعة» (docs/plan/79): «مطبوعة» خانتها، لا شيء محدّدٌ فيها حتى يختار ما يعيد طباعته
+    expect(find.text('للطباعة'), findsOneWidget);
+    await tester.tap(find.text('مطبوعة'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('علي حسين'), findsOneWidget);
+    expect(find.textContaining('مريم سعد'), findsNothing);
+    expect(find.text('حدّد ما تعيد طباعته'), findsOneWidget);
+    await tester.tap(find.textContaining('هدى كريم'));
+    await tester.pumpAndSettle();
+    expect(find.text('أعد طباعة 1 وصل'), findsOneWidget);
   });
 
   testWidgets('وصلات للطباعة: دفترٌ جديد بعدده ومقاسه', (tester) async {

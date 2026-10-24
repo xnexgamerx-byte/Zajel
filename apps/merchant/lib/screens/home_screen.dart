@@ -13,6 +13,7 @@ import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import 'notifications_screen.dart';
 import 'shipment_screen.dart';
+import 'status_screen.dart';
 
 /// «صباح الخير» حتى الظهر بتوقيت بغداد، ثم «مساء الخير» — أيّاً كانت ساعة الهاتف (docs/plan/59)
 String baghdadGreeting([DateTime? now]) =>
@@ -198,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ الترويسة
 
-  /// التحيّة واسمه بخطٍّ واضحٍ غير ضخم، وصورته في الطرف الآخر، والجرس والإعدادات بجانبها
+  /// التحيّة واسمه بخطٍّ واضحٍ غير ضخم، وصورته في الطرف الآخر، والجرس والدعم الفني بجانبها
   Widget _header(HomeData d) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -226,7 +227,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          _round(Icons.settings_outlined, 'المزيد', () => _open('account')),
+          // الدعم الفني مكان الإعدادات (docs/plan/79): «المزيد» في الشريط السفلي
+          _round(Icons.support_agent_rounded, 'الدعم الفني', () => _open('support')),
           const SizedBox(width: 8),
           _bellButton(d.unread),
           const SizedBox(width: 8),
@@ -561,7 +563,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // البطاقة ربع العرض وزيادة، فيبقى بينها وبين الزرّ مكانٌ للخطوط
               final tile = (box.maxWidth * .3).clamp(84.0, 118.0);
               return SizedBox(
-                height: 150,
+                height: 176,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -580,8 +582,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 'قيد التوصيل',
                                 s.inDelivery,
                                 Icons.local_shipping_outlined,
-                                brand.main,
-                                'shipments:open',
+                                StatusView.blue,
+                                'status:open',
                               ),
                               const Spacer(),
                               _state(
@@ -590,7 +592,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 s.delivered,
                                 Icons.check_circle_outline_rounded,
                                 Palette.ok,
-                                'shipments:delivered',
+                                'status:delivered',
                               ),
                             ],
                           ),
@@ -604,17 +606,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                 'تحتاج انتباهك',
                                 d.attention,
                                 Icons.schedule_rounded,
-                                brand.main,
-                                'attention',
+                                Palette.postponed,
+                                'status:attention',
                               ),
                               const Spacer(),
                               _state(
                                 tile,
                                 'راجع مؤكّد',
                                 s.returns,
-                                Icons.history_rounded,
-                                brand.main,
-                                'shipments:returns',
+                                Icons.assignment_return_outlined,
+                                Palette.returnRed,
+                                'status:returns',
                               ),
                             ],
                           ),
@@ -632,36 +634,35 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// حالةٌ في المحور (docs/plan/79): أيقونتها في دائرةٍ بلونها أعلاها، ثم اسمها، ثم عددها — في الوسط،
+  /// وتفتح قائمتها وحدها
   Widget _state(double width, String label, int count, IconData icon, Color color, String screen) => SizedBox(
     width: width,
     child: Tap(
       radius: 16,
       onTap: () => _open(screen),
       child: Ink(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFFFBF7F6),
+          color: Color.lerp(Colors.white, color, .05),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Palette.line),
+          border: Border.all(color: Color.lerp(Palette.line, color, .18)!),
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Text(label, maxLines: 1, style: font(11, w7, Palette.slate, height: 1.2)),
-                  ),
-                  Text(money(count), style: display(16, w8, Palette.ink, height: 1.25)),
-                ],
-              ),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(color: Color.lerp(Colors.white, color, .14), shape: BoxShape.circle),
+              child: Icon(icon, size: 16, color: color),
             ),
+            const SizedBox(height: 3),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(label, maxLines: 1, style: font(10.5, w7, Palette.slate, height: 1.2)),
+            ),
+            Text(money(count), style: display(15.5, w8, Palette.ink, height: 1.2)),
           ],
         ),
       ),
@@ -730,14 +731,24 @@ class _HomeScreenState extends State<HomeScreen> {
         child: _action('التفاصيل المالية', '${money(d.balance)} د.ع', Icons.account_balance_wallet_outlined, 'finance'),
       ),
       const SizedBox(width: 8),
-      // طباعة الوصولات ظاهرةٌ في الرئيسية (docs/plan/63): ما يُدخل يُطبع ويُلصق قبل أن يأتي المندوب
-      Expanded(child: _action('طباعة الطلبات', 'وصولات ما أدخلته', Icons.print_rounded, 'labels')),
+      // «الطابعة» ظاهرةٌ في الرئيسية (docs/plan/63، 79): الجديدة تُطبع وتُلصق قبل أن يأتي المندوب
+      Expanded(
+        child: _action(
+          'طباعة الطلبات',
+          d.toPrint > 0
+              ? '${money(d.toPrint)} للطباعة'
+              : (d.printed > 0 ? '${money(d.printed)} مطبوعة' : 'وصولات ما أدخلته'),
+          Icons.print_rounded,
+          'labels',
+          badge: d.toPrint,
+        ),
+      ),
       const SizedBox(width: 8),
       Expanded(child: _action('مندوب استلام', 'يمرّ عليك', Icons.hail_rounded, 'pickups')),
     ],
   );
 
-  Widget _action(String title, String sub, IconData icon, String screen) => Tap(
+  Widget _action(String title, String sub, IconData icon, String screen, {int badge = 0}) => Tap(
     radius: 18,
     shadow: cardShadow,
     onTap: () => _open(screen),
@@ -756,11 +767,16 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
-            child: Icon(icon, size: 16, color: brand.main),
+          Badge(
+            isLabelVisible: badge > 0,
+            backgroundColor: brand.main,
+            label: Text(money(badge), style: font(9.5, w8, Colors.white, height: 1)),
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
+              child: Icon(icon, size: 16, color: brand.main),
+            ),
           ),
           const SizedBox(height: 5),
           FittedBox(
@@ -796,7 +812,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const Spacer(),
           Tap(
             radius: 10,
-            onTap: () => _open('attention'),
+            onTap: () => _open('status:attention'),
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: Row(
@@ -829,6 +845,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _card(AttentionItem item) {
     final s = item.row;
+    // المؤجّلة صفراء (docs/plan/79)، والراجعة بلون الشركة
+    final postponed = s.tone == 'yellow';
+    final soft = postponed ? Palette.postponedSoft : brand.soft;
+    final ink = postponed ? Palette.postponedInk : brand.deep;
     final why = [
       if (item.reason != null) item.reason!,
       if (item.attempts > 0) 'محاولات: ${item.attempts}',
@@ -874,13 +894,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
+                        decoration: BoxDecoration(color: soft, borderRadius: BorderRadius.circular(12)),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(s.status, style: font(10.5, w8, brand.deep, height: 1.2)),
+                            Text(s.status, style: font(10.5, w8, ink, height: 1.2)),
                             const SizedBox(width: 4),
-                            Icon(Icons.error_outline_rounded, size: 13, color: brand.deep),
+                            Icon(
+                              postponed ? Icons.schedule_rounded : Icons.error_outline_rounded,
+                              size: 13,
+                              color: ink,
+                            ),
                           ],
                         ),
                       ),
@@ -893,7 +917,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: font(12, w7, Palette.ink, height: 1.35),
                   ),
-                  if (why.isNotEmpty) Text(why, style: font(11, w7, brand.main, height: 1.45)),
+                  if (why.isNotEmpty) Text(why, style: font(11, w7, postponed ? ink : brand.main, height: 1.45)),
                   Text('${money(s.amount)} د.ع · ${when(s.at)}', style: font(10.5, w6, Palette.muted, height: 1.4)),
                 ],
               ),

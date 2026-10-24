@@ -106,4 +106,68 @@ class MerchantAppLabelsTest extends TestCase
         $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$theirs->id], 'size' => 'a6'], $headers)
             ->assertUnprocessable();
     }
+
+    public function test_the_printer_sorts_new_orders_into_to_print_and_printed_apart_from_in_delivery(): void
+    {
+        $a = $this->ship($this->merchant, 'علي');
+        $b = $this->ship($this->merchant, 'زينب');
+        $moving = $this->ship($this->merchant, 'استُلمت', pickedUp: true);
+        $headers = $this->headers();
+
+        // الجديدة كلّها «للطباعة»، وليست «قيد التوصيل»
+        $this->getJson($this->host().'/api/v1/merchant/home', $headers)->assertOk()
+            ->assertJsonPath('printer.to_print', 2)->assertJsonPath('printer.printed', 0)
+            ->assertJsonPath('stats.in_delivery', 1);
+        $this->getJson($this->host().'/api/v1/merchant/shipments?filter=open', $headers)->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.number', $moving->number);
+        $this->getJson($this->host().'/api/v1/merchant/shipments?filter=new', $headers)->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        // يطبع واحدة من التطبيق فتنتقل إلى «مطبوعة»
+        $url = $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id], 'size' => 'a6'], $headers)
+            ->assertCreated()->json('url');
+        $this->get($url)->assertOk();
+        $first = $a->refresh()->printed_at;
+        $this->assertNotNull($first);
+
+        $this->getJson($this->host().'/api/v1/merchant/labels', $headers)->assertOk()
+            ->assertJsonPath('state', 'to_print')
+            ->assertJsonPath('counts.to_print', 1)->assertJsonPath('counts.printed', 1)
+            ->assertJsonCount(1, 'shipments')->assertJsonPath('shipments.0.number', $b->number);
+        $this->getJson($this->host().'/api/v1/merchant/labels?state=printed', $headers)->assertOk()
+            ->assertJsonCount(1, 'shipments')->assertJsonPath('shipments.0.number', $a->number);
+
+        // إعادة الطباعة لا تغيّر وقت أوّل طباعة
+        $this->travel(5)->minutes();
+        $this->get($url)->assertOk();
+        $this->assertTrue($first->equalTo($a->refresh()->printed_at));
+
+        // يستلمها المندوب فتخرج من «الطابعة» إلى «قيد التوصيل»
+        Tenancy::runFor($this->company, fn () => app(ChangeShipmentStatus::class)->handle($a->refresh(), ShipmentStatus::PickedUp, $this->staff));
+        $this->getJson($this->host().'/api/v1/merchant/home', $headers)->assertOk()
+            ->assertJsonPath('printer.to_print', 1)->assertJsonPath('printer.printed', 0)
+            ->assertJsonPath('stats.in_delivery', 2);
+    }
+
+    public function test_the_portal_has_the_printer_and_keeps_new_orders_out_of_the_running_list(): void
+    {
+        $a = $this->ship($this->merchant, 'علي');
+        $moving = $this->ship($this->merchant, 'استُلمت', pickedUp: true);
+
+        $this->actingAs($this->user)->get($this->host().'/portal/shipments')->assertOk()
+            ->assertSee($moving->number)->assertDontSee($a->number)->assertSee('الطابعة');
+
+        $this->actingAs($this->user)->get($this->host().'/portal/shipments?tab=print')->assertOk()
+            ->assertSee('للطباعة')->assertSee($a->number)->assertDontSee($moving->number);
+
+        $this->actingAs($this->user)->get($this->host().'/portal/shipments/labels?ids[]='.$a->id)->assertOk();
+        $this->assertNotNull($a->refresh()->printed_at);
+
+        $this->actingAs($this->user)->get($this->host().'/portal/shipments?tab=print')->assertOk()->assertDontSee($a->number);
+        $this->actingAs($this->user)->get($this->host().'/portal/shipments?tab=print&state=printed')->assertOk()
+            ->assertSee($a->number)->assertSee('أعد طباعة المحدّد');
+
+        // البحث يجدها في «شحناتي» أيضاً
+        $this->actingAs($this->user)->get($this->host().'/portal/shipments?q='.$a->number)->assertOk()->assertSee($a->number);
+    }
 }

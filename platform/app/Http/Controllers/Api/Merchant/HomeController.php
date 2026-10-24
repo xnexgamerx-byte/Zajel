@@ -61,6 +61,8 @@ class HomeController extends Controller
                     ->where('delivered_at', '>=', now('Asia/Baghdad')->startOfDay()->timezone(config('app.timezone')))->count(),
                 'returning' => $counts['returning'],
             ],
+            // «الطابعة» (docs/plan/79): الجديدة للطباعة، وما طُبع ينتظر المندوب
+            'printer' => LabelController::counts($merchant->id),
             'processing' => [
                 'count' => $counts['processing'],
                 'allowed' => (bool) $merchant->can_process,

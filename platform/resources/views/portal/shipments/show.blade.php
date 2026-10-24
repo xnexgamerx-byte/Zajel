@@ -16,9 +16,11 @@
         </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-        <a href="{{ route('portal.shipments.labels', ['ids' => [$shipment->id]]) }}" target="_blank" class="btn-ghost">
+        {{-- «الطابعة» (docs/plan/79): متى طُبع وصلها أوّل مرّة --}}
+        <a href="{{ route('portal.shipments.labels', ['ids' => [$shipment->id]]) }}" target="_blank" class="btn-ghost"
+           @if ($shipment->printed_at) title="طُبع وصلها {{ $shipment->printed_at->format('Y-m-d H:i') }}" @endif>
             <x-icon name="printer" class="size-5"/>
-            طباعة الوصل
+            {{ $shipment->printed_at ? 'أعد طباعة الوصل' : 'طباعة الوصل' }}
         </a>
         <a href="{{ route('portal.shipments.index') }}" class="btn-ghost">رجوع</a>
     </div>

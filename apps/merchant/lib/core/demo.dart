@@ -28,11 +28,13 @@ class Demo {
     ),
     processing: 3,
     canProcess: true,
+    toPrint: 4,
+    printed: 2,
     attention: 3,
     // «تحتاج انتباهك» بتفاصيلها (docs/plan/61)
     attentionItems: [
       AttentionItem(
-        row: _row(5, 'زهراء كريم', 'الكاظمية', 25000, 'مؤجل', 'amber', urgent: true, hours: 20),
+        row: _row(5, 'زهراء كريم', 'الكاظمية', 25000, 'مؤجل', 'yellow', urgent: true, hours: 20),
         reason: 'الزبون طلب التأجيل',
         attempts: 1,
         until: DateTime.now().add(const Duration(days: 1)),
@@ -43,7 +45,7 @@ class Demo {
         attempts: 2,
       ),
       AttentionItem(
-        row: _row(10, 'نبأ سالم', 'حي الجهاد', 33000, 'مؤجل', 'amber', urgent: true, hours: 44),
+        row: _row(10, 'نبأ سالم', 'حي الجهاد', 33000, 'مؤجل', 'yellow', urgent: true, hours: 44),
         reason: 'الهاتف مغلق',
         attempts: 2,
         until: DateTime.now().add(const Duration(days: 2)),
@@ -90,14 +92,16 @@ class Demo {
   static final List<RecentShipment> _all = [
     ...home.recent.asMap().entries.map((e) => _with(e.value, id: e.key + 1)),
     _row(4, 'علي حسين', 'الأعظمية', 60000, 'قيد التوصيل', 'blue', hours: 3),
-    _row(5, 'زهراء كريم', 'الكاظمية', 25000, 'مؤجل', 'amber', urgent: true, hours: 20),
+    _row(5, 'زهراء كريم', 'الكاظمية', 25000, 'مؤجل', 'yellow', urgent: true, hours: 20),
     _row(6, 'حسن جبار', 'البياع', 38000, 'واصل', 'green', hours: 26),
     _row(7, 'مريم سعد', 'المنصور', 52000, 'راجع للتاجر', 'red', hours: 50),
     _row(8, 'كرار عادل', 'الدورة', 19000, 'بالمخزن', 'slate', hours: 52),
+    _row(11, 'مريم سعد', 'المنصور', 52000, 'جديد', 'slate', hours: 1),
   ];
 
   static const _filters = {
     'all': 'الكل',
+    'new': 'جديدة',
     'open': 'قيد التوصيل',
     'delivered': 'مسلمة',
     'processing': 'للمعالجة',
@@ -106,7 +110,8 @@ class Demo {
   };
 
   static bool _in(RecentShipment s, String f) => switch (f) {
-    'open' => const ['قيد التوصيل', 'للمعالجة', 'مؤجل', 'بالمخزن'].contains(s.status),
+    'new' => s.status == 'جديد',
+    'open' => const ['قيد التوصيل', 'بالمخزن'].contains(s.status),
     'delivered' => s.tone == 'green',
     'processing' => s.status == 'للمعالجة',
     'attention' => s.status == 'مؤجل',
@@ -611,21 +616,33 @@ class Demo {
     return 'أُلغي الطلب ${r.number}.';
   }
 
-  static LabelsPage labels() => LabelsPage(
+  /// «الطابعة»: أربعٌ للطباعة، واثنتان طُبعتا تنتظران المندوب
+  static const List<(String, String, int)> _toPrint = [
+    ('مريم سعد', 'بغداد · المنصور', 52000),
+    ('أحمد ناصر', 'بغداد · الشعب', 41000),
+    ('زينب علي', 'النجف · حي الأمير', 30000),
+    ('حسين كاظم', 'بغداد · الدورة', 25000),
+  ];
+  static const List<(String, String, int)> _printed = [
+    ('علي حسين', 'بغداد · الأعظمية', 60000),
+    ('هدى كريم', 'البصرة · العشار', 35000),
+  ];
+
+  static LabelsPage labels([String state = 'to_print']) => LabelsPage(
+    state: state,
+    toPrint: _toPrint.length,
+    printed: _printed.length,
     shipments: [
-      for (final (i, (name, place, amount)) in const [
-        ('مريم سعد', 'بغداد · المنصور', 52000),
-        ('أحمد ناصر', 'بغداد · الشعب', 41000),
-        ('زينب علي', 'النجف · حي الأمير', 30000),
-        ('حسين كاظم', 'بغداد · الدورة', 25000),
-      ].indexed)
+      for (final (i, (name, place, amount)) in (state == 'printed' ? _printed : _toPrint).indexed)
         LabelRow(
-          id: 900 + i,
-          number: 'ZA-2026013${i + 1}',
+          id: (state == 'printed' ? 950 : 900) + i,
+          number: 'ZA-202601${state == 'printed' ? 4 : 3}${i + 1}',
           name: name,
+          phone: '0780123456$i',
           place: place,
           amount: amount,
           at: _ago(30 + i * 15),
+          printedAt: state == 'printed' ? _ago(10 + i * 5) : null,
         ),
     ],
     sizes: const [

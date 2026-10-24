@@ -95,6 +95,28 @@ enum ShipmentStatus: string
         ));
     }
 
+    /**
+     * الجديدة التي لم يستلمها مندوبٌ بعد: مكانها «الطابعة» (docs/plan/79) — «للطباعة» ثم «مطبوعة» —
+     * لا «قيد التوصيل».
+     *
+     * @return array<int, string>
+     */
+    public static function enteredValues(): array
+    {
+        return [self::Created->value, self::PendingPickup->value];
+    }
+
+    /**
+     * «قيد التوصيل» عند التاجر: استلمها المندوب وهي في طريقها إلى الزبون — بالمخزن، أو بين الفروع،
+     * أو مع مندوب التوصيل. لا الجديدة، ولا ما تعثّر: لكلٍّ منهما خانته.
+     *
+     * @return array<int, string>
+     */
+    public static function inDeliveryValues(): array
+    {
+        return array_map(fn (self $s) => $s->value, [self::PickedUp, self::AtHub, self::InTransit, self::OutForDelivery]);
+    }
+
     /** @return array<int, string> */
     public static function terminalValues(): array
     {

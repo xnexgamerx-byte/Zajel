@@ -5,10 +5,13 @@
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <h1 class="page-title">شحناتي</h1>
     <div class="flex flex-wrap items-center gap-2">
-        {{-- ما لم يستلمه المندوب بعد: يُطبع ويُلصَق قبل أن يصل --}}
-        <a href="{{ route('portal.shipments.labels', ['new' => 1]) }}" target="_blank" class="btn-ghost">
+        {{-- ما لم يستلمه المندوب بعد في «الطابعة»: يُطبع ويُلصَق قبل أن يصل --}}
+        <a href="{{ route('portal.shipments.index', ['tab' => 'print']) }}" class="btn-ghost">
             <x-icon name="printer" class="size-5"/>
-            طباعة وصولات الشحنات الجديدة
+            الطابعة
+            @if ($printer['to_print'])
+                <span class="nav-badge">{{ number_format($printer['to_print']) }} للطباعة</span>
+            @endif
         </a>
         <a href="{{ route('portal.shipments.create') }}" class="btn-primary">+ شحنة جديدة</a>
     </div>
@@ -17,6 +20,10 @@
 {{-- الجارية، و«المؤرشفة»: ما رجع إليك وسُلّم لك --}}
 <nav class="tab-nav mb-3" aria-label="شحناتي">
     <a href="{{ route('portal.shipments.index') }}" @class(['tab-link', 'tab-link-active' => ! $archive])>شحناتي</a>
+    <a href="{{ route('portal.shipments.index', ['tab' => 'print']) }}" class="tab-link">
+        الطابعة — الجديدة
+        <span class="nav-badge">{{ number_format($printer['to_print'] + $printer['printed']) }}</span>
+    </a>
     <a href="{{ route('portal.shipments.index', ['tab' => 'archive']) }}" @class(['tab-link', 'tab-link-active' => $archive])>
         المؤرشفة — راجعٌ سُلّم لك
         <span class="nav-badge">{{ number_format($archived) }}</span>

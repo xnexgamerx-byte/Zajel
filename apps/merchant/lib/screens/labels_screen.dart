@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
@@ -12,8 +16,9 @@ import 'shipment_screen.dart';
 Future<void> openLabels(BuildContext context, Brand brand) =>
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => LabelsScreen(brand: brand)));
 
-/// «طباعة الوصولات» (docs/plan/63): طلباته المدخلة التي لم يستلمها مندوبٌ بعد — كلّها محدّدةٌ افتراضاً،
-/// يُلغي منها ما شاء، ثم يختار مقاس طابعته فتُفتح صفحة الطباعة في متصفّح الهاتف.
+/// «الطابعة» (docs/plan/63، 79): طلباته الجديدة التي لم يستلمها مندوبٌ بعد، مفروزةً خانتين —
+/// «للطباعة» ما لم يُطبع وصله، و«مطبوعة» ما طُبع وينتظر المندوب. يحدّد منها ما يطبع ويختار مقاس
+/// طابعته، فيطبعها التطبيق نفسه: طابعة الهاتف، أو ملفّ PDF يحفظه أو يرسله.
 class LabelsScreen extends StatefulWidget {
   const LabelsScreen({super.key, required this.brand});
 
@@ -24,11 +29,14 @@ class LabelsScreen extends StatefulWidget {
 }
 
 class _LabelsScreenState extends State<LabelsScreen> {
+  String state = 'to_print';
   LabelsPage? data;
   String? error;
+  bool printing = false;
   final chosen = <int>{};
 
   Brand get brand => widget.brand;
+  bool get _printed => state == 'printed';
 
   @override
   void initState() {
@@ -37,19 +45,39 @@ class _LabelsScreenState extends State<LabelsScreen> {
   }
 
   Future<void> _load() async {
+    final asked = state;
     try {
-      final d = await Api.instance.labels();
-      if (!mounted) return;
+      final d = await Api.instance.labels(state: asked);
+      if (!mounted || asked != state) return;
       setState(() {
         data = d;
         error = null;
         chosen
           ..clear()
-          ..addAll(d.shipments.map((s) => s.id));
+          // للطباعة كلّها محدّدةٌ افتراضاً، وإعادة الطباعة يختار منها ما يريد
+          ..addAll(_printed ? const <int>[] : d.shipments.map((s) => s.id));
       });
     } on ApiError catch (e) {
-      if (mounted) setState(() => error = e.message);
+      if (mounted && asked == state) setState(() => error = e.message);
     }
+  }
+
+  void _show(String s) {
+    if (s == state) return;
+    setState(() {
+      state = s;
+      data = data == null
+          ? null
+          : LabelsPage(
+              shipments: const [],
+              sizes: data!.sizes,
+              state: s,
+              toPrint: data!.toPrint,
+              printed: data!.printed,
+            );
+      chosen.clear();
+    });
+    _load();
   }
 
   bool get _all => data != null && data!.shipments.isNotEmpty && chosen.length == data!.shipments.length;
@@ -68,14 +96,40 @@ class _LabelsScreenState extends State<LabelsScreen> {
       for (final s in d.shipments)
         if (chosen.contains(s.id)) s.id,
     ];
-    final url = await showSheet<String>(context, _SizeSheet(brand: brand, sizes: d.sizes, ids: ids));
-    if (url == null || !mounted) return;
+    final picked = await showSheet<(String, String)>(context, _SizeSheet(brand: brand, sizes: d.sizes, ids: ids));
+    if (picked == null || !mounted) return;
     if (AppConfig.demo) {
-      toast(context, 'في النسخة التجريبية لا تُفتح صفحة الطباعة.');
+      toast(context, 'في النسخة التجريبية لا تُطبع الوصولات.');
       return;
     }
-    if (!await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication) && mounted) {
-      toast(context, 'تعذّر فتح صفحة الطباعة على هذا الجهاز.', bad: true);
+    final (url, size) = picked;
+    setState(() => printing = true);
+    try {
+      final html = await Api.instance.labelsPage(url);
+      final format = labelFormat(size);
+      final Uint8List pdf;
+      try {
+        // الصفحة نفسها التي يطبعها الموقع، تُحوَّل في الهاتف إلى PDF بمقاس الملصق
+        // ignore: deprecated_member_use
+        pdf = await Printing.convertHtml(html: html, baseUrl: url, format: format);
+      } catch (_) {
+        // هاتفٌ لا يحوّلها: تُفتح الصفحة نفسها داخل التطبيق، وفيها زرّ الطباعة
+        if (!await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView) && mounted) {
+          toast(context, 'تعذّرت الطباعة على هذا الجهاز.', bad: true);
+        }
+        return;
+      }
+      await Printing.layoutPdf(name: 'وصولات ${ids.length}', format: format, onLayout: (_) async => pdf);
+    } on ApiError catch (e) {
+      if (mounted) toast(context, e.message, bad: true);
+    } catch (_) {
+      if (mounted) toast(context, 'تعذّرت الطباعة على هذا الجهاز.', bad: true);
+    } finally {
+      if (mounted) {
+        setState(() => printing = false);
+        // ما فُتح للطباعة صار «مطبوعاً» في النظام: تُعاد الخانتان بعددهما
+        _load();
+      }
     }
   }
 
@@ -86,48 +140,63 @@ class _LabelsScreenState extends State<LabelsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const PageBar(title: 'طباعة الوصولات', subtitle: 'طلباتك المدخلة التي لم يستلمها المندوب بعد'),
+            const PageBar(title: 'الطابعة', subtitle: 'طلباتك الجديدة قبل أن يستلمها المندوب'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _box('to_print', 'للطباعة', 'لم يُطبع وصلها', d?.toPrint, Icons.print_rounded, brand.main),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _box('printed', 'مطبوعة', 'تنتظر المندوب', d?.printed, Icons.task_alt_rounded, Palette.ok),
+                  ),
+                ],
+              ),
+            ),
             Expanded(
-              child: d == null
+              child: d == null || (d.shipments.isEmpty && error != null)
                   ? Waiting(brand: brand, error: error, onRetry: _load)
                   : d.shipments.isEmpty
-                  ? const Empty(
-                      icon: Icons.print_disabled_outlined,
-                      title: 'لا طلبات تنتظر الطباعة',
-                      text: 'كلّ طلبٍ تُدخله يظهر هنا حتى يستلمه المندوب.',
+                  ? Empty(
+                      icon: _printed ? Icons.inventory_2_outlined : Icons.print_disabled_outlined,
+                      title: _printed ? 'لا مطبوعة تنتظر المندوب' : 'لا طلبات تنتظر الطباعة',
+                      text: _printed
+                          ? 'ما تطبع وصله يبقى هنا حتى يستلمه المندوب، فينتقل إلى «قيد التوصيل».'
+                          : 'كلّ طلبٍ تُدخله يظهر هنا لتطبع وصله وتلصقه على الطرد.',
                     )
                   : RefreshIndicator(
                       color: brand.main,
                       onRefresh: _load,
                       child: ListView(
-                        padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
+                        padding: const EdgeInsets.fromLTRB(14, 2, 14, 24),
                         children: [
-                          WhiteCard(
-                            padding: EdgeInsets.zero,
-                            child: Material(
-                              type: MaterialType.transparency,
-                              child: CheckboxListTile(
-                                value: _all,
-                                tristate: false,
-                                activeColor: brand.main,
-                                onChanged: (_) => _toggleAll(),
-                                title: Text('تحديد الكل', style: font(14, w8, Palette.ink)),
-                                subtitle: Text(
-                                  'المحدّد ${chosen.length} من ${d.shipments.length}',
-                                  style: font(12, w6, Palette.slate),
-                                ),
-                              ),
-                            ),
+                          Text(
+                            _printed
+                                ? 'طُبعت وصولها وتنتظر مندوب الاستلام — حدّد ما تريد إعادة طباعته.'
+                                : 'اطبع وصولها والصقها على الطرود. ما تطبعه ينتقل إلى «مطبوعة».',
+                            style: font(11.5, w6, Palette.slate, height: 1.5),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 8),
                           WhiteCard(
                             padding: EdgeInsets.zero,
                             child: Material(
                               type: MaterialType.transparency,
                               child: Column(
                                 children: [
-                                  for (final (i, s) in d.shipments.indexed) ...[
-                                    if (i > 0) const Divider(height: 1, color: Palette.line),
+                                  CheckboxListTile(
+                                    value: _all,
+                                    activeColor: brand.main,
+                                    onChanged: (_) => _toggleAll(),
+                                    title: Text('تحديد الكل', style: font(13.5, w8, Palette.ink)),
+                                    subtitle: Text(
+                                      'المحدّد ${chosen.length} من ${d.shipments.length}',
+                                      style: font(11.5, w6, Palette.slate),
+                                    ),
+                                  ),
+                                  for (final s in d.shipments) ...[
+                                    const Divider(height: 1, color: Palette.line),
                                     _row(s),
                                   ],
                                 ],
@@ -143,11 +212,57 @@ class _LabelsScreenState extends State<LabelsScreen> {
                 padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
                 child: SheetButton(
                   brand: brand,
-                  label: chosen.isEmpty ? 'حدّد ما تطبعه' : 'اطبع ${chosen.length} وصل',
+                  label: chosen.isEmpty
+                      ? (_printed ? 'حدّد ما تعيد طباعته' : 'حدّد ما تطبعه')
+                      : '${_printed ? 'أعد طباعة' : 'اطبع'} ${chosen.length} وصل',
                   icon: Icons.print_rounded,
-                  onTap: chosen.isEmpty ? null : _print,
+                  busy: printing,
+                  onTap: chosen.isEmpty || printing ? null : _print,
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// خانةٌ من الخانتين: أيقونتها ورقمها واسمها، والمختارة بلونها
+  Widget _box(String key, String title, String hint, int? count, IconData icon, Color color) {
+    final on = state == key;
+    return Tap(
+      radius: 18,
+      shadow: on ? null : cardShadow,
+      onTap: () => _show(key),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: on ? Color.lerp(Colors.white, color, .1) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: on ? color : Palette.line, width: on ? 1.6 : 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: on ? color : Color.lerp(Colors.white, color, .12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 19, color: on ? Colors.white : color),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: font(13, w8, Palette.ink, height: 1.25)),
+                  Text(hint, maxLines: 1, overflow: TextOverflow.ellipsis, style: font(10.5, w6, Palette.slate)),
+                ],
+              ),
+            ),
+            Text(count == null ? '—' : money(count), style: display(18, w8, on ? color : Palette.ink)),
           ],
         ),
       ),
@@ -172,12 +287,29 @@ class _LabelsScreenState extends State<LabelsScreen> {
         Text('${money(s.amount)} د.ع', style: font(12.5, w8, Palette.ink)),
       ],
     ),
-    subtitle: InkWell(
-      onTap: () => openShipment(context, brand, s.id),
-      child: Text('#${s.number}', textDirection: TextDirection.ltr, style: font(12, w8, brand.main)),
+    subtitle: Row(
+      children: [
+        InkWell(
+          onTap: () => openShipment(context, brand, s.id),
+          child: Text('#${s.number}', textDirection: TextDirection.ltr, style: font(12, w8, brand.main)),
+        ),
+        const Spacer(),
+        if (s.printedAt != null)
+          Text('طُبع ${when(s.printedAt)}', style: font(10.5, w6, Palette.ok))
+        else if (s.at != null)
+          Text(when(s.at), style: font(10.5, w5, Palette.slate)),
+      ],
     ),
   );
 }
+
+/// مقاس الصفحة بمقاس الملصق، بلا هوامش: الصفحة نفسها تضبط مكان كلّ شيء
+PdfPageFormat labelFormat(String size) => switch (size) {
+  '80x120' => const PdfPageFormat(80 * PdfPageFormat.mm, 120 * PdfPageFormat.mm),
+  '100x100' => const PdfPageFormat(100 * PdfPageFormat.mm, 100 * PdfPageFormat.mm),
+  'a4' => PdfPageFormat.a4,
+  _ => const PdfPageFormat(100 * PdfPageFormat.mm, 150 * PdfPageFormat.mm),
+};
 
 /// المقاس: ما تطبعه طابعة التاجر — ملصقٌ حراريّ أو ورقة A4
 class _SizeSheet extends StatefulWidget {
@@ -207,7 +339,7 @@ class _SizeSheetState extends State<_SizeSheet> {
     setState(() => (busy = true, error = null));
     try {
       final url = await Api.instance.labelsLink(widget.ids, size);
-      if (mounted) Navigator.of(context).pop(url);
+      if (mounted) Navigator.of(context).pop((url, size));
     } on ApiError catch (e) {
       if (mounted) setState(() => (error = e.message, busy = false));
     }
@@ -218,7 +350,7 @@ class _SizeSheetState extends State<_SizeSheet> {
     final brand = widget.brand;
     return SheetFrame(
       title: 'اختر المقاس',
-      text: '${widget.ids.length} وصل — تُفتح صفحة الطباعة في متصفّح الهاتف، فاطبعها بطابعتك أو احفظها PDF.',
+      text: '${widget.ids.length} وصل — تُطبع من التطبيق نفسه: اختر طابعتك، أو احفظها PDF وأرسلها.',
       children: [
         for (final s in widget.sizes)
           Padding(

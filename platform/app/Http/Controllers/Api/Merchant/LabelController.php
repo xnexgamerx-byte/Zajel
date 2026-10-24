@@ -2,42 +2,69 @@
 
 namespace App\Http\Controllers\Api\Merchant;
 
+use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\ShipmentLabelController;
 use App\Models\Shipment;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
 
 /**
- * «طباعة الوصولات» في تطبيق التاجر (docs/plan/63): طلباته المدخلة التي لم يستلمها مندوبٌ بعد —
- * يحدّدها كلّها أو بعضها، ويختار المقاس، فيُعطى رابطاً موقَّعاً لساعة يُطبع من متصفّح الهاتف.
+ * «الطابعة» في تطبيق التاجر (docs/plan/63، 79): طلباته الجديدة التي لم يستلمها مندوبٌ بعد، مفروزةً
+ * «للطباعة» و«مطبوعة» — يحدّدها كلّها أو بعضها، ويختار المقاس، فيُعطى رابطاً موقَّعاً لساعة يطبعه
+ * التطبيق نفسه، فتنتقل إلى «مطبوعة».
  */
 class LabelController extends Controller
 {
+    /** «الطابعة»: الجديدة «للطباعة» ثم «مطبوعة» — ولكلٍّ عدّها */
+    public const STATES = ['to_print', 'printed'];
+
     public function index(Request $request): JsonResponse
     {
-        $shipments = Shipment::query()
-            ->where('merchant_id', $request->attributes->get('merchant')->id)
-            ->whereIn('status', array_map(fn ($s) => $s->value, ShipmentLabelController::ENTERED))
+        $merchant = $request->attributes->get('merchant');
+        $state = in_array($request->query('state'), self::STATES, true) ? (string) $request->query('state') : 'to_print';
+
+        $shipments = self::entered($merchant->id)
+            ->when($state === 'printed', fn ($q) => $q->whereNotNull('printed_at'), fn ($q) => $q->whereNull('printed_at'))
             ->with(['governorate:id,name_ar', 'city:id,name_ar'])
+            ->when($state === 'printed', fn ($q) => $q->orderByDesc('printed_at'))
             ->latest('id')
             ->limit(ShipmentLabelController::MAX)
             ->get();
 
         return response()->json([
+            'state' => $state,
+            'counts' => self::counts($merchant->id),
             'shipments' => $shipments->map(fn (Shipment $s) => [
                 'id' => $s->id,
                 'number' => $s->number,
                 'name' => $s->recipient_name ?: $s->recipient_phone,
+                'phone' => $s->recipient_phone,
                 'place' => collect([$s->governorate?->name_ar, $s->city?->name_ar])->filter()->implode(' · '),
                 'amount' => (int) $s->cod_amount,
                 'at' => $s->created_at?->toIso8601String(),
+                'printed_at' => $s->printed_at?->toIso8601String(),
             ])->values(),
             'sizes' => collect(ShipmentLabelController::SIZES)
                 ->map(fn (array $size, string $key) => ['key' => $key, 'label' => $size[0]])->values(),
         ]);
+    }
+
+    /** الجديدة التي لم يستلمها مندوبٌ بعد — هي ما في «الطابعة» */
+    public static function entered(int $merchantId): Builder
+    {
+        return Shipment::query()->where('merchant_id', $merchantId)->whereIn('status', ShipmentStatus::enteredValues());
+    }
+
+    /** @return array{to_print: int, printed: int} */
+    public static function counts(int $merchantId): array
+    {
+        $printed = self::entered($merchantId)->whereNotNull('printed_at')->count();
+
+        return ['to_print' => self::entered($merchantId)->count() - $printed, 'printed' => $printed];
     }
 
     public function store(Request $request): JsonResponse

@@ -15,6 +15,11 @@ class Palette {
   /// المسلَّم والمؤكَّد: أخضر هادئ
   static const ok = Color(0xFF1F6B35);
   static const okSoft = Color(0xFFE6F4EA);
+
+  /// المؤجّل أصفر (docs/plan/79): ذهبيٌّ داكنٌ يُقرأ على الأبيض، وخلفيّته صفراء فاتحة
+  static const postponed = Color(0xFFC99A06);
+  static const postponedSoft = Color(0xFFFFF4CC);
+  static const postponedInk = Color(0xFF7A5A00);
 }
 
 /// درجات لون الشركة: الأحمر في التصميم، وغيره لشركةٍ أخرى بالنسب نفسها.
