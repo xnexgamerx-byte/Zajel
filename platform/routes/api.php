@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\Merchant\ShipmentController as MerchantShipmentCont
 use App\Http\Controllers\Api\Merchant\SupportController as MerchantSupportController;
 use App\Http\Controllers\Api\Merchant\WaybillController as MerchantWaybillController;
 use App\Http\Controllers\Api\Partner\PartnerApiController;
+use App\Http\Controllers\Api\PushDeviceController;
 use App\Http\Controllers\Courier\LocationController as CourierLocationController;
 use App\Http\Controllers\OrderListeningController;
 use App\Http\Controllers\OrderReadingController;
@@ -60,6 +61,10 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
     });
 
     Route::middleware(['auth:sanctum', 'api-user', 'throttle:120,1'])->group(function () {
+        // إشعارات الهاتف: يُسجَّل بعد الدخول ويُلغى عند الخروج (docs/plan/82)
+        Route::post('/devices', [PushDeviceController::class, 'store'])->middleware('throttle:30,1')->name('devices.store');
+        Route::delete('/devices', [PushDeviceController::class, 'destroy'])->name('devices.destroy');
+
         Route::get('/me', [AuthController::class, 'me'])->name('me');
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('/app-ads/{ad}/image', [AppAdController::class, 'image'])->whereNumber('ad')

@@ -7,6 +7,7 @@ use App\Models\Announcement;
 use App\Models\Company;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Support\Push\MerchantPush;
 
 /**
  * إشعارٌ لتاجرٍ بعينه في جرس تطبيقه وبوابته (docs/plan/61، 81): «تغيّر مبلغ وصلك»، و«وصلت شحنتك»،
@@ -34,7 +35,7 @@ final class MerchantNotice
             return;
         }
 
-        Announcement::create([
+        self::announce([
             'company_id' => $shipment->company_id,
             'audience' => 'merchants',
             'merchant_id' => $shipment->merchant_id,
@@ -98,7 +99,7 @@ final class MerchantNotice
 
     private static function notify(Shipment $shipment, string $title, string $body): void
     {
-        Announcement::create([
+        self::announce([
             'company_id' => $shipment->company_id,
             'audience' => 'merchants',
             'merchant_id' => $shipment->merchant_id,
@@ -107,5 +108,13 @@ final class MerchantNotice
             'body' => $body,
             'created_by_user_id' => null,
         ]);
+    }
+
+    /** الجرس أوّلاً، ثم هواتف التاجر (docs/plan/82) */
+    private static function announce(array $attributes): void
+    {
+        Announcement::create($attributes);
+
+        MerchantPush::notify((int) $attributes['merchant_id'], $attributes['title'], (string) $attributes['body']);
     }
 }

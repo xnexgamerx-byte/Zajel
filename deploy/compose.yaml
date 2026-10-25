@@ -36,6 +36,8 @@ x-app-env: &app-env
   ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   ZAJEL_SPEECH_PROVIDER: ${ZAJEL_SPEECH_PROVIDER:-}
+  # إشعارات الهواتف (docs/plan/82): مسار مفتاح حساب الخدمة داخل الحاوية، والمجلد يُربط للقراءة فقط
+  FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
 
 x-app-build: &app-build
   context: ../platform
@@ -49,6 +51,7 @@ services:
     environment: *app-env
     volumes:
       - storage:/var/www/html/storage
+      - /etc/zajel:/etc/zajel:ro
     depends_on:
       db:
         condition: service_healthy
@@ -68,6 +71,8 @@ services:
     restart: unless-stopped
     user: www-data
     command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - /etc/zajel:/etc/zajel:ro
     environment: *app-env
     volumes:
       - storage:/var/www/html/storage

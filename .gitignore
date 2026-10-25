@@ -24,3 +24,6 @@
 /deploy/.env
 /deploy/.installed
 /deploy/certs/
+
+# إعداد Firebase للتطبيقات: يُكتب وقت البناء من سرّ GitHub، ولا يُرفع للمستودع (docs/plan/82)
+apps/*/android/app/google-services.json
