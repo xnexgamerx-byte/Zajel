@@ -5,8 +5,10 @@ namespace Tests\Feature\Api;
 use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Actions\Shipments\CreateShipment;
 use App\Actions\Shipments\ShipmentTickets;
+use App\Actions\Support\CourierChat;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
+use App\Models\Announcement;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\FailureReason;
@@ -242,5 +244,72 @@ class CallCenterBoardTest extends TestCase
             ->assertOk()->json('data.events'));
         $this->assertSame('طلب تغيير المبلغ', $events->first()['status']);
         $this->assertStringContainsString('الزبون يقول السعر 45', $events->first()['note']);
+    }
+
+    public function test_any_shipment_has_its_merchant_and_courier_chats(): void
+    {
+        $shipment = $this->withCourier('على الطريق');
+        $sara = $this->as($this->sara);
+
+        $this->postJson($this->api("/callcenter/shipments/{$shipment->id}/merchant"), ['body' => 'الزبون يسأل متى توصل'], $sara)->assertCreated();
+        $this->postJson($this->api("/callcenter/shipments/{$shipment->id}/courier"), ['body' => 'اتصل بالزبون قبل العصر'], $sara)->assertCreated();
+
+        $this->getJson($this->api("/callcenter/shipments/{$shipment->id}"), $sara)->assertOk()
+            ->assertJsonPath('data.can_chat', true)
+            ->assertJsonPath('data.merchant_chat.0.body', 'الزبون يسأل متى توصل')
+            ->assertJsonPath('data.courier_chat.0.body', 'اتصل بالزبون قبل العصر')
+            ->assertJsonPath('data.courier_chat.0.mine', true);
+    }
+
+    public function test_courier_messages_are_read_and_answered_in_the_app(): void
+    {
+        $shipment = $this->withCourier();
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            $courierUser = User::create(['name' => 'أحمد', 'phone' => '07720000009', 'password' => 'password',
+                'role' => UserRole::Courier, 'courier_id' => $this->courier->id, 'is_active' => true]);
+            app(CourierChat::class)->send($this->courier, 'الزبون ما يرد، شنو أسوي؟', $courierUser, CourierChat::COURIER, $shipment);
+        });
+        $sara = $this->as($this->sara);
+
+        $this->getJson($this->api('/callcenter/couriers'), $sara)->assertOk()
+            ->assertJsonPath('data.0.name', 'أحمد')->assertJsonPath('data.0.unread', true)
+            ->assertJsonPath('data.0.waiting', true)->assertJsonPath('data.0.last', 'الزبون ما يرد، شنو أسوي؟');
+
+        $this->getJson($this->api("/callcenter/couriers/{$this->courier->id}"), $sara)->assertOk()
+            ->assertJsonPath('data.messages.0.shipment', $shipment->number)->assertJsonPath('data.messages.0.mine', false);
+        $this->getJson($this->api('/callcenter/couriers'), $sara)->assertJsonPath('data.0.unread', false);
+
+        $this->postJson($this->api("/callcenter/couriers/{$this->courier->id}/reply"), ['body' => 'أرسل له واتساب', 'shipment' => $shipment->number], $sara)
+            ->assertCreated();
+        $this->postJson($this->api("/callcenter/couriers/{$this->courier->id}/reply"), ['body' => 'x', 'shipment' => '999999999'], $sara)
+            ->assertStatus(422);
+        $this->getJson($this->api('/callcenter/couriers'), $sara)->assertJsonPath('data.0.waiting', false);
+    }
+
+    public function test_the_merchant_is_notified_of_deliveries_and_processing_decisions(): void
+    {
+        $toRedeliver = $this->failed();
+        $toPostpone = $this->failed();
+        $delivered = $this->withCourier('زبون واصل');
+        $sara = $this->as($this->sara);
+
+        $this->decide($toRedeliver, $sara, 'redeliver');
+        $this->decide($toPostpone, $sara, 'postpone', ['until' => now()->addDay()->toDateString()]);
+        Tenancy::runFor($this->company, fn () => app(ChangeShipmentStatus::class)
+            ->handle($delivered, ShipmentStatus::Delivered, $this->owner));
+
+        $titles = Tenancy::runFor($this->company, fn () => Announcement::query()->where('merchant_id', $this->merchant->id)->pluck('title'));
+        $this->assertContains("إعادة توصيل شحنتك {$toRedeliver->number}", $titles->all());
+        $this->assertContains("أُجّلت شحنتك {$toPostpone->number}", $titles->all());
+        $this->assertContains("وصلت شحنتك {$delivered->number}", $titles->all());
+
+        // تُطفأ من بيانات الشركة
+        Tenancy::runFor($this->company, function () {
+            $this->company->forceFill(['settings' => ['notify' => ['delivered' => false, 'processed' => false]]])->save();
+        });
+        $quiet = $this->withCourier('زبون صامت');
+        Tenancy::runFor($this->company, fn () => app(ChangeShipmentStatus::class)->handle($quiet, ShipmentStatus::Delivered, $this->owner));
+        $this->assertSame(0, Tenancy::runFor($this->company, fn () => Announcement::query()
+            ->where('title', "وصلت شحنتك {$quiet->number}")->count()));
     }
 }

@@ -155,7 +155,7 @@ void main() {
     await tester.enterText(find.byType(TextField), '180231');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
-    expect(find.text('سجلّها'), findsOneWidget);
+    expect(find.text('الوصل كاملاً'), findsOneWidget);
     expect(find.text('في المعالجة — افتحيها'), findsOneWidget);
   });
 
@@ -251,5 +251,62 @@ void main() {
     expect(find.text('07801234567'), findsOneWidget);
     await _tap(tester, find.byTooltip('تواصلي مع الزبون'));
     expect(find.textContaining('حاول المندوب توصيله ولم يتمّ (لا يرد على الهاتف)'), findsOneWidget);
+  });
+
+  testWidgets('المعالجة: «الحرّة» تفرز ما لم تفتحه أحد، ولمس رقم الوصل يفتح تتبّعها، والردود الجاهزة', (tester) async {
+    await _start(tester);
+    await _tab(tester, 'المعالجة');
+    expect(find.text('كرار عادل'), findsOneWidget);
+    await _tap(tester, find.text('الحرّة'));
+    expect(find.text('كرار عادل'), findsNothing, reason: 'تعالجها نور');
+    expect(find.text('منى جاسم'), findsOneWidget);
+    await _tap(tester, find.textContaining('الحرّة'));
+
+    await _tap(tester, find.text('منى جاسم'));
+    await _tap(tester, find.text('التتبّع'));
+    expect(find.text('في المعالجة — افتحيها'), findsOneWidget);
+    await _tap(tester, find.byTooltip('رجوع').last);
+
+    // ردٌّ جاهز يُكتب في الحقل ثم يُرسل
+    await _tap(tester, find.text('أعالجها'));
+    await _tap(tester, find.text('تم التبليغ').first);
+    await _tap(tester, find.byTooltip('أرسل'));
+    expect(find.text('تم التبليغ'), findsWidgets);
+  });
+
+  testWidgets('رسائل المناديب تُقرأ ويُردّ عليها في التطبيق', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.text('رسائل المناديب'));
+    expect(find.text('أحمد كريم'), findsOneWidget);
+    expect(find.textContaining('ينتظر ردّك منذ'), findsOneWidget);
+    await _tap(tester, find.text('أحمد كريم'));
+    expect(find.text('الزبون ما يرد، شنو أسوي؟\nالوصل ${tag('180301')}'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'أرسل له واتساب');
+    await _tap(tester, find.byTooltip('أرسل'));
+    expect(find.text('أرسل له واتساب'), findsOneWidget);
+
+    // رقم الشحنة في المحادثة يفتح معلوماتها
+    await _tap(tester, find.text(tag('180301')).first);
+    expect(find.text('الوصل كاملاً'), findsOneWidget);
+  });
+
+  testWidgets('الشحنة والتذكرة: محادثتا التاجر والمندوب، ورقم الوصل في التذكرة', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.byTooltip('ابحث عن شحنة'));
+    await tester.enterText(find.byType(TextField), '180301');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+    expect(find.text('المحادثات'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'الزبون يسأل متى توصل');
+    await _tap(tester, find.byTooltip('أرسل'));
+    expect(find.text('الزبون يسأل متى توصل'), findsOneWidget);
+    await _tap(tester, find.byTooltip('رجوع').last);
+    await _tap(tester, find.byTooltip('رجوع').last);
+
+    await _tab(tester, 'التذاكر');
+    await _tap(tester, find.text(tag('TK000214')));
+    expect(find.text(tag('180240')), findsOneWidget);
+    expect(find.text('التتبّع'), findsOneWidget);
+    expect(find.text('المحادثات'), findsOneWidget);
   });
 }

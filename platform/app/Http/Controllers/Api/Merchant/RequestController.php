@@ -47,14 +47,14 @@ class RequestController extends Controller
                     'result' => $r->settlement ? "كشف {$r->settlement->code}" : ($r->returnBatch ? "إيصال {$r->returnBatch->number}" : null),
                     'at' => $r->created_at?->toIso8601String(),
                 ])->values(),
-            'batches' => ReturnBatch::where('merchant_id', $merchant->id)->with('courier:id,name')->withCount('shipments')
+            'batches' => ReturnBatch::where('merchant_id', $merchant->id)->with('courier:id,name,hidden_from_merchants')->withCount('shipments')
                 ->latest('id')->limit(30)->get()
                 ->map(fn (ReturnBatch $b) => [
                     'id' => $b->id,
                     'number' => $b->number,
                     'count' => (int) $b->shipments_count,
                     'fees' => (int) $b->return_fees_total,
-                    'via' => $b->viaLabel(),
+                    'via' => $b->viaLabel(true),
                     'at' => $b->handed_at?->toIso8601String(),
                     'received' => $b->received_at?->toIso8601String(),
                 ])->values(),
@@ -103,7 +103,7 @@ class RequestController extends Controller
             'number' => $batch->number,
             'count' => (int) $batch->shipments_count,
             'fees' => (int) $batch->return_fees_total,
-            'via' => $batch->load('courier:id,name')->viaLabel(),
+            'via' => $batch->load('courier:id,name,hidden_from_merchants')->viaLabel(true),
             'note' => $batch->note,
             'at' => $batch->handed_at?->toIso8601String(),
             'received' => $batch->received_at?->toIso8601String(),

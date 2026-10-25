@@ -37,7 +37,7 @@ class StatementController extends Controller
                 ->latest('id')->limit(10)->get(),
 
             // «كشوفات الرواجع»: ما سُلّم له من رواجع بإيصالاتها، وما ينتظر تأكيده (docs/plan/69)
-            'returnBatches' => ReturnBatch::where('merchant_id', $merchant->id)->with('courier:id,name')
+            'returnBatches' => ReturnBatch::where('merchant_id', $merchant->id)->with('courier:id,name,hidden_from_merchants')
                 ->latest('id')->limit(10)->get(),
             'scanRequired' => ConfirmReceipt::required(),
         ]);

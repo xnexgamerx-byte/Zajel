@@ -9,6 +9,7 @@ import '../widgets/bits.dart';
 import '../widgets/digits.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
+import 'search_screen.dart' show openShipment;
 
 Future<String?> openTicket(BuildContext context, Brand brand, int id) => Navigator.of(context).push<String>(
   MaterialPageRoute(
@@ -213,6 +214,9 @@ class _TicketScreenState extends State<TicketScreen> {
   TicketItem? t;
   String? error;
   bool busy = false;
+
+  /// شحنة التذكرة بمحادثتيها (docs/plan/81)
+  ShipmentDetail? ship;
   final amount = TextEditingController();
   final reply = TextEditingController();
   String? fieldError;
@@ -238,8 +242,20 @@ class _TicketScreenState extends State<TicketScreen> {
       if (!mounted) return;
       setState(() => (t = d, error = null));
       if (amount.text.isEmpty) amount.text = '${d.requested}';
+      await _loadShipment();
     } on ApiError catch (e) {
       if (mounted) setState(() => error = e.message);
+    }
+  }
+
+  Future<void> _loadShipment() async {
+    final id = t?.shipmentId;
+    if (id == null) return;
+    try {
+      final d = await Api.instance.shipment(id);
+      if (mounted) setState(() => ship = d);
+    } on ApiError catch (_) {
+      // المحادثتان وحدهما: تعذّرهما لا يُخفي التذكرة
     }
   }
 
@@ -300,6 +316,34 @@ class _TicketScreenState extends State<TicketScreen> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(14, 4, 14, 20),
                       children: [
+                        // رقم الوصل ومعلوماته (docs/plan/81): لمسه يفتح تتبّعها، ونسخه ونسخ الوصل كاملاً بزرّيهما
+                        if (d.shipmentNumber != null) ...[
+                          WaybillBar(
+                            brand: brand,
+                            number: d.shipmentNumber!,
+                            onOpen: d.shipmentId == null ? null : () => openShipment(context, brand, d.shipmentId!),
+                            full: waybillText(
+                              number: d.shipmentNumber!,
+                              recipient: d.recipient ?? '',
+                              phone: d.phone,
+                              place: d.place,
+                              amount: d.current,
+                              merchant: d.merchant.name,
+                              status: '${d.kindLabel}: ${money(d.current)} ← ${money(d.requested)}',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            [
+                              d.recipient ?? 'الزبون',
+                              if (d.place.isNotEmpty) d.place,
+                              if ((d.merchant.name ?? '').isNotEmpty) d.merchant.name!,
+                              if ((d.phone ?? '').isNotEmpty) d.phone!,
+                            ].join(' · '),
+                            style: font(12.5, w7, Palette.slate, height: 1.5),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         _hero(d),
                         const SizedBox(height: 12),
                         Panel(
@@ -336,6 +380,19 @@ class _TicketScreenState extends State<TicketScreen> {
                               const SizedBox(width: 6),
                               Expanded(child: Text(d.effect!, style: font(12, w6, Palette.slate, height: 1.6))),
                             ],
+                          ),
+                        ],
+                        // محادثتا التاجر والمندوب عن الشحنة (docs/plan/81)
+                        if (ship != null && ship!.canChat) ...[
+                          const SectionTitle('المحادثات'),
+                          ShipmentChats(
+                            brand: brand,
+                            shipmentId: ship!.found.id,
+                            merchantChat: ship!.merchantChat,
+                            courierChat: ship!.courierChat,
+                            canAsk: ship!.canAsk,
+                            hasCourier: ship!.hasCourier,
+                            onSent: _loadShipment,
                           ),
                         ],
                       ],

@@ -4,13 +4,9 @@ namespace App\Http\Controllers\Api\CallCenter;
 
 use App\Actions\Shipments\ProcessFailedAttempt;
 use App\Actions\Support\Claims;
-use App\Actions\Support\Converse;
-use App\Actions\Support\CourierChat;
 use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
-use App\Models\Conversation;
-use App\Models\CourierMessage;
 use App\Models\Shipment;
 use App\Models\ShipmentFollowUp;
 use App\Support\FeatureGate;
@@ -57,11 +53,6 @@ class ProcessingController extends Controller
     public function show(Request $request, int $shipment): JsonResponse
     {
         $s = $this->find($request, $shipment);
-        $chat = FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply');
-
-        $conversation = $chat ? Conversation::query()->where('shipment_id', $s->id)->latest('id')
-            ->with(['messages' => fn ($q) => $q->reorder()->latest('id')->limit(30)])->first() : null;
-        $courier = $chat ? CourierMessage::query()->where('shipment_id', $s->id)->latest('id')->limit(30)->get()->sortBy('id')->values() : collect();
         $note = ShipmentFollowUp::query()->where('shipment_id', $s->id)->where('user_id', $request->user()->id)->value('note');
 
         return response()->json(['data' => $this->row($s, Claims::holder(Claims::PROCESSING, $s->id), $request) + [
@@ -74,18 +65,9 @@ class ProcessingController extends Controller
             'description' => $s->description,
             'pieces' => (int) $s->pieces_count,
             'my_note' => $note,
-            'can_chat' => $chat,
             'can_ask' => FeatureGate::enabled(Feature::Conversations) && $s->merchant !== null,
             'actions' => ProcessFailedAttempt::ACTIONS,
-            // محادثتا الشحنة: التاجر عنها، ومندوبها عنها — بترتيب الكتابة
-            'merchant_chat' => $conversation ? $conversation->messages->sortBy('id')->values()->map(fn ($m) => self::messageJson($m)) : [],
-            'courier_chat' => $courier->map(fn (CourierMessage $m) => [
-                'mine' => $m->author === CourierChat::STAFF,
-                'author' => $m->author_name,
-                'body' => $m->body,
-                'at' => $m->created_at?->toIso8601String(),
-            ]),
-        ]]);
+        ] + self::shipmentChats($s, $request->user())]);
     }
 
     /** «أعالجها»: تتّصل بالزبون وهي وحدها — وملاحظتها تُحفظ لها */
@@ -134,34 +116,27 @@ class ProcessingController extends Controller
     }
 
     /** ردٌّ على التاجر عن الشحنة: في محادثتها، أو محادثةٌ جديدة عنها */
-    public function merchant(Request $request, int $shipment, Converse $converse): JsonResponse
+    public function merchant(Request $request, int $shipment): JsonResponse
     {
         $s = $this->find($request, $shipment);
         abort_unless($s->merchant && FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply'), 403);
         $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الرسالة']);
         Claims::take(Claims::PROCESSING, $s->id, $request->user());
 
-        $open = Conversation::query()->where('shipment_id', $s->id)->latest('id')->first();
-        if ($open) {
-            $converse->reply($open, $data['body'], $request->user(), Converse::STAFF);
-            $converse->markRead($open->refresh(), Converse::STAFF);
-        } else {
-            $converse->start($s->merchant, "بخصوص الوصل {$s->number}", $data['body'], $request->user(), Converse::STAFF, $s->number);
-        }
+        self::writeMerchant($s, $data['body'], $request->user());
 
         return response()->json(['message' => 'وصلت التاجر.'], 201);
     }
 
     /** ردٌّ على مندوبها: في محادثته، والسطر يحمل رقم الشحنة */
-    public function courier(Request $request, int $shipment, CourierChat $chat): JsonResponse
+    public function courier(Request $request, int $shipment): JsonResponse
     {
         $s = $this->find($request, $shipment);
         abort_unless($s->deliveryCourier && FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply'), 403);
         $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الرسالة']);
         Claims::take(Claims::PROCESSING, $s->id, $request->user());
 
-        $chat->send($s->deliveryCourier, $data['body'], $request->user(), CourierChat::STAFF, $s);
-        $chat->markRead($chat->thread($s->deliveryCourier)->refresh(), CourierChat::STAFF);
+        self::writeCourier($s, $data['body'], $request->user());
 
         return response()->json(['message' => 'وصلت المندوب.'], 201);
     }

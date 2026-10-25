@@ -9,6 +9,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
 use App\Services\Ledger;
+use App\Support\MerchantNotice;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -347,6 +348,11 @@ class ChangeShipmentStatus
                 ShipmentStatus::Returned           => $this->ledger->recordReturn($shipment, $actor),
                 default                            => null,
             };
+
+            // «وصلت شحنتك» في جرس التاجر (docs/plan/81)
+            if (in_array($to, [ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered], true)) {
+                MerchantNotice::delivered($shipment);
+            }
 
             return $shipment->refresh();
         });

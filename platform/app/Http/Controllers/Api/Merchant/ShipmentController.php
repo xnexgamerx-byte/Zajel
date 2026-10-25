@@ -28,6 +28,8 @@ class ShipmentController extends Controller
         'processing' => 'للمعالجة',
         'attention' => 'تحتاج انتباهك',
         'returns' => 'راجع مؤكدة',
+        // ما انتهى معه (docs/plan/81): واصلٌ حاسبناه عليه، وراجعٌ سلّمناه إليه
+        'archive' => 'المؤرشفة',
     ];
 
     public function index(Request $request): JsonResponse
@@ -40,7 +42,8 @@ class ShipmentController extends Controller
             ->where('merchant_id', $merchant->id)
             ->with(['city:id,name_ar', 'governorate:id,name_ar'])
             ->search($request->query('q'))
-            ->where(fn (Builder $q) => self::apply($q, $filter))
+            // البحث برقمٍ يجد المؤرشفة أيضاً، والقائمة بلا بحثٍ للجارية وحدها (docs/plan/81)
+            ->where(fn (Builder $q) => $filter === 'all' && filled($request->query('q')) ? $q : self::apply($q, $filter))
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
@@ -63,11 +66,14 @@ class ShipmentController extends Controller
 
         $shipment->load([
             'governorate:id,name_ar', 'city:id,name_ar', 'lastFailureReason:id,name_ar,category',
-            'deliveryCourier:id,name,is_intermediary', 'pickupCourier:id,name',
+            'deliveryCourier:id,name,is_intermediary,hidden_from_merchants', 'pickupCourier:id,name,is_intermediary,hidden_from_merchants',
             'events' => fn ($q) => $q->whereIn('event_type', ShipmentEvent::MERCHANT_EVENTS)->orderBy('id'),
         ]);
 
         $open = $shipment->status->isOpen();
+        // مندوبٌ أخفته الشركة عن العميل (docs/plan/81): لا اسمه ولا موقعه
+        $carrier = $shipment->deliveryCourier ?? $shipment->pickupCourier;
+        $hidden = (bool) $carrier?->hiddenFromMerchants();
         $returnFee = $shipment->status === ShipmentStatus::Returned ? (int) $shipment->return_fee : 0;
 
         return response()->json([
@@ -83,11 +89,11 @@ class ShipmentController extends Controller
             'tracking_url' => Tracking::url($shipment),
             // تتبّعه الآن (docs/plan/59): من معه الطرد، وآخر ما جرى عليه ومتى
             'tracking' => [
-                'courier' => $shipment->status->isOpen() ? ($shipment->deliveryCourier?->merchantFacingName() ?? $shipment->pickupCourier?->name) : null,
+                'courier' => $open && ! $hidden ? $carrier?->merchantFacingName() : null,
                 'status' => $shipment->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $shipment->statusLabel(),
                 'at' => ($shipment->status_changed_at ?? $shipment->created_at)?->toIso8601String(),
                 // على الخريطة ما دامت لم تُحسم (docs/plan/61): دقيقٌ من هاتف المندوب، أو تقريبيٌّ بمحافظتها
-                'location' => $shipment->status->isOpen() ? ShipmentLocation::of($shipment) : null,
+                'location' => $open && ! $hidden ? ShipmentLocation::of($shipment) : null,
             ],
             'timeline' => $shipment->events->map(fn (ShipmentEvent $e) => [
                 'title' => $e->merchantHeadline(),
@@ -153,13 +159,35 @@ class ShipmentController extends Controller
         return match ($filter) {
             'new' => $q->whereIn('status', ShipmentStatus::enteredValues()),
             'open' => $q->whereIn('status', ShipmentStatus::inDeliveryValues()),
-            'delivered' => $q->whereIn('status', $values(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered)),
+            // ما لم نحاسبه عليه بعد — والمحاسَب في «المؤرشفة»
+            'delivered' => $q->where(fn ($w) => $w->where('status', ShipmentStatus::PartiallyDelivered->value)
+                ->orWhere(fn ($d) => $d->where('status', ShipmentStatus::Delivered->value)->whereNull('merchant_settled_at'))),
             'processing' => $q->where('status', ShipmentStatus::FailedAttempt->value),
             'attention' => $q->whereIn('status', $values(ShipmentStatus::Postponed, ShipmentStatus::Returning)),
-            'returns' => $q->where(fn ($w) => $w->where('status', ShipmentStatus::Returned->value)
-                ->orWhere(fn ($r) => $r->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at'))),
-            default => $q,
+            // ما زال في طريقه إليه — وما سُلِّم إليه في «المؤرشفة»
+            'returns' => $q->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at'),
+            'archive' => self::archived($q),
+            default => self::current($q),
         };
+    }
+
+    /** الجارية: كلّ ما ليس في «المؤرشفة» */
+    public static function current(Builder $q): Builder
+    {
+        return $q->where(fn ($w) => $w->whereIn('status', array_values(array_diff(
+            array_map(fn (ShipmentStatus $s) => $s->value, ShipmentStatus::cases()),
+            [ShipmentStatus::Returned->value, ShipmentStatus::Delivered->value],
+        )))->orWhere(fn ($d) => $d->where('status', ShipmentStatus::Delivered->value)->whereNull('merchant_settled_at')));
+    }
+
+    /**
+     * «المؤرشفة» (docs/plan/81): ما انتهى مع التاجر فخرج من قوائمه وأرقامه — راجعٌ سلّمناه إليه، وواصلٌ
+     * حاسبناه عليه (merchant_settled_at). يبقى في أرشيفه، ويجده بالبحث برقمه، وفي كشوف حسابه.
+     */
+    public static function archived(Builder $q): Builder
+    {
+        return $q->where(fn ($w) => $w->where('status', ShipmentStatus::Returned->value)
+            ->orWhere(fn ($d) => $d->where('status', ShipmentStatus::Delivered->value)->whereNotNull('merchant_settled_at')));
     }
 
     /**
@@ -175,15 +203,21 @@ class ShipmentController extends Controller
 
         $of = fn (ShipmentStatus ...$s) => (int) collect($s)->sum(fn ($x) => $rows[$x->value] ?? 0);
 
+        // الواصل الذي حاسبناه عليه في «المؤرشفة» مع الراجع الذي سُلِّم إليه (docs/plan/81)
+        $settled = Shipment::where('merchant_id', $merchantId)->where('status', ShipmentStatus::Delivered->value)
+            ->whereNotNull('merchant_settled_at')->count();
+        $archived = $of(ShipmentStatus::Returned) + $settled;
+
         return [
-            'all' => (int) $rows->sum(),
+            'all' => (int) $rows->sum() - $archived,
             'new' => (int) $rows->only(ShipmentStatus::enteredValues())->sum(),
             'open' => (int) $rows->only(ShipmentStatus::inDeliveryValues())->sum(),
-            'delivered' => $of(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered),
+            'delivered' => $of(ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered) - $settled,
             'processing' => $of(ShipmentStatus::FailedAttempt),
             'attention' => $of(ShipmentStatus::Postponed, ShipmentStatus::Returning),
-            'returns' => $of(ShipmentStatus::Returned) + Shipment::where('merchant_id', $merchantId)
+            'returns' => Shipment::where('merchant_id', $merchantId)
                 ->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at')->count(),
+            'archive' => $archived,
             // «رحلة شحناتك» في الرئيسية (docs/plan/70): أين هي الآن، محطّةً محطّة
             'waiting' => $of(ShipmentStatus::Created, ShipmentStatus::PendingPickup),
             'warehouse' => $of(ShipmentStatus::PickedUp, ShipmentStatus::AtHub, ShipmentStatus::InTransit),

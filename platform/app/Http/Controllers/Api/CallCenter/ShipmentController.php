@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\CallCenter;
 
 use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Actions\Shipments\StaffStatusUpdate;
+use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CallCenterStatusRequest;
@@ -12,6 +13,8 @@ use App\Models\Courier;
 use App\Models\FailureReason;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
+use App\Support\FeatureGate;
+use App\Support\MerchantNotice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +27,8 @@ use Illuminate\Validation\ValidationException;
  */
 class ShipmentController extends Controller
 {
+    use Concerns;
+
     /** لا تُحدَّث من التطبيق: الراجع للتاجر بإيصاله، والمفقود والتالف قرارٌ في الموقع */
     private const NOT_FROM_APP = [ShipmentStatus::Returned, ShipmentStatus::Lost, ShipmentStatus::Damaged];
 
@@ -92,6 +97,9 @@ class ShipmentController extends Controller
                     ->map(fn (Courier $c) => ['id' => $c->id, 'name' => $c->name])->values()
                 : [],
             'can_reopen' => $user->can('shipments.status') && self::reopenable($s),
+            // محادثتا التاجر والمندوب عنها، في كلّ شحنة لا في المعالجة وحدها (docs/plan/81)
+            'can_ask' => $s->merchant !== null,
+            'has_courier' => $s->deliveryCourier !== null,
             'events' => ShipmentEvent::query()->where('shipment_id', $s->id)->latest('id')->limit(30)->get()
                 ->map(fn (ShipmentEvent $e) => [
                     // الحالة لما يغيّرها، ونوع الحدث لغيره: «تعديل بيانات»، «طلب تغيير المبلغ»…
@@ -103,7 +111,36 @@ class ShipmentController extends Controller
                     'by' => $e->actor_name,
                     'at' => $e->created_at?->toIso8601String(),
                 ])->values(),
-        ]]);
+        ] + self::shipmentChats($s, $user)]);
+    }
+
+    /** للتاجر عن الشحنة (docs/plan/81): في محادثتها، أو محادثةٌ جديدة عنها */
+    public function merchant(Request $request, int $shipment): JsonResponse
+    {
+        $s = $this->find($request, $shipment);
+        abort_unless($s->merchant && self::canChat($request), 403);
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الرسالة']);
+
+        self::writeMerchant($s, $data['body'], $request->user());
+
+        return response()->json(['message' => 'وصلت التاجر.'], 201);
+    }
+
+    /** لمندوبها عنها (docs/plan/81): في محادثته، والسطر يحمل رقم الشحنة */
+    public function courier(Request $request, int $shipment): JsonResponse
+    {
+        $s = $this->find($request, $shipment);
+        abort_unless($s->deliveryCourier && self::canChat($request), 403);
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000']], [], ['body' => 'الرسالة']);
+
+        self::writeCourier($s, $data['body'], $request->user());
+
+        return response()->json(['message' => 'وصلت المندوب.'], 201);
+    }
+
+    private static function canChat(Request $request): bool
+    {
+        return FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply');
     }
 
     /** «حدّثي الحالة»: قواعد صفحة الشحنة في الموقع وطريقها نفسه (StaffStatusUpdate) */
@@ -160,6 +197,7 @@ class ShipmentController extends Controller
                 'meta' => ['action' => 'redeliver', 'reopened' => true, 'by' => 'staff', 'said' => $data['note']],
                 'ip' => $request->ip(),
             ]);
+            MerchantNotice::processed($s, 'redeliver');
         });
 
         return response()->json(['message' => $withCourier

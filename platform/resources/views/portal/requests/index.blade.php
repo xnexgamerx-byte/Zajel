@@ -167,7 +167,7 @@
                         <td class="num font-semibold">{{ $batch->number }}</td>
                         <td class="num">{{ number_format($batch->shipments_count) }}</td>
                         <td class="num">{{ number_format($batch->return_fees_total) }}</td>
-                        <td>{{ $batch->viaLabel() }}</td>
+                        <td>{{ $batch->viaLabel(true) }}</td>
                         <td class="num text-xs text-ink-500 whitespace-nowrap">{{ $batch->handed_at->format('Y-m-d H:i') }}</td>
                         <td class="text-xs">
                             @if ($batch->isReceived())

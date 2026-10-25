@@ -25,7 +25,7 @@ class Courier extends Model
 
     protected function casts(): array
     {
-        return ['is_available' => 'boolean', 'is_intermediary' => 'boolean', 'last_seen_at' => 'datetime'];
+        return ['is_available' => 'boolean', 'is_intermediary' => 'boolean', 'hidden_from_merchants' => 'boolean', 'last_seen_at' => 'datetime'];
     }
 
     public function user(): BelongsTo
@@ -94,7 +94,20 @@ class Courier extends Model
      */
     public function merchantFacingName(): string
     {
-        return $this->is_intermediary ? 'شريك التوصيل' : $this->name;
+        return match (true) {
+            $this->is_intermediary => 'شريك التوصيل',
+            $this->hidden_from_merchants => 'مندوب الشركة',
+            default => $this->name,
+        };
+    }
+
+    /**
+     * «إخفاء المندوب عن العميل» (docs/plan/81): لا يرى التاجر شيئاً عنه — لا اسمه ولا هاتفه ولا موقعه.
+     * والشركة الوسيطة مخفيّةٌ باسمها كما كانت.
+     */
+    public function hiddenFromMerchants(): bool
+    {
+        return (bool) $this->hidden_from_merchants;
     }
 
     public function partnerLabel(): ?string

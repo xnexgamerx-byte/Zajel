@@ -29,7 +29,7 @@ class PickupController extends Controller
         /** @var Merchant $merchant */
         $merchant = $request->attributes->get('merchant');
         $page = PickupRequest::where('merchant_id', $merchant->id)
-            ->with('courier:id,name,phone')->latest('id')->paginate(20);
+            ->with('courier:id,name,phone,hidden_from_merchants')->latest('id')->paginate(20);
 
         return response()->json([
             // ما يُكتب في الطلب الجديد إن تُرك فارغاً
@@ -45,7 +45,8 @@ class PickupController extends Controller
                 'label'    => self::STATUSES[$p->status] ?? $p->status,
                 'expected' => (int) $p->expected_count,
                 'actual'   => $p->actual_count ? (int) $p->actual_count : null,
-                'courier'  => $p->courier ? ['name' => $p->courier->name, 'phone' => $p->courier->phone] : null,
+                // المخفيّ عن العميل لا يُذكر (docs/plan/81)
+                'courier'  => $p->courier && $p->courier->hiddenFromMerchants() === false ? ['name' => $p->courier->name, 'phone' => $p->courier->phone] : null,
                 'at'       => $p->requested_at?->toIso8601String(),
                 'day'      => $p->scheduled_at?->toDateString(),
                 'notes'    => $p->notes,

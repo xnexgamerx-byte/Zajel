@@ -8,6 +8,7 @@ import '../core/whatsapp_template.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
+import 'search_screen.dart' show openShipment;
 import 'tickets_screen.dart' show TabPage;
 
 Future<String?> openCase(BuildContext context, Brand brand, int id) => Navigator.of(context).push<String>(
@@ -67,7 +68,8 @@ class _CasesScreenState extends State<CasesScreen> {
   @override
   Widget build(BuildContext context) {
     final all = items;
-    final list = all?.where((c) => !onlyFree || !(c.claim?.other ?? false)).toList();
+    // «الحرّة»: ما لم تفتحه أيّ موظّفة بعد — لا لزميلتها ولا لها (docs/plan/81)
+    final list = all?.where((c) => !onlyFree || c.claim == null).toList();
     return TabPage(
       title: 'للمعالجة',
       subtitle: 'لم تُسلَّم — اتصلي بالزبون وقرّري',
@@ -75,7 +77,10 @@ class _CasesScreenState extends State<CasesScreen> {
       icon: Icons.support_agent_rounded,
       count: all?.length,
       trailing: FilterChip(
-        label: Text('الحرّة', style: font(12, w7, onlyFree ? Colors.white : Palette.slate)),
+        label: Text(
+          onlyFree ? 'الحرّة ${all?.where((c) => c.claim == null).length ?? ''}' : 'الحرّة',
+          style: font(12, w7, onlyFree ? Colors.white : Palette.slate),
+        ),
         selected: onlyFree,
         showCheckmark: false,
         selectedColor: Queue.processing,
@@ -301,6 +306,8 @@ class _CaseScreenState extends State<CaseScreen> {
                           WaybillBar(
                             brand: brand,
                             number: d.number,
+                            // لمس الرقم يفتح تتبّعها كاملاً (docs/plan/81)
+                            onOpen: () => openShipment(context, brand, d.id),
                             full: waybillText(
                               number: d.number,
                               recipient: d.recipient,

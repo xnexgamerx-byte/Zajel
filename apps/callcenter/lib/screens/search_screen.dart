@@ -189,6 +189,29 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 }
 
+/// الشحنة برقمها (docs/plan/81): يُفتح منها تتبّعها كاملاً — من المعالجة والتذكرة والمحادثة
+Future<void> openShipment(BuildContext context, Brand brand, int id) => Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (_) => ShipmentScreen(brand: brand, id: id),
+  ),
+);
+
+/// برقم الوصل وحده (محادثة التاجر تحمل الرقم لا المعرّف): يُبحث عنه ثم يُفتح
+Future<void> openShipmentNumber(BuildContext context, Brand brand, String number) async {
+  try {
+    final found = await Api.instance.search(number);
+    final hit = found.where((s) => s.number == number).firstOrNull ?? (found.length == 1 ? found.first : null);
+    if (!context.mounted) return;
+    if (hit == null) {
+      toast(context, 'لم تُوجد الشحنة $number في محافظاتك.', bad: true);
+      return;
+    }
+    await openShipment(context, brand, hit.id);
+  } on ApiError catch (e) {
+    if (context.mounted) toast(context, e.message, bad: true);
+  }
+}
+
 /// الشحنة كما تراها الموظّفة: رقمها يُنسخ والوصل كاملاً، وزبونها بهاتفه ظاهراً (بالخط أو واتساب)، وسبب آخر
 /// محاولةٍ بتوضيحه، وسجلّها خطّاً زمنيّاً — ومنها تحدّث حالتها، وتعيد للتوصيل راجعاً مؤكَّداً (docs/plan/80)
 class ShipmentScreen extends StatefulWidget {
@@ -356,6 +379,19 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                                 outlined: d.canReopen,
                                 onTap: () => _update(d),
                               ),
+                          ],
+                          // محادثتا التاجر والمندوب عنها (docs/plan/81)
+                          if (d.canChat) ...[
+                            const SectionTitle('المحادثات'),
+                            ShipmentChats(
+                              brand: brand,
+                              shipmentId: d.found.id,
+                              merchantChat: d.merchantChat,
+                              courierChat: d.courierChat,
+                              canAsk: d.canAsk,
+                              hasCourier: d.hasCourier,
+                              onSent: _load,
+                            ),
                           ],
                           const SectionTitle('سجلّها'),
                           Panel(child: _timeline(d.events)),

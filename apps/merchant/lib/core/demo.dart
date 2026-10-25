@@ -107,6 +107,7 @@ class Demo {
     'processing': 'للمعالجة',
     'attention': 'تحتاج انتباهك',
     'returns': 'راجع مؤكدة',
+    'archive': 'المؤرشفة',
   };
 
   static bool _in(RecentShipment s, String f) => switch (f) {
@@ -115,8 +116,10 @@ class Demo {
     'delivered' => s.tone == 'green',
     'processing' => s.status == 'للمعالجة',
     'attention' => s.status == 'مؤجل',
-    'returns' => s.status == 'راجع للتاجر',
-    _ => true,
+    // ما سُلِّم للتاجر في «المؤرشفة» (docs/plan/81)
+    'returns' => false,
+    'archive' => s.status == 'راجع للتاجر',
+    _ => s.status != 'راجع للتاجر',
   };
 
   static ShipmentPage shipments(String filter, String q, int page) {

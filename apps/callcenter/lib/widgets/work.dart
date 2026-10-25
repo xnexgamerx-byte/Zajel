@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/quick_replies.dart';
 import 'bits.dart';
 import 'page.dart';
 
@@ -311,7 +312,14 @@ class _PhoneLine extends StatelessWidget {
 
 /// رقم الوصل كبيراً يُنسخ بلمسة، و«انسخي الوصل كاملاً» بجانبه (docs/plan/80)
 class WaybillBar extends StatelessWidget {
-  const WaybillBar({super.key, required this.brand, required this.number, required this.full, this.status});
+  const WaybillBar({
+    super.key,
+    required this.brand,
+    required this.number,
+    required this.full,
+    this.status,
+    this.onOpen,
+  });
 
   final Brand brand;
   final String number;
@@ -320,13 +328,16 @@ class WaybillBar extends StatelessWidget {
   final String full;
   final Widget? status;
 
+  /// في المعالجة والتذاكر (docs/plan/81): لمس الرقم يفتح الشحنة بتتبّعها كاملاً، ونسخه بزرّه
+  final VoidCallback? onOpen;
+
   @override
   Widget build(BuildContext context) => Row(
     children: [
       Expanded(
         child: Tap(
           radius: 14,
-          onTap: () => copyText(context, number, 'رقم الوصل $number'),
+          onTap: onOpen ?? () => copyText(context, number, 'رقم الوصل $number'),
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
@@ -336,7 +347,20 @@ class WaybillBar extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.copy_rounded, size: 17, color: brand.main),
+                if (onOpen == null)
+                  Icon(Icons.copy_rounded, size: 17, color: brand.main)
+                else
+                  Tooltip(
+                    message: 'انسخي الرقم',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => copyText(context, number, 'رقم الوصل $number'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(Icons.copy_rounded, size: 17, color: brand.main),
+                      ),
+                    ),
+                  ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -346,6 +370,11 @@ class WaybillBar extends StatelessWidget {
                     style: font(15.5, w8, Palette.ink, height: 1.2),
                   ),
                 ),
+                if (onOpen != null) ...[
+                  Text('التتبّع', style: font(11.5, w7, brand.main)),
+                  const SizedBox(width: 4),
+                  Chev(size: 8, stroke: 1.6, left: true, color: brand.main),
+                ],
                 ?status,
               ],
             ),
@@ -623,6 +652,7 @@ class Composer extends StatelessWidget {
     required this.onSend,
     this.hint = 'اكتب…',
     this.busy = false,
+    this.quick = true,
   });
 
   final Brand brand;
@@ -631,35 +661,178 @@ class Composer extends StatelessWidget {
   final String hint;
   final bool busy;
 
+  /// الردود الجاهزة فوق الحقل (docs/plan/81): تُكتب في الحقل بضغطة، وتُرسل كما هي أو بعد تعديلها
+  final bool quick;
+
+  void _use(String reply) {
+    final now = controller.text.trim();
+    controller.text = now.isEmpty ? reply : '$now $reply';
+    controller.selection = TextSelection.collapsed(offset: controller.text.length);
+  }
+
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.end,
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Expanded(
-        child: InputBox(controller: controller, hint: hint, maxLength: 2000),
-      ),
-      const SizedBox(width: 8),
-      Tooltip(
-        message: 'أرسل',
-        child: Tap(
-          radius: 23,
-          shadow: brand.glow(.35),
-          onTap: busy ? null : onSend,
-          child: Ink(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(gradient: brand.hero, shape: BoxShape.circle),
-            child: busy
-                ? const Padding(
-                    padding: EdgeInsets.all(13),
-                    child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                  )
-                : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-          ),
+      if (quick)
+        ValueListenableBuilder<List<String>>(
+          valueListenable: QuickReplies.items,
+          builder: (context, replies, _) => replies.isEmpty
+              ? const SizedBox.shrink()
+              : SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(bottom: 6),
+                    children: [
+                      for (final r in replies)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(end: 6),
+                          child: ActionChip(
+                            onPressed: () => _use(r),
+                            backgroundColor: brand.soft,
+                            side: BorderSide.none,
+                            visualDensity: VisualDensity.compact,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                            label: Text(r, style: font(12, w7, brand.deep)),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
         ),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: InputBox(controller: controller, hint: hint, maxLength: 2000),
+          ),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: 'أرسل',
+            child: Tap(
+              radius: 23,
+              shadow: brand.glow(.35),
+              onTap: busy ? null : onSend,
+              child: Ink(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(gradient: brand.hero, shape: BoxShape.circle),
+                child: busy
+                    ? const Padding(
+                        padding: EdgeInsets.all(13),
+                        child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+                      )
+                    : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ],
       ),
     ],
   );
+}
+
+/// محادثتا الشحنة (docs/plan/81): التاجر عنها ومندوبها عنها، في كلّ شحنة — قيد التوصيل والمؤجل وإعادة
+/// التوصيل وتذاكر المبلغ — لا في المعالجة وحدها. تُرسل منها، والردود الجاهزة فوق الحقل.
+class ShipmentChats extends StatefulWidget {
+  const ShipmentChats({
+    super.key,
+    required this.brand,
+    required this.shipmentId,
+    required this.merchantChat,
+    required this.courierChat,
+    this.canAsk = true,
+    this.hasCourier = true,
+    this.onSent,
+  });
+
+  final Brand brand;
+  final int shipmentId;
+  final List<ChatLine> merchantChat;
+  final List<ChatLine> courierChat;
+  final bool canAsk;
+  final bool hasCourier;
+
+  /// بعد الإرسال: تُعاد الشحنة بمحادثتيها
+  final Future<void> Function()? onSent;
+
+  @override
+  State<ShipmentChats> createState() => _ShipmentChatsState();
+}
+
+class _ShipmentChatsState extends State<ShipmentChats> {
+  late String to = widget.canAsk || !widget.hasCourier ? 'merchant' : 'courier';
+  final message = TextEditingController();
+  bool sending = false;
+
+  @override
+  void dispose() {
+    message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    if (message.text.trim().isEmpty || sending) return;
+    setState(() => sending = true);
+    try {
+      await Api.instance.shipmentMessage(widget.shipmentId, to, message.text);
+      message.clear();
+      await widget.onSent?.call();
+    } on ApiError catch (e) {
+      if (mounted) toast(context, e.message, bad: true);
+    } finally {
+      if (mounted) setState(() => sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canWrite = to == 'merchant' ? widget.canAsk : widget.hasCourier;
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment(
+                value: 'merchant',
+                label: Text('التاجر (${widget.merchantChat.length})', style: font(12.5, w7, Palette.ink)),
+              ),
+              ButtonSegment(
+                value: 'courier',
+                label: Text('المندوب (${widget.courierChat.length})', style: font(12.5, w7, Palette.ink)),
+              ),
+            ],
+            selected: {to},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => setState(() => to = s.first),
+          ),
+          const SizedBox(height: 10),
+          ChatBubbles(
+            brand: widget.brand,
+            lines: to == 'merchant' ? widget.merchantChat : widget.courierChat,
+            empty: to == 'merchant' ? 'لا محادثة مع التاجر عنها بعد.' : 'لا رسالة مع المندوب عنها بعد.',
+          ),
+          if (canWrite)
+            Composer(
+              brand: widget.brand,
+              controller: message,
+              busy: sending,
+              hint: to == 'merchant' ? 'اكتبي للتاجر عنها…' : 'اكتبي لمندوبها…',
+              onSend: _send,
+            )
+          else
+            Text(
+              to == 'merchant' ? 'لا تاجر لهذه الشحنة.' : 'لا مندوب معها الآن.',
+              textAlign: TextAlign.center,
+              style: font(12, w6, Palette.muted),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// غلافٌ أبيض بعنوانٍ صغير فوق محتواه

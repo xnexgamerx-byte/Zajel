@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CallCenter\BoardController as CallCenterBoardController;
 use App\Http\Controllers\Api\CallCenter\ConversationController as CallCenterConversationController;
+use App\Http\Controllers\Api\CallCenter\CourierController as CallCenterCourierController;
 use App\Http\Controllers\Api\CallCenter\HomeController as CallCenterHomeController;
 use App\Http\Controllers\Api\CallCenter\ProcessingController as CallCenterProcessingController;
 use App\Http\Controllers\Api\CallCenter\ShipmentController as CallCenterShipmentController;
@@ -128,6 +129,15 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             });
 
             Route::middleware(['feature:conversations', 'can:support.reply'])->group(function () {
+                // رسائل المناديب، ومحادثتا كلّ شحنة (docs/plan/81)
+                Route::get('/couriers', [CallCenterCourierController::class, 'index'])->name('couriers.index');
+                Route::get('/couriers/{courier}', [CallCenterCourierController::class, 'show'])->whereNumber('courier')->name('couriers.show');
+                Route::post('/couriers/{courier}/reply', [CallCenterCourierController::class, 'reply'])->whereNumber('courier')
+                    ->middleware('throttle:60,1')->name('couriers.reply');
+                Route::post('/shipments/{shipment}/merchant', [CallCenterShipmentController::class, 'merchant'])->whereNumber('shipment')
+                    ->middleware('throttle:60,1')->name('shipments.merchant');
+                Route::post('/shipments/{shipment}/courier', [CallCenterShipmentController::class, 'courier'])->whereNumber('shipment')
+                    ->middleware('throttle:60,1')->name('shipments.courier');
                 Route::get('/conversations', [CallCenterConversationController::class, 'index'])->name('conversations.index');
                 Route::get('/conversations/{conversation}', [CallCenterConversationController::class, 'show'])->whereNumber('conversation')->name('conversations.show');
                 Route::post('/conversations/{conversation}/reply', [CallCenterConversationController::class, 'reply'])->whereNumber('conversation')

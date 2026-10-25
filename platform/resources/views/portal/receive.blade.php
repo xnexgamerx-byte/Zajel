@@ -28,7 +28,7 @@
                         · {{ \App\Support\Arabic::shipments($doc->shipments_count) }}
                         @if ($doc->paid_at) · دُفع {{ $doc->paid_at->format('Y-m-d H:i') }} @endif
                     @else
-                        راجعة: {{ \App\Support\Arabic::shipments($doc->shipments_count) }} · {{ $doc->viaLabel() }}
+                        راجعة: {{ \App\Support\Arabic::shipments($doc->shipments_count) }} · {{ $doc->viaLabel(true) }}
                         · سُلّمت {{ $doc->handed_at?->format('Y-m-d H:i') }}
                     @endif
                 </p>
@@ -92,7 +92,7 @@
                     <li class="flex items-center justify-between gap-2 py-2.5">
                         <span>
                             <span class="block font-semibold">إيصال الراجع <span class="num">{{ $batch->number }}</span></span>
-                            <span class="text-xs text-ink-500">{{ $batch->viaLabel() }} · {{ $batch->handed_at?->format('Y-m-d') }}</span>
+                            <span class="text-xs text-ink-500">{{ $batch->viaLabel(true) }} · {{ $batch->handed_at?->format('Y-m-d') }}</span>
                         </span>
                         <span class="text-xs text-ink-600">{{ \App\Support\Arabic::shipments($batch->shipments_count) }}</span>
                     </li>

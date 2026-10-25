@@ -153,11 +153,12 @@ class MerchantApiTest extends TestCase
         $home = $this->withToken($this->token())->getJson($this->api('/merchant/home'))
             ->assertOk()
             ->assertJsonPath('name', 'أحمد')
-            ->assertJsonPath('stats.total', 5)
+            // الراجع المسلَّم للتاجر في «المؤرشفة» (docs/plan/81)
+            ->assertJsonPath('stats.total', 4)
             ->assertJsonPath('stats.delivered', 1)
             // «قيد التوصيل» ما هو في الطريق وحده: المتعثّرة في «للمعالجة» و«تحتاج انتباهك» (docs/plan/79)
             ->assertJsonPath('stats.in_delivery', 1)
-            ->assertJsonPath('stats.returns', 1)
+            ->assertJsonPath('stats.returns', 0)
             ->assertJsonPath('processing.count', 1)
             ->assertJsonPath('attention.count', 1);
 
@@ -226,10 +227,11 @@ class MerchantApiTest extends TestCase
         $this->shipment('زبون راجع', ShipmentStatus::Returned);
 
         $token = $this->token();
+        // الراجع المسلَّم في «المؤرشفة» لا في الجارية (docs/plan/81)
         $list = $this->withToken($token)->getJson($this->api('/merchant/shipments'))->assertOk()
-            ->assertJsonPath('meta.total', 4);
+            ->assertJsonPath('meta.total', 3);
         $chips = collect($list->json('filters'))->pluck('count', 'key');
-        $this->assertSame(['all' => 4, 'new' => 0, 'open' => 1, 'delivered' => 1, 'processing' => 1, 'attention' => 0, 'returns' => 1], $chips->all());
+        $this->assertSame(['all' => 3, 'new' => 0, 'open' => 1, 'delivered' => 1, 'processing' => 1, 'attention' => 0, 'returns' => 0, 'archive' => 1], $chips->all());
 
         $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=delivered'))->assertOk()
             ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'محمد علي');
@@ -298,5 +300,33 @@ class MerchantApiTest extends TestCase
             ->assertJsonPath('balance.available', 40000)
             ->assertJsonPath('balance.pending', 40000)
             ->assertJsonPath('balance.pending_count', 1);
+    }
+
+    public function test_settled_deliveries_and_handed_returns_move_to_the_archive(): void
+    {
+        $settled = $this->shipment('واصل محاسَب', ShipmentStatus::Delivered);
+        $this->shipment('واصل لم يُحاسَب', ShipmentStatus::Delivered);
+        $returned = $this->shipment('راجع سُلّم', ShipmentStatus::Returned);
+        $this->shipment('قيد التوصيل', ShipmentStatus::OutForDelivery);
+        Tenancy::runFor($this->company, fn () => $settled->forceFill(['merchant_settled_at' => now()])->save());
+        $token = $this->token();
+
+        $chips = collect($this->withToken($token)->getJson($this->api('/merchant/shipments'))->assertOk()
+            ->assertJsonPath('meta.total', 2)->json('filters'))->pluck('count', 'key');
+        $this->assertSame(2, $chips['all']);
+        $this->assertSame(1, $chips['delivered']);
+        $this->assertSame(2, $chips['archive']);
+
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=archive'))->assertOk()
+            ->assertJsonPath('meta.total', 2)->assertJsonCount(2, 'data');
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=delivered'))->assertOk()
+            ->assertJsonPath('data.0.name', 'واصل لم يُحاسَب')->assertJsonPath('meta.total', 1);
+        // يجده بالبحث برقمه
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?q='.$returned->number))->assertOk()
+            ->assertJsonPath('meta.total', 1);
+
+        $this->withToken($token)->getJson($this->api('/merchant/home'))->assertOk()
+            ->assertJsonPath('stats.total', 2)
+            ->assertJsonPath('recent', fn ($recent) => collect($recent)->pluck('name')->doesntContain('واصل محاسَب'));
     }
 }

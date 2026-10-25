@@ -6,6 +6,7 @@ import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
+import 'search_screen.dart' show openShipmentNumber;
 import 'tickets_screen.dart' show TabPage;
 
 Future<String?> openConversation(BuildContext context, Brand brand, int id) => Navigator.of(context).push<String>(
@@ -306,6 +307,33 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       ],
                     ),
             ),
+            // رقم الوصل يفتح الشحنة بمعلوماتها كاملةً (docs/plan/81)
+            if (d?.shipment != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+                child: Tap(
+                  radius: 14,
+                  onTap: () => openShipmentNumber(context, widget.brand, d.shipment!),
+                  child: Ink(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Palette.line),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.inventory_2_outlined, size: 17, color: widget.brand.main),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('الوصل ${tag(d!.shipment!)}', style: font(13.5, w8, Palette.ink))),
+                        Text('معلوماته كاملة', style: font(11.5, w7, widget.brand.main)),
+                        const SizedBox(width: 4),
+                        Chev(size: 8, stroke: 1.6, left: true, color: widget.brand.main),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             Expanded(
               child: d == null
                   ? Waiting(brand: brand, error: error, onRetry: _load)

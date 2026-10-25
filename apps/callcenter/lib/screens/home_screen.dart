@@ -7,6 +7,8 @@ import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import 'board_screen.dart';
+import 'couriers_screen.dart';
+import 'quick_replies_screen.dart';
 import 'template_screen.dart';
 
 /// رئيسية الكول سنتر (docs/plan/73، 80): «الآن» أوّلاً — أشدّ ما ينتظرها بزرٍّ واحد — ثم الطوابير
@@ -92,6 +94,17 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'رسالة واتساب للزبون',
             icon: Icons.edit_note_rounded,
             onTap: () => Navigator.of(context).pop(false),
+          ),
+          const SizedBox(height: 8),
+          SheetButton(
+            brand: brand,
+            label: 'الردود الجاهزة',
+            icon: Icons.quickreply_outlined,
+            outlined: true,
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => QuickRepliesScreen(brand: brand)));
+            },
           ),
           const SizedBox(height: 8),
           SheetButton(
@@ -369,12 +382,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (d.couriers != null)
         _QueueTile(
           title: 'رسائل المناديب',
-          sub: d.couriers!.count == 0 ? 'لا جديد' : 'تُقرأ من الموقع',
+          sub: d.couriers!.count == 0 ? 'لا جديد' : 'تنتظر ردّك',
           count: d.couriers!.count,
           icon: Icons.delivery_dining_rounded,
           color: Queue.couriers,
           soft: Queue.couriersSoft,
-          onTap: () => toast(context, 'محادثة المناديب في موقع الشركة: المتابعة ← محادثة المناديب.'),
+          // تُقرأ ويُردّ عليها في التطبيق (docs/plan/81)
+          onTap: () => openCouriers(context, brand).then((_) => widget.refresh.value++),
         ),
     ];
     return Column(

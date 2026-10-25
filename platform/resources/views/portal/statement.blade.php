@@ -151,7 +151,7 @@
                         <div class="py-2.5">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="num text-xs font-semibold">{{ $batch->number }}</span>
-                                <span class="text-xs text-ink-500">{{ \App\Support\Arabic::shipments($batch->shipments_count) }} · {{ $batch->viaLabel() }}</span>
+                                <span class="text-xs text-ink-500">{{ \App\Support\Arabic::shipments($batch->shipments_count) }} · {{ $batch->viaLabel(true) }}</span>
                             </div>
                             @if ($batch->isReceived())
                                 <div class="mt-0.5 text-xs text-ok-700">وصلتك {{ $batch->received_at->format('Y-m-d') }}</div>

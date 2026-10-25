@@ -244,6 +244,30 @@ class Api {
     return _message(await _post('/callcenter/shipments/$id/reopen', {'note': note.trim()}));
   }
 
+  /// للتاجر (merchant) أو لمندوبها (courier) عن الشحنة — في كلّ شحنة (docs/plan/81)
+  Future<void> shipmentMessage(int id, String to, String body) async {
+    if (AppConfig.demo) return Demo.shipmentMessage(id, to, body);
+    await _post('/callcenter/shipments/$id/$to', {'body': body.trim()});
+  }
+
+  // ---------------------------------------------------------------- رسائل المناديب (docs/plan/81)
+
+  Future<List<CourierThreadRow>> couriers({String q = ''}) async {
+    if (AppConfig.demo) return Demo.couriers();
+    final body = await _get('/callcenter/couriers', {if (q.trim().isNotEmpty) 'q': q.trim()});
+    return [for (final c in body['data'] as List) CourierThreadRow.fromJson((c as Map).cast())];
+  }
+
+  Future<CourierThread> courierThread(int id) async {
+    if (AppConfig.demo) return Demo.courierThread(id);
+    return CourierThread.fromJson(((await _get('/callcenter/couriers/$id'))['data'] as Map).cast());
+  }
+
+  Future<void> courierReply(int id, String body) async {
+    if (AppConfig.demo) return Demo.courierReply(id, body);
+    await _post('/callcenter/couriers/$id/reply', {'body': body.trim()});
+  }
+
   // ---------------------------------------------------------------- حالة الشحنات و«أنجزتِ اليوم»
 
   /// الخانات الأربع بعددها (docs/plan/80)

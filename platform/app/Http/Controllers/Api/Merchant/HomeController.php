@@ -128,6 +128,8 @@ class HomeController extends Controller
         $needs = array_map(fn ($s) => $s->value, [ShipmentStatus::FailedAttempt, ...self::ATTENTION]);
 
         return Shipment::where('merchant_id', $merchantId)
+            // المؤرشفة لا تعود في الرئيسية (docs/plan/81)
+            ->where(fn ($q) => ShipmentController::current($q))
             ->with(['city:id,name_ar', 'governorate:id,name_ar'])
             ->orderByRaw('case when status in ('.implode(',', array_fill(0, count($needs), '?')).') then 0 else 1 end', $needs)
             ->orderByDesc('status_changed_at')->orderByDesc('id')

@@ -21,6 +21,10 @@ class Demo {
   static Map<String, List<FoundShipment>> _board = _seedBoard();
   static List<DoneItem> _done = _seedDone();
 
+  /// محادثتا كلّ شحنة، ورسائل المناديب (docs/plan/81)
+  static final Map<String, List<ChatLine>> _shipChats = {};
+  static List<_CourierChat> _couriers = _seedCouriers();
+
   /// يعيد العرض إلى أوّله — بين اختبارٍ وآخر
   static void reset() {
     _tickets = _seedTickets();
@@ -31,6 +35,8 @@ class Demo {
     _doneCases = 7;
     _board = _seedBoard();
     _done = _seedDone();
+    _shipChats.clear();
+    _couriers = _seedCouriers();
   }
 
   static DateTime _ago(int minutes) => DateTime.now().subtract(Duration(minutes: minutes));
@@ -434,6 +440,11 @@ class Demo {
       pieces: 2,
       description: 'ملابس نسائية',
       canReopen: s.status == 'returning' && (s.withCourier ?? false),
+      canChat: true,
+      canAsk: true,
+      hasCourier: true,
+      merchantChat: List.of(_shipChats['$id:merchant'] ?? const []),
+      courierChat: List.of(_shipChats['$id:courier'] ?? const []),
       transitions: switch (s.status) {
         'out_for_delivery' => [
           Transition(value: 'delivered', label: 'واصل'),
@@ -501,6 +512,50 @@ class Demo {
     _doneCases++;
     _log(s.id, s.number, s.recipient, 'redeliver', note: note);
     return 'عادت ${s.number} للتوصيل مع مندوبها — «إعادة توصيل».';
+  }
+
+  static Future<void> shipmentMessage(int id, String to, String body) async {
+    (_shipChats['$id:$to'] ??= []).add(
+      ChatLine(mine: true, author: session.name, body: body.trim(), at: DateTime.now()),
+    );
+  }
+
+  // ------------------------------------------------------------------ رسائل المناديب (docs/plan/81)
+
+  static List<_CourierChat> _seedCouriers() => [
+    _CourierChat(21, 'أحمد كريم', '07720000001', [
+      ChatLine(mine: false, author: 'أحمد كريم', body: 'الزبون ما يرد، شنو أسوي؟', at: _ago(12), shipment: '180301'),
+    ]),
+    _CourierChat(22, 'علي جبار', '07720000002', [
+      ChatLine(mine: false, author: 'علي جبار', body: 'وصلت المنطقة', at: _ago(90)),
+      ChatLine(mine: true, author: 'سارة', body: 'تمام، بلّغ الزبون', at: _ago(85)),
+    ]),
+  ];
+
+  static Future<List<CourierThreadRow>> couriers() async => [
+    for (final c in _couriers)
+      CourierThreadRow(
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        unread: c.unread,
+        waiting: !c.messages.last.mine,
+        last: c.messages.last.body,
+        waitingMinutes: DateTime.now().difference(c.messages.last.at ?? DateTime.now()).inMinutes,
+      ),
+  ];
+
+  static Future<CourierThread> courierThread(int id) async {
+    final c = _couriers.firstWhere((c) => c.id == id);
+    c.unread = false;
+    return CourierThread(id: c.id, name: c.name, phone: c.phone, messages: List.of(c.messages));
+  }
+
+  static Future<void> courierReply(int id, String body) async {
+    _couriers
+        .firstWhere((c) => c.id == id)
+        .messages
+        .add(ChatLine(mine: true, author: session.name, body: body.trim(), at: DateTime.now()));
   }
 
   // ------------------------------------------------------------------ حالة الشحنات (docs/plan/80)
@@ -855,4 +910,14 @@ class _Conv {
     claim: Demo._claim('conversation:$id', other, otherSince),
     messages: full ? List.of(messages) : const [],
   );
+}
+
+class _CourierChat {
+  _CourierChat(this.id, this.name, this.phone, List<ChatLine> messages) : messages = List.of(messages);
+
+  final int id;
+  final String name;
+  final String phone;
+  final List<ChatLine> messages;
+  bool unread = true;
 }

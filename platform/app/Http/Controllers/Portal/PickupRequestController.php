@@ -17,7 +17,7 @@ class PickupRequestController extends Controller
 
         return view('portal.pickups.index', [
             'pickups' => PickupRequest::where('merchant_id', $merchant->id)
-                ->with('courier:id,name,phone')
+                ->with('courier:id,name,phone,hidden_from_merchants')
                 ->latest('id')
                 ->paginate(config('zajel.per_page')),
         ]);

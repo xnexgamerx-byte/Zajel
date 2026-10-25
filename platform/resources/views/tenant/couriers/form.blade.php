@@ -80,6 +80,18 @@
                     </label>
                     @error('is_intermediary') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
+                {{-- إخفاء المندوب عن العميل (docs/plan/81): لا اسمه ولا هاتفه ولا موقعه في تطبيق التاجر وبوّابته --}}
+                <div class="sm:col-span-3">
+                    <input type="hidden" name="hidden_from_merchants" value="0">
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="checkbox" name="hidden_from_merchants" value="1" class="mt-1"
+                               @checked(old('hidden_from_merchants', $courier->hidden_from_merchants ?? false))>
+                        <span>
+                            <span class="font-semibold">إخفاء المندوب عن العميل</span>
+                            <span class="block text-xs text-ink-500">لا يرى التاجر اسمه ولا هاتفه ولا موقعه على الخريطة، في تطبيقه وبوّابته. يرى «مندوب الشركة» فقط.</span>
+                        </span>
+                    </label>
+                </div>
                 <div>
                     <label class="field-label" for="vehicle_type">وسيلة النقل</label>
                     <select id="vehicle_type" name="vehicle_type" class="field-input" required>

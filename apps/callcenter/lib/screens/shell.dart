@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/quick_replies.dart';
 import '../core/whatsapp_template.dart';
 import '../widgets/page.dart';
 import 'cases_screen.dart';
@@ -46,6 +47,7 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
     WhatsAppTemplate.agent = widget.session?.name ?? '';
     WhatsAppTemplate.company = widget.session?.companyName ?? '';
     WhatsAppTemplate.load();
+    QuickReplies.load();
   }
 
   @override

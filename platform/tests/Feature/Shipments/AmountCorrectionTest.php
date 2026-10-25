@@ -116,7 +116,9 @@ class AmountCorrectionTest extends TestCase
         $this->actingAs($this->owner)->get($this->host().'/shipments/'.$shipment->id)->assertOk()->assertSee('25,000');
 
         // والتاجر يصله إشعار
-        $notice = Tenancy::runFor($this->company, fn () => Announcement::where('merchant_id', $this->merchant->id)->first());
+        // وجرسه فيه «وصلت شحنتك» أيضاً (docs/plan/81): إشعار تغيّر المبلغ بعنوانه
+        $notice = Tenancy::runFor($this->company, fn () => Announcement::where('merchant_id', $this->merchant->id)
+            ->where('title', 'like', 'تغيّر مبلغ%')->first());
         $this->assertNotNull($notice);
         $this->assertStringContainsString($shipment->number, $notice->title);
         $this->assertStringContainsString('25,000', $notice->body);

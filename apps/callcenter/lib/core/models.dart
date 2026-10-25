@@ -242,7 +242,7 @@ class TicketItem {
 
 /// سطرٌ في محادثة: التاجر أو المندوب
 class ChatLine {
-  ChatLine({required this.mine, required this.author, required this.body, this.at, this.file});
+  ChatLine({required this.mine, required this.author, required this.body, this.at, this.file, this.shipment});
 
   factory ChatLine.fromJson(Map<String, dynamic> j) => ChatLine(
     mine: j['mine'] as bool? ?? false,
@@ -250,7 +250,11 @@ class ChatLine {
     body: j['body'] as String? ?? '',
     at: _at(j['at']),
     file: j['file'] is Map ? ChatFile.fromJson((j['file'] as Map).cast()) : null,
+    shipment: j['shipment'] as String?,
   );
+
+  /// رسالة المندوب عن شحنةٍ برقمها (docs/plan/81)
+  final String? shipment;
 
   final bool mine;
   final String author;
@@ -619,6 +623,11 @@ class ShipmentDetail {
     this.reasons = const [],
     this.couriers = const [],
     this.canReopen = false,
+    this.canChat = false,
+    this.canAsk = false,
+    this.hasCourier = false,
+    this.merchantChat = const [],
+    this.courierChat = const [],
   }) : merchant = merchant ?? Party(),
        courier = courier ?? Party();
 
@@ -642,7 +651,19 @@ class ShipmentDetail {
     reasons: [for (final r in _list(j['reasons'])) ReasonOption.fromJson(r)],
     couriers: [for (final c in _list(j['couriers'])) CourierOption.fromJson(c)],
     canReopen: j['can_reopen'] as bool? ?? false,
+    canChat: j['can_chat'] as bool? ?? false,
+    canAsk: j['can_ask'] as bool? ?? false,
+    hasCourier: j['has_courier'] as bool? ?? false,
+    merchantChat: [for (final m in _list(j['merchant_chat'])) ChatLine.fromJson(m)],
+    courierChat: [for (final m in _list(j['courier_chat'])) ChatLine.fromJson(m)],
   );
+
+  /// محادثتا التاجر والمندوب عنها، في كلّ شحنة (docs/plan/81)
+  final bool canChat;
+  final bool canAsk;
+  final bool hasCourier;
+  final List<ChatLine> merchantChat;
+  final List<ChatLine> courierChat;
 
   /// التوضيح المكتوب مع السبب (docs/plan/80)
   final String? reasonNote;
@@ -673,4 +694,54 @@ class ShipmentDetail {
   /// في المعالجة الآن: تُفتح منها
   final bool processing;
   final List<EventLine> events;
+}
+
+/// محادثة مندوبٍ في «رسائل المناديب» (docs/plan/81)
+class CourierThreadRow {
+  CourierThreadRow({
+    required this.id,
+    required this.name,
+    this.phone,
+    this.unread = false,
+    this.waiting = false,
+    this.last,
+    this.waitingMinutes = 0,
+  });
+
+  factory CourierThreadRow.fromJson(Map<String, dynamic> j) => CourierThreadRow(
+    id: _int(j['id']),
+    name: j['name'] as String? ?? '',
+    phone: j['phone'] as String?,
+    unread: j['unread'] as bool? ?? false,
+    waiting: j['waiting'] as bool? ?? false,
+    last: j['last'] as String?,
+    waitingMinutes: _int(j['waiting_minutes']),
+  );
+
+  /// رقم المندوب
+  final int id;
+  final String name;
+  final String? phone;
+  final bool unread;
+
+  /// آخر ما فيها منه: ينتظر ردّنا
+  final bool waiting;
+  final String? last;
+  final int waitingMinutes;
+}
+
+class CourierThread {
+  CourierThread({required this.id, required this.name, this.phone, this.messages = const []});
+
+  factory CourierThread.fromJson(Map<String, dynamic> j) => CourierThread(
+    id: _int(j['id']),
+    name: j['name'] as String? ?? '',
+    phone: j['phone'] as String?,
+    messages: [for (final m in _list(j['messages'])) ChatLine.fromJson(m)],
+  );
+
+  final int id;
+  final String name;
+  final String? phone;
+  final List<ChatLine> messages;
 }

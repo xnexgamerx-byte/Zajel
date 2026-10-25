@@ -156,6 +156,23 @@
             </label>
         </div>
 
+        {{-- وصول الشحنة، وقرار معالجتها (docs/plan/81): شغّالان ما لم يُطفآ --}}
+        @foreach ([
+            ['notify_delivered', \App\Support\MerchantNotice::deliveredEnabled($company), 'إشعار التاجر حين تصل شحنته', 'يصل جرسه: «وصلت شحنتك … وقُبض كذا»، والواصل الجزئي بما قُبض منه.'],
+            ['notify_processed', \App\Support\MerchantNotice::processedEnabled($company), 'إشعار التاجر بقرار المعالجة', 'يصل جرسه حين يقرّر الكول سنتر فيما لم يُسلَّم: إعادة توصيل، أو تأجيل بموعده، أو راجع مؤكد.'],
+        ] as [$field, $on, $title, $hint])
+            <div class="rounded-xl border border-ink-200 p-4">
+                <input type="hidden" name="{{ $field }}" value="0">
+                <label class="flex items-start gap-3">
+                    <input type="checkbox" name="{{ $field }}" value="1" class="mt-1 size-4" @checked(old($field, $on))>
+                    <span>
+                        <span class="card-title block">{{ $title }}</span>
+                        <span class="card-hint">{{ $hint }}</span>
+                    </span>
+                </label>
+            </div>
+        @endforeach
+
         {{-- صورٌ كثيرة مرّةً واحدة في تطبيق التاجر (docs/plan/63) --}}
         <div class="rounded-xl border border-ink-200 p-4">
             <label for="reading_batch_max" class="card-title block">أكثر الصور في قراءةٍ واحدة من تطبيق التاجر</label>

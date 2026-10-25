@@ -7,6 +7,7 @@ use App\Enums\ShipmentStatus;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Support\MerchantNotice;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -84,6 +85,11 @@ class ProcessFailedAttempt
                 'ip'          => $ip,
             ]);
             Claims::clear(Claims::PROCESSING, $shipment->id);
+
+            // «عولجت شحنتك» في جرس التاجر (docs/plan/81) — وقراره هو لا يُشعَر به
+            if ($by === 'staff') {
+                MerchantNotice::processed($shipment, $action, $until ? Carbon::parse($until)->toDateString() : null);
+            }
 
             return $to;
         });

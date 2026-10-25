@@ -30,7 +30,7 @@ class ReceiveController extends Controller
             'settlements' => MerchantSettlement::where('merchant_id', $merchant->id)->where('status', 'paid')
                 ->whereNull('merchant_confirmed_at')->latest('id')->limit(20)->get(),
             'batches' => ReturnBatch::where('merchant_id', $merchant->id)->whereNull('received_at')
-                ->with('courier:id,name')->latest('id')->limit(20)->get(),
+                ->with('courier:id,name,hidden_from_merchants')->latest('id')->limit(20)->get(),
         ]);
     }
 

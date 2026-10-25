@@ -32,7 +32,7 @@ class RequestController extends Controller
                 ->with(['settlement:id,code,status', 'returnBatch:id,number'])
                 ->latest('id')->limit(30)->get(),
             'batches'  => ReturnBatch::where('merchant_id', $merchant->id)
-                ->with('courier:id,name')
+                ->with('courier:id,name,hidden_from_merchants')
                 ->latest('id')
                 ->paginate(config('zajel.per_page'))
                 ->withQueryString(),
@@ -118,7 +118,7 @@ class RequestController extends Controller
 
         $batch->load([
             'merchant:id,business_name,code,phone,address,city_id', 'merchant.city:id,name_ar',
-            'courier:id,name,phone', 'handedBy:id,name',
+            'courier:id,name,phone,hidden_from_merchants', 'handedBy:id,name',
             'shipments' => fn ($q) => $q->with(['governorate:id,name_ar', 'city:id,name_ar', 'lastFailureReason:id,name_ar'])->orderBy('id'),
         ]);
 
