@@ -47,6 +47,7 @@ use App\Http\Controllers\Tenant\BranchRemittanceController;
 use App\Http\Controllers\Tenant\CashBoxController;
 use App\Http\Controllers\Tenant\CashPositionController;
 use App\Http\Controllers\Tenant\ClaimController;
+use App\Http\Controllers\Tenant\CollectionBatchController;
 use App\Http\Controllers\Tenant\CompanyLogoController;
 use App\Http\Controllers\Tenant\CompanySettingsController;
 use App\Http\Controllers\Tenant\ControlController;
@@ -54,6 +55,7 @@ use App\Http\Controllers\Tenant\ConversationController;
 use App\Http\Controllers\Tenant\CourierApiKeyController;
 use App\Http\Controllers\Tenant\CourierChatController;
 use App\Http\Controllers\Tenant\CourierController;
+use App\Http\Controllers\Tenant\CourierFinanceController;
 use App\Http\Controllers\Tenant\CourierManifestController;
 use App\Http\Controllers\Tenant\CourierReturnReceiptController;
 use App\Http\Controllers\Tenant\CourierSettlementController;
@@ -61,16 +63,11 @@ use App\Http\Controllers\Tenant\CourierTrackingController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\DocScanController;
 use App\Http\Controllers\Tenant\ExpenseController;
-use App\Http\Controllers\Tenant\FinancialPositionController;
-use App\Http\Controllers\Tenant\ProfitsController;
 use App\Http\Controllers\Tenant\FinanceLedgerController;
 use App\Http\Controllers\Tenant\FinanceSettingsController;
 use App\Http\Controllers\Tenant\FinancialAlertController;
 use App\Http\Controllers\Tenant\FinancialPeriodController;
-use App\Http\Controllers\Tenant\OpeningBalanceController;
-use App\Http\Controllers\Tenant\CollectionBatchController;
-use App\Http\Controllers\Tenant\CourierFinanceController;
-use App\Http\Controllers\Tenant\ProfitWithdrawalController;
+use App\Http\Controllers\Tenant\FinancialPositionController;
 use App\Http\Controllers\Tenant\FlowReportController;
 use App\Http\Controllers\Tenant\GovernorateSettingController;
 use App\Http\Controllers\Tenant\HomeLayoutController;
@@ -80,6 +77,7 @@ use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\MerchantRequestController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\MyCashBoxController;
+use App\Http\Controllers\Tenant\OpeningBalanceController;
 use App\Http\Controllers\Tenant\OperationalAlertController;
 use App\Http\Controllers\Tenant\PassedThroughController;
 use App\Http\Controllers\Tenant\PermissionController;
@@ -89,6 +87,8 @@ use App\Http\Controllers\Tenant\PrepaidFeeController;
 use App\Http\Controllers\Tenant\PriceListController;
 use App\Http\Controllers\Tenant\PricingQuoteController;
 use App\Http\Controllers\Tenant\ProcessingController;
+use App\Http\Controllers\Tenant\ProfitsController;
+use App\Http\Controllers\Tenant\ProfitWithdrawalController;
 use App\Http\Controllers\Tenant\QuickEntryController;
 use App\Http\Controllers\Tenant\RankController;
 use App\Http\Controllers\Tenant\ReceiptLinkController;
@@ -107,6 +107,7 @@ use App\Http\Controllers\Tenant\ShipmentExportController;
 use App\Http\Controllers\Tenant\ShipmentImportController;
 use App\Http\Controllers\Tenant\ShipmentOverrideController;
 use App\Http\Controllers\Tenant\ShipmentScanController;
+use App\Http\Controllers\Tenant\ShipmentStaffNoteController;
 use App\Http\Controllers\Tenant\ShipmentStatusController;
 use App\Http\Controllers\Tenant\ShipmentTicketController;
 use App\Http\Controllers\Tenant\ShipmentTrashController;
@@ -247,6 +248,9 @@ Route::middleware('tenant')->group(function () {
             ->middleware(['staff', 'can:shipments.delete'])->name('shipments.destroy');
         Route::post('/shipments/{shipment}/status', [ShipmentStatusController::class, 'update'])
             ->middleware(['staff', 'can:shipments.status'])->name('shipments.status');
+        // ملاحظة للموظّفين (docs/plan/83)
+        Route::post('/shipments/{shipment}/staff-note', ShipmentStaffNoteController::class)
+            ->middleware(['staff', 'can:shipments.view', 'throttle:60,1'])->name('shipments.staff-note');
         Route::post('/shipments/assign', [ShipmentStatusController::class, 'assign'])
             ->middleware(['staff', 'can:shipments.assign'])->name('shipments.assign');
         // تحديث الحالة من القائمة: لمن يرى الشحنات، ثم صلاحية كل هدفٍ في BulkStatusRequest —

@@ -13,6 +13,7 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Models\WorkClaim;
 use App\Support\FeatureGate;
+use App\Support\MerchantMessage;
 
 /**
  * ما تشترك فيه شاشات تطبيق الكول سنتر (docs/plan/73): الحجز كما يُعرض، والانتظار بالدقائق، ورسالة
@@ -52,6 +53,9 @@ trait Concerns
 
         return [
             'can_chat' => $chat,
+            // «أدرجي رسالتي الثابتة» فوق حقل التاجر (docs/plan/83): نصّها مملوءاً من الشحنة، كما في الموقع
+            'merchant_message' => $chat && $s->merchant_id !== null ? MerchantMessage::for(
+                $s->loadMissing(['merchant', 'governorate', 'city', 'lastFailureReason', 'deliveryCourier']), $user) : null,
             'merchant_chat' => $conversation ? $conversation->messages->sortBy('id')->values()->map(fn ($m) => self::messageJson($m)) : [],
             'courier_chat' => $courier->map(fn (CourierMessage $m) => self::courierLine($m))->values(),
         ];

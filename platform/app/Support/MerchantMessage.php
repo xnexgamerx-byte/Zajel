@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Conversation;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
@@ -25,17 +26,17 @@ final class MerchantMessage
 
     /** الخانات وما تُملأ به — تُعرض للموظّف كما هي */
     public const FIELDS = [
-        '{التاجر}'  => 'اسم التاجر نفسه (صاحب المتجر)',
-        '{المتجر}'  => 'اسم المتجر',
-        '{الوصل}'   => 'رقم الوصل',
-        '{الزبون}'  => 'اسم الزبون',
-        '{الهاتف}'  => 'هاتف الزبون',
+        '{التاجر}' => 'اسم التاجر نفسه (صاحب المتجر)',
+        '{المتجر}' => 'اسم المتجر',
+        '{الوصل}' => 'رقم الوصل',
+        '{الزبون}' => 'اسم الزبون',
+        '{الهاتف}' => 'هاتف الزبون',
         '{العنوان}' => 'المحافظة والمنطقة',
-        '{المبلغ}'  => 'المبلغ',
-        '{السبب}'   => 'سبب عدم التسليم',
+        '{المبلغ}' => 'المبلغ',
+        '{السبب}' => 'سبب عدم التسليم',
         '{المندوب}' => 'اسم المندوب',
-        '{الموظف}'  => 'اسمك',
-        '{الشركة}'  => 'اسم الشركة',
+        '{الموظف}' => 'اسمك',
+        '{الشركة}' => 'اسم الشركة',
     ];
 
     public static function templateOf(User $user): string
@@ -45,6 +46,17 @@ final class MerchantMessage
         return $own !== '' ? $own : self::TEMPLATE;
     }
 
+    /**
+     * يحفظ نصّ الموظّف، من الموقع ومن تطبيق الكول سنتر (docs/plan/83) — الحقل نفسه. والقالب نفسه لا
+     * يُحفظ نسخةً: الفارغ وما طابق القالب و«أرجعها للقالب» تعود به يتبع ما يأتي مع النظام.
+     */
+    public static function save(User $user, ?string $text, bool $reset = false): void
+    {
+        $text = trim(str_replace("\r\n", "\n", (string) $text));
+
+        $user->update(['merchant_message' => $reset || $text === '' || $text === self::TEMPLATE ? null : $text]);
+    }
+
     /** نصّ الموظّف مملوءاً من الشحنة */
     public static function for(Shipment $shipment, User $user): string
     {
@@ -52,17 +64,17 @@ final class MerchantMessage
 
         return strtr(self::templateOf($user), [
             // الرسالة لصاحب المتجر باسمه، والمتجر باسمه إن لم يُكتب اسم صاحبه
-            '{التاجر}'  => (string) ($shipment->merchant?->owner_name ?: $shipment->merchant?->business_name),
-            '{المتجر}'  => (string) $shipment->merchant?->business_name,
-            '{الوصل}'   => (string) $shipment->number,
-            '{الزبون}'  => (string) ($shipment->recipient_name ?: 'الزبون'),
-            '{الهاتف}'  => (string) $shipment->recipient_phone,
+            '{التاجر}' => (string) ($shipment->merchant?->owner_name ?: $shipment->merchant?->business_name),
+            '{المتجر}' => (string) $shipment->merchant?->business_name,
+            '{الوصل}' => (string) $shipment->number,
+            '{الزبون}' => (string) ($shipment->recipient_name ?: 'الزبون'),
+            '{الهاتف}' => (string) $shipment->recipient_phone,
             '{العنوان}' => $address !== '' ? $address : '—',
-            '{المبلغ}'  => number_format((int) $shipment->cod_amount).' د.ع',
-            '{السبب}'   => $shipment->lastFailureReason?->name_ar ?? 'لم يُحدَّد',
+            '{المبلغ}' => number_format((int) $shipment->cod_amount).' د.ع',
+            '{السبب}' => $shipment->lastFailureReason?->name_ar ?? 'لم يُحدَّد',
             '{المندوب}' => (string) ($shipment->deliveryCourier?->merchantFacingName() ?? '—'),
-            '{الموظف}'  => (string) $user->name,
-            '{الشركة}'  => (string) (Tenancy::company()?->name ?? ''),
+            '{الموظف}' => (string) $user->name,
+            '{الشركة}' => (string) (Tenancy::company()?->name ?? ''),
         ]);
     }
 
@@ -70,7 +82,7 @@ final class MerchantMessage
      * نصّ الموظّف في محادثةٍ مع التاجر (docs/plan/53): من شحنتها إن كانت عن شحنة، وإلّا ما يُعرف
      * من التاجر والموظّف والشركة — وخانات الشحنة شرطةٌ لا قوسٌ فارغ.
      */
-    public static function forConversation(\App\Models\Conversation $conversation, User $user): string
+    public static function forConversation(Conversation $conversation, User $user): string
     {
         // الشحنة كاملةً: المحادثة تحمل منها رقمها وحالها وحدهما
         $shipment = $conversation->shipment_id
@@ -84,10 +96,10 @@ final class MerchantMessage
         $merchant = $conversation->merchant;
 
         return strtr(self::templateOf($user), [
-            '{التاجر}'  => (string) ($merchant?->owner_name ?: $merchant?->business_name),
-            '{المتجر}'  => (string) $merchant?->business_name,
-            '{الموظف}'  => (string) $user->name,
-            '{الشركة}'  => (string) (Tenancy::company()?->name ?? ''),
+            '{التاجر}' => (string) ($merchant?->owner_name ?: $merchant?->business_name),
+            '{المتجر}' => (string) $merchant?->business_name,
+            '{الموظف}' => (string) $user->name,
+            '{الشركة}' => (string) (Tenancy::company()?->name ?? ''),
         ] + array_fill_keys(['{الوصل}', '{الزبون}', '{الهاتف}', '{العنوان}', '{المبلغ}', '{السبب}', '{المندوب}'], '—'));
     }
 

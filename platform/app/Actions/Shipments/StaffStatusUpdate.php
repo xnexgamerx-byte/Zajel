@@ -6,6 +6,7 @@ use App\Enums\ShipmentStatus;
 use App\Http\Requests\ChangeStatusRequest;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Support\PostponedUntil;
 
 /**
  * «تحديث الحالة» لشحنةٍ واحدة بيد موظّف — من صفحتها في الموقع، ومن تطبيق الكول سنتر (docs/plan/80).
@@ -55,6 +56,10 @@ class StaffStatusUpdate
 
         $to = ShipmentStatus::from($data['status']);
         $force = ! empty($data['force']);
+        // «مؤجل» إلى موعدٍ اتُّفق عليه (docs/plan/83): يظهر «مؤجل إلى …» في القوائم
+        $until = $to === ShipmentStatus::Postponed
+            ? PostponedUntil::parse($data['postponed_until'] ?? null, $data['postponed_time'] ?? null)
+            : null;
 
         $this->change->handle($shipment, $to, $user, array_filter([
             'courier_id' => $data['courier_id'] ?? null,
@@ -65,7 +70,12 @@ class StaffStatusUpdate
             'force' => $force ?: null,
             'retry' => ! empty($data['retry']) ?: null,
             'forced_reason' => $force ? ($data['forced_reason'] ?? null) : null,
+            'scheduled_at' => $until,
         ], fn ($v) => $v !== null));
+
+        if ($until !== null) {
+            return "تم تحديث الشحنة {$shipment->number} إلى «مؤجل» إلى ".PostponedUntil::label($until).'.';
+        }
 
         return $force
             ? "تم تحديث الشحنة {$shipment->number} إلى «{$to->label()}» إجبارياً، وسُجّل السبب باسمك."

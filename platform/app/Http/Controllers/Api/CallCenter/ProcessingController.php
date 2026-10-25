@@ -10,6 +10,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Shipment;
 use App\Models\ShipmentFollowUp;
 use App\Support\FeatureGate;
+use App\Support\PostponedUntil;
+use App\Support\StaffNote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,7 +25,7 @@ class ProcessingController extends Controller
     use Concerns;
 
     private const WITH = ['merchant:id,business_name,owner_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
-        'deliveryCourier:id,name,phone', 'lastFailureReason:id,name_ar'];
+        'deliveryCourier:id,name,phone,is_intermediary,hidden_from_merchants', 'lastFailureReason:id,name_ar'];
 
     /** ينتظر ردّنا: تاجرٌ أو مندوبٌ كتب عنها، أو تذكرةٌ مفتوحة لها — يُقدَّم */
     private const WAITING_ON_US = "(exists (select 1 from conversations c where c.shipment_id = shipments.id and c.staff_unread = 1)
@@ -112,7 +114,7 @@ class ProcessingController extends Controller
         $process->handle($s, $data['action'], $request->user(), 'staff', $data['until'] ?? null, $data['note'] ?? null, $request->ip());
 
         return response()->json(['message' => "عولجت {$s->number}: ".ProcessFailedAttempt::ACTIONS[$data['action']]
-            .($data['action'] === 'postpone' ? ' إلى '.$data['until'] : '').'.']);
+            .($data['action'] === 'postpone' ? ' إلى '.PostponedUntil::label(PostponedUntil::parse($data['until'])) : '').'.']);
     }
 
     /** ردٌّ على التاجر عن الشحنة: في محادثتها، أو محادثةٌ جديدة عنها */
@@ -170,6 +172,8 @@ class ProcessingController extends Controller
             'merchant' => ['name' => $s->merchant?->business_name, 'phone' => $s->merchant?->phone],
             'courier' => ['name' => $s->deliveryCourier?->name, 'phone' => $s->deliveryCourier?->phone],
             'claim' => self::claimJson($claim, $request->user()),
+            // ملاحظة للموظّفين، كـ«تعالجها أنت» في السطر نفسه (docs/plan/83)
+            'staff_note' => StaffNote::json($s),
         ];
     }
 }

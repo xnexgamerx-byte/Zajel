@@ -15,6 +15,8 @@ use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Support\FeatureGate;
 use App\Support\MerchantNotice;
+use App\Support\PostponedUntil;
+use App\Support\StaffNote;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,6 +53,8 @@ class ShipmentController extends Controller
             'status' => $s->status->value,
             'status_label' => $s->statusLabel(),
             'amount' => (int) $s->cod_amount,
+            'until' => $s->status === ShipmentStatus::Postponed ? $s->scheduled_at?->toIso8601String() : null,
+            'staff_note' => StaffNote::json($s),
         ])->values()]);
     }
 
@@ -81,6 +85,8 @@ class ShipmentController extends Controller
             // التوضيح الذي كُتب مع السبب (docs/plan/80): «تغيير عنوان — إلى الكرادة قرب…»
             'reason_note' => self::reasonNote($s),
             'until' => $s->status === ShipmentStatus::Postponed ? $s->scheduled_at?->toIso8601String() : null,
+            // ملاحظة للموظّفين (docs/plan/83): «اتّصلتُ ولم يردّ» — من كتبها ومتى
+            'staff_note' => StaffNote::json($s),
             'attempts' => (int) $s->attempts_count,
             'created_at' => $s->created_at?->toIso8601String(),
             'merchant' => ['name' => $s->merchant?->business_name, 'phone' => $s->merchant?->phone],
@@ -97,6 +103,8 @@ class ShipmentController extends Controller
                     ->map(fn (Courier $c) => ['id' => $c->id, 'name' => $c->name])->values()
                 : [],
             'can_reopen' => $user->can('shipments.status') && self::reopenable($s),
+            // المؤجّلة يتغيّر موعدها بلا تغيير حالتها (docs/plan/83)
+            'can_reschedule' => $user->can('shipments.status') && $s->status === ShipmentStatus::Postponed,
             // محادثتا التاجر والمندوب عنها، في كلّ شحنة لا في المعالجة وحدها (docs/plan/81)
             'can_ask' => $s->merchant !== null,
             'has_courier' => $s->deliveryCourier !== null,
@@ -112,6 +120,24 @@ class ShipmentController extends Controller
                     'at' => $e->created_at?->toIso8601String(),
                 ])->values(),
         ] + self::shipmentChats($s, $user)]);
+    }
+
+    /**
+     * «ملاحظة للموظّفين» (docs/plan/83): تكتبها فتظهر لزميلاتها في القوائم وفي الشحنة — «اتّصلتُ ولم
+     * يردّ» — وتُمسح بنصٍّ فارغ. لا يراها التاجر ولا المندوب.
+     */
+    public function note(Request $request, int $shipment): JsonResponse
+    {
+        abort_unless($request->user()->can('shipments.view'), 403);
+        $s = $this->find($request, $shipment);
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:'.StaffNote::MAX]], [], ['note' => 'الملاحظة']);
+
+        StaffNote::write($s, $data['note'] ?? null, $request->user(), $request->ip());
+
+        return response()->json([
+            'message' => filled($s->staff_note) ? 'كُتبت الملاحظة لزميلاتك.' : 'مُسحت الملاحظة.',
+            'staff_note' => StaffNote::json($s),
+        ]);
     }
 
     /** للتاجر عن الشحنة (docs/plan/81): في محادثتها، أو محادثةٌ جديدة عنها */
@@ -153,6 +179,52 @@ class ShipmentController extends Controller
             || $to === ChangeStatusRequest::FORCE_DELIVERED, 422, 'هذا التحديث من الموقع وحده.');
 
         return response()->json(['message' => $update->handle($s, $request->validated(), $request->user(), $request->ip())]);
+    }
+
+    /**
+     * «غيّري موعد التأجيل» (docs/plan/83): اتّصلت بزبون المؤجّلة فاتّفقا على موعدٍ آخر — يبقى «مؤجل» بموعده
+     * الجديد، ويُكتب في سجلّها القديم والجديد باسمها. وتطبيق المندوب يقرأ الموعد نفسه.
+     */
+    public function postpone(Request $request, int $shipment): JsonResponse
+    {
+        abort_unless($request->user()->can('shipments.status'), 403);
+        $data = $request->validate([
+            'postponed_until' => ['required', 'date', 'after_or_equal:today', 'before:+60 days'],
+            'postponed_time' => ['nullable', 'date_format:H:i'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'postponed_until.required' => 'إلى متى؟ اختاري اليوم الذي اتّفقتِ عليه مع الزبون.',
+            'postponed_until.after_or_equal' => 'موعد التأجيل اليوم أو بعده.',
+        ], ['postponed_until' => 'موعد التأجيل', 'postponed_time' => 'ساعة التأجيل', 'note' => 'ما قاله الزبون']);
+        $s = $this->find($request, $shipment);
+        $user = $request->user();
+
+        if ($s->status !== ShipmentStatus::Postponed) {
+            throw ValidationException::withMessages(['postponed_until' => "الشحنة {$s->number} «{$s->statusLabel()}»: ليست مؤجّلة."]);
+        }
+
+        $until = PostponedUntil::parse($data['postponed_until'], $data['postponed_time'] ?? null);
+        $was = $s->scheduled_at;
+        $note = 'موعد التأجيل: '.($was ? PostponedUntil::label($was).' ← ' : '').PostponedUntil::label($until)
+            .(filled($data['note'] ?? null) ? ' — '.$data['note'] : '');
+
+        DB::transaction(function () use ($s, $user, $until, $note, $request) {
+            $s->forceFill(['scheduled_at' => $until])->save();
+            ShipmentEvent::create([
+                'shipment_id' => $s->id,
+                'from_status' => $s->status->value,
+                'to_status' => $s->status->value,
+                'event_type' => 'edited',
+                'actor_type' => 'user',
+                'actor_id' => $user->id,
+                'actor_name' => $user->name,
+                'courier_id' => $s->delivery_courier_id,
+                'note' => $note,
+                'ip' => $request->ip(),
+            ]);
+        });
+
+        return response()->json(['message' => "صار موعد {$s->number}: ".PostponedUntil::label($until).'.']);
     }
 
     /**
@@ -270,8 +342,8 @@ class ShipmentController extends Controller
     private function find(Request $request, int $id): Shipment
     {
         return Shipment::query()->visibleTo($request->user())
-            ->with(['merchant:id,business_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
-                'deliveryCourier:id,name,phone,is_intermediary', 'lastFailureReason:id,name_ar'])
+            ->with(['merchant:id,business_name,owner_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
+                'deliveryCourier:id,name,phone,is_intermediary,hidden_from_merchants', 'lastFailureReason:id,name_ar'])
             ->findOrFail($id);
     }
 }

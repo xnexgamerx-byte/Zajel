@@ -11,6 +11,8 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Courier;
+use App\Models\CourierMessage;
+use App\Models\CourierThread;
 use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
@@ -20,6 +22,7 @@ use App\Support\FeatureGate;
 use App\Support\MerchantMessage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -60,7 +63,7 @@ class ProcessingController extends Controller
 
         $page = $tab === 'pending'
             ? $found->select('shipments.*')->with(['merchant:id,business_name,owner_name,phone', 'governorate:id,name_ar', 'city:id,name_ar',
-                    'deliveryCourier:id,name,phone', 'lastFailureReason:id,name_ar'])
+                'deliveryCourier:id,name,phone', 'lastFailureReason:id,name_ar'])
                 ->withMax(['events as asked_at' => fn ($q) => $q->where('event_type', 'merchant_asked')
                     ->whereColumn('shipment_events.created_at', '>=', 'shipments.status_changed_at')], 'created_at')
                 // من كتب أوّلاً (docs/plan/43): تاجرٌ ردّ عن الشحنة، أو مندوبٌ كتب عنها، أو تذكرةٌ مفتوحة لها
@@ -73,24 +76,24 @@ class ProcessingController extends Controller
         $canChat = FeatureGate::enabled(Feature::Conversations) && $request->user()->can('support.reply');
 
         return view('tenant.processing.index', [
-            'canChat'   => $canChat,
-            'chats'     => $page && $canChat ? $this->chats($page->getCollection()) : ['merchant' => collect(), 'courier' => collect(), 'threads' => collect()],
-            'tab'       => $tab,
-            'canAsk'    => FeatureGate::enabled(Feature::Conversations),
+            'canChat' => $canChat,
+            'chats' => $page && $canChat ? $this->chats($page->getCollection()) : ['merchant' => collect(), 'courier' => collect(), 'threads' => collect()],
+            'tab' => $tab,
+            'canAsk' => FeatureGate::enabled(Feature::Conversations),
             'governorates' => $mine === [] ? collect()
                 : Governorate::query()->whereIn('id', $mine)->orderedForCompany()->pluck('name_ar'),
             'pendingCount' => (clone $pending)->count(),
-            'filtered'  => $request->filled('q') || $request->filled('courier_id') || $follow !== null,
-            'follow'    => $follow,
+            'filtered' => $request->filled('q') || $request->filled('courier_id') || $follow !== null,
+            'follow' => $follow,
             // من تعالج كلّ شحنةٍ الآن (docs/plan/73): زميلتها لا تقرّر فيها
-            'claims'    => $page ? Claims::holders(Claims::PROCESSING, $page->getCollection()->pluck('id')) : collect(),
+            'claims' => $page ? Claims::holders(Claims::PROCESSING, $page->getCollection()->pluck('id')) : collect(),
             // من يتابع كلّ شحنة الآن — أسماؤهم للجميع، والملاحظة لصاحبها وحده (في الصفحة)
             'followUps' => $page ? ShipmentFollowUp::whereIn('shipment_id', $page->getCollection()->pluck('id'))
                 ->with('user:id,name')->orderBy('started_at')->get()->groupBy('shipment_id') : collect(),
-            'couriers'  => $tab === 'pending' ? Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']) : collect(),
+            'couriers' => $tab === 'pending' ? Courier::delivering()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']) : collect(),
             'shipments' => $page,
             // ما عولج في الأيام السبعة الأخيرة: القرار ومن اتّخذه وبعد كم
-            'done'      => $tab === 'done'
+            'done' => $tab === 'done'
                 ? ShipmentEvent::query()
                     ->where('event_type', 'processed')
                     ->where('created_at', '>=', now()->subDays(7))
@@ -117,8 +120,8 @@ class ProcessingController extends Controller
      * محادثتا الشحنة في صفّها (docs/plan/43): محادثة التاجر عنها، ومحادثة مندوبها — تُقرأ ويُردّ
      * عليها من شاشة المعالجة نفسها، لا من شاشةٍ أخرى.
      *
-     * @param  \Illuminate\Support\Collection<int, Shipment>  $shipments
-     * @return array{merchant: \Illuminate\Support\Collection, courier: \Illuminate\Support\Collection, threads: \Illuminate\Support\Collection}
+     * @param  Collection<int, Shipment>  $shipments
+     * @return array{merchant: Collection, courier: Collection, threads: Collection}
      */
     private function chats($shipments): array
     {
@@ -135,7 +138,7 @@ class ProcessingController extends Controller
             ->keyBy('shipment_id');
 
         // محادثة المندوب في صفّ الشحنة: رسائل هذه الشحنة وحدها، لا كلّ ما بينه وبيننا
-        $courier = \App\Models\CourierMessage::query()
+        $courier = CourierMessage::query()
             ->whereIn('shipment_id', $shipments->pluck('id'))
             ->latest('id')
             ->limit(1000)
@@ -143,7 +146,7 @@ class ProcessingController extends Controller
             ->groupBy('shipment_id')
             ->map(fn ($messages) => $messages->take(30)->sortBy('id')->values());
 
-        $threads = \App\Models\CourierThread::query()
+        $threads = CourierThread::query()
             ->whereIn('courier_id', $shipments->pluck('delivery_courier_id')->filter()->unique())
             ->get(['id', 'courier_id', 'staff_unread'])->keyBy('courier_id');
 
@@ -168,7 +171,7 @@ class ProcessingController extends Controller
 
         $row->forceFill([
             'started_at' => $fresh ? now() : $row->started_at,
-            'note'       => $request->has('note') ? (trim((string) ($data['note'] ?? '')) ?: null) : ($fresh ? null : $row->note),
+            'note' => $request->has('note') ? (trim((string) ($data['note'] ?? '')) ?: null) : ($fresh ? null : $row->note),
         ])->save();
 
         return redirect()->to(url()->previous().'#row-'.$shipment->id)
@@ -224,8 +227,8 @@ class ProcessingController extends Controller
 
         $data = $request->validate([
             'action' => ['required', 'in:'.implode(',', array_keys(self::ACTIONS))],
-            'until'  => ['nullable', 'required_if:action,postpone', 'date', 'after_or_equal:today', 'before:+60 days'],
-            'note'   => ['nullable', 'string', 'max:255'],
+            'until' => ['nullable', 'required_if:action,postpone', 'date', 'after_or_equal:today', 'before:+60 days'],
+            'note' => ['nullable', 'string', 'max:255'],
         ], [
             'until.required_if' => 'التأجيل إلى متى؟ اختر اليوم الذي اتُّفق عليه مع الزبون.',
             'until.after_or_equal' => 'موعد التأجيل اليوم أو بعده.',
@@ -252,9 +255,7 @@ class ProcessingController extends Controller
         ], [], ['merchant_message' => 'الرسالة']);
 
         $text = trim((string) ($data['merchant_message'] ?? ''));
-        // القالب نفسه لا يُحفظ نسخةً: يبقى يتبع ما يأتي مع النظام
-        $request->user()->update(['merchant_message' => $text === '' || $request->boolean('reset')
-            || $text === MerchantMessage::TEMPLATE ? null : $text]);
+        MerchantMessage::save($request->user(), $text, $request->boolean('reset'));
 
         return back()->with('success', $request->boolean('reset') || $text === '' ? 'عادت رسالتك إلى القالب.' : 'حُفظت رسالتك للتاجر.');
     }
@@ -290,14 +291,14 @@ class ProcessingController extends Controller
             ShipmentEvent::create([
                 'shipment_id' => $shipment->id,
                 'from_status' => $shipment->status->value,
-                'to_status'   => $shipment->status->value,
-                'event_type'  => 'merchant_asked',
-                'actor_type'  => 'user',
-                'actor_id'    => $user->id,
-                'actor_name'  => $user->name,
-                'courier_id'  => $shipment->delivery_courier_id,
-                'note'        => 'أُرسلت للتاجر رسالةٌ قبل المعالجة',
-                'meta'        => ['conversation_id' => $open->id],
+                'to_status' => $shipment->status->value,
+                'event_type' => 'merchant_asked',
+                'actor_type' => 'user',
+                'actor_id' => $user->id,
+                'actor_name' => $user->name,
+                'courier_id' => $shipment->delivery_courier_id,
+                'note' => 'أُرسلت للتاجر رسالةٌ قبل المعالجة',
+                'meta' => ['conversation_id' => $open->id],
             ]);
 
             return $open;

@@ -37,6 +37,12 @@ Future<void> _tap(WidgetTester tester, Finder target) async {
   await tester.pumpAndSettle();
 }
 
+/// يمرّر القائمة حتى يُبنى الهدف — ما تحت الطيّ لا يُبنى في القائمة الكسولة
+Future<void> _scrollTo(WidgetTester tester, Finder target) async {
+  await tester.scrollUntilVisible(target, 250, scrollable: find.byType(Scrollable).first);
+  await tester.pumpAndSettle();
+}
+
 /// الشريط السفلي: النصّ الأخير على الشاشة هو تسميته
 Future<void> _tab(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).last);
@@ -118,6 +124,7 @@ void main() {
     await _tap(tester, find.text('منى جاسم'));
     expect(find.text('الزبونة اتصلت بينا، تريد التوصيل بعد العصر'), findsOneWidget);
     await _tap(tester, find.text('أعالجها'));
+    await _scrollTo(tester, find.byTooltip('أرسل'));
     await tester.enterText(find.byType(TextField).first, 'تمّ، نعيدها اليوم بعد العصر');
     await _tap(tester, find.byTooltip('أرسل'));
     expect(find.text('تمّ، نعيدها اليوم بعد العصر'), findsOneWidget);
@@ -166,7 +173,7 @@ void main() {
     await _tap(tester, find.text('مؤجل').first);
     expect(find.text('اتُّفق مع الزبون على موعد — ما فات موعده أو اليوم أوّلاً'), findsOneWidget);
     expect(find.text('زهراء كريم'), findsOneWidget);
-    expect(find.textContaining('موعدها'), findsWidgets);
+    expect(find.textContaining('مؤجل إلى'), findsWidgets);
     expect(find.text('علي حسين'), findsNothing);
     await _tap(tester, find.byTooltip('رجوع'));
 
@@ -208,7 +215,10 @@ void main() {
     expect(find.text('سجلّها'), findsOneWidget);
 
     // تعديل البيانات في السجلّ باسمه، لا بحالةٍ مكرّرة
+    await _scrollTo(tester, find.text('تعديل بيانات'));
     expect(find.text('تعديل بيانات'), findsOneWidget);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 3000));
+    await tester.pumpAndSettle();
 
     expect(find.text(tag('180301')), findsNWidgets(2));
     // الحافظة في الاختبار: ما نُسخ يُقرأ
@@ -269,6 +279,7 @@ void main() {
 
     // ردٌّ جاهز يُكتب في الحقل ثم يُرسل
     await _tap(tester, find.text('أعالجها'));
+    await _scrollTo(tester, find.byTooltip('أرسل'));
     await _tap(tester, find.text('تم التبليغ').first);
     await _tap(tester, find.byTooltip('أرسل'));
     expect(find.text('تم التبليغ'), findsWidgets);
@@ -308,5 +319,122 @@ void main() {
     expect(find.text(tag('180240')), findsOneWidget);
     expect(find.text('التتبّع'), findsOneWidget);
     expect(find.text('المحادثات'), findsOneWidget);
+  });
+
+  testWidgets('رسالتي الثابتة: تُدرَج مملوءةً فوق حقل التاجر، وتُعدَّل من التطبيق', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.byTooltip('ابحث عن شحنة'));
+    await tester.enterText(find.byType(TextField), '180301');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    // تُدرَج مملوءةً من الشحنة، وتُعدَّل قبل الإرسال
+    await _scrollTo(tester, find.text('أدرجي رسالتي الثابتة'));
+    await _tap(tester, find.text('أدرجي رسالتي الثابتة'));
+    final field = tester.widget<TextField>(find.byType(TextField).last);
+    expect(field.controller!.text, startsWith('السلام عليكم متجر الوردة'));
+    expect(field.controller!.text, contains('بخصوص الوصل 180301 للزبون علي حسين'));
+    expect(field.controller!.text, contains('مع التحية، سارة — الزاجل'));
+
+    // القلم بجانبها يفتح «رسالتي الثابتة»: الخانة تُكتب بلمسة، وتُحفظ لها
+    await _tap(tester, find.byTooltip('عدّلي رسالتي الثابتة'));
+    expect(find.text('رسالتي الثابتة للتاجر'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'مرحباً ');
+    await tester.pumpAndSettle();
+    await _tap(tester, find.text('{التاجر}'));
+    await _tap(tester, find.text('احفظي رسالتي'));
+    expect(find.text('حُفظت رسالتك للتاجر.'), findsOneWidget);
+
+    await _scrollTo(tester, find.text('أدرجي رسالتي الثابتة'));
+    await _tap(tester, find.text('أدرجي رسالتي الثابتة'));
+    expect(tester.widget<TextField>(find.byType(TextField).last).controller!.text, 'مرحباً متجر الوردة');
+  });
+
+  testWidgets('حدّثي الحالة «مؤجل»: اليوم وساعته، ويظهر «مؤجل إلى» في القائمة', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.byTooltip('ابحث عن شحنة'));
+    await tester.enterText(find.byType(TextField), '180302');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    await _scrollTo(tester, find.text('حدّثي الحالة'));
+    await _tap(tester, find.text('حدّثي الحالة'));
+    await _tap(tester, find.widgetWithText(ChoiceChip, 'مؤجل'));
+    expect(find.text('مؤجل إلى'), findsOneWidget);
+
+    // بلا يومٍ لا يُحفظ
+    await _tap(tester, find.text('حدّثي'));
+    expect(find.text('مؤجل إلى متى؟ اختاري اليوم الذي اتّفقتِ عليه مع الزبون.'), findsOneWidget);
+
+    await _tap(tester, find.text('غداً'));
+    await _tap(tester, find.text('الليل 9'));
+    expect(find.text('مؤجل إلى غداً الساعة 9:00 م'), findsOneWidget);
+    await _tap(tester, find.text('حدّثي'));
+    expect(find.text('تم تحديث الشحنة 180302 إلى «مؤجل» إلى غداً الساعة 9:00 م.'), findsOneWidget);
+
+    await _tap(tester, find.byTooltip('رجوع').last);
+    await _tap(tester, find.byTooltip('رجوع').last);
+    await _tap(tester, find.text('مؤجل').first);
+    expect(find.text('هدى كريم'), findsOneWidget);
+    expect(find.text('مؤجل إلى غداً الساعة 9:00 م'), findsOneWidget);
+  });
+
+  testWidgets('ملاحظة للموظّفين: تُرى في المؤجّل باسم كاتبتها، وتُكتب من الشحنة', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.text('مؤجل').first);
+    // ملاحظة نور على زهراء كريم في سطرها
+    expect(find.textContaining('نور: اتّصلتُ ولم تردّ — أعيد الاتصال العصر'), findsOneWidget);
+
+    await _tap(tester, find.text('نبأ سالم'));
+    expect(find.text('ملاحظة للموظّفين'), findsOneWidget);
+    await _tap(tester, find.text('اكتبي'));
+    await _tap(tester, find.text('الهاتف مغلق'));
+    await _tap(tester, find.text('احفظي الملاحظة'));
+    expect(find.text('كُتبت الملاحظة لزميلاتك.'), findsOneWidget);
+    expect(find.text('الهاتف مغلق'), findsOneWidget);
+
+    await _tap(tester, find.byTooltip('رجوع').last);
+    expect(find.textContaining('سارة: الهاتف مغلق'), findsOneWidget);
+  });
+
+  testWidgets('المعالجة: التأجيل بساعته، والملاحظة في الشحنة وسطرها', (tester) async {
+    await _start(tester);
+    await _tab(tester, 'المعالجة');
+    await _tap(tester, find.text('عمر فاضل'));
+    await _tap(tester, find.text('اكتبي'));
+    await tester.enterText(find.byType(TextField).last, 'يردّ بعد الخامسة');
+    await _tap(tester, find.text('احفظي الملاحظة'));
+    expect(find.text('يردّ بعد الخامسة'), findsOneWidget);
+    // يذهب التنبيه فيظهر زرّ «أعالجها» تحته
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.text('أعالجها'));
+    await _tap(tester, find.text('تأجيل'));
+    await _tap(tester, find.text('بعد غد'));
+    await _tap(tester, find.text('العصر 4'));
+    await _tap(tester, find.text('أجّليها'));
+    expect(find.textContaining('عولجت 180234: مؤجل إلى '), findsOneWidget);
+    expect(find.textContaining('الساعة 4:00 م'), findsOneWidget);
+
+    // وفي «حالة الشحنات»: مؤجّلةٌ بموعدها وملاحظتها
+    await _tab(tester, 'الرئيسية');
+    await _tap(tester, find.text('مؤجل').first);
+    expect(find.text('عمر فاضل'), findsOneWidget);
+    expect(find.textContaining('سارة: يردّ بعد الخامسة'), findsOneWidget);
+  });
+
+  testWidgets('المؤجّلة: يتغيّر موعدها وتبقى «مؤجل»', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.text('مؤجل').first);
+    await _tap(tester, find.text('نبأ سالم'));
+    await _scrollTo(tester, find.text('غيّري موعد التأجيل'));
+    await _tap(tester, find.text('غيّري موعد التأجيل'));
+    await _tap(tester, find.text('غداً'));
+    await _tap(tester, find.text('الصبح 10'));
+    await _tap(tester, find.text('أجّليها'));
+    expect(find.text('صار موعد 180312: غداً الساعة 10:00 ص.'), findsOneWidget);
+
+    await _tap(tester, find.byTooltip('رجوع').last);
+    expect(find.text('مؤجل إلى غداً الساعة 10:00 ص'), findsOneWidget);
   });
 }

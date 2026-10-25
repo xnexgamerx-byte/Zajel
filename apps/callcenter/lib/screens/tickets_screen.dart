@@ -9,6 +9,7 @@ import '../widgets/bits.dart';
 import '../widgets/digits.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
+import 'my_message_screen.dart';
 import 'search_screen.dart' show openShipment;
 
 Future<String?> openTicket(BuildContext context, Brand brand, int id) => Navigator.of(context).push<String>(
@@ -393,6 +394,8 @@ class _TicketScreenState extends State<TicketScreen> {
                             canAsk: ship!.canAsk,
                             hasCourier: ship!.hasCourier,
                             onSent: _loadShipment,
+                            merchantMessage: ship!.merchantMessage,
+                            onEditTemplate: () => editMyMessage(context, brand, then: _loadShipment),
                           ),
                         ],
                       ],

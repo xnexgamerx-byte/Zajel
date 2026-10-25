@@ -23,8 +23,8 @@ class ProcessFailedAttempt
     /** «راجع مؤكد»: لم تُعالَج فتأكّد رجوعها لتاجرها (docs/plan/38) */
     public const ACTIONS = [
         'redeliver' => 'إعادة توصيل',
-        'postpone'  => 'مؤجل',
-        'return'    => 'راجع مؤكد',
+        'postpone' => 'مؤجل',
+        'return' => 'راجع مؤكد',
     ];
 
     public function __construct(protected ChangeShipmentStatus $change) {}
@@ -64,8 +64,9 @@ class ProcessFailedAttempt
                 'redeliver' => $shipment->delivery_courier_id
                     ? [ShipmentStatus::OutForDelivery, $options + ['courier_id' => $shipment->delivery_courier_id, 'redelivery' => true]]
                     : [ShipmentStatus::AtHub, $options + ['redelivery' => true]],
-                'postpone'  => [ShipmentStatus::Postponed, $options + ['scheduled_at' => Carbon::parse($until)->startOfDay()]],
-                'return'    => [ShipmentStatus::Returning, $options],
+                // اليوم وحده منتصف ليله، وساعته إن قيلت: «الليلة الساعة 9» (docs/plan/83)
+                'postpone' => [ShipmentStatus::Postponed, $options + ['scheduled_at' => Carbon::parse($until)]],
+                'return' => [ShipmentStatus::Returning, $options],
             };
 
             // قد يصير «بالطريق» بدل ما طُلب إن كان مندوبها وسيطاً: يُسجَّل ما وصلت إليه فعلاً
@@ -74,15 +75,15 @@ class ProcessFailedAttempt
             ShipmentEvent::create([
                 'shipment_id' => $shipment->id,
                 'from_status' => ShipmentStatus::FailedAttempt->value,
-                'to_status'   => $to->value,
-                'event_type'  => 'processed',
-                'actor_type'  => $by === 'merchant' ? 'merchant' : 'user',
-                'actor_id'    => $actor->id,
-                'actor_name'  => $actor->name,
-                'courier_id'  => $shipment->delivery_courier_id,
-                'note'        => $note,
-                'meta'        => ['action' => $action, 'waited_minutes' => $waited, 'by' => $by, 'said' => $said],
-                'ip'          => $ip,
+                'to_status' => $to->value,
+                'event_type' => 'processed',
+                'actor_type' => $by === 'merchant' ? 'merchant' : 'user',
+                'actor_id' => $actor->id,
+                'actor_name' => $actor->name,
+                'courier_id' => $shipment->delivery_courier_id,
+                'note' => $note,
+                'meta' => ['action' => $action, 'waited_minutes' => $waited, 'by' => $by, 'said' => $said],
+                'ip' => $ip,
             ]);
             Claims::clear(Claims::PROCESSING, $shipment->id);
 

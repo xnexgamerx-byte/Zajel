@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ShipmentStatus;
 use App\Models\Concerns\AppendOnly;
 use App\Models\Concerns\BelongsToCompany;
 use App\Models\Concerns\FitsColumns;
@@ -34,28 +35,29 @@ class ShipmentEvent extends Model
      * @var array<string, string>
      */
     public const TYPES = [
-        'status_change'    => 'تغيير حالة',
-        'forced_status'    => 'حالة إجبارية',
-        'money'            => 'مالي',
+        'status_change' => 'تغيير حالة',
+        'forced_status' => 'حالة إجبارية',
+        'money' => 'مالي',
         'amount_confirmed' => 'تأكيد مبلغ',
-        'edited'           => 'تعديل بيانات',
-        'return_received'  => 'استلام راجع',
-        'return_arrived'   => 'وصول راجع لفرع',
-        'return_sorted'    => 'فرز راجع لفرع',
-        'return_departed'  => 'خروج راجع إلى فرعه',
+        'edited' => 'تعديل بيانات',
+        'return_received' => 'استلام راجع',
+        'return_arrived' => 'وصول راجع لفرع',
+        'return_sorted' => 'فرز راجع لفرع',
+        'return_departed' => 'خروج راجع إلى فرعه',
         'return_confirmed' => 'تأكيد استلام راجع',
-        'bagged'           => 'إضافة لكيس',
-        'unbagged'         => 'إخراج من كيس',
-        'bag_missing'      => 'ناقص من كيس',
+        'bagged' => 'إضافة لكيس',
+        'unbagged' => 'إخراج من كيس',
+        'bag_missing' => 'ناقص من كيس',
         'shipment_missing' => 'لم يصل بين الفروع',
-        'deleted'          => 'مسح',
-        'restored'         => 'استرجاع من الممسوحة',
-        'processed'        => 'معالجة',
-        'merchant_asked'   => 'رسالة للتاجر قبل المعالجة',
-        'reviewed'         => 'إجازة بعد المراجعة',
-        'prepaid_fee'      => 'قبض أجرة مقدّماً',
-        'ticket'           => 'طلب تغيير المبلغ',
-        'tracking'         => 'موقع عند الشركة الوسيطة',
+        'deleted' => 'مسح',
+        'restored' => 'استرجاع من الممسوحة',
+        'processed' => 'معالجة',
+        'merchant_asked' => 'رسالة للتاجر قبل المعالجة',
+        'reviewed' => 'إجازة بعد المراجعة',
+        'prepaid_fee' => 'قبض أجرة مقدّماً',
+        'ticket' => 'طلب تغيير المبلغ',
+        'tracking' => 'موقع عند الشركة الوسيطة',
+        'staff_note' => 'ملاحظة للموظّفين',
     ];
 
     /**
@@ -71,20 +73,20 @@ class ShipmentEvent extends Model
 
     /** خطوات الراجع بكلام التاجر: بلا أرقام أكياسنا وكشوفنا */
     private const MERCHANT_WORDING = [
-        'return_received'  => 'وصل الراجع مخزننا من المندوب',
-        'return_sorted'    => 'جُهِّز الراجع للإرسال إلى فرعك',
-        'return_departed'  => 'الراجع في الطريق إلى فرعك',
-        'return_arrived'   => 'وصل الراجع فرعك — جاهزٌ للتسليم',
+        'return_received' => 'وصل الراجع مخزننا من المندوب',
+        'return_sorted' => 'جُهِّز الراجع للإرسال إلى فرعك',
+        'return_departed' => 'الراجع في الطريق إلى فرعك',
+        'return_arrived' => 'وصل الراجع فرعك — جاهزٌ للتسليم',
         'return_confirmed' => 'تأكّد استلامك للراجع',
     ];
 
     /** @var array<string, string> */
     public const ACTORS = [
-        'user'     => 'موظّف',
-        'courier'  => 'مندوب',
+        'user' => 'موظّف',
+        'courier' => 'مندوب',
         'merchant' => 'تاجر',
-        'api'      => 'واجهة برمجية',
-        'system'   => 'النظام',
+        'api' => 'واجهة برمجية',
+        'system' => 'النظام',
     ];
 
     /**
@@ -92,9 +94,9 @@ class ShipmentEvent extends Model
      * كانت تظهر في سجلّ الشحنة كما خُزِّنت («settled_with_courier»).
      */
     public const MARKERS = [
-        'settled_with_courier'  => 'سُوّيت مع المندوب',
+        'settled_with_courier' => 'سُوّيت مع المندوب',
         'settled_with_merchant' => 'سُوّيت مع التاجر',
-        'settlement_cancelled'  => 'أُلغي كشفها',
+        'settlement_cancelled' => 'أُلغي كشفها',
     ];
 
     public function typeLabel(): string
@@ -105,7 +107,7 @@ class ShipmentEvent extends Model
     /** عنوان الحدث في السجلّ: اسم الحالة، أو اسم العلامة، بالعربية. */
     public function toLabel(): string
     {
-        return \App\Enums\ShipmentStatus::tryFrom((string) $this->to_status)?->label()
+        return ShipmentStatus::tryFrom((string) $this->to_status)?->label()
             ?? self::MARKERS[$this->to_status]
             ?? (string) $this->to_status;
     }
@@ -150,7 +152,7 @@ class ShipmentEvent extends Model
     protected function casts(): array
     {
         return [
-            'meta'       => 'array',
+            'meta' => 'array',
             'created_at' => 'datetime',
         ];
     }

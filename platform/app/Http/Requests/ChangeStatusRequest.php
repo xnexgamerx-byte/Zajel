@@ -49,18 +49,26 @@ class ChangeStatusRequest extends FormRequest
     {
         return [
             // ومعها خياران في القائمة نفسها (docs/plan/53): «إعادة توصيل» و«واصل إجباري»
-            'status'            => ['required', Rule::in([...array_column(ShipmentStatus::cases(), 'value'), ...self::SHORTCUTS])],
-            'courier_id'        => ['nullable', 'integer'],
-            'hub_id'            => ['nullable', 'integer'],
+            'status' => ['required', Rule::in([...array_column(ShipmentStatus::cases(), 'value'), ...self::SHORTCUTS])],
+            'courier_id' => ['nullable', 'integer'],
+            'hub_id' => ['nullable', 'integer'],
             'failure_reason_id' => ['nullable', 'integer'],
-            'collected_amount'  => ['nullable', 'integer', 'min:0', 'max:100000000'],
-            'note'              => ['nullable', 'string', 'max:500'],
-            'force'             => ['nullable', 'boolean'],
+            'collected_amount' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'note' => ['nullable', 'string', 'max:500'],
+            'force' => ['nullable', 'boolean'],
             // إعادة توصيل الراجع بطلب التاجر: قرارٌ صريح بسببه (docs/plan/38)
-            'retry'             => ['nullable', 'boolean'],
-            'forced_reason'     => ['required_if:force,1', 'nullable', 'string', 'max:255'],
+            'retry' => ['nullable', 'boolean'],
+            'forced_reason' => ['required_if:force,1', 'nullable', 'string', 'max:255'],
             'force_delivered_reason' => ['nullable', 'string', 'max:255'],
+            // موعد التأجيل (docs/plan/83): اليوم، وساعته إن قيلت — معه أو في حقلٍ وحدها
+            'postponed_until' => ['nullable', 'date', 'after_or_equal:today', 'before:+60 days'],
+            'postponed_time' => ['nullable', 'date_format:H:i'],
         ];
+    }
+
+    public function messages(): array
+    {
+        return ['postponed_until.after_or_equal' => 'موعد التأجيل اليوم أو بعده.'];
     }
 
     public function withValidator($validator): void
@@ -204,13 +212,15 @@ class ChangeStatusRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'status'            => 'الحالة',
-            'courier_id'        => 'المندوب',
-            'hub_id'            => 'المركز',
+            'status' => 'الحالة',
+            'courier_id' => 'المندوب',
+            'hub_id' => 'المركز',
             'failure_reason_id' => 'سبب الفشل',
-            'collected_amount'  => 'المبلغ المحصَّل',
-            'note'              => 'الملاحظة',
-            'forced_reason'     => 'سبب الإجبار',
+            'collected_amount' => 'المبلغ المحصَّل',
+            'note' => 'الملاحظة',
+            'forced_reason' => 'سبب الإجبار',
+            'postponed_until' => 'موعد التأجيل',
+            'postponed_time' => 'ساعة التأجيل',
         ];
     }
 }

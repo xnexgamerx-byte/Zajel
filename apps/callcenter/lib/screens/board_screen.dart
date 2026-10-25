@@ -6,6 +6,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/follow_up.dart';
 import '../widgets/page.dart';
 import 'search_screen.dart';
 
@@ -20,9 +21,9 @@ class BoardView {
   final Color color;
 
   /// المؤجّل أصفر، ونصّه على الأبيض ذهبيٌّ داكن
-  static const yellow = Color(0xFFC99A06);
-  static const yellowInk = Color(0xFF7A5A00);
-  static const yellowSoft = Color(0xFFFFF4CC);
+  static const yellow = Queue.postponed;
+  static const yellowInk = Queue.postponedInk;
+  static const yellowSoft = Queue.postponedSoft;
 
   static const all = [
     BoardView(
@@ -266,7 +267,6 @@ class _BoardScreenState extends State<BoardScreen> {
   /// بطاقة الشحنة: شريطٌ بلون الخانة، والزبون ومنطقته، وما يخصّ الخانة (الموعد، أو بيد المندوب)، والرقم والمبلغ
   Widget _card(FoundShipment s) {
     final extra = [
-      if (s.until != null) 'موعدها ${when(s.until)}',
       if (s.withCourier == true) 'بيد المندوب ${s.courier ?? ''}'.trim(),
       if (s.withCourier == false) 'استُلم في المخزن',
       if (s.withCourier == null && (s.courier ?? '').isNotEmpty && s.status != 'postponed') 'مع ${s.courier}',
@@ -326,6 +326,11 @@ class _BoardScreenState extends State<BoardScreen> {
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(extra.join(' · '), maxLines: 2, style: font(11.5, w7, view.ink, height: 1.4)),
                         ),
+                      // «مؤجل إلى غداً الساعة 9» و«نور: اتّصلتُ ولم تردّ» (docs/plan/83)
+                      if (s.until != null)
+                        Padding(padding: const EdgeInsets.only(top: 5), child: PostponedChip(s.until!)),
+                      if (s.staffNote != null)
+                        Padding(padding: const EdgeInsets.only(top: 5), child: StaffNoteChip(s.staffNote)),
                       const SizedBox(height: 6),
                       Row(
                         children: [

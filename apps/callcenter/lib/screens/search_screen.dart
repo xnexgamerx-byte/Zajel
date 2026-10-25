@@ -6,9 +6,11 @@ import '../core/palette.dart';
 import '../core/whatsapp_template.dart';
 import '../widgets/bits.dart';
 import '../widgets/digits.dart';
+import '../widgets/follow_up.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
 import 'cases_screen.dart';
+import 'my_message_screen.dart';
 import 'status_sheets.dart';
 import 'scan_screen.dart';
 
@@ -169,6 +171,11 @@ class _SearchScreenState extends State<SearchScreen> {
                                           [tag(s.number), s.place, if (s.merchant != null) s.merchant!].join(' · '),
                                           style: font(11.5, w6, Palette.slate, height: 1.5),
                                         ),
+                                        if (s.until != null) ...[const SizedBox(height: 4), PostponedChip(s.until!)],
+                                        if (s.staffNote != null) ...[
+                                          const SizedBox(height: 4),
+                                          StaffNoteChip(s.staffNote),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -252,6 +259,18 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
     await _load();
   }
 
+  Future<void> _reschedule(ShipmentDetail d) async {
+    final until = await pickPostpone(context, brand);
+    if (until == null || !mounted) return;
+    try {
+      final message = await Api.instance.reschedule(d.found.id, until);
+      if (mounted) toast(context, message);
+    } on ApiError catch (e) {
+      if (mounted) toast(context, e.message, bad: true);
+    }
+    await _load();
+  }
+
   Future<void> _reopen(ShipmentDetail d) async {
     final message = await showSheet<String>(context, ReopenSheet(brand: brand, shipment: d));
     if (message == null || !mounted) return;
@@ -297,6 +316,9 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                             const SizedBox(height: 12),
                           ],
                           if (d.reason != null || d.until != null) ...[_reasonCard(d), const SizedBox(height: 12)],
+                          // ملاحظة للموظّفين (docs/plan/83): «اتّصلتُ ولم يردّ» — تراها زميلاتك في القوائم
+                          StaffNotePanel(brand: brand, shipmentId: d.found.id, note: d.staffNote, onSaved: _load),
+                          const SizedBox(height: 12),
                           Panel(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -360,7 +382,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                               ],
                             ),
                           ),
-                          if (d.canReopen || d.transitions.isNotEmpty) ...[
+                          if (d.canReopen || d.canReschedule || d.transitions.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             if (d.canReopen) ...[
                               SheetButton(
@@ -368,6 +390,17 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                                 label: 'أعيديها للتوصيل',
                                 icon: Icons.replay_rounded,
                                 onTap: () => _reopen(d),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            // المؤجّلة إلى موعدٍ آخر اتّفقتِ عليه، وتبقى «مؤجل» (docs/plan/83)
+                            if (d.canReschedule) ...[
+                              SheetButton(
+                                brand: brand,
+                                label: 'غيّري موعد التأجيل',
+                                icon: Icons.edit_calendar_rounded,
+                                outlined: true,
+                                onTap: () => _reschedule(d),
                               ),
                               const SizedBox(height: 8),
                             ],
@@ -391,6 +424,8 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                               canAsk: d.canAsk,
                               hasCourier: d.hasCourier,
                               onSent: _load,
+                              merchantMessage: d.merchantMessage,
+                              onEditTemplate: () => editMyMessage(context, brand, then: _load),
                             ),
                           ],
                           const SectionTitle('سجلّها'),
@@ -429,7 +464,8 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                 ),
               if ((d.reasonNote ?? '').isNotEmpty)
                 Text(d.reasonNote!, style: font(12.5, w6, Palette.ink, height: 1.55)),
-              if (d.until != null) Text('موعدها: ${when(d.until)}', style: font(12, w7, Queue.processing, height: 1.5)),
+              if (d.until != null)
+                Padding(padding: const EdgeInsets.only(top: 6), child: PostponedChip(d.until!, size: 12)),
             ],
           ),
         ),

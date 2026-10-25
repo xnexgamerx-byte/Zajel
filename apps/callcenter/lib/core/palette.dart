@@ -157,6 +157,28 @@ String when(DateTime? at) {
   return '${at.day}/${at.month} $time';
 }
 
+/// موعدٌ بساعته، لا يومٌ وحده: منتصف الليل يعني «اليوم كلّه» (docs/plan/83)
+bool hasHour(DateTime at) => at.hour != 0 || at.minute != 0;
+
+const _weekdays = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+
+/// موعد التأجيل بكلام الناس (docs/plan/83): «اليوم»، «غداً الساعة 9:00 م»، «الخميس 30/10» — و«فات موعده»
+/// ليومٍ مضى
+String postponedText(DateTime at) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final days = DateTime(at.year, at.month, at.day).difference(today).inDays;
+  final day = switch (days) {
+    < 0 => 'فات موعده ${at.day}/${at.month}',
+    0 => 'اليوم',
+    1 => 'غداً',
+    _ => '${_weekdays[at.weekday - 1]} ${at.day}/${at.month}',
+  };
+  if (!hasHour(at)) return day;
+  final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  return '$day الساعة $h:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'ص' : 'م'}';
+}
+
 /// المعدود بعد العدد كما يُكتب: «طرد واحد»، «طردان»، «3 طرود»، «11 طرداً»، «100 طرد»
 String parcels(int n) => switch (n % 100) {
   _ when n == 1 => 'طرد واحد',
@@ -183,6 +205,15 @@ class Queue {
   /// حجز زميلةٍ: قفلٌ كهرمانيّ هادئ
   static const lock = Color(0xFF9A5B00);
   static const lockSoft = Color(0xFFFFF4E0);
+
+  /// المؤجّل أصفر، ونصّه على الأبيض ذهبيٌّ داكن (docs/plan/80)
+  static const postponed = Color(0xFFC99A06);
+  static const postponedInk = Color(0xFF7A5A00);
+  static const postponedSoft = Color(0xFFFFF4CC);
+
+  /// ملاحظة للموظّفين: بنفسجيّ هادئ — لا يُخلط بالحجز ولا بالمؤجّل (docs/plan/83)
+  static const note = Color(0xFF6A4BA8);
+  static const noteSoft = Color(0xFFF1ECFA);
 }
 
 /// «الآن»، «منذ 22 د»، «منذ 5 س»، «منذ يومين» — كم ينتظر الطلب

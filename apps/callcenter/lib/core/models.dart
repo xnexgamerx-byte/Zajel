@@ -54,6 +54,43 @@ class ClaimInfo {
   bool get other => !mine;
 }
 
+/// «ملاحظة للموظّفين» على الشحنة (docs/plan/83): «اتّصلتُ ولم يردّ» — من كتبها ومتى، وتراها الزميلات
+class StaffNoteInfo {
+  StaffNoteInfo({required this.text, this.by, this.at});
+
+  static StaffNoteInfo? fromJson(Object? v) {
+    if (v is! Map) return null;
+    final j = v.cast<String, dynamic>();
+    final text = j['text'] as String? ?? '';
+    return text.isEmpty ? null : StaffNoteInfo(text: text, by: j['by'] as String?, at: _at(j['at']));
+  }
+
+  final String text;
+  final String? by;
+  final DateTime? at;
+}
+
+/// «رسالتي الثابتة للتاجر» (docs/plan/83): نصّها نفسه في الموقع، والقالب، وخاناته
+class MyMessage {
+  MyMessage({required this.text, this.custom = false, this.template = '', this.fields = const []});
+
+  factory MyMessage.fromJson(Map<String, dynamic> j) => MyMessage(
+    text: j['text'] as String? ?? '',
+    custom: j['custom'] as bool? ?? false,
+    template: j['template'] as String? ?? '',
+    fields: [for (final f in _list(j['fields'])) (f['key'] as String? ?? '', f['meaning'] as String? ?? '')],
+  );
+
+  final String text;
+
+  /// كتبت نصّها هي — لا القالب
+  final bool custom;
+  final String template;
+
+  /// الخانة وما تُملأ به: ({التاجر}، اسم التاجر)…
+  final List<(String, String)> fields;
+}
+
 /// اسمٌ وهاتف: المندوب أو التاجر — يُتّصل به من زرّه
 class Party {
   Party({this.name, this.phone});
@@ -308,6 +345,8 @@ class CaseItem {
     this.reasonNote,
     this.description,
     this.pieces = 1,
+    this.staffNote,
+    this.merchantMessage,
   }) : merchant = merchant ?? Party(),
        courier = courier ?? Party();
 
@@ -337,7 +376,15 @@ class CaseItem {
     reasonNote: j['reason_note'] as String?,
     description: j['description'] as String?,
     pieces: j['pieces'] == null ? 1 : _int(j['pieces']),
+    staffNote: StaffNoteInfo.fromJson(j['staff_note']),
+    merchantMessage: j['merchant_message'] as String?,
   );
+
+  /// ملاحظة للموظّفين، في السطر كـ«تعالجها أنت» (docs/plan/83)
+  final StaffNoteInfo? staffNote;
+
+  /// رسالتي الثابتة مملوءةً منها، تُدرَج فوق حقل التاجر (docs/plan/83)
+  final String? merchantMessage;
 
   /// التوضيح المكتوب مع السبب (docs/plan/80): «تغيير عنوان — إلى الكرادة…»
   final String? reasonNote;
@@ -386,6 +433,7 @@ class ConversationItem {
     this.waitingMinutes = 0,
     this.claim,
     this.messages = const [],
+    this.merchantMessage,
   }) : merchant = merchant ?? Party();
 
   factory ConversationItem.fromJson(Map<String, dynamic> j) => ConversationItem(
@@ -399,7 +447,11 @@ class ConversationItem {
     waitingMinutes: _int(j['waiting_minutes']),
     claim: ClaimInfo.fromJson(j['claim']),
     messages: [for (final m in _list(j['messages'])) ChatLine.fromJson(m)],
+    merchantMessage: j['merchant_message'] as String?,
   );
+
+  /// رسالتي الثابتة مملوءةً من التاجر وشحنة المحادثة (docs/plan/83)
+  final String? merchantMessage;
 
   final int id;
   final String subject;
@@ -432,6 +484,7 @@ class FoundShipment {
     this.until,
     this.withCourier,
     this.since,
+    this.staffNote,
   });
 
   factory FoundShipment.fromJson(Map<String, dynamic> j) => FoundShipment(
@@ -449,7 +502,11 @@ class FoundShipment {
     until: _at(j['until']),
     withCourier: j['with_courier'] as bool?,
     since: _at(j['since']),
+    staffNote: StaffNoteInfo.fromJson(j['staff_note']),
   );
+
+  /// ملاحظة للموظّفين (docs/plan/83): من اتّصل قبلها وماذا قيل
+  final StaffNoteInfo? staffNote;
 
   final int id;
   final String number;
@@ -623,11 +680,13 @@ class ShipmentDetail {
     this.reasons = const [],
     this.couriers = const [],
     this.canReopen = false,
+    this.canReschedule = false,
     this.canChat = false,
     this.canAsk = false,
     this.hasCourier = false,
     this.merchantChat = const [],
     this.courierChat = const [],
+    this.merchantMessage,
   }) : merchant = merchant ?? Party(),
        courier = courier ?? Party();
 
@@ -651,12 +710,20 @@ class ShipmentDetail {
     reasons: [for (final r in _list(j['reasons'])) ReasonOption.fromJson(r)],
     couriers: [for (final c in _list(j['couriers'])) CourierOption.fromJson(c)],
     canReopen: j['can_reopen'] as bool? ?? false,
+    canReschedule: j['can_reschedule'] as bool? ?? false,
     canChat: j['can_chat'] as bool? ?? false,
     canAsk: j['can_ask'] as bool? ?? false,
     hasCourier: j['has_courier'] as bool? ?? false,
     merchantChat: [for (final m in _list(j['merchant_chat'])) ChatLine.fromJson(m)],
     courierChat: [for (final m in _list(j['courier_chat'])) ChatLine.fromJson(m)],
+    merchantMessage: j['merchant_message'] as String?,
   );
+
+  /// رسالتي الثابتة مملوءةً منها، تُدرَج فوق حقل التاجر (docs/plan/83)
+  final String? merchantMessage;
+
+  /// ملاحظة للموظّفين (docs/plan/83)
+  StaffNoteInfo? get staffNote => found.staffNote;
 
   /// محادثتا التاجر والمندوب عنها، في كلّ شحنة (docs/plan/81)
   final bool canChat;
@@ -680,6 +747,9 @@ class ShipmentDetail {
 
   /// راجعٌ مؤكَّد يعود للتوصيل بسببٍ تكتبه
   final bool canReopen;
+
+  /// المؤجّلة: يتغيّر موعدها وتبقى «مؤجل» (docs/plan/83)
+  final bool canReschedule;
 
   final FoundShipment found;
   final String? phoneAlt;

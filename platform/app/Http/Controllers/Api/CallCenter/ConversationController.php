@@ -8,6 +8,7 @@ use App\Enums\Feature;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Support\FeatureGate;
+use App\Support\MerchantMessage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -53,6 +54,8 @@ class ConversationController extends Controller
 
         return response()->json(['data' => $this->row($c, $claim, $request) + [
             'messages' => $c->messages->sortBy('id')->values()->map(fn ($m) => self::messageJson($m)),
+            // «أدرجي رسالتي الثابتة» (docs/plan/83): نصّها مملوءاً من التاجر وشحنة المحادثة، كما في الموقع
+            'merchant_message' => MerchantMessage::forConversation($c, $request->user()),
         ]]);
     }
 
@@ -103,7 +106,7 @@ class ConversationController extends Controller
         $this->gate($request);
 
         return Conversation::query()->visibleTo($request->user())
-            ->with(['merchant:id,business_name,phone', 'shipment:id,number'])->findOrFail($id);
+            ->with(['merchant:id,business_name,owner_name,phone', 'shipment:id,number'])->findOrFail($id);
     }
 
     private function row(Conversation $c, $claim, Request $request): array

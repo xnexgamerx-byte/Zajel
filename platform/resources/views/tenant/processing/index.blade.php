@@ -93,6 +93,16 @@
                         $heldByOther = \App\Actions\Support\Claims::heldByOther($claim, auth()->user());
                     @endphp
                     <x-claim subject="processing" :id="$shipment->id" :claim="$claim" class="mt-2" />
+                    {{-- ملاحظة للموظّفين (docs/plan/83): تُكتب من صفحة الشحنة ومن التطبيق، وتراها كلّ الزميلات --}}
+                    @if (filled($shipment->staff_note))
+                        <p class="mt-2 text-xs">
+                            <span class="chip chip-warn">
+                                <x-icon name="pin" class="size-4"/>
+                                {{ $shipment->staff_note }} — {{ $shipment->staff_note_by }}
+                                @if ($shipment->staff_note_at) · {{ $shipment->staff_note_at->diffForHumans() }} @endif
+                            </span>
+                        </p>
+                    @endif
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs" data-follow>
                         @foreach ($following as $follow)
                             <span @class(['chip', 'chip-info' => $follow->user_id !== auth()->id(), 'chip-ok' => $follow->user_id === auth()->id()])>

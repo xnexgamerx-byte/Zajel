@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../widgets/follow_up.dart';
 import '../widgets/page.dart';
 
 /// «حدّثي الحالة» من التطبيق (docs/plan/80): الحالات التي تجوز من حالها الآن، ولكلٍّ ما يحتاجه — سبب عدم
@@ -23,6 +24,9 @@ class _StatusSheetState extends State<StatusSheet> {
   Transition? to;
   ReasonOption? reason;
   CourierOption? courier;
+
+  /// «مؤجل» إلى موعده (docs/plan/83)
+  DateTime? until;
   final note = TextEditingController();
   final amount = TextEditingController();
   String? error;
@@ -61,6 +65,10 @@ class _StatusSheetState extends State<StatusSheet> {
       setState(() => error = 'اختاري المندوب.');
       return;
     }
+    if (t.value == 'postponed' && until == null) {
+      setState(() => error = 'مؤجل إلى متى؟ اختاري اليوم الذي اتّفقتِ عليه مع الزبون.');
+      return;
+    }
     setState(() => (busy = true, error = null));
     try {
       final message = await Api.instance.updateStatus(
@@ -70,6 +78,7 @@ class _StatusSheetState extends State<StatusSheet> {
         note: note.text,
         amount: _needs('amount') ? value : null,
         courierId: courier?.id,
+        until: t.value == 'postponed' ? until : null,
       );
       if (mounted) Navigator.of(context).pop(message);
     } on ApiError catch (e) {
@@ -155,6 +164,11 @@ class _StatusSheetState extends State<StatusSheet> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
         ),
+      ],
+      // موعد التأجيل: اليوم وساعته إن قيلت — «مؤجل إلى غداً الليل» (docs/plan/83)
+      if (to?.value == 'postponed') ...[
+        const SizedBox(height: 10),
+        PostponePicker(brand: widget.brand, onChanged: (v) => setState(() => (until = v, error = null))),
       ],
       if (to != null) ...[
         const SizedBox(height: 10),

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'config.dart';
 import 'demo.dart';
 import 'models.dart';
+import 'palette.dart' show hasHour;
 
 /// خطأٌ يُعرض للموظّفة كما كتبه النظام («تعالجها سارة منذ 3 دقيقة — لا تُعالَج مرّتين.»)
 class ApiError implements Exception {
@@ -169,7 +170,8 @@ class Api {
     return _message(
       await _post('/callcenter/processing/$id/decide', {
         'action': action,
-        if (until != null) 'until': until.toIso8601String().substring(0, 10),
+        // اليوم وحده، أو يومٌ وساعته: «الليلة الساعة 9» (docs/plan/83)
+        if (until != null) 'until': hasHour(until) ? '${_day(until)} ${_hour(until)}' : _day(until),
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
       }),
     );
@@ -224,9 +226,19 @@ class Api {
     return ShipmentDetail.fromJson(((await _get('/callcenter/shipments/$id'))['data'] as Map).cast());
   }
 
-  /// «حدّثي الحالة» (docs/plan/80): بقواعد صفحة الشحنة في الموقع نفسها
-  Future<String> updateStatus(int id, String status, {int? reasonId, String? note, int? amount, int? courierId}) async {
-    if (AppConfig.demo) return Demo.updateStatus(id, status, reasonId: reasonId, note: note, amount: amount);
+  /// «حدّثي الحالة» (docs/plan/80): بقواعد صفحة الشحنة في الموقع نفسها — و«مؤجل» إلى موعده (docs/plan/83)
+  Future<String> updateStatus(
+    int id,
+    String status, {
+    int? reasonId,
+    String? note,
+    int? amount,
+    int? courierId,
+    DateTime? until,
+  }) async {
+    if (AppConfig.demo) {
+      return Demo.updateStatus(id, status, reasonId: reasonId, note: note, amount: amount, until: until);
+    }
     return _message(
       await _post('/callcenter/shipments/$id/status', {
         'status': status,
@@ -234,8 +246,48 @@ class Api {
         if ((note ?? '').trim().isNotEmpty) 'note': note!.trim(),
         'collected_amount': ?amount,
         'courier_id': ?courierId,
+        if (until != null) 'postponed_until': _day(until),
+        if (until != null && hasHour(until)) 'postponed_time': _hour(until),
       }),
     );
+  }
+
+  /// «غيّري موعد التأجيل» (docs/plan/83): المؤجّلة إلى موعدٍ آخر اتُّفق عليه، وتبقى «مؤجل»
+  Future<String> reschedule(int id, DateTime until) async {
+    if (AppConfig.demo) return Demo.reschedule(id, until);
+    return _message(
+      await _post('/callcenter/shipments/$id/postpone', {
+        'postponed_until': _day(until),
+        if (hasHour(until)) 'postponed_time': _hour(until),
+      }),
+    );
+  }
+
+  /// «ملاحظة للموظّفين» (docs/plan/83): تكتبها فتراها الزميلات، والفارغة تمسحها
+  Future<(String, StaffNoteInfo?)> staffNote(int id, String note) async {
+    if (AppConfig.demo) return Demo.staffNote(id, note);
+    final body = await _post('/callcenter/shipments/$id/note', {'note': note.trim()});
+    return (_message(body), StaffNoteInfo.fromJson(body['staff_note']));
+  }
+
+  // ---------------------------------------------------------------- رسالتي الثابتة للتاجر (docs/plan/83)
+
+  Future<MyMessage> myMessage() async {
+    if (AppConfig.demo) return Demo.myMessage();
+    return MyMessage.fromJson(((await _get('/callcenter/merchant-message'))['data'] as Map).cast());
+  }
+
+  /// نصّها هي، أو reset: يعود القالب — الحقل نفسه الذي في الموقع
+  Future<(String, MyMessage)> saveMyMessage(String text, {bool reset = false}) async {
+    if (AppConfig.demo) return Demo.saveMyMessage(text, reset: reset);
+    final body = await _send(
+      http.put(
+        _uri('/callcenter/merchant-message'),
+        headers: _headers,
+        body: jsonEncode({'text': text, if (reset) 'reset': true}),
+      ),
+    );
+    return (_message(body), MyMessage.fromJson((body['data'] as Map).cast()));
   }
 
   /// راجعٌ مؤكَّد يعود للتوصيل: اقتنع الزبون أو اتّفق معه التاجر — والسبب إلزاميّ
@@ -298,6 +350,10 @@ class Api {
       _send(http.post(_uri(path), headers: _headers, body: jsonEncode(data ?? const {})));
 
   String _message(Map<String, dynamic> body) => body['message'] as String? ?? 'تمّ.';
+
+  static String _two(int n) => n.toString().padLeft(2, '0');
+  static String _day(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
+  static String _hour(DateTime d) => '${_two(d.hour)}:${_two(d.minute)}';
 
   Future<Map<String, dynamic>> _send(
     Future<http.Response> request, {

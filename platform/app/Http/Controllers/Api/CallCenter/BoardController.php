@@ -9,6 +9,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\ShipmentTicket;
 use App\Models\User;
+use App\Support\StaffNote;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -162,6 +163,8 @@ class BoardController extends Controller
             // الراجع: بيد المندوب بعد، أو استُلم في المخزن
             'with_courier' => $s->status === ShipmentStatus::Returning ? $s->return_received_at === null : null,
             'since' => $s->status_changed_at?->toIso8601String(),
+            // من اتّصل بها قبلك وماذا قيل (docs/plan/83)
+            'staff_note' => StaffNote::json($s),
         ];
     }
 }

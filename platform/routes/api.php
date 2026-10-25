@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CallCenter\BoardController as CallCenterBoardContro
 use App\Http\Controllers\Api\CallCenter\ConversationController as CallCenterConversationController;
 use App\Http\Controllers\Api\CallCenter\CourierController as CallCenterCourierController;
 use App\Http\Controllers\Api\CallCenter\HomeController as CallCenterHomeController;
+use App\Http\Controllers\Api\CallCenter\MerchantMessageController as CallCenterMerchantMessageController;
 use App\Http\Controllers\Api\CallCenter\ProcessingController as CallCenterProcessingController;
 use App\Http\Controllers\Api\CallCenter\ShipmentController as CallCenterShipmentController;
 use App\Http\Controllers\Api\CallCenter\TicketController as CallCenterTicketController;
@@ -155,6 +156,15 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
 
             Route::get('/shipments', [CallCenterShipmentController::class, 'index'])->name('shipments.index');
             Route::get('/shipments/{shipment}', [CallCenterShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.show');
+            // ملاحظة للموظّفين على الشحنة، ورسالتي الثابتة للتاجر (docs/plan/83)
+            Route::post('/shipments/{shipment}/note', [CallCenterShipmentController::class, 'note'])->whereNumber('shipment')
+                ->middleware(['can:shipments.view', 'throttle:60,1'])->name('shipments.note');
+            // بصلاحية صفحتها في الموقع نفسها
+            Route::middleware('can:shipments.status')->group(function () {
+                Route::get('/merchant-message', [CallCenterMerchantMessageController::class, 'show'])->name('merchant-message.show');
+                Route::put('/merchant-message', [CallCenterMerchantMessageController::class, 'update'])->middleware('throttle:30,1')
+                    ->name('merchant-message.update');
+            });
 
             // «حالة الشحنات» بخاناتها، و«أنجزتِ اليوم» بتفاصيله (docs/plan/80)
             Route::get('/board', [CallCenterBoardController::class, 'index'])->name('board.index');
@@ -165,6 +175,7 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::middleware(['can:shipments.status', 'throttle:60,1'])->group(function () {
                 Route::post('/shipments/{shipment}/status', [CallCenterShipmentController::class, 'status'])->whereNumber('shipment')->name('shipments.status');
                 Route::post('/shipments/{shipment}/reopen', [CallCenterShipmentController::class, 'reopen'])->whereNumber('shipment')->name('shipments.reopen');
+                Route::post('/shipments/{shipment}/postpone', [CallCenterShipmentController::class, 'postpone'])->whereNumber('shipment')->name('shipments.postpone');
             });
         });
 

@@ -653,6 +653,8 @@ class Composer extends StatelessWidget {
     this.hint = 'اكتب…',
     this.busy = false,
     this.quick = true,
+    this.template,
+    this.onEditTemplate,
   });
 
   final Brand brand;
@@ -664,43 +666,85 @@ class Composer extends StatelessWidget {
   /// الردود الجاهزة فوق الحقل (docs/plan/81): تُكتب في الحقل بضغطة، وتُرسل كما هي أو بعد تعديلها
   final bool quick;
 
+  /// «أدرجي رسالتي الثابتة» للتاجر (docs/plan/83): نصّها مملوءاً من الشحنة، يُكتب في الحقل ويُعدَّل قبل الإرسال
+  /// — كزرّ الموقع نفسه
+  final String? template;
+
+  /// القلم بجانبه: «رسالتي الثابتة» تُعدَّل
+  final VoidCallback? onEditTemplate;
+
   void _use(String reply) {
     final now = controller.text.trim();
     controller.text = now.isEmpty ? reply : '$now $reply';
     controller.selection = TextSelection.collapsed(offset: controller.text.length);
   }
 
+  /// الرسالة الثابتة تحلّ محلّ ما في الحقل، كما في الموقع
+  void _insertTemplate() {
+    controller.text = template!;
+    controller.selection = TextSelection.collapsed(offset: controller.text.length);
+  }
+
+  Widget _templateChips() => Padding(
+    padding: const EdgeInsetsDirectional.only(end: 6),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ActionChip(
+          onPressed: _insertTemplate,
+          backgroundColor: Queue.merchantsSoft,
+          side: BorderSide.none,
+          visualDensity: VisualDensity.compact,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          avatar: const Icon(Icons.push_pin_outlined, size: 15, color: Queue.merchants),
+          label: Text('أدرجي رسالتي الثابتة', style: font(12, w8, Queue.merchants)),
+        ),
+        if (onEditTemplate != null)
+          IconButton(
+            tooltip: 'عدّلي رسالتي الثابتة',
+            visualDensity: VisualDensity.compact,
+            onPressed: onEditTemplate,
+            icon: const Icon(Icons.edit_outlined, size: 18, color: Queue.merchants),
+          ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      if (quick)
+      if (quick || template != null)
         ValueListenableBuilder<List<String>>(
           valueListenable: QuickReplies.items,
-          builder: (context, replies, _) => replies.isEmpty
-              ? const SizedBox.shrink()
-              : SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(bottom: 6),
-                    children: [
-                      for (final r in replies)
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(end: 6),
-                          child: ActionChip(
-                            onPressed: () => _use(r),
-                            backgroundColor: brand.soft,
-                            side: BorderSide.none,
-                            visualDensity: VisualDensity.compact,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                            label: Text(r, style: font(12, w7, brand.deep)),
+          builder: (context, items, _) {
+            final replies = quick ? items : const <String>[];
+            return replies.isEmpty && template == null
+                ? const SizedBox.shrink()
+                : SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(bottom: 6),
+                      children: [
+                        if (template != null) _templateChips(),
+                        for (final r in replies)
+                          Padding(
+                            padding: const EdgeInsetsDirectional.only(end: 6),
+                            child: ActionChip(
+                              onPressed: () => _use(r),
+                              backgroundColor: brand.soft,
+                              side: BorderSide.none,
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                              label: Text(r, style: font(12, w7, brand.deep)),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
+                      ],
+                    ),
+                  );
+          },
         ),
       Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -746,6 +790,8 @@ class ShipmentChats extends StatefulWidget {
     this.canAsk = true,
     this.hasCourier = true,
     this.onSent,
+    this.merchantMessage,
+    this.onEditTemplate,
   });
 
   final Brand brand;
@@ -754,6 +800,10 @@ class ShipmentChats extends StatefulWidget {
   final List<ChatLine> courierChat;
   final bool canAsk;
   final bool hasCourier;
+
+  /// رسالتي الثابتة مملوءةً منها، والقلم الذي يعدّلها (docs/plan/83)
+  final String? merchantMessage;
+  final VoidCallback? onEditTemplate;
 
   /// بعد الإرسال: تُعاد الشحنة بمحادثتيها
   final Future<void> Function()? onSent;
@@ -822,6 +872,8 @@ class _ShipmentChatsState extends State<ShipmentChats> {
               busy: sending,
               hint: to == 'merchant' ? 'اكتبي للتاجر عنها…' : 'اكتبي لمندوبها…',
               onSend: _send,
+              template: to == 'merchant' ? widget.merchantMessage : null,
+              onEditTemplate: widget.onEditTemplate,
             )
           else
             Text(

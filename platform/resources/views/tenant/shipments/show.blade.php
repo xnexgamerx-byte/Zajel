@@ -230,6 +230,30 @@
     </div>
 
     <div class="space-y-5">
+        {{-- ملاحظة للموظّفين (docs/plan/83): «اتّصلتُ ولم يردّ» — تراها الزميلات في التطبيق والموقع، لا التاجر ولا المندوب --}}
+        @if (auth()->user()->isStaff())
+        <section class="card p-5" id="staff-note">
+            <h2 class="mb-1 text-sm font-bold">ملاحظة للموظّفين</h2>
+            @if (filled($shipment->staff_note))
+                <p class="mb-3 rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-700">
+                    {{ $shipment->staff_note }}
+                    <span class="mt-1 block text-xs text-ink-500">
+                        {{ $shipment->staff_note_by }} · {{ $shipment->staff_note_at?->format('Y-m-d h:i A') }}
+                    </span>
+                </p>
+            @else
+                <p class="mb-3 text-xs text-ink-500">لا يراها التاجر ولا المندوب. اكتب ما فعلت لتعرفه زميلتك: «اتّصلتُ ولم يردّ».</p>
+            @endif
+            <form method="POST" action="{{ route('shipments.staff-note', $shipment) }}" class="flex gap-2">
+                @csrf
+                <input name="note" maxlength="{{ \App\Support\StaffNote::MAX }}" class="field-input" aria-label="الملاحظة"
+                       value="{{ old('note', $shipment->staff_note) }}" placeholder="اتّصلتُ بالزبون ولم يردّ">
+                <button type="submit" class="btn-ghost shrink-0">احفظ</button>
+            </form>
+            @error('note') <p class="field-error">{{ $message }}</p> @enderror
+        </section>
+        @endif
+
         {{-- لوحة الإجراء: الحالات المعروضة هي المسموحة فعلاً، لا كل الحالات --}}
         @if (auth()->user()->isStaff())
         <section class="card p-5" id="action-panel">
@@ -348,6 +372,20 @@
                             التصنيف هو ما يسمح لاحقاً بإخبار التاجر لماذا ترجع شحناته.
                         </p>
                         @error('failure_reason_id') <p class="field-error">{{ $message }}</p> @enderror
+                    </div>
+
+                    {{-- موعد التأجيل (docs/plan/83): يومٌ اتُّفق عليه مع الزبون، وساعته إن قيلت --}}
+                    <div data-when="postponed">
+                        <label class="field-label" for="postponed_until">مؤجل إلى</label>
+                        <div class="flex gap-2">
+                            <input id="postponed_until" name="postponed_until" type="date" class="field-input"
+                                   min="{{ today()->toDateString() }}" value="{{ old('postponed_until') }}">
+                            <input id="postponed_time" name="postponed_time" type="time" class="field-input w-36"
+                                   aria-label="الساعة (اختيارية)" value="{{ old('postponed_time') }}">
+                        </div>
+                        <p class="mt-1 text-xs text-ink-500">الساعة اختيارية — «الليلة 9»، «غداً العصر».</p>
+                        @error('postponed_until') <p class="field-error">{{ $message }}</p> @enderror
+                        @error('postponed_time') <p class="field-error">{{ $message }}</p> @enderror
                     </div>
 
                     <div data-when="delivered partially_delivered forced_delivered">

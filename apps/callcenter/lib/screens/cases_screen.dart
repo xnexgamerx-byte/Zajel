@@ -6,8 +6,10 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../core/whatsapp_template.dart';
 import '../widgets/bits.dart';
+import '../widgets/follow_up.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
+import 'my_message_screen.dart';
 import 'search_screen.dart' show openShipment;
 import 'tickets_screen.dart' show TabPage;
 
@@ -161,6 +163,8 @@ class _CasesScreenState extends State<CasesScreen> {
                   ClaimChip(c.claim),
                 ],
               ),
+              // ملاحظة للموظّفين، في السطر كـ«تعالجها أنت» (docs/plan/83)
+              if (c.staffNote != null) ...[const SizedBox(height: 6), StaffNoteChip(c.staffNote)],
             ],
           ),
         ),
@@ -238,14 +242,8 @@ class _CaseScreenState extends State<CaseScreen> {
   Future<void> _decide(String action) async {
     DateTime? until;
     if (action == 'postpone') {
-      final now = DateTime.now();
-      until = await showDatePicker(
-        context: context,
-        initialDate: now.add(const Duration(days: 1)),
-        firstDate: now,
-        lastDate: now.add(const Duration(days: 59)),
-        helpText: 'إلى أيّ يومٍ اتّفقتِ مع الزبون؟',
-      );
+      // اليوم، وساعته إن قيلت (docs/plan/83)
+      until = await pickPostpone(context, brand);
       if (until == null) return;
     } else if (!mounted ||
         !await confirm(
@@ -326,6 +324,9 @@ class _CaseScreenState extends State<CaseScreen> {
                           ),
                           const SizedBox(height: 12),
                           _customer(d),
+                          const SizedBox(height: 12),
+                          // ملاحظة للموظّفين (docs/plan/83): من اتّصل قبلك وماذا قيل — تُكتب ولو لم تأخذيها
+                          StaffNotePanel(brand: brand, shipmentId: d.id, note: d.staffNote, onSaved: _load),
                           const SizedBox(height: 12),
                           Panel(
                             child: Column(
@@ -475,6 +476,8 @@ class _CaseScreenState extends State<CaseScreen> {
             busy: sending,
             hint: chat == 'merchant' ? 'اكتبي للتاجر عنها…' : 'اكتبي لمندوبها…',
             onSend: _send,
+            template: chat == 'merchant' ? d.merchantMessage : null,
+            onEditTemplate: () => editMyMessage(context, brand, then: _load),
           ),
       ],
     ),

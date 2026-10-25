@@ -8,6 +8,7 @@ import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import 'board_screen.dart';
 import 'couriers_screen.dart';
+import 'my_message_screen.dart';
 import 'quick_replies_screen.dart';
 import 'template_screen.dart';
 
@@ -94,6 +95,18 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'رسالة واتساب للزبون',
             icon: Icons.edit_note_rounded,
             onTap: () => Navigator.of(context).pop(false),
+          ),
+          const SizedBox(height: 8),
+          // رسالتي الثابتة للتاجر (docs/plan/83): نصّها نفسه في الموقع
+          SheetButton(
+            brand: brand,
+            label: 'رسالتي الثابتة للتاجر',
+            icon: Icons.push_pin_outlined,
+            outlined: true,
+            onTap: () {
+              Navigator.of(context).pop();
+              editMyMessage(context, brand);
+            },
           ),
           const SizedBox(height: 8),
           SheetButton(

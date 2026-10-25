@@ -6,6 +6,7 @@ import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
+import 'my_message_screen.dart';
 import 'search_screen.dart' show openShipmentNumber;
 import 'tickets_screen.dart' show TabPage;
 
@@ -358,7 +359,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     ? LockBanner(claim: d.claim!, onRefresh: _load)
                     : !d.open
                     ? Text('أُغلقت المحادثة.', textAlign: TextAlign.center, style: font(12.5, w6, Palette.muted))
-                    : Composer(brand: brand, controller: text, busy: sending, hint: 'ردّك للتاجر…', onSend: _send),
+                    : Composer(
+                        brand: brand,
+                        controller: text,
+                        busy: sending,
+                        hint: 'ردّك للتاجر…',
+                        onSend: _send,
+                        // رسالتي الثابتة مملوءةً من التاجر وشحنة المحادثة (docs/plan/83)
+                        template: d.merchantMessage,
+                        onEditTemplate: () => editMyMessage(context, brand, then: _load),
+                      ),
               ),
           ],
         ),
