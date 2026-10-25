@@ -21,7 +21,13 @@
 
 مفتاح حساب الخدمة **خارج المستودع**:
 
-1. الملف على السيرفر: `/etc/zajel/firebase-service-account.json` بصلاحيات `600`.
+1. الملف على السيرفر: `/etc/zajel/firebase-service-account.json`، يملكه root ومجموعته `www-data` (الرقم 33)
+   بصلاحيات `640`: التطبيق والمجدوِل يعملان في الحاوية بـ`www-data`، فلا يقرآن ملفاً بـ`600` لـroot وحده.
+
+   ```bash
+   sudo chown root:33 /etc/zajel/firebase-service-account.json
+   sudo chmod 640 /etc/zajel/firebase-service-account.json
+   ```
 2. في `deploy/.env` على السيرفر:
    ```
    FIREBASE_SERVICE_ACCOUNT_PATH=/etc/zajel/firebase-service-account.json

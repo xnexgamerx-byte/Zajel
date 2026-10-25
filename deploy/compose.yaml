@@ -71,11 +71,10 @@ services:
     restart: unless-stopped
     user: www-data
     command: ["php", "artisan", "schedule:work"]
-    volumes:
-      - /etc/zajel:/etc/zajel:ro
     environment: *app-env
     volumes:
       - storage:/var/www/html/storage
+      - /etc/zajel:/etc/zajel:ro
     depends_on:
       app:
         condition: service_healthy
