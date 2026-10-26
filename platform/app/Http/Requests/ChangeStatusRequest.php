@@ -26,6 +26,27 @@ class ChangeStatusRequest extends FormRequest
             || ($shipment->status === ShipmentStatus::AtHub && (int) $shipment->attempts_count > 0);
     }
 
+    /**
+     * المؤجّلة بيد مندوبها تُحسم مباشرةً (docs/plan/85): واصل، أو واصل جزئي، أو لم يُسلَّم — بلا «قيد
+     * التوصيل» يدويّاً قبلها. تُخرَج مع مندوبها للتوصيل ثم تُسجَّل النتيجة، كما يفعل «أوصلها الآن» في
+     * تطبيق المندوب، فيبقى المسار وسجلّه كما هما.
+     *
+     * @return list<ShipmentStatus>
+     */
+    public static function outcomesFromPostponed(Shipment $shipment): array
+    {
+        if ($shipment->status !== ShipmentStatus::Postponed || $shipment->delivery_courier_id === null) {
+            return [];
+        }
+
+        return [ShipmentStatus::Delivered, ShipmentStatus::PartiallyDelivered, ShipmentStatus::FailedAttempt];
+    }
+
+    public static function viaDelivery(Shipment $shipment, ?ShipmentStatus $to): bool
+    {
+        return $to !== null && in_array($to, self::outcomesFromPostponed($shipment), true);
+    }
+
     /** «واصل إجباري» من القائمة: لمن يملك صلاحيته، ولشحنةٍ لم تنتهِ ولم تصل */
     public static function canForceDelivered(Shipment $shipment, $user): bool
     {
@@ -104,7 +125,7 @@ class ChangeStatusRequest extends FormRequest
                 }
             }
 
-            if (! $this->boolean('force') && ! $shipment->status->canMoveTo($to)) {
+            if (! $this->boolean('force') && ! $shipment->status->canMoveTo($to) && ! self::viaDelivery($shipment, $to)) {
                 $validator->errors()->add(
                     'status',
                     "لا يمكن الانتقال من «{$shipment->status->label()}» إلى «{$to->label()}».",

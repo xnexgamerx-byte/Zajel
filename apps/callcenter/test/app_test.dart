@@ -437,4 +437,22 @@ void main() {
     await _tap(tester, find.byTooltip('رجوع').last);
     expect(find.text('مؤجل إلى غداً الساعة 10:00 ص'), findsOneWidget);
   });
+
+  testWidgets('المؤجّلة: واصل أو لم يُسلَّم مباشرةً من «حدّثي الحالة»', (tester) async {
+    await _start(tester);
+    await _tap(tester, find.text('مؤجل').first);
+    await _tap(tester, find.text('نبأ سالم'));
+    await _scrollTo(tester, find.text('حدّثي الحالة'));
+    await _tap(tester, find.text('حدّثي الحالة'));
+    expect(find.widgetWithText(ChoiceChip, 'واصل'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'واصل جزئي'), findsOneWidget);
+
+    // لم يُسلَّم يسأل عن سببه كما من «قيد التوصيل»
+    await _tap(tester, find.widgetWithText(ChoiceChip, 'لم يُسلَّم'));
+    expect(find.text('سبب عدم التسليم'), findsOneWidget);
+
+    await _tap(tester, find.widgetWithText(ChoiceChip, 'واصل'));
+    await _tap(tester, find.text('حدّثي'));
+    expect(find.text('تم تحديث الشحنة 180312.'), findsOneWidget);
+  });
 }

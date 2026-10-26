@@ -303,7 +303,8 @@ class ShipmentController extends Controller
                 'needs' => $s->status !== ShipmentStatus::FailedAttempt && ! $courier ? ['courier'] : []];
         }
 
-        foreach ($s->status->allowedNext() as $to) {
+        // المؤجّلة بيد مندوبها: واصل، واصل جزئي، لم يُسلَّم — مباشرةً (docs/plan/85)
+        foreach ([...ChangeStatusRequest::outcomesFromPostponed($s), ...$s->status->allowedNext()] as $to) {
             // الراجع يعود للتوصيل بـ«أعيديها للتوصيل» وسببه، لا بتغيير حالة
             if (in_array($to, self::NOT_FROM_APP, true) || ($s->status === ShipmentStatus::Returning && $to === ShipmentStatus::AtHub)) {
                 continue;

@@ -8,6 +8,7 @@ use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Models\Company;
 use App\Models\Courier;
+use App\Models\FailureReason;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
@@ -270,5 +271,81 @@ class CallCenterFollowUpTest extends TestCase
         $failed = $this->failed('زبون الموقع');
         $this->post($this->web("/shipments/{$failed->id}/staff-note"), ['note' => 'لا يرد منذ الصباح'])->assertRedirect();
         $this->get($this->web('/processing'))->assertOk()->assertSee('لا يرد منذ الصباح');
+    }
+
+    /** مؤجّلةٌ بيد مندوبها، بموعد الغد */
+    private function postponed(string $name, array $headers): Shipment
+    {
+        $shipment = $this->withCourier($name);
+        $this->postJson($this->api("/callcenter/shipments/{$shipment->id}/status"),
+            ['status' => 'postponed', 'postponed_until' => now()->addDay()->toDateString()], $headers)->assertOk();
+
+        return Tenancy::runFor($this->company, fn () => $shipment->refresh());
+    }
+
+    public function test_a_postponed_shipment_is_delivered_or_failed_directly_without_going_back_out_by_hand(): void
+    {
+        $sara = $this->as($this->sara);
+        $delivered = $this->postponed('زبون اتصل واستلم', $sara);
+
+        // واصل، واصل جزئي، لم يُسلَّم — أوّل الخيارات بعد «إعادة توصيل»
+        $values = collect($this->getJson($this->api("/callcenter/shipments/{$delivered->id}"), $sara)->json('data.transitions'))->pluck('value');
+        $this->assertSame(['redeliver', 'delivered', 'partially_delivered', 'failed_attempt'], $values->take(4)->all());
+
+        $this->postJson($this->api("/callcenter/shipments/{$delivered->id}/status"), ['status' => 'delivered'], $sara)
+            ->assertOk()->assertJsonPath('message', "تم تحديث الشحنة {$delivered->number} إلى «واصل».");
+        $delivered = Tenancy::runFor($this->company, fn () => $delivered->refresh());
+        $this->assertSame(ShipmentStatus::Delivered, $delivered->status);
+        $this->assertSame(50_000, (int) $delivered->collected_amount);
+        $this->assertSame($this->courier->id, (int) $delivered->delivery_courier_id);
+
+        // في سجلّها خرجت مع مندوبها ثم وصلت
+        $steps = Tenancy::runFor($this->company, fn () => ShipmentEvent::where('shipment_id', $delivered->id)->orderBy('id')
+            ->get(['from_status', 'to_status', 'note'])->map(fn ($e) => $e->from_status.'>'.$e->to_status)->all());
+        $this->assertSame(['postponed>out_for_delivery', 'out_for_delivery>delivered'], array_slice($steps, -2));
+
+        // لم يُسلَّم: بسببه، كما من «قيد التوصيل» — فتصير في المعالجة
+        $failed = $this->postponed('زبون رفض', $sara);
+        $this->postJson($this->api("/callcenter/shipments/{$failed->id}/status"), ['status' => 'failed_attempt'], $sara)
+            ->assertUnprocessable()->assertJsonValidationErrors('failure_reason_id');
+        $this->assertSame(ShipmentStatus::Postponed, Tenancy::runFor($this->company, fn () => $failed->refresh()->status), 'لا يُخرَج للتوصيل إن رُفض الطلب');
+        $reason = Tenancy::runFor($this->company, fn () => FailureReason::availableFor($this->company->id)->where('requires_note', false)->firstOrFail());
+        $this->postJson($this->api("/callcenter/shipments/{$failed->id}/status"),
+            ['status' => 'failed_attempt', 'failure_reason_id' => $reason->id], $sara)->assertOk();
+        $this->assertSame(ShipmentStatus::FailedAttempt, Tenancy::runFor($this->company, fn () => $failed->refresh()->status));
+        $this->getJson($this->api('/callcenter/processing'), $sara)->assertOk()
+            ->assertJsonFragment(['number' => $failed->number]);
+
+        // واصل جزئي: بالمبلغ المحصَّل
+        $partial = $this->postponed('زبون أخذ قطعة', $sara);
+        $this->postJson($this->api("/callcenter/shipments/{$partial->id}/status"),
+            ['status' => 'partially_delivered', 'collected_amount' => 20_000], $sara)->assertOk();
+        $partial = Tenancy::runFor($this->company, fn () => $partial->refresh());
+        $this->assertSame(ShipmentStatus::PartiallyDelivered, $partial->status);
+        $this->assertSame(20_000, (int) $partial->collected_amount);
+    }
+
+    public function test_a_postponed_shipment_without_a_courier_is_not_resolved_directly(): void
+    {
+        $sara = $this->as($this->sara);
+        $shipment = $this->postponed('بلا مندوب', $sara);
+        Tenancy::runFor($this->company, fn () => $shipment->forceFill(['delivery_courier_id' => null])->save());
+
+        $values = collect($this->getJson($this->api("/callcenter/shipments/{$shipment->id}"), $sara)->json('data.transitions'))->pluck('value');
+        $this->assertNotContains('delivered', $values);
+        $this->postJson($this->api("/callcenter/shipments/{$shipment->id}/status"), ['status' => 'delivered'], $sara)
+            ->assertUnprocessable()->assertJsonValidationErrors('status');
+    }
+
+    public function test_the_site_resolves_a_postponed_shipment_directly_too(): void
+    {
+        $shipment = $this->postponed('زبون الموقع', $this->as($this->sara));
+        $this->app['auth']->forgetGuards();
+        $this->actingAs($this->owner);
+
+        $this->get($this->web("/shipments/{$shipment->id}"))->assertOk()->assertSee('<option value="delivered"', false);
+        $this->post($this->web("/shipments/{$shipment->id}/status"), ['status' => 'delivered', 'collected_amount' => 50_000])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(ShipmentStatus::Delivered, Tenancy::runFor($this->company, fn () => $shipment->refresh()->status));
     }
 }

@@ -9,6 +9,7 @@ use App\Actions\Waybills\CreateFromWaybill;
 use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ChangeStatusRequest;
 use App\Http\Requests\StoreShipmentRequest;
 use App\Http\Requests\UpdateShipmentRequest;
 use App\Models\Branch;
@@ -279,7 +280,8 @@ class ShipmentController extends Controller
             'shipment' => $shipment,
             // الخيارات تأتي من خريطة الانتقالات نفسها، فلا تظهر في الواجهة
             // حالة لا يقبلها النظام — الواجهة والمنطق مصدرهما واحد.
-            'nextStatuses' => $shipment->status->allowedNext(),
+            // والمؤجّلة بيد مندوبها تُحسم مباشرةً: واصل، واصل جزئي، لم يُسلَّم (docs/plan/85)
+            'nextStatuses' => [...ChangeStatusRequest::outcomesFromPostponed($shipment), ...$shipment->status->allowedNext()],
             'couriers' => Courier::delivering()->active()->visibleTo($request->user())->orderBy('name')
                 ->with('zones.governorate:id,name_ar')->get(['id', 'name']),
             'hubs' => Hub::where('is_active', true)->orderBy('name')->get(['id', 'name']),

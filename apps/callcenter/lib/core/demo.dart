@@ -488,8 +488,12 @@ class Demo {
           Transition(value: 'postponed', label: 'مؤجل'),
           Transition(value: 'at_hub', label: 'بالمخزن'),
         ],
+        // المؤجّلة بيد مندوبها تُحسم مباشرةً (docs/plan/85)
         'postponed' => [
           Transition(value: 'redeliver', label: 'إعادة توصيل'),
+          Transition(value: 'delivered', label: 'واصل'),
+          Transition(value: 'partially_delivered', label: 'واصل جزئي', needs: const ['amount']),
+          Transition(value: 'failed_attempt', label: 'لم يُسلَّم', needs: const ['reason']),
           Transition(value: 'returning', label: 'راجع مؤكد'),
         ],
         _ => const [],

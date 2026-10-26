@@ -7,6 +7,7 @@ use App\Http\Requests\ChangeStatusRequest;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Support\PostponedUntil;
+use Illuminate\Support\Facades\DB;
 
 /**
  * «تحديث الحالة» لشحنةٍ واحدة بيد موظّف — من صفحتها في الموقع، ومن تطبيق الكول سنتر (docs/plan/80).
@@ -61,6 +62,22 @@ class StaffStatusUpdate
             ? PostponedUntil::parse($data['postponed_until'] ?? null, $data['postponed_time'] ?? null)
             : null;
 
+        return DB::transaction(function () use ($shipment, $to, $force, $until, $data, $note, $user) {
+            // المؤجّلة بيد مندوبها تُحسم مباشرةً: تخرج معه للتوصيل أوّلاً، ثم نتيجتها (docs/plan/85)
+            if (ChangeStatusRequest::viaDelivery($shipment, $to)) {
+                $shipment = $this->change->handle($shipment, ShipmentStatus::OutForDelivery, $user, [
+                    'courier_id' => $shipment->delivery_courier_id,
+                    'redelivery' => true,
+                    'note' => 'خرجت من «مؤجل» للتوصيل',
+                ])->refresh();
+            }
+
+            return $this->finish($shipment, $to, $force, $until, $data, $note, $user);
+        });
+    }
+
+    private function finish(Shipment $shipment, ShipmentStatus $to, bool $force, $until, array $data, ?string $note, User $user): string
+    {
         $this->change->handle($shipment, $to, $user, array_filter([
             'courier_id' => $data['courier_id'] ?? null,
             'hub_id' => $data['hub_id'] ?? null,
