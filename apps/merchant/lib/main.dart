@@ -6,6 +6,7 @@ import 'core/api.dart';
 import 'core/config.dart';
 import 'core/models.dart';
 import 'core/palette.dart';
+import 'core/push.dart';
 import 'screens/login_screen.dart';
 import 'screens/shell.dart';
 
@@ -36,10 +37,15 @@ class _MerchantAppState extends State<MerchantApp> {
   late Brand brand = Brand.hex(AppConfig.brandColor);
   Session? session;
   late bool signedIn = widget.signedIn || AppConfig.demo;
+  final messenger = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
     super.initState();
+    // إشعارٌ وصل والتطبيق مفتوح: شريطٌ في أسفله، فلا يفوت (docs/plan/82)
+    Push.onForeground = (title, body) => messenger.currentState?.showSnackBar(
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text([title, body].where((t) => t.isNotEmpty).join('\n'))),
+    );
     if (signedIn) _loadSession();
   }
 
@@ -51,15 +57,20 @@ class _MerchantAppState extends State<MerchantApp> {
     }
   }
 
-  void _adopt(Session s) => setState(() {
-    session = s;
-    signedIn = true;
-    if (s.companyColor != null && !AppConfig.brandFixed) {
-      brand = Brand.hex(s.companyColor, fallback: AppConfig.brandColor);
-    }
-  });
+  void _adopt(Session s) {
+    setState(() {
+      session = s;
+      signedIn = true;
+      if (s.companyColor != null && !AppConfig.brandFixed) {
+        brand = Brand.hex(s.companyColor, fallback: AppConfig.brandColor);
+      }
+    });
+    // الهاتف يُسجَّل للإشعارات بعد الدخول ومع كلّ فتح (docs/plan/82)
+    Push.register();
+  }
 
   Future<void> _logout() async {
+    await Push.unregister();
     await Api.instance.logout();
     setState(() {
       session = null;
@@ -70,6 +81,7 @@ class _MerchantAppState extends State<MerchantApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      scaffoldMessengerKey: messenger,
       title: session?.companyName ?? AppConfig.companyName,
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar'),

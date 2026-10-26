@@ -5,11 +5,20 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- «إنشاء بالتسجيل الصوتي» (docs/plan/55) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- إشعارات الهاتف (docs/plan/82): أندرويد 13 وما بعده يسأل التاجر أوّل مرّة -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="التاجر"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- أيقونة الإشعار ولونه في شريط الهاتف (docs/plan/82) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

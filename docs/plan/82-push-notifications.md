@@ -36,12 +36,26 @@
 
 بلا هذا المتغيّر يصمت الإرسال، ولا يتعطّل شيء: الإشعار يبقى في الجرس.
 
-## ملفات التطبيقات
+## تطبيق التاجر
 
-- `google-services.json` لا يُرفع للمستودع (`.gitignore`). يُكتب وقت البناء من السرّ
-  `GOOGLE_SERVICES_JSON_B64` في GitHub.
-- معرّفات الحزم في Firebase يجب أن تطابق معرّفات التطبيقات: `iq.wahaj.merchant_app`،
-  `iq.wahaj.courier_app`، `iq.wahaj.callcenter_app`.
+- **بلا ملف google-services.json ولا إضافة Gradle**: إعداد Firebase يأتي مع البناء بـ`--dart-define`
+  (`FIREBASE_API_KEY`، `FIREBASE_APP_ID`، `FIREBASE_SENDER_ID`، `FIREBASE_PROJECT_ID`)، ويُهيّأ Firebase في Dart
+  (`lib/core/push.dart`). فلا يتوقّف البناء على توافق إضافة Google Services مع AGP 9.1.
+- **في GitHub**: خطوة «Firebase settings» تقرأ السرّ `GOOGLE_SERVICES_JSON_B64` (google-services.json بـbase64)،
+  وتأخذ منه تطبيق `iq.wahaj.merchant_app`، وتكتبه مع `config/zajel.json` في `build-config.json` للبناء ثم يُحذف
+  (`.github/scripts/firebase_defines.py`). بلا السرّ، أو بسرٍّ ليس فيه التطبيق، يُبنى بلا إشعارات وتظهر ملاحظة
+  في صفحة التشغيل.
+- **في التطبيق**:
+  - بعد الدخول ومع كلّ فتح: يُسأل الإذن مرّةً (أندرويد 13+)، ويُسجَّل الرمز (`POST /devices`)، ويُعاد إن تجدّد.
+  - قبل الخروج: يُلغى (`DELETE /devices`)، ويُمسح الرمز من الهاتف.
+  - الإشعار والتطبيق مفتوح لا يظهر في شريط الهاتف، فيُعرض شريطاً في أسفل التطبيق.
+  - في شريط الهاتف جرسٌ بلونٍ واحد بأحمر الشركة (`res/drawable/ic_notification.xml`)، لا أيقونة التطبيق.
+  - نسخة العرض والاختبارات وبناء الويب بلا Firebase.
+- الخادم يرسل إلى رمز FCM (`message.token`)، فيبقى `getToken` في التطبيق ولو عُلّم قديماً في
+  firebase_messaging 17: طريق «FID» الجديد هدفه غير هذا الرمز.
+- `google-services.json` نفسه لا يُرفع للمستودع (`.gitignore`).
+- تطبيقا المندوب والكول سنتر مسجّلان في Firebase (`iq.wahaj.courier_app`، `iq.wahaj.callcenter_app`)، ولا
+  يُرسل إليهما شيءٌ بعد.
 
 ## الاختبارات
 

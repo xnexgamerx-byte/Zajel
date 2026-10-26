@@ -44,6 +44,9 @@ class Api {
     if (_token != null) 'Authorization': 'Bearer $_token',
   };
 
+  /// داخلٌ برمزه: إليه يُسجَّل هاتف الإشعارات
+  bool get signedIn => _token != null;
+
   Future<bool> restore() async {
     if (AppConfig.demo) return false;
     _token = await _storage.read(key: _tokenKey);
@@ -194,6 +197,17 @@ class Api {
     _token = null;
     _form = null;
     await _storage.delete(key: _tokenKey);
+  }
+
+  // ---------------------------------------------------------------- إشعارات الهاتف (docs/plan/82)
+
+  /// الهاتف برمز Firebase: إليه تصل «وصلت شحنتك» وقرار المعالجة
+  Future<void> registerDevice(String token) async {
+    await _send(http.post(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
+  }
+
+  Future<void> unregisterDevice(String token) async {
+    await _send(http.delete(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
   }
 
   // ---------------------------------------------------------------- الصورة والجرس (docs/plan/59)

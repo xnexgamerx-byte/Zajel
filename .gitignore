@@ -27,3 +27,4 @@
 
 # إعداد Firebase للتطبيقات: يُكتب وقت البناء من سرّ GitHub، ولا يُرفع للمستودع (docs/plan/82)
 apps/*/android/app/google-services.json
+apps/*/build-config.json
