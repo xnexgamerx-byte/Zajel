@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import '../core/config.dart';
 import '../core/palette.dart';
 import '../core/whatsapp_template.dart';
 import '../widgets/bits.dart';
@@ -63,7 +64,7 @@ class _WhatsAppTemplateScreenState extends State<WhatsAppTemplateScreen> {
       '{المنطقة}': 'بغداد · الكرادة',
       '{السبب}': 'لا يرد على الهاتف',
       '{الموظفة}': WhatsAppTemplate.agent.isEmpty ? 'سارة' : WhatsAppTemplate.agent,
-      '{الشركة}': WhatsAppTemplate.company.isEmpty ? 'الزاجل' : WhatsAppTemplate.company,
+      '{الشركة}': WhatsAppTemplate.company.isEmpty ? AppConfig.companyName : WhatsAppTemplate.company,
     });
     return Scaffold(
       body: SafeArea(
