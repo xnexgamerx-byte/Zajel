@@ -2,4 +2,6 @@
 <resources>
     <!-- لون الجرس في إشعار الهاتف: أحمر الزاجل (docs/plan/82) -->
     <color name="notification">#B3202A</color>
+    <!-- خلفية أيقونة التطبيق (docs/plan/88) -->
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>

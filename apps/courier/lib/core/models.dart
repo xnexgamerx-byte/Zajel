@@ -1,3 +1,5 @@
+import 'config.dart';
+
 // ما تعيده واجهة المندوب (/api/v1/courier/…، docs/plan/66) — بأسماء حقولها في النظام نفسها.
 
 int _int(Object? v) => v is int ? v : (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
@@ -840,4 +842,22 @@ class ScannedParcel {
   final String number;
   final String? recipient;
   final int amount;
+}
+
+/// هوية الشركة لشاشة الدخول قبل أن يدخل أحد (GET /company، docs/plan/88): اسمها وحرفها ولونها وشعارها كما
+/// رفعته في نظامها — لا شيء منها في الكود
+class CompanyBrand {
+  const CompanyBrand({required this.name, this.initial = '', this.color, this.logo});
+
+  factory CompanyBrand.fromJson(Map<String, dynamic> j) => CompanyBrand(
+    name: j['name'] as String? ?? '',
+    initial: j['initial'] as String? ?? '',
+    color: j['color'] as String?,
+    logo: (j['logo'] as String?) == null ? null : media(j['logo'] as String),
+  );
+
+  final String name;
+  final String initial;
+  final String? color;
+  final String? logo;
 }

@@ -52,6 +52,17 @@ class Api {
     return _token != null;
   }
 
+  /// هوية الشركة لشاشة الدخول (docs/plan/88): بلا شبكةٍ أو في نسخة العرض تبقى الشاشة باسمها من الإعداد
+  Future<CompanyBrand?> company() async {
+    if (AppConfig.demo || AppConfig.apiUrl.isEmpty) return null;
+    try {
+      final body = await _send(http.get(_uri('/company'), headers: _headers));
+      return CompanyBrand.fromJson(((body['company'] as Map?) ?? const {}).cast<String, dynamic>());
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Session> login(String username, String password) async {
     if (AppConfig.demo) return Demo.session;
     final body = await _send(

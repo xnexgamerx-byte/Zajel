@@ -4,8 +4,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:merchant_app/core/access.dart';
+import 'package:merchant_app/core/palette.dart';
 import 'package:merchant_app/main.dart';
+import 'package:merchant_app/screens/login_screen.dart';
 
 /// docs/plan/87: «بالمخزن» ومكان الراجع، وخانات الحالات، والتقويم، وموظّفو المتجر بصلاحياتهم.
 Future<void> _loadCairo() async {
@@ -187,5 +190,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('شحناتي'), findsNothing);
     expect(find.text('المالية'), findsOneWidget);
+  });
+
+  testWidgets('شاشة الدخول: اسم الشركة وحرفها في الإطار، واسم التطبيق، والحقلان', (tester) async {
+    tester.view.physicalSize = const Size(393 * 3, 849 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ar'),
+        supportedLocales: const [Locale('ar')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: LoginScreen(brand: Brand.hex('#B3202A'), onSignedIn: (_) {}),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // بلا شعارٍ من النظام: حرف الشركة في الإطار (docs/plan/88)
+    for (final text in ['الزاجل', 'ز', 'تطبيق التاجر', 'أهلاً بعودتك', 'اسم المستخدم أو رقم الهاتف', 'كلمة المرور']) {
+      expect(find.text(text), findsOneWidget, reason: text);
+    }
+    await tester.tap(find.text('دخول'));
+    await tester.pump();
+    expect(find.text('اكتب اسم المستخدم وكلمة المرور.'), findsOneWidget);
   });
 }

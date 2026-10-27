@@ -29,3 +29,10 @@ class AppConfig {
   /// تحت flutter test: لا مؤقّتات تتكرّر (إرسال الموقع) تبقى بعد الاختبار
   static bool get testing => !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
 }
+
+/// رابط ملفٍّ من النظام على عنوان التطبيق نفسه — لو كتب الخادم عنوانه الداخليّ
+String media(String url) {
+  if (AppConfig.apiUrl.isEmpty || url.isEmpty) return url;
+  final u = Uri.parse(url);
+  return Uri.parse(AppConfig.apiUrl).replace(path: u.path, query: u.hasQuery ? u.query : null).toString();
+}
