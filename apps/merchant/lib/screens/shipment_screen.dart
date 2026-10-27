@@ -387,6 +387,8 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
               if (d.courier != null) Text('مع المندوب: ${d.courier}', style: font(12.5, w7, brand.main, height: 1.4)),
               // موعد المؤجّلة (docs/plan/86)
               if (d.row.until != null) ...[const SizedBox(height: 4), PostponedChip(d.row.until!, size: 12)],
+              // أين الراجع الآن (docs/plan/87)
+              if (d.row.returnPlace != null) ReturnPlace(d.row.returnPlace!, size: 12),
             ],
           ),
         ),
@@ -554,20 +556,23 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         children: [
           row('المطلوب من الزبون', v('cod')),
           if (v('collected') > 0) row('المحصَّل فعلاً', v('collected'), color: const Color(0xFF15803D)),
-          row('أجرة التوصيل', v('delivery_fee')),
-          if (v('cod_fee') > 0) row('عمولة التحصيل', v('cod_fee')),
-          if (v('return_fee') > 0) row('أجرة الراجع', v('return_fee'), color: const Color(0xFFB45309)),
-          const Divider(height: 18, color: Palette.line),
-          Row(
-            children: [
-              Expanded(child: Text(owed ? 'لك' : 'عليك', style: font(14, w8, Palette.ink))),
-              Text(
-                '${money(v('due'))} د.ع',
-                textDirection: TextDirection.ltr,
-                style: font(18, w8, owed ? brand.main : const Color(0xFFB91C1C)),
-              ),
-            ],
-          ),
+          // الأجور والمستحقّ لمن يرى المالية (docs/plan/87)
+          if (m['hidden'] != true) ...[
+            row('أجرة التوصيل', v('delivery_fee')),
+            if (v('cod_fee') > 0) row('عمولة التحصيل', v('cod_fee')),
+            if (v('return_fee') > 0) row('أجرة الراجع', v('return_fee'), color: const Color(0xFFB45309)),
+            const Divider(height: 18, color: Palette.line),
+            Row(
+              children: [
+                Expanded(child: Text(owed ? 'لك' : 'عليك', style: font(14, w8, Palette.ink))),
+                Text(
+                  '${money(v('due'))} د.ع',
+                  textDirection: TextDirection.ltr,
+                  style: font(18, w8, owed ? brand.main : const Color(0xFFB91C1C)),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

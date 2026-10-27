@@ -404,3 +404,47 @@ class PostponedChip extends StatelessWidget {
     );
   }
 }
+
+/// أين الراجع الآن (docs/plan/87): «راجع عند المندوب»، «راجع عند مركز محافظة بابل»، «راجع في المخزن» — أحمر
+/// الراجع، وأيقونةٌ بمكانه
+class ReturnPlace extends StatelessWidget {
+  const ReturnPlace(this.text, {super.key, this.size = 11});
+
+  final String text;
+  final double size;
+
+  IconData get _icon => text.contains('المندوب')
+      ? Icons.two_wheeler_rounded
+      : text.contains('الطريق')
+      ? Icons.local_shipping_outlined
+      : text.contains('مركز')
+      ? Icons.location_city_rounded
+      : Icons.warehouse_outlined;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 3),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: Palette.returnRed.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_icon, size: size + 3, color: Palette.returnRed),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: font(size, w8, Palette.returnRed, height: 1.3),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}

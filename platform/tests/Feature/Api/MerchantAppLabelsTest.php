@@ -82,13 +82,16 @@ class MerchantAppLabelsTest extends TestCase
         $theirs = $this->ship($this->other, 'غيره');
         $headers = $this->headers();
 
-        // المدخلة وحدها، الأحدث أوّلاً، والمقاسات الأربعة
+        // المدخلة وحدها، الأحدث أوّلاً، ومقاسا التطبيق بعرضهما وطولهما (docs/plan/87)
         $this->getJson($this->host().'/api/v1/merchant/labels', $headers)->assertOk()
             ->assertJsonCount(2, 'shipments')
             ->assertJsonPath('shipments.0.name', 'زينب')
             ->assertJsonPath('shipments.1.number', $a->number)
-            ->assertJsonCount(4, 'sizes')
-            ->assertJsonPath('sizes.1.key', '80x120');
+            ->assertJsonCount(2, 'sizes')
+            ->assertJsonPath('sizes.0.key', '100x100')
+            ->assertJsonPath('sizes.1.key', '80x120')
+            ->assertJsonPath('sizes.1.width', 80)
+            ->assertJsonPath('sizes.1.height', 120);
 
         // شحنة غيره لا تدخل الرابط
         $url = $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id, $b->id, $theirs->id], 'size' => '100x100'], $headers)
@@ -96,15 +99,35 @@ class MerchantAppLabelsTest extends TestCase
 
         $this->get($url)->assertOk()
             ->assertSee($a->number)->assertSee($b->number)->assertDontSee($theirs->number)
-            ->assertSee('100mm 100mm', false)->assertSee('ملصق ٨×١٢');
+            ->assertSee('100mm 100mm', false)->assertSee('ملصق ١٢٠×٨٠ ملم')->assertDontSee('أربعة في الورقة');
 
         // الرابط موقَّع: يُغيَّر فيه شيءٌ فلا يُفتح
         $this->get(str_replace('size=100x100', 'size=a4', $url))->assertForbidden();
 
         $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id], 'size' => 'huge'], $headers)
             ->assertUnprocessable();
-        $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$theirs->id], 'size' => 'a6'], $headers)
+        $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$theirs->id], 'size' => '80x120'], $headers)
             ->assertUnprocessable();
+    }
+
+    public function test_the_label_has_the_company_logo_and_barcode_on_top_and_the_qr_at_the_bottom(): void
+    {
+        $a = $this->ship($this->merchant, 'علي');
+        Tenancy::runFor($this->company, fn () => $this->company->forceFill(['logo_path' => 'logos/x.png'])->save());
+
+        $url = $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id], 'size' => '100x100'], $this->headers())
+            ->assertCreated()->json('url');
+        $html = $this->get($url)->assertOk()->getContent();
+
+        // شعار الشركة من بياناتها (docs/plan/87) أعلى الملصق مع الباركود، ثم المستلم، ثم رمز التتبّع أسفله
+        $logo = strpos($html, 'class="logo"');
+        $barcode = strpos($html, 'class="barcode"');
+        $recipient = strpos($html, 'المستلم');
+        $qr = strpos($html, 'class="qr"');
+        $this->assertNotFalse($logo);
+        $this->assertStringContainsString($this->company->logoUrl(), $html);
+        $this->assertTrue($logo < $barcode && $barcode < $recipient && $recipient < $qr);
+        $this->assertTrue(strpos($html, 'امسح الرمز لتتبّع شحنتك') < $qr, 'الرمز يسار النصّ: آخر الصفّ في الاتجاه العربيّ');
     }
 
     public function test_the_printer_sorts_new_orders_into_to_print_and_printed_apart_from_in_delivery(): void
@@ -124,7 +147,7 @@ class MerchantAppLabelsTest extends TestCase
             ->assertJsonCount(2, 'data');
 
         // يطبع واحدة من التطبيق فتنتقل إلى «مطبوعة»
-        $url = $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id], 'size' => 'a6'], $headers)
+        $url = $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id], 'size' => '80x120'], $headers)
             ->assertCreated()->json('url');
         $this->get($url)->assertOk();
         $first = $a->refresh()->printed_at;

@@ -48,8 +48,13 @@ class LabelController extends Controller
                 'at' => $s->created_at?->toIso8601String(),
                 'printed_at' => $s->printed_at?->toIso8601String(),
             ])->values(),
-            'sizes' => collect(ShipmentLabelController::SIZES)
-                ->map(fn (array $size, string $key) => ['key' => $key, 'label' => $size[0]])->values(),
+            // مقاسا التطبيق (docs/plan/87)، بعرض الملصق وطوله بالمليمتر
+            'sizes' => collect(ShipmentLabelController::APP_SIZES)->map(fn (string $key) => [
+                'key' => $key,
+                'label' => ShipmentLabelController::SIZES[$key][0],
+                'width' => ShipmentLabelController::SIZES[$key][1],
+                'height' => ShipmentLabelController::SIZES[$key][2],
+            ])->values(),
         ]);
     }
 
@@ -72,7 +77,7 @@ class LabelController extends Controller
         $data = $request->validate([
             'ids' => ['required', 'array', 'min:1', 'max:'.ShipmentLabelController::MAX],
             'ids.*' => ['integer'],
-            'size' => ['required', Rule::in(array_keys(ShipmentLabelController::SIZES))],
+            'size' => ['required', Rule::in(ShipmentLabelController::APP_SIZES)],
         ], [], ['ids' => 'الشحنات', 'size' => 'المقاس']);
 
         $merchant = $request->attributes->get('merchant');

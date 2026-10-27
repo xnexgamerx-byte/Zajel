@@ -5,14 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../core/access.dart';
 import '../core/api.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import 'calendar_screen.dart';
 import 'notifications_screen.dart';
 import 'shipment_screen.dart';
+import 'states_screen.dart';
 import 'status_screen.dart';
 
 /// «صباح الخير» حتى الظهر بتوقيت بغداد، ثم «مساء الخير» — أيّاً كانت ساعة الهاتف (docs/plan/59)
@@ -56,18 +59,27 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     widget.refresh?.addListener(_load);
+    Access.changed.addListener(_access);
     _load();
   }
 
   @override
   void dispose() {
     widget.refresh?.removeListener(_load);
+    Access.changed.removeListener(_access);
     super.dispose();
+  }
+
+  /// تغيّر ما يفتحه الحساب (docs/plan/87): تُرسم الرئيسية بما فُتح
+  void _access() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _load() async {
     try {
       final d = await Api.instance.home();
+      // ما يفتحه الحساب الآن (docs/plan/87): صاحب المتجر قد غيّره منذ الدخول
+      Access.set(d.permissions, staff: d.staffTool);
       if (mounted) setState(() => (data = d, error = null));
     } on ApiError catch (e) {
       if (mounted) setState(() => error = e.message);
@@ -172,19 +184,21 @@ class _HomeScreenState extends State<HomeScreen> {
           // نسخة العرض على الهاتف تقول ذلك صراحةً: لا تُحسب على النظام
           if (AppConfig.demo && !kIsWeb) _pad(const DemoNote()),
           _header(d),
-          const SizedBox(height: 14),
-          _pad(_search()),
-          const SizedBox(height: 12),
-          _pad(_stats(d.stats)),
+          // موظّف التاجر (docs/plan/87): ما لم يُفتح له لا يظهر — لا بحثٌ ولا أرقامٌ ولا رصيد
+          if (Access.can('shipments')) ...[const SizedBox(height: 14), _pad(_search())],
+          if (d.stats != null) ...[const SizedBox(height: 12), _pad(_stats(d.stats!))],
           // ما تعثّر ينتظر قراره: شريطٌ لا يُغفل عنه، ويختفي حين لا شيء
-          if (d.processing > 0) ...[const SizedBox(height: 12), _pad(_processing(d))],
-          const SizedBox(height: 14),
-          _pad(_hub(d)),
-          const SizedBox(height: 12),
-          _pad(_actions(d)),
+          if (d.processing > 0 && Access.can('processing')) ...[const SizedBox(height: 12), _pad(_processing(d))],
+          if (d.stats != null) ...[const SizedBox(height: 14), _pad(_hub(d))],
+          if (_tools(d).isNotEmpty) ...[const SizedBox(height: 12), _pad(_actions(d))],
           if (d.banners.isNotEmpty) ...[const SizedBox(height: 14), _pad(_banner(d))],
-          const SizedBox(height: 18),
-          _pad(_attention(d)),
+          if (d.stats != null) ...[
+            const SizedBox(height: 18),
+            _pad(_attention(d)),
+            const SizedBox(height: 18),
+            // تقويم الشحنات وأداؤها (docs/plan/87): بطاقةٌ صغيرة بآخر سبعة أيام، وتفتح التقويم كلّه
+            _pad(CalendarCard(brand: brand, refresh: widget.refresh)),
+          ],
         ],
       ),
     );
@@ -228,8 +242,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(width: 8),
           // الدعم الفني مكان الإعدادات (docs/plan/79): «المزيد» في الشريط السفلي
-          _round(Icons.support_agent_rounded, 'الدعم الفني', () => _open('support')),
-          const SizedBox(width: 8),
+          if (Access.can('support')) ...[
+            _round(Icons.support_agent_rounded, 'الدعم الفني', () => _open('support')),
+            const SizedBox(width: 8),
+          ],
           _bellButton(d.unread),
           const SizedBox(width: 8),
           _avatar(d),
@@ -271,7 +287,8 @@ class _HomeScreenState extends State<HomeScreen> {
       message: 'صورتك أو شعارك',
       child: Tap(
         radius: 24,
-        onTap: uploading ? null : () => _logo(d),
+        // صورة المتجر لصاحبه وحده (docs/plan/87)
+        onTap: uploading || !Access.isOwner ? null : () => _logo(d),
         child: Container(
           width: 44,
           height: 44,
@@ -358,25 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// «ابحث برقم الشحنة أو اسم الزبون» يفتح «شحناتي» بالبحث، ومربّع المسح بجانبه
   Widget _search() => Row(
     children: [
-      Tooltip(
-        message: 'امسح باركود',
-        child: Tap(
-          radius: 14,
-          onTap: () => _open('scan'),
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Palette.line),
-              boxShadow: cardShadow,
-            ),
-            child: Icon(Icons.qr_code_scanner_rounded, size: 21, color: brand.main),
-          ),
-        ),
-      ),
-      const SizedBox(width: 8),
+      if (Access.opens('scan')) ...[_scanBox(), const SizedBox(width: 8)],
       Expanded(
         child: Tap(
           radius: 14,
@@ -407,6 +406,25 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ],
+  );
+
+  Widget _scanBox() => Tooltip(
+    message: 'امسح باركود',
+    child: Tap(
+      radius: 14,
+      onTap: () => _open('scan'),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Palette.line),
+          boxShadow: cardShadow,
+        ),
+        child: Icon(Icons.qr_code_scanner_rounded, size: 21, color: brand.main),
+      ),
+    ),
   );
 
   // ------------------------------------------------------------------ الرقمان
@@ -526,13 +544,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ حالة الشحنات
 
-  /// مساحة زرّ الوسط واسمه، وقطر الزرّ نفسه: صغيران لتظهر الخطوط التي تصله بالحالات الأربع
-  static const _halo = 74.0;
-  static const _button = 44.0;
+  /// هالة زرّ الوسط واسمه فيها، وقطر الزرّ نفسه
+  static const _halo = 76.0;
+  static const _button = 42.0;
 
-  /// أربع حالاتٍ حول زرّ «إنشاء شحنة» الأحمر، وخطوطٌ منحنية تصلها به — بقياس الشاشة نفسها
+  /// أربع حالاتٍ حول زرّ «إنشاء شحنة» الأحمر، وخطوطٌ منحنية تصلها به — بقياس الشاشة نفسها. والعنوان يفتح
+  /// خانات الحالات كلّها (docs/plan/87)
   Widget _hub(HomeData d) {
-    final s = d.stats;
+    final s = d.stats!;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
@@ -545,13 +564,15 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Tap(
             radius: 10,
-            onTap: () => _open('shipments'),
+            onTap: () => openStates(context, brand).then((_) => _load()),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
                   Text('رحلة شحناتك اليوم', style: display(14.5, w7, Palette.ink)),
                   const Spacer(),
+                  Text('كل الحالات', style: font(12, w7, Palette.slate)),
+                  const SizedBox(width: 4),
                   const Chev(size: 8, left: true, stroke: 1.6),
                 ],
               ),
@@ -569,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Positioned.fill(
                       child: CustomPaint(
-                        painter: _Links(Palette.muted, tile: tile, button: _button),
+                        painter: _Links(Palette.muted, tile: tile, halo: _halo),
                       ),
                     ),
                     Column(
@@ -623,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    _createButton(),
+                    if (Access.can('create')) _createButton() else _haloOnly(),
                   ],
                 ),
               );
@@ -675,9 +696,15 @@ class _HomeScreenState extends State<HomeScreen> {
     child: GestureDetector(
       onTap: _createSheet,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
+      // هالةٌ فاتحة تخفي ملتقى الخطوط، والزرّ واسمه فيها — كما في التصميم
+      child: Container(
         width: _halo,
         height: _halo,
+        decoration: BoxDecoration(
+          color: Color.lerp(Colors.white, brand.main, .06),
+          shape: BoxShape.circle,
+          border: Border.all(color: Color.lerp(Colors.white, brand.main, .14)!),
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -687,12 +714,24 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(gradient: brand.hero, shape: BoxShape.circle, boxShadow: brand.glow(.45)),
               child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
             ),
-            const SizedBox(height: 4),
-            Text('إنشاء شحنة', maxLines: 1, style: font(10.5, w8, brand.deep, height: 1.1)),
+            const SizedBox(height: 2),
+            Text('إنشاء شحنة', maxLines: 1, style: font(9.5, w8, brand.deep, height: 1.1)),
           ],
         ),
       ),
     ),
+  );
+
+  /// موظّفٌ لا يُدخل شحنات: الهالة وحدها مكان الزرّ، فتبقى الخطوط ملتقيةً عندها
+  Widget _haloOnly() => Container(
+    width: _halo * .7,
+    height: _halo * .7,
+    decoration: BoxDecoration(
+      color: Color.lerp(Colors.white, brand.main, .06),
+      shape: BoxShape.circle,
+      border: Border.all(color: Color.lerp(Colors.white, brand.main, .14)!),
+    ),
+    child: Icon(Icons.route_rounded, size: 22, color: brand.main),
   );
 
   Future<void> _createSheet() async {
@@ -724,27 +763,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ------------------------------------------------------------------ الأدوات
 
-  /// التفاصيل المالية برصيده، وطباعة الطلبات، وطلب مندوب استلام — والدعم في «المزيد»
+  /// التفاصيل المالية برصيده، وطباعة الطلبات، وطلب مندوب استلام — ما فُتح منها للحساب (docs/plan/87)
+  List<Widget> _tools(HomeData d) => [
+    if (d.balance != null && Access.can('finance'))
+      _action('التفاصيل المالية', '${money(d.balance!)} د.ع', Icons.account_balance_wallet_outlined, 'finance'),
+    // «الطابعة» ظاهرةٌ في الرئيسية (docs/plan/63، 79): الجديدة تُطبع وتُلصق قبل أن يأتي المندوب
+    if (Access.can('print'))
+      _action(
+        'طباعة الطلبات',
+        d.toPrint > 0
+            ? '${money(d.toPrint)} للطباعة'
+            : (d.printed > 0 ? '${money(d.printed)} مطبوعة' : 'وصولات ما أدخلته'),
+        Icons.print_rounded,
+        'labels',
+        badge: d.toPrint,
+      ),
+    if (Access.can('pickups')) _action('مندوب استلام', 'يمرّ عليك', Icons.hail_rounded, 'pickups'),
+  ];
+
   Widget _actions(HomeData d) => Row(
     children: [
-      Expanded(
-        child: _action('التفاصيل المالية', '${money(d.balance)} د.ع', Icons.account_balance_wallet_outlined, 'finance'),
-      ),
-      const SizedBox(width: 8),
-      // «الطابعة» ظاهرةٌ في الرئيسية (docs/plan/63، 79): الجديدة تُطبع وتُلصق قبل أن يأتي المندوب
-      Expanded(
-        child: _action(
-          'طباعة الطلبات',
-          d.toPrint > 0
-              ? '${money(d.toPrint)} للطباعة'
-              : (d.printed > 0 ? '${money(d.printed)} مطبوعة' : 'وصولات ما أدخلته'),
-          Icons.print_rounded,
-          'labels',
-          badge: d.toPrint,
-        ),
-      ),
-      const SizedBox(width: 8),
-      Expanded(child: _action('مندوب استلام', 'يمرّ عليك', Icons.hail_rounded, 'pickups')),
+      for (final (i, tool) in _tools(d).indexed) ...[if (i > 0) const SizedBox(width: 8), Expanded(child: tool)],
     ],
   );
 
@@ -801,12 +840,12 @@ class _HomeScreenState extends State<HomeScreen> {
       Row(
         children: [
           Text('شحنات تحتاج انتباهك', style: display(14.5, w7, Palette.ink)),
-          if (d.attentionItems.isNotEmpty) ...[
+          if (d.attention > 0) ...[
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
               decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(10)),
-              child: Text('${d.attentionItems.length}', style: font(11.5, w8, Colors.white)),
+              child: Text(money(d.attention), style: font(11.5, w8, Colors.white)),
             ),
           ],
           const Spacer(),
@@ -839,7 +878,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         )
       else
-        for (final item in d.attentionItems.take(6)) ...[_card(item), const SizedBox(height: 8)],
+        // ثلاثٌ وحدها (docs/plan/87)، والباقي في «عرض الكل»
+        for (final item in d.attentionItems.take(3)) ...[_card(item), const SizedBox(height: 8)],
     ],
   );
 
@@ -854,6 +894,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (item.attempts > 0) 'محاولات: ${item.attempts}',
       if (item.until != null) 'مؤجل إلى ${postponedText(item.until!)}',
     ].join(' · ');
+    final place = s.returnPlace;
     return Tap(
       radius: 20,
       shadow: cardShadow,
@@ -918,6 +959,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: font(12, w7, Palette.ink, height: 1.35),
                   ),
                   if (why.isNotEmpty) Text(why, style: font(11, w7, postponed ? ink : brand.main, height: 1.45)),
+                  // أين الراجع الآن (docs/plan/87)
+                  if (place != null) ReturnPlace(place),
                   Text('${money(s.amount)} د.ع · ${when(s.at)}', style: font(10.5, w6, Palette.muted, height: 1.4)),
                 ],
               ),
@@ -963,54 +1006,47 @@ class _Bars extends StatelessWidget {
   }
 }
 
-/// خطوط الوصل كما في التصميم: من الحافّة الداخلية لكلّ حالةٍ خطٌّ أفقيّ، ينعطف بقوسٍ ناعم نحو الزرّ،
-/// وتلتقي حالتا كلّ جانبٍ عند جنب الزرّ كقوسٍ «}» — رماديّةٌ رفيعة بلا نقاط
+/// خطوط الوصل كما في صورة التصميم (docs/plan/87): من كلّ حالةٍ خطٌّ أفقيّ نحو الوسط، ينعطف بقوسٍ واسعٍ ناعم
+/// إلى خطٍّ عموديّ قرب الزرّ، فتصير حالتا كلّ جانبٍ قوساً واحداً «(» و«)» — وملتقاهما تحت هالة الزرّ.
 class _Links extends CustomPainter {
-  const _Links(this.color, {required this.tile, required this.button});
+  const _Links(this.color, {required this.tile, required this.halo});
 
   final Color color;
   final double tile;
-  final double button;
+  final double halo;
 
   @override
   void paint(Canvas canvas, Size size) {
     final line = Paint()
-      ..color = color.withValues(alpha: .45)
+      ..color = color.withValues(alpha: .5)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
     final c = Offset(size.width / 2, size.height / 2);
-    // مركز الزرّ أعلى قليلاً من وسط البطاقة: اسمه تحته
-    final buttonY = c.dy - 8;
-    final r = button / 2;
-    // نصف ارتفاع كلّ صفّ: صفّان بينهما 8
+    // مركز كلّ صفّ: صفّان بينهما 8
     final rowY = (size.height - 8) / 4 + 4;
-    const bend = 12.0;
-
+    final top = c.dy - rowY;
+    final bottom = c.dy + rowY;
+    // العموديّ داخل الهالة فيختفي تحتها، والقوس خارجها فيُرى
+    final railGap = halo * .18;
     for (final dx in [-1.0, 1.0]) {
-      // حيث ينزل الخطّ عموديّاً: بعيداً عن الزرّ قليلاً، فيلتفّ إلى جنبه
-      final rail = c.dx + dx * (r + 14);
-      final meet = Offset(c.dx + dx * (r + 3), buttonY);
-      for (final dy in [-1.0, 1.0]) {
-        final from = Offset(c.dx + dx * (size.width / 2 - tile), c.dy + dy * rowY);
-        final path = Path()
-          ..moveTo(from.dx, from.dy)
-          // أفقيّاً من البطاقة إلى قبيل المنعطف
-          ..lineTo(rail + dx * bend, from.dy)
-          // ينعطف نحو الوسط
-          ..quadraticBezierTo(rail, from.dy, rail, from.dy - dy * bend)
-          // عموديّاً إلى قبيل مستوى الزرّ
-          ..lineTo(rail, buttonY + dy * bend)
-          // ويلتفّ إلى جنب الزرّ
-          ..quadraticBezierTo(rail, buttonY, meet.dx, meet.dy);
-        canvas.drawPath(path, line);
-      }
+      final edge = c.dx + dx * (size.width / 2 - tile);
+      final rail = c.dx + dx * railGap;
+      final radius = ((edge - rail).abs() * .6).clamp(10.0, rowY * .9);
+      final path = Path()
+        ..moveTo(edge, top)
+        ..lineTo(rail + dx * radius, top)
+        // ربع دائرةٍ تامّ: conic بوزن √½
+        ..conicTo(rail, top, rail, top + radius, .7071)
+        ..lineTo(rail, bottom - radius)
+        ..conicTo(rail, bottom, rail + dx * radius, bottom, .7071)
+        ..lineTo(edge, bottom);
+      canvas.drawPath(path, line);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _Links old) => old.color != color || old.tile != tile || old.button != button;
+  bool shouldRepaint(covariant _Links old) => old.color != color || old.tile != tile || old.halo != halo;
 }
 
 /// الإعلانات تنزلق بالإصبع، وتتقلّب وحدها كلّ خمس ثوانٍ، ونقاطها أسفلها. إعلانات الشركة من

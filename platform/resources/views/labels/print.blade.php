@@ -31,13 +31,19 @@
         .sheet-a4 .label:nth-child(4n) { break-after: page; }
         /* الملصق الأصغر (٨×١٢، ١٠×١٠): خطٌّ وباركود ورمزٌ أصغر ليتّسع كلّه */
         .compact .label { padding: 3mm; gap: 1.5mm; font-size: 8pt; line-height: 1.3; }
-        .compact .label .barcode { height: 11mm; }
+        .compact .label .barcode { height: 10mm; }
+        .compact .label .code { font-size: 10pt; }
+        .compact .label .logo { width: 15mm; height: 12mm; font-size: 8pt; }
         .compact .label .qr { width: 16mm; height: 16mm; }
         .compact .label .small { font-size: 6.5pt; }
         .compact .label .long-only { display: none; }
 
         .label hr { border: 0; border-top: 0.3mm solid #000; margin: 0; }
-        .label .barcode { width: 100%; height: 15mm; image-rendering: pixelated; }
+        .label .barcode { width: 100%; height: 13mm; image-rendering: pixelated; }
+        .label .code { font-size: 12pt; line-height: 1.2; }
+        /* الشعار بالأبيض والأسود: الطابعة الحرارية لا ترى لوناً */
+        .label .logo { width: 20mm; height: 16mm; flex-shrink: 0; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10pt; line-height: 1.2; overflow: hidden; }
+        .label .logo img { max-width: 100%; max-height: 100%; object-fit: contain; filter: grayscale(1) contrast(1.4); }
         .label .qr { width: 22mm; height: 22mm; flex-shrink: 0; }
         .label .amount { border: 0.6mm solid #000; border-radius: 1.5mm; padding: 1.5mm 3mm; }
         .label .tag { border: 0.3mm solid #000; border-radius: 1mm; padding: 0 1.5mm; font-weight: 700; }
@@ -80,25 +86,28 @@
     @foreach ($shipments as $shipment)
         @php $code = $shipment->barcode ?: $shipment->number; @endphp
         <article class="label">
-            <header class="flex items-center justify-between gap-2">
-                <div class="min-w-0">
-                    <div class="truncate font-heading text-[12pt] font-bold">{{ $company->name }}</div>
-                    @if ($company->phone)
-                        <div class="small"><span class="num">{{ $company->phone }}</span></div>
+            {{-- أعلى الملصق (docs/plan/87): شعار الشركة يميناً، والباركود بجانبه — يُقرأ من مسافة، ومن أيّ ماسحة --}}
+            <header class="flex items-center gap-2">
+                <div class="logo">
+                    @if ($company->logoUrl())
+                        <img src="{{ $company->logoUrl() }}" alt="{{ $company->name }}">
+                    @else
+                        <span class="font-heading font-bold">{{ $company->name }}</span>
                     @endif
                 </div>
-                <div class="num small text-end">{{ $shipment->created_at->format('Y-m-d') }}</div>
+                <div class="min-w-0 flex-1 text-center">
+                    <img class="barcode" src="{{ \App\Support\Code128::dataUri($code) }}" alt="">
+                    <div class="num code font-bold tracking-widest">{{ $code }}</div>
+                </div>
             </header>
 
-            <hr>
-
-            {{-- الباركود بعرض الملصق: يُقرأ من مسافة، ومن أيّ ماسحة --}}
-            <div class="text-center">
-                <img class="barcode" src="{{ \App\Support\Code128::dataUri($code) }}" alt="">
-                <div class="num text-[15pt] font-bold tracking-widest">{{ $code }}</div>
-                @if ($code !== $shipment->number)
-                    <div class="small">وصل <span class="num">{{ $shipment->number }}</span></div>
-                @endif
+            <div class="small flex items-center justify-between gap-2">
+                <span class="truncate">
+                    <span class="font-bold">{{ $company->name }}</span>
+                    @if ($company->phone) · <span class="num">{{ $company->phone }}</span>@endif
+                    @if ($code !== $shipment->number) · وصل <span class="num">{{ $shipment->number }}</span>@endif
+                </span>
+                <span class="num">{{ $shipment->created_at->format('Y-m-d') }}</span>
             </div>
 
             <hr>
@@ -151,12 +160,13 @@
                 @endif
             </section>
 
-            <footer class="mt-auto flex items-end gap-2">
-                <img class="qr" src="{{ \App\Support\QrCode::dataUri(\App\Support\Tracking::url($shipment)) }}" alt="">
+            {{-- رمز التتبّع أسفل الملصق يساراً --}}
+            <footer class="mt-auto flex items-end justify-between gap-2">
                 <div class="small">
                     <div class="font-bold">امسح الرمز لتتبّع شحنتك</div>
                     <div class="long-only">أو من صفحة التتبّع برقم الوصل وآخر أربعة أرقام من هاتفك</div>
                 </div>
+                <img class="qr" src="{{ \App\Support\QrCode::dataUri(\App\Support\Tracking::url($shipment)) }}" alt="">
             </footer>
         </article>
     @endforeach

@@ -328,12 +328,8 @@ class _SizeSheetState extends State<_SizeSheet> {
   bool busy = false;
   String? error;
 
-  static const _hints = {
-    'a6': 'طابعة ملصقات حرارية — الأشيع',
-    '80x120': 'مقاس الوصل المطبوع مسبقاً',
-    '100x100': 'ملصقٌ مربّع',
-    'a4': 'طابعة ورق عادية: أربعة وصولات في الورقة',
-  };
+  /// مقاسا التطبيق (docs/plan/87): ما يشتريه التاجر من ملصقاتٍ حرارية
+  static const _hints = {'100x100': 'مربّع: عرضه ١٠ سم وطوله ١٠ سم', '80x120': 'طويل: عرضه ٨ سم وطوله ١٢ سم'};
 
   Future<void> _go() async {
     setState(() => (busy = true, error = null));
@@ -372,6 +368,9 @@ class _SizeSheetState extends State<_SizeSheet> {
                       color: size == s.key ? brand.main : Palette.muted,
                     ),
                     const SizedBox(width: 10),
+                    // الملصق مرسوماً بنسبته: يعرف التاجر شكله قبل أن يشتريه
+                    _LabelShape(size: s.key, on: size == s.key, brand: brand),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,6 +389,50 @@ class _SizeSheetState extends State<_SizeSheet> {
         const SizedBox(height: 8),
         SheetButton(brand: brand, label: 'اطبع', icon: Icons.print_rounded, busy: busy, onTap: _go),
       ],
+    );
+  }
+}
+
+/// شكل الملصق بنسبة عرضه إلى طوله، وعليه باركودٌ ورمزٌ صغيران
+class _LabelShape extends StatelessWidget {
+  const _LabelShape({required this.size, required this.on, required this.brand});
+
+  final String size;
+  final bool on;
+  final Brand brand;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = size.split('x').map((p) => double.tryParse(p) ?? 100).toList();
+    final w = parts.first;
+    final h = parts.length > 1 ? parts[1] : w;
+    const tall = 52.0;
+    return SizedBox(
+      width: tall,
+      height: tall,
+      child: Center(
+        child: Container(
+          width: tall * w / (w > h ? w : h),
+          height: tall * h / (w > h ? w : h),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: on ? brand.main : Palette.muted, width: 1.4),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(height: 6, color: Palette.ink.withValues(alpha: .7)),
+              const Spacer(),
+              Align(
+                alignment: AlignmentDirectional.bottomEnd,
+                child: Container(width: 9, height: 9, color: Palette.ink.withValues(alpha: .7)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

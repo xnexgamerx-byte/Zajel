@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/access.dart';
 import 'core/api.dart';
 import 'core/config.dart';
 import 'core/models.dart';
@@ -58,6 +59,8 @@ class _MerchantAppState extends State<MerchantApp> {
   }
 
   void _adopt(Session s) {
+    // ما يفتحه الحساب (docs/plan/87): صاحب المتجر كلّه، وموظّفه ما فتحه له
+    Access.set(s.permissions);
     setState(() {
       session = s;
       signedIn = true;
@@ -72,6 +75,7 @@ class _MerchantAppState extends State<MerchantApp> {
   Future<void> _logout() async {
     await Push.unregister();
     await Api.instance.logout();
+    Access.set(null);
     setState(() {
       session = null;
       signedIn = false;

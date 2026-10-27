@@ -21,32 +21,37 @@ class HomeData {
     this.attentionItems = const [],
     this.toPrint = 0,
     this.printed = 0,
+    this.permissions,
+    this.staffTool = false,
   });
 
   factory HomeData.fromJson(Map<String, dynamic> j) {
-    final stats = (j['stats'] as Map).cast<String, dynamic>();
+    final stats = (j['stats'] as Map?)?.cast<String, dynamic>();
+    final balance = (j['balance'] as Map?)?.cast<String, dynamic>();
     return HomeData(
       greeting: j['greeting'] as String,
       name: j['name'] as String? ?? '',
       unread: j['unread'] as int? ?? 0,
       logo: (j['logo'] as String?) == null ? null : media(j['logo'] as String),
       banners: [for (final b in j['banners'] as List) AdBanner.fromJson((b as Map).cast())],
-      balance: j['balance']['total'] as int,
-      owed: j['balance']['owed'] as bool,
-      available: j['balance']['available'] as int? ?? 0,
-      pending: j['balance']['pending'] as int? ?? 0,
-      pendingReason: j['balance']['reason'] as String?,
-      stats: Stats(
-        total: stats['total'] as int,
-        delivered: stats['delivered'] as int,
-        inDelivery: stats['in_delivery'] as int,
-        returns: stats['returns'] as int,
-        waiting: stats['waiting'] as int? ?? 0,
-        warehouse: stats['warehouse'] as int? ?? 0,
-        courier: stats['courier'] as int? ?? 0,
-        deliveredToday: stats['delivered_today'] as int? ?? 0,
-        returning: stats['returning'] as int? ?? 0,
-      ),
+      balance: balance?['total'] as int?,
+      owed: balance?['owed'] as bool? ?? true,
+      available: balance?['available'] as int? ?? 0,
+      pending: balance?['pending'] as int? ?? 0,
+      pendingReason: balance?['reason'] as String?,
+      stats: stats == null
+          ? null
+          : Stats(
+              total: stats['total'] as int,
+              delivered: stats['delivered'] as int,
+              inDelivery: stats['in_delivery'] as int,
+              returns: stats['returns'] as int,
+              waiting: stats['waiting'] as int? ?? 0,
+              warehouse: stats['warehouse'] as int? ?? 0,
+              courier: stats['courier'] as int? ?? 0,
+              deliveredToday: stats['delivered_today'] as int? ?? 0,
+              returning: stats['returning'] as int? ?? 0,
+            ),
       processing: j['processing']['count'] as int,
       canProcess: j['processing']['allowed'] as bool,
       attention: j['attention']['count'] as int,
@@ -56,8 +61,16 @@ class HomeData {
       ],
       toPrint: (j['printer'] as Map?)?['to_print'] as int? ?? 0,
       printed: (j['printer'] as Map?)?['printed'] as int? ?? 0,
+      permissions: (j['permissions'] as List?)?.map((p) => '$p').toList(),
+      staffTool: (j['tools'] as Map?)?['staff'] as bool? ?? false,
     );
   }
+
+  /// ما يفتحه الحساب (docs/plan/87)، وnull من نظامٍ لا يعرف الموظّفين
+  final List<String>? permissions;
+
+  /// «موظّفو المتجر» في «المزيد»: لصاحب المتجر، والميزة مفتوحةٌ لشركته
+  final bool staffTool;
 
   final String greeting;
 
@@ -66,7 +79,9 @@ class HomeData {
   final String name;
   final int unread;
   final List<AdBanner> banners;
-  final int balance;
+
+  /// الرصيد لمن يرى المالية وحده (docs/plan/87)
+  final int? balance;
 
   /// لك عند الشركة (true) أو عليك لها
   final bool owed;
@@ -77,7 +92,9 @@ class HomeData {
   /// قيد المطابقة: واصلٌ نقده ما زال مع المندوب، وسببه بكلام التاجر
   final int pending;
   final String? pendingReason;
-  final Stats stats;
+
+  /// الأرقام لمن يرى الشحنات وحده
+  final Stats? stats;
   final int processing;
   final bool canProcess;
   final int attention;
@@ -145,6 +162,7 @@ class RecentShipment {
     this.governorate,
     this.city,
     this.until,
+    this.returnPlace,
   });
 
   factory RecentShipment.fromJson(Map<String, dynamic> j) => RecentShipment(
@@ -160,11 +178,15 @@ class RecentShipment {
     governorate: j['governorate'] as String?,
     city: j['city'] as String?,
     until: DateTime.tryParse(j['until'] as String? ?? '')?.toLocal(),
+    returnPlace: j['return_place'] as String?,
   );
 
   final int id;
   final String number;
   final String name;
+
+  /// أين الراجع الآن (docs/plan/87): «راجع عند المندوب»، «راجع عند مركز محافظة بابل»، «راجع في المخزن»
+  final String? returnPlace;
 
   /// المؤجّلة بموعدها (docs/plan/86): «مؤجل إلى غداً الساعة 9:00 م»
   final DateTime? until;
@@ -341,7 +363,14 @@ class ShipmentDetail {
 
 /// الحساب بعد الدخول: من هو، ولأيّ شركة — اسمها ولونها وشعارها
 class Session {
-  Session({required this.name, required this.companyName, this.companyColor, this.companyLogo, this.companyInitial});
+  Session({
+    required this.name,
+    required this.companyName,
+    this.companyColor,
+    this.companyLogo,
+    this.companyInitial,
+    this.permissions,
+  });
 
   factory Session.fromJson(Map<String, dynamic> j) => Session(
     name: j['user']['name'] as String,
@@ -349,7 +378,11 @@ class Session {
     companyColor: j['company']['color'] as String?,
     companyLogo: (j['company']['logo'] as String?) == null ? null : media(j['company']['logo'] as String),
     companyInitial: j['company']['initial'] as String?,
+    permissions: ((j['merchant'] as Map?)?['permissions'] as List?)?.map((p) => '$p').toList(),
   );
+
+  /// ما يفتحه الحساب (docs/plan/87): صاحب المتجر كلّها ومعها owner
+  final List<String>? permissions;
 
   final String name;
   final String companyName;
@@ -1373,4 +1406,163 @@ class LabelRow {
   final String place;
   final int amount;
   final DateTime? at;
+}
+
+// ------------------------------------------------------------------ رحلة شحناتك وتقويمها (docs/plan/87)
+
+/// خانةٌ في «رحلة شحناتك اليوم»: حالةٌ بعددها، وتفتح قائمتها
+class StateTile {
+  const StateTile(this.key, this.label, this.count);
+
+  factory StateTile.fromJson(Map<String, dynamic> j) =>
+      StateTile('${j['key']}', j['label'] as String? ?? '', j['count'] as int? ?? 0);
+
+  final String key;
+  final String label;
+  final int count;
+}
+
+class StatesData {
+  const StatesData({required this.total, required this.tiles});
+
+  factory StatesData.fromJson(Map<String, dynamic> j) => StatesData(
+    total: j['total'] as int? ?? 0,
+    tiles: [for (final t in j['data'] as List) StateTile.fromJson((t as Map).cast())],
+  );
+
+  final int total;
+  final List<StateTile> tiles;
+}
+
+/// يومٌ في «تقويم الشحنات»: ما أُدخل فيه، وأين صار
+class CalendarDay {
+  const CalendarDay({required this.date, required this.total, required this.counts});
+
+  factory CalendarDay.fromJson(Map<String, dynamic> j) => CalendarDay(
+    date: DateTime.parse(j['date'] as String),
+    total: j['total'] as int? ?? 0,
+    counts: {for (final k in CalendarData.keys) k: j[k] as int? ?? 0},
+  );
+
+  final DateTime date;
+  final int total;
+  final Map<String, int> counts;
+}
+
+class CalendarData {
+  const CalendarData({
+    required this.from,
+    required this.to,
+    required this.total,
+    required this.buckets,
+    required this.days,
+    this.rate,
+    this.byUser = const [],
+  });
+
+  /// الخانات بترتيبها: تم التسليم، قيد التوصيل، مؤجل، للمعالجة، راجع
+  static const keys = ['delivered', 'open', 'postponed', 'processing', 'returned'];
+
+  factory CalendarData.fromJson(Map<String, dynamic> j) => CalendarData(
+    from: DateTime.parse(j['from'] as String),
+    to: DateTime.parse(j['to'] as String),
+    total: j['total'] as int? ?? 0,
+    rate: j['rate'] as int?,
+    buckets: [for (final b in j['buckets'] as List) StateTile.fromJson((b as Map).cast())],
+    days: [for (final d in j['days'] as List) CalendarDay.fromJson((d as Map).cast())],
+    byUser: [
+      for (final u in (j['by_user'] as List?) ?? const [])
+        ((u as Map)['name'] as String? ?? '', u['count'] as int? ?? 0),
+    ],
+  );
+
+  final DateTime from;
+  final DateTime to;
+  final int total;
+
+  /// نسبة التسليم ممّا حُسم، وnull قبل أن يُحسم شيء
+  final int? rate;
+  final List<StateTile> buckets;
+  final List<CalendarDay> days;
+
+  /// من أدخلها، حين للمتجر موظّفون
+  final List<(String, int)> byUser;
+}
+
+// ------------------------------------------------------------------ موظّفو المتجر (docs/plan/87)
+
+class StaffMember {
+  const StaffMember({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.username,
+    required this.permissions,
+    required this.role,
+    required this.active,
+    this.lastLogin,
+  });
+
+  factory StaffMember.fromJson(Map<String, dynamic> j) => StaffMember(
+    id: j['id'] as int,
+    name: j['name'] as String? ?? '',
+    phone: j['phone'] as String? ?? '',
+    username: j['username'] as String? ?? '',
+    permissions: [for (final p in (j['permissions'] as List?) ?? const []) '$p'],
+    role: j['role'] as String? ?? 'custom',
+    active: j['active'] as bool? ?? true,
+    lastLogin: DateTime.tryParse(j['last_login_at'] as String? ?? '')?.toLocal(),
+  );
+
+  final int id;
+  final String name;
+  final String phone;
+  final String username;
+  final List<String> permissions;
+
+  /// entry · accountant · follow · custom
+  final String role;
+  final bool active;
+  final DateTime? lastLogin;
+}
+
+/// صلاحيةٌ يفتحها صاحب المتجر لموظّفه، أو دورٌ جاهزٌ بصلاحياته
+class StaffPermission {
+  const StaffPermission(this.key, this.label, this.hint);
+
+  final String key;
+  final String label;
+  final String hint;
+}
+
+class StaffRole {
+  const StaffRole(this.key, this.label, this.permissions);
+
+  final String key;
+  final String label;
+  final List<String> permissions;
+}
+
+class StaffPage {
+  const StaffPage({required this.staff, required this.permissions, required this.roles, this.max = 20});
+
+  factory StaffPage.fromJson(Map<String, dynamic> j) => StaffPage(
+    staff: [for (final s in j['data'] as List) StaffMember.fromJson((s as Map).cast())],
+    permissions: [
+      for (final p in j['permissions'] as List)
+        StaffPermission('${(p as Map)['key']}', p['label'] as String? ?? '', p['hint'] as String? ?? ''),
+    ],
+    roles: [
+      for (final r in j['roles'] as List)
+        StaffRole('${(r as Map)['key']}', r['label'] as String? ?? '', [
+          for (final p in r['permissions'] as List) '$p',
+        ]),
+    ],
+    max: j['max'] as int? ?? 20,
+  );
+
+  final List<StaffMember> staff;
+  final List<StaffPermission> permissions;
+  final List<StaffRole> roles;
+  final int max;
 }

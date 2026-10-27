@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
 use App\Models\Concerns\SeenByBranch;
+use App\Support\MerchantPermissions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -96,7 +97,8 @@ class Announcement extends Model
         };
 
         // وما وُجِّه لتاجرٍ بعينه (docs/plan/61) لا يراه غيره
-        $merchant = $user->role === UserRole::Merchant ? $user->merchant_id : null;
+        // — وأخبار شحناته لموظّفيه ممّن يرى الشحنات وحدهم (docs/plan/87)
+        $merchant = $user->role === UserRole::Merchant && MerchantPermissions::allows($user, 'shipments') ? $user->merchant_id : null;
 
         return $q->whereIn('audience', static::audiencesFor($user) ?: ['—'])
             ->where(fn (Builder $w) => $w->whereNull('branch_id')->when($branch, fn ($w) => $w->orWhere('branch_id', $branch)))

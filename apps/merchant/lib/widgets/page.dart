@@ -272,7 +272,11 @@ class InputBox extends StatelessWidget {
     this.formatters,
     this.ltr = false,
     this.autofocus = false,
+    this.obscure = false,
   });
+
+  /// كلمة مرور: تُكتب نقاطاً
+  final bool obscure;
 
   final TextEditingController controller;
   final String hint;
@@ -293,6 +297,7 @@ class InputBox extends StatelessWidget {
     child: TextField(
       controller: controller,
       autofocus: autofocus,
+      obscureText: obscure,
       minLines: lines,
       maxLines: lines == 1 ? 1 : lines + 3,
       maxLength: maxLength,

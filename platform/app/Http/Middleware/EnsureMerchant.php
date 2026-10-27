@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Enums\UserRole;
 use App\Models\Merchant;
+use App\Support\MerchantPermissions;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,13 @@ class EnsureMerchant
         // «يُسمح له بالدخول للنظام»: تاجرٌ تُدخَل شحناته عنه ولا يدخل بوابته
         if (! $merchant->portal_access) {
             abort(403, 'لم يُفتح لمتجرك الدخول إلى البوابة. راجع شركة التوصيل.');
+        }
+
+        // موظّف التاجر (docs/plan/87): من التطبيق وحده، وما دامت الميزة مفتوحةً لشركته. بوابة الموقع لصاحب
+        // المتجر: شاشاتها لا تعرف صلاحيات الموظّف، فلا يدخلها
+        if (! MerchantPermissions::isOwner($user)) {
+            abort_unless(MerchantPermissions::active($user), 403, 'حسابات موظّفي المتاجر غير مفعّلة. راجع صاحب المتجر.');
+            abort_unless($request->is('api/*'), 403, 'حسابك موظّفٌ في المتجر: ادخل من تطبيق التاجر.');
         }
 
         $request->attributes->set('merchant', $merchant);

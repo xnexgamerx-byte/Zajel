@@ -68,7 +68,8 @@ class Merchant extends Model
     /** حساب دخوله على بوابة التجّار، إن كان له حساب */
     public function loginAccount(): ?User
     {
-        return User::where('merchant_id', $this->id)
+        // صاحب المتجر لا موظّفوه (docs/plan/87)
+        return User::where('merchant_id', $this->id)->whereNull('merchant_permissions')
             ->where('role', \App\Enums\UserRole::Merchant->value)->orderBy('id')->first();
     }
 

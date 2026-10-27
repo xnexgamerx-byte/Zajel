@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
+import '../core/access.dart';
 import '../core/api.dart';
 import '../core/config.dart';
 import '../core/models.dart';
@@ -19,6 +22,7 @@ import 'requests_screen.dart';
 import 'returns_screen.dart';
 import 'scan_screen.dart';
 import 'shipments_screen.dart';
+import 'staff_screen.dart';
 import 'status_screen.dart';
 import 'support_screen.dart';
 import 'waybills_screen.dart';
@@ -36,7 +40,33 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
-  int tab = 0;
+  /// الصفحة المفتوحة باسمها: home · shipments · create · finance · more
+  String tab = 'home';
+
+  /// صفحات الشريط بما يفتحه الحساب (docs/plan/87): الموظّف لا يرى صفحةً لم تُفتح له، ولا تُحمَّل
+  List<String> get _tabs => [
+    'home',
+    if (Access.can('shipments')) 'shipments',
+    if (Access.can('create')) 'create',
+    if (Access.can('finance')) 'finance',
+    'more',
+  ];
+
+  void _go(String key) => setState(() => tab = key);
+
+  @override
+  void initState() {
+    super.initState();
+    Access.changed.addListener(_access);
+  }
+
+  /// تغيّرت صلاحياته: صفحةٌ أُغلقت تعود إلى الرئيسية
+  void _access() {
+    if (!mounted) return;
+    setState(() {
+      if (!_tabs.contains(tab)) tab = 'home';
+    });
+  }
 
   /// شريحة «شحناتي» التي تفتحها الرئيسية (عدّادٌ أو بطاقةٌ أو «عرض الكل»)
   final shipmentsFilter = ValueNotifier<String>('all');
@@ -57,6 +87,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    Access.changed.removeListener(_access);
     shipmentsFilter.dispose();
     searchNow.dispose();
     refresh.dispose();
@@ -66,7 +97,21 @@ class _ShellState extends State<Shell> {
   }
 
   void _open(String screen) {
+    // ما لم يُفتح للحساب لا يُفتح، ولو وصل إليه زرٌّ قديم (docs/plan/87)
+    if (!Access.opens(screen)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا تملك هذه الصلاحية. اطلبها من صاحب المتجر.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     final parts = screen.split(':');
+    if (screen == 'staff') {
+      openStaff(context, brand);
+      return;
+    }
     // «للمعالجة» شاشةٌ وحدها (docs/plan/54): يقرّر التاجر فيها، ثم تُعاد الأرقام
     if (parts.first == 'processing') {
       openProcessing(context, brand, onChanged: () => refresh.value++);
@@ -98,7 +143,7 @@ class _ShellState extends State<Shell> {
       return;
     }
     if (screen == 'account') {
-      setState(() => tab = 4);
+      _go('more');
       return;
     }
     if (screen == 'create:ai' || screen == 'create:voice') {
@@ -106,23 +151,24 @@ class _ShellState extends State<Shell> {
       return;
     }
     final target = switch (parts.first) {
-      'shipments' || 'attention' => 1,
-      'create' => 2,
-      'finance' => 3,
-      _ => 4,
+      'shipments' || 'attention' => 'shipments',
+      'create' => 'create',
+      'finance' => 'finance',
+      _ => 'more',
     };
-    if (target == 1) {
+    if (target == 'shipments') {
       shipmentsFilter.value = switch (parts.length > 1 ? parts[1] : parts.first) {
         'delivered' => 'delivered',
         'new' => 'new',
         'open' => 'open',
+        'warehouse' => 'warehouse',
         'returns' => 'returns',
         'processing' => 'processing',
         'attention' => 'attention',
         _ => 'all',
       };
     }
-    setState(() => tab = target);
+    _go(target);
     if (parts.length > 1 && parts[1] == 'search') searchNow.value++;
   }
 
@@ -144,7 +190,7 @@ class _ShellState extends State<Shell> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      setState(() => tab = 2);
+      _go('create');
       return;
     }
     final result = voice
@@ -152,21 +198,23 @@ class _ShellState extends State<Shell> {
         : await showAiReader(context, brand);
     if (!mounted || result == null) return;
     reading.value = result;
-    setState(() => tab = 2);
+    _go('create');
   }
 
   /// الزرّ الأوسط (docs/plan/52): يمسح الوصل المطبوع بالكاميرا ثم يفتح «طلب جديد» عليه.
   /// شركةٌ بلا وصولاتٍ مطبوعة: يفتح النموذج مباشرة
   Future<void> _scan() async {
+    final create = Access.can('create');
     bool waybills;
     try {
-      waybills = (await Api.instance.createForm()).waybills;
+      // موظّفٌ لا يُدخل شحنات (docs/plan/87): الكاميرا لورقة الحساب والراجع وحدها
+      waybills = create && (await Api.instance.createForm()).waybills;
     } on ApiError {
       waybills = false;
     }
     if (!mounted) return;
-    if (!waybills) {
-      setState(() => tab = 2);
+    if (create && !waybills) {
+      _go('create');
       return;
     }
 
@@ -183,21 +231,28 @@ class _ShellState extends State<Shell> {
       refresh.value++;
       return;
     }
+    if (!create) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('إدخال الشحنات غير مفتوحٍ لحسابك.'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
     scanned.value = result.code;
-    setState(() => tab = 2);
+    _go('create');
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      HomeScreen(
+    final all = <String, Widget Function()>{
+      'home': () => HomeScreen(
         brand: brand,
         companyName: widget.session?.companyName ?? AppConfig.companyName,
         onOpen: _open,
         refresh: refresh,
       ),
-      ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh, focusSearch: searchNow),
-      CreateScreen(
+      'shipments': () =>
+          ShipmentsScreen(brand: brand, filter: shipmentsFilter, refresh: refresh, focusSearch: searchNow),
+      'create': () => CreateScreen(
         brand: brand,
         onCreated: () => refresh.value++,
         scanned: scanned,
@@ -205,30 +260,44 @@ class _ShellState extends State<Shell> {
         reading: reading,
         onRead: ({required bool voice}) => _read(voice: voice),
       ),
-      FinanceScreen(brand: brand, refresh: refresh),
-      _Account(brand: brand, session: widget.session, onLogout: widget.onLogout, onOpen: _open, refresh: refresh),
-    ];
+      'finance': () => FinanceScreen(brand: brand, refresh: refresh),
+      'more': () =>
+          _Account(brand: brand, session: widget.session, onLogout: widget.onLogout, onOpen: _open, refresh: refresh),
+    };
+    final tabs = _tabs;
+    final pages = [for (final key in tabs) KeyedSubtree(key: ValueKey(key), child: all[key]!())];
 
     // زرّ رجوع الهاتف: من أيّ صفحةٍ إلى الرئيسية، ومن الرئيسية يخرج
     return PopScope(
-      canPop: tab == 0,
+      canPop: tab == 'home',
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) setState(() => tab = 0);
+        if (!didPop) _go('home');
       },
-      child: ShellNav(home: () => setState(() => tab = 0), child: _scaffold(pages)),
+      child: ShellNav(home: () => _go('home'), child: _scaffold(tabs, pages)),
     );
   }
 
-  Widget _scaffold(List<Widget> pages) {
+  Widget _scaffold(List<String> tabs, List<Widget> pages) {
+    // زرّ الوسط للمسح: لإدخال شحنةٍ من وصلها، أو لاستلام ورقة الحساب والراجع
+    final nav = [
+      for (final key in tabs)
+        if (key != 'create') key,
+    ];
+    if (Access.opens('scan')) nav.insert(nav.length > 2 ? 2 : nav.length - 1, 'scan');
     return Scaffold(
       extendBody: true,
       body: Stack(
         children: [
-          IndexedStack(index: tab, children: pages),
+          IndexedStack(index: math.max(0, tabs.indexOf(tab)), children: pages),
           if (AppConfig.demo) const _DemoStatusBar(),
         ],
       ),
-      bottomNavigationBar: _NavBar(brand: brand, index: tab, onTap: (i) => i == 2 ? _scan() : setState(() => tab = i)),
+      bottomNavigationBar: _NavBar(
+        brand: brand,
+        items: nav,
+        active: tab == 'create' ? 'scan' : tab,
+        onTap: (key) => key == 'scan' ? _scan() : _go(key),
+      ),
     );
   }
 }
@@ -236,19 +305,22 @@ class _ShellState extends State<Shell> {
 /// الشريط السفلي (docs/plan/76): أبيض بحافّةٍ علويّة مدوّرة، والصفحة المفتوحة على خلفيةٍ ورديّة فاتحة.
 /// وفي وسطه زرّ المسح الأحمر مرفوعاً: يمسح الوصل المطبوع ويُكتب الطلب عليه، أو يفتح «طلب جديد».
 class _NavBar extends StatelessWidget {
-  const _NavBar({required this.brand, required this.index, required this.onTap});
+  const _NavBar({required this.brand, required this.items, required this.active, required this.onTap});
 
   final Brand brand;
-  final int index;
-  final ValueChanged<int> onTap;
 
-  static const _items = [
-    ('الرئيسية', Icons.home_outlined, Icons.home_rounded),
-    ('شحناتي', Icons.inventory_2_outlined, Icons.inventory_2_rounded),
-    ('امسح وأنشئ', Icons.qr_code_scanner_rounded, Icons.qr_code_scanner_rounded),
-    ('المالية', Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded),
-    ('المزيد', Icons.more_horiz_rounded, Icons.more_horiz_rounded),
-  ];
+  /// ما يفتحه الحساب منها، بترتيبها (docs/plan/87)
+  final List<String> items;
+  final String active;
+  final ValueChanged<String> onTap;
+
+  static const _items = {
+    'home': ('الرئيسية', Icons.home_outlined, Icons.home_rounded),
+    'shipments': ('شحناتي', Icons.inventory_2_outlined, Icons.inventory_2_rounded),
+    'scan': ('امسح وأنشئ', Icons.qr_code_scanner_rounded, Icons.qr_code_scanner_rounded),
+    'finance': ('المالية', Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded),
+    'more': ('المزيد', Icons.more_horiz_rounded, Icons.more_horiz_rounded),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -263,22 +335,22 @@ class _NavBar extends StatelessWidget {
       ),
       child: SizedBox(
         height: 54,
-        child: Row(children: [for (var i = 0; i < _items.length; i++) Expanded(child: _item(i))]),
+        child: Row(children: [for (final key in items) Expanded(child: _item(key))]),
       ),
     );
   }
 
-  Widget _item(int i) {
-    final (label, icon, filled) = _items[i];
-    final active = i == index;
+  Widget _item(String key) {
+    final (label, icon, filled) = _items[key]!;
+    final active = key == this.active;
     final color = active ? brand.main : Palette.slate;
 
     // زرّ المسح في الوسط: دائرةٌ حمراء مرفوعة بحلقةٍ بيضاء — لا يضيع بين الأيقونات
-    if (i == 2) {
+    if (key == 'scan') {
       return Tooltip(
         message: 'امسح الوصل أو أنشئ شحنة',
         child: GestureDetector(
-          onTap: () => onTap(i),
+          onTap: () => onTap(key),
           behavior: HitTestBehavior.opaque,
           child: Stack(
             clipBehavior: Clip.none,
@@ -316,7 +388,7 @@ class _NavBar extends StatelessWidget {
     return Tooltip(
       message: label,
       child: GestureDetector(
-        onTap: () => onTap(i),
+        onTap: () => onTap(key),
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -366,7 +438,14 @@ class _Account extends StatefulWidget {
 class _AccountState extends State<_Account> {
   RequestsPage? returns;
 
-  static const _items = [
+  /// الأدوات بما يفتحه الحساب (docs/plan/87)، و«موظّفو المتجر» لصاحبه
+  static List<(String, IconData, String)> get _items => [
+    for (final item in _all)
+      if (Access.opens(item.$3) && (item.$3 != 'staff' || Access.staffFeature)) item,
+  ];
+
+  static const _all = [
+    ('موظّفو المتجر', Icons.groups_2_rounded, 'staff'),
     ('كشوفات الرواجع', Icons.assignment_return_rounded, 'returns'),
     ('استلام راجع بالباركود', Icons.qr_code_scanner_rounded, 'receive'),
     ('الطابعة — وصولات الطلبات الجديدة', Icons.print_rounded, 'labels'),
@@ -394,6 +473,7 @@ class _AccountState extends State<_Account> {
   }
 
   Future<void> _load() async {
+    if (!Access.can('finance')) return;
     try {
       final r = await Api.instance.requests();
       if (mounted) setState(() => returns = r);

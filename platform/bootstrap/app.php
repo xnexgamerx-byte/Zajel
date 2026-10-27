@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureMainBranch;
 use App\Http\Middleware\EnsureCourier;
 use App\Http\Middleware\EnsureFeature;
 use App\Http\Middleware\EnsureMerchant;
+use App\Http\Middleware\EnsureMerchantPermission;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\IdentifyPlatform;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
@@ -78,6 +79,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'staff'         => EnsureStaff::class,
             'merchant'      => EnsureMerchant::class,
+            // صلاحية موظّف التاجر: merchant.can:finance (docs/plan/87)
+            'merchant.can'  => EnsureMerchantPermission::class,
             'courier'       => EnsureCourier::class,
             'platform-user' => EnsurePlatformUser::class,
             'main-branch'   => EnsureMainBranch::class,

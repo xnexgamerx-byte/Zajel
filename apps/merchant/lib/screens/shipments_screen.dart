@@ -297,6 +297,8 @@ class _ShipmentCard extends StatelessWidget {
                 // موعد المؤجّلة (docs/plan/86)
                 if (row.until != null)
                   Padding(padding: const EdgeInsets.only(top: 4), child: PostponedChip(row.until!)),
+                // أين الراجع الآن (docs/plan/87)
+                if (row.returnPlace != null) ReturnPlace(row.returnPlace!),
                 const SizedBox(height: 2),
                 Row(
                   children: [

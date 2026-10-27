@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import 'api.dart';
 import 'models.dart';
 
@@ -30,7 +32,9 @@ class Demo {
     canProcess: true,
     toPrint: 4,
     printed: 2,
-    attention: 3,
+    attention: 4,
+    // «موظّفو المتجر» مفتوحةٌ في العرض (docs/plan/87)
+    staffTool: true,
     // «تحتاج انتباهك» بتفاصيلها (docs/plan/61)
     attentionItems: [
       AttentionItem(
@@ -40,7 +44,17 @@ class Demo {
         until: DateTime.now().add(const Duration(days: 1)),
       ),
       AttentionItem(
-        row: _row(9, 'أحمد ناصر', 'الشعب', 41000, 'راجع', 'red', urgent: true, hours: 30),
+        row: _row(
+          9,
+          'أحمد ناصر',
+          'الشعب',
+          41000,
+          'راجع',
+          'red',
+          urgent: true,
+          hours: 30,
+          returnPlace: 'راجع عند المندوب',
+        ),
         reason: 'الزبون رفض الاستلام',
         attempts: 2,
       ),
@@ -49,6 +63,23 @@ class Demo {
         reason: 'الهاتف مغلق',
         attempts: 2,
         until: DateTime.now().add(const Duration(days: 2)),
+      ),
+      // الرابعة في «عرض الكل»: الرئيسية تعرض ثلاثاً (docs/plan/87)
+      AttentionItem(
+        row: _row(
+          12,
+          'رسل حيدر',
+          'الحلة',
+          27000,
+          'راجع مؤكد',
+          'red',
+          urgent: true,
+          hours: 28,
+          governorate: 'بابل',
+          returnPlace: 'راجع عند مركز محافظة بابل',
+        ),
+        reason: 'الزبون رفض الاستلام',
+        attempts: 2,
       ),
     ],
     recent: [
@@ -107,12 +138,37 @@ class Demo {
     _row(7, 'مريم سعد', 'المنصور', 52000, 'راجع للتاجر', 'red', hours: 50),
     _row(8, 'كرار عادل', 'الدورة', 19000, 'بالمخزن', 'slate', hours: 52),
     _row(11, 'مريم سعد', 'المنصور', 52000, 'جديد', 'slate', hours: 1),
+    // أين الراجع الآن (docs/plan/87)
+    _row(
+      12,
+      'رسل حيدر',
+      'الحلة',
+      27000,
+      'راجع مؤكد',
+      'red',
+      urgent: true,
+      hours: 28,
+      governorate: 'بابل',
+      returnPlace: 'راجع عند مركز محافظة بابل',
+    ),
+    _row(
+      13,
+      'عباس كاظم',
+      'الأعظمية',
+      36000,
+      'راجع مؤكد',
+      'red',
+      urgent: true,
+      hours: 40,
+      returnPlace: 'راجع في المخزن',
+    ),
   ];
 
   static const _filters = {
     'all': 'الكل',
     'new': 'جديدة',
     'open': 'قيد التوصيل',
+    'warehouse': 'بالمخزن',
     'delivered': 'مسلمة',
     'processing': 'للمعالجة',
     'attention': 'تحتاج انتباهك',
@@ -125,11 +181,17 @@ class Demo {
   static bool _in(RecentShipment s, String f) => switch (f) {
     'new' => s.status == 'جديد',
     'open' => const ['قيد التوصيل', 'بالمخزن'].contains(s.status),
+    'warehouse' || 'courier' => s.status == (f == 'warehouse' ? 'بالمخزن' : 'قيد التوصيل'),
+    'created' => s.status == 'جديد',
+    'pickup' || 'redelivery' => false,
     'delivered' => s.tone == 'green',
     'processing' => s.status == 'للمعالجة',
-    'attention' => s.status == 'مؤجل',
+    'postponed' => s.status == 'مؤجل',
+    'attention' => s.status == 'مؤجل' || s.status.startsWith('راجع') && s.status != 'راجع للتاجر',
     // ما سُلِّم للتاجر خارج التطبيق، في كشوفه (docs/plan/86)
-    'returns' => false,
+    'returns' => s.status == 'راجع مؤكد',
+    'return_courier' => s.returnPlace == 'راجع عند المندوب',
+    'return_hub' => s.returnPlace != null && s.returnPlace != 'راجع عند المندوب',
     _ => s.status != 'راجع للتاجر',
   };
 
@@ -225,8 +287,10 @@ class Demo {
     int hours = 1,
     String governorate = 'بغداد',
     DateTime? until,
+    String? returnPlace,
   }) => RecentShipment(
     id: id,
+    returnPlace: returnPlace,
     number: 'ZA-${20260121 + id}',
     name: name,
     area: area,
@@ -253,6 +317,134 @@ class Demo {
     urgent: s.urgent,
     tone: s.urgent ? 'urgent' : (s.status == 'مسلمة' ? 'green' : 'blue'),
   );
+
+  // ---------------------------------------------------------------- رحلة شحناتك وتقويمها (docs/plan/87)
+
+  static const _states = {
+    'all': 'كل الشحنات',
+    'created': 'جديدة',
+    'pickup': 'بانتظار المندوب',
+    'warehouse': 'بالمخزن',
+    'courier': 'مع المندوب',
+    'redelivery': 'إعادة توصيل',
+    'postponed': 'مؤجلة',
+    'processing': 'للمعالجة',
+    'delivered': 'مسلمة',
+    'return_courier': 'راجع عند المندوب',
+    'return_hub': 'راجع في المخزن',
+    'returns': 'راجع مؤكد',
+  };
+
+  static StatesData states() {
+    final total = _all.where((s) => _in(s, 'all')).length;
+    return StatesData(
+      total: total,
+      tiles: [for (final e in _states.entries) StateTile(e.key, e.value, _all.where((s) => _in(s, e.key)).length)],
+    );
+  }
+
+  static CalendarData calendar({DateTime? from, DateTime? to}) {
+    final now = DateTime.now();
+    final end = DateUtils.dateOnly(to ?? now);
+    final start = DateUtils.dateOnly(from ?? end.subtract(const Duration(days: 6)));
+    final days = <CalendarDay>[];
+    for (var d = start; !d.isAfter(end); d = DateUtils.addDaysToDate(d, 1)) {
+      // أرقامٌ ثابتةٌ لكلّ يوم: لقطة الشاشة لا تتبدّل
+      final seed = d.day * 7 + d.month;
+      final counts = {
+        'delivered': 6 + seed % 9,
+        'open': d == end ? 9 : (d.difference(end).inDays > -3 ? 3 : 0),
+        'postponed': seed % 3,
+        'processing': seed % 2,
+        'returned': 1 + seed % 3,
+      };
+      days.add(CalendarDay(date: d, total: counts.values.fold(0, (a, b) => a + b), counts: counts));
+    }
+    int sum(String k) => days.fold(0, (a, d) => a + d.counts[k]!);
+    final delivered = sum('delivered');
+    final returned = sum('returned');
+    return CalendarData(
+      from: start,
+      to: end,
+      total: days.fold(0, (a, d) => a + d.total),
+      rate: delivered + returned == 0 ? null : (delivered * 100 / (delivered + returned)).round(),
+      buckets: [
+        StateTile('delivered', 'تم التسليم', delivered),
+        StateTile('open', 'قيد التوصيل', sum('open')),
+        StateTile('postponed', 'مؤجل', sum('postponed')),
+        StateTile('processing', 'للمعالجة', sum('processing')),
+        StateTile('returned', 'راجع', returned),
+      ],
+      days: days,
+      byUser: [('أحمد', 31), ('سجى — إدخال', 24)],
+    );
+  }
+
+  // ---------------------------------------------------------------- موظّفو المتجر (docs/plan/87)
+
+  static const _permissions = [
+    StaffPermission('shipments', 'عرض الشحنات', 'قوائم الشحنات وتتبّعها وتقويمها، والبحث فيها'),
+    StaffPermission('create', 'إدخال الشحنات', 'شحنةٌ جديدة باليد أو من صورة أو بالصوت، ومن ملف Excel'),
+    StaffPermission('print', 'الطابعة', 'طباعة وصولات الشحنات الجديدة'),
+    StaffPermission('pickups', 'طلب مندوب', 'طلب مندوبٍ يستلم الشحنات'),
+    StaffPermission('processing', 'المعالجة', 'قرار الشحنات التي لم تُسلَّم: إعادة توصيل، تأجيل، إرجاع'),
+    StaffPermission('finance', 'المالية', 'الرصيد والكشوفات، وطلب الحساب، واستلام الحساب والراجع'),
+    StaffPermission('support', 'الدعم', 'المحادثات مع الشركة'),
+  ];
+
+  static const _roles = [
+    StaffRole('entry', 'موظّف إدخال', ['create', 'print', 'pickups', 'shipments']),
+    StaffRole('accountant', 'محاسب', ['finance', 'shipments']),
+    StaffRole('follow', 'متابعة', ['shipments', 'processing', 'support']),
+  ];
+
+  static final List<StaffMember> _staff = [
+    StaffMember(
+      id: 501,
+      name: 'سجى علي',
+      phone: '07701112233',
+      username: '07701112233',
+      permissions: const ['shipments', 'create', 'print', 'pickups'],
+      role: 'entry',
+      active: true,
+      lastLogin: DateTime.now().subtract(const Duration(hours: 2)),
+    ),
+  ];
+
+  static StaffPage staff() => StaffPage(staff: List.of(_staff), permissions: _permissions, roles: _roles);
+
+  static String _role(List<String> perms) {
+    for (final r in _roles) {
+      if (r.permissions.length == perms.length && r.permissions.every(perms.contains)) return r.key;
+    }
+    return 'custom';
+  }
+
+  static StaffMember saveStaff(Map<String, dynamic> data, {int? id}) {
+    final perms = [for (final p in data['permissions'] as List) '$p'];
+    if ((data['name'] as String? ?? '').trim().isEmpty) {
+      throw ApiError('اكتب اسم الموظّف.', fields: {'name': 'اكتب اسم الموظّف.'});
+    }
+    if (perms.isEmpty) throw ApiError('اختر صلاحيةً واحدةً على الأقلّ.');
+    final i = _staff.indexWhere((s) => s.id == id);
+    final member = StaffMember(
+      id: id ?? 500 + _staff.length + 2,
+      name: '${data['name']}'.trim(),
+      phone: '${data['phone']}',
+      username: '${data['username'] ?? data['phone']}',
+      permissions: perms,
+      role: _role(perms),
+      active: data['active'] as bool? ?? true,
+    );
+    if (i >= 0) {
+      _staff[i] = member;
+    } else {
+      _staff.add(member);
+    }
+    return member;
+  }
+
+  static void deleteStaff(int id) => _staff.removeWhere((s) => s.id == id);
 
   // ---------------------------------------------------------------- اختيار الإشعارات (docs/plan/86)
 
@@ -697,12 +889,8 @@ class Demo {
           printedAt: state == 'printed' ? _ago(10 + i * 5) : null,
         ),
     ],
-    sizes: const [
-      Choice('a6', 'ملصق ١٠×١٥'),
-      Choice('80x120', 'ملصق ٨×١٢'),
-      Choice('100x100', 'ملصق ١٠×١٠'),
-      Choice('a4', 'A4 — أربعة في الورقة'),
-    ],
+    // مقاسا التطبيق (docs/plan/87)
+    sizes: const [Choice('100x100', 'ملصق ١٠٠×١٠٠ ملم'), Choice('80x120', 'ملصق ١٢٠×٨٠ ملم')],
   );
 
   static ReturnReceiptDetail returnReceipt(int id) {

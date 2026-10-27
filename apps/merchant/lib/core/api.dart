@@ -91,6 +91,44 @@ class Api {
     return ShipmentPage.fromJson(await _send(http.get(uri, headers: _headers)));
   }
 
+  /// خانات «رحلة شحناتك اليوم» بأعدادها (docs/plan/87)
+  Future<StatesData> states() async {
+    if (AppConfig.demo) return Demo.states();
+    return StatesData.fromJson(await _send(http.get(_uri('/merchant/states'), headers: _headers)));
+  }
+
+  /// «تقويم الشحنات»: ما أُدخل من يومٍ إلى يوم، وأين صار — وبلا فترةٍ آخر سبعة أيام
+  Future<CalendarData> calendar({DateTime? from, DateTime? to}) async {
+    if (AppConfig.demo) return Demo.calendar(from: from, to: to);
+    String day(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final uri = _uri('/merchant/calendar')
+        .replace(queryParameters: {if (from != null) 'from': day(from), if (to != null) 'to': day(to)});
+    return CalendarData.fromJson(await _send(http.get(uri, headers: _headers)));
+  }
+
+  // ---------------------------------------------------------------- موظّفو المتجر (docs/plan/87)
+
+  Future<StaffPage> staff() async {
+    if (AppConfig.demo) return Demo.staff();
+    return StaffPage.fromJson(await _send(http.get(_uri('/merchant/staff'), headers: _headers)));
+  }
+
+  /// {name, phone, username?, password?, permissions, active?} — والمعرّف لتعديل موظّفٍ قائم
+  Future<StaffMember> saveStaff(Map<String, dynamic> data, {int? id}) async {
+    if (AppConfig.demo) return Demo.saveStaff(data, id: id);
+    final body = await _send(
+      id == null
+          ? http.post(_uri('/merchant/staff'), headers: _headers, body: jsonEncode(data))
+          : http.put(_uri('/merchant/staff/$id'), headers: _headers, body: jsonEncode(data)),
+    );
+    return StaffMember.fromJson((body['staff'] as Map).cast());
+  }
+
+  Future<void> deleteStaff(int id) async {
+    if (AppConfig.demo) return Demo.deleteStaff(id);
+    await _send(http.delete(_uri('/merchant/staff/$id'), headers: _headers));
+  }
+
   Future<ShipmentDetail> shipment(int id) async {
     if (AppConfig.demo) return Demo.shipment(id);
     return ShipmentDetail.fromJson(await _send(http.get(_uri('/merchant/shipments/$id'), headers: _headers)));

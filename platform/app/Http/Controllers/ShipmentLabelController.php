@@ -29,10 +29,16 @@ class ShipmentLabelController extends Controller
      */
     public const SIZES = [
         'a6' => ['ملصق ١٠×١٥', 100, 150],
-        '80x120' => ['ملصق ٨×١٢', 80, 120],
-        '100x100' => ['ملصق ١٠×١٠', 100, 100],
+        '80x120' => ['ملصق ١٢٠×٨٠ ملم', 80, 120],
+        '100x100' => ['ملصق ١٠٠×١٠٠ ملم', 100, 100],
         'a4' => ['A4 — أربعة في الورقة', 105, 148.5],
     ];
+
+    /**
+     * «الطابعة» في تطبيق التاجر (docs/plan/87): مقاسان وحدهما، فيعرف التاجر أيّ ملصقٍ يشتري — المربّع،
+     * والطويل بعرض ٨ سم وطول ١٢.
+     */
+    public const APP_SIZES = ['100x100', '80x120'];
 
     /** ما يُطبع للتاجر: شحناته المدخلة التي لم يستلمها مندوبٌ بعد */
     public const ENTERED = [ShipmentStatus::Created, ShipmentStatus::PendingPickup];
@@ -60,7 +66,7 @@ class ShipmentLabelController extends Controller
      */
     public function app(Request $request, Merchant $merchant): View
     {
-        return $this->render($request, Shipment::query()->where('merchant_id', $merchant->id));
+        return $this->render($request, Shipment::query()->where('merchant_id', $merchant->id), sizes: self::APP_SIZES);
     }
 
     /**
@@ -76,8 +82,10 @@ class ShipmentLabelController extends Controller
         }
     }
 
-    private function render(Request $request, Builder $query, bool $all = false): View
+    /** @param  list<string>|null  $sizes  المقاسات المعروضة، وبلا قيدٍ كلّها */
+    private function render(Request $request, Builder $query, bool $all = false, ?array $sizes = null): View
     {
+        $sizes = $sizes === null ? self::SIZES : array_intersect_key(self::SIZES, array_flip($sizes));
         $ids = collect((array) $request->query('ids'))->map(fn ($id) => (int) $id)->filter()->unique();
 
         abort_if(! $all && $ids->isEmpty(), 404, 'لم تُختَر شحنات للطباعة.');
@@ -95,8 +103,8 @@ class ShipmentLabelController extends Controller
 
         return view('labels.print', [
             'shipments' => $shipments,
-            'size' => array_key_exists((string) $request->query('size'), self::SIZES) ? (string) $request->query('size') : 'a6',
-            'sizes' => self::SIZES,
+            'size' => array_key_exists((string) $request->query('size'), $sizes) ? (string) $request->query('size') : array_key_first($sizes),
+            'sizes' => $sizes,
         ]);
     }
 }

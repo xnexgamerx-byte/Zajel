@@ -20,6 +20,7 @@ class StatusView {
   final Color color;
 
   static const blue = Color(0xFF2F6DB5);
+  static const slate = Color(0xFF5C4644);
 
   static StatusView of(String filter) => switch (filter) {
     'delivered' => const StatusView(
@@ -41,6 +42,54 @@ class StatusView {
       'راجع مؤكّد',
       'أكّدت الشركة رجوعها، وتُسلَّم لك في إيصال الراجع',
       Icons.assignment_return_outlined,
+      Palette.returnRed,
+    ),
+    // خانات «رحلة شحناتك اليوم» (docs/plan/87)
+    'all' => const StatusView('all', 'كل الشحنات', 'كلّ ما لم ينتهِ معك بعد', Icons.inventory_2_outlined, slate),
+    'created' => const StatusView('created', 'جديدة', 'أدخلتها ولم يُطلب لها مندوب', Icons.fiber_new_rounded, slate),
+    'pickup' => const StatusView('pickup', 'بانتظار المندوب', 'ينتظر مندوب الاستلام', Icons.hail_rounded, slate),
+    'new' => const StatusView('new', 'جديدة', 'لم يستلمها مندوبٌ بعد', Icons.fiber_new_rounded, slate),
+    'warehouse' => const StatusView(
+      'warehouse',
+      'بالمخزن',
+      'استُلمت منك، وهي في مخزننا أو بين مراكزنا',
+      Icons.warehouse_outlined,
+      blue,
+    ),
+    'courier' => const StatusView('courier', 'مع المندوب', 'خرجت للتوصيل اليوم', Icons.two_wheeler_rounded, blue),
+    'redelivery' => const StatusView(
+      'redelivery',
+      'إعادة توصيل',
+      'لم تُسلَّم أوّل مرّة، وتُوصَل ثانيةً',
+      Icons.replay_rounded,
+      blue,
+    ),
+    'postponed' => const StatusView(
+      'postponed',
+      'مؤجلة',
+      'اتّفقنا مع الزبون على موعدٍ آخر',
+      Icons.event_rounded,
+      Palette.postponed,
+    ),
+    'processing' => const StatusView(
+      'processing',
+      'للمعالجة',
+      'لم تُسلَّم، وتنتظر قرار المتابعة',
+      Icons.support_agent_rounded,
+      Palette.returnRed,
+    ),
+    'return_courier' => const StatusView(
+      'return_courier',
+      'راجع عند المندوب',
+      'لم يصل مخزننا بعد',
+      Icons.two_wheeler_rounded,
+      Palette.returnRed,
+    ),
+    'return_hub' => const StatusView(
+      'return_hub',
+      'راجع في المخزن',
+      'وصل مخزننا، أو في طريقه إلى فرعك',
+      Icons.warehouse_outlined,
       Palette.returnRed,
     ),
     _ => const StatusView(
@@ -252,7 +301,7 @@ class _StatusScreenState extends State<StatusScreen> {
       textInputAction: TextInputAction.search,
       style: font(13, w6, Palette.ink),
       decoration: InputDecoration(
-        hintText: 'ابحث في ${view.title} بالاسم أو الهاتف أو الرقم',
+        hintText: 'ابحث في «${view.title}» بالاسم أو الهاتف أو الرقم',
         hintStyle: font(12, w5, Palette.muted),
         prefixIcon: Icon(Icons.search_rounded, color: color, size: 21),
         border: InputBorder.none,
@@ -397,6 +446,8 @@ class _StatusScreenState extends State<StatusScreen> {
                         ),
                       // موعد المؤجّلة (docs/plan/86)
                       if (row.until != null) ...[const SizedBox(height: 5), PostponedChip(row.until!)],
+                      // أين الراجع الآن (docs/plan/87)
+                      if (row.returnPlace != null) ReturnPlace(row.returnPlace!),
                       const SizedBox(height: 6),
                       Row(
                         children: [

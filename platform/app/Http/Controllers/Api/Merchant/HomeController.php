@@ -11,6 +11,7 @@ use App\Models\Conversation;
 use App\Models\Shipment;
 use App\Support\FeatureGate;
 use App\Support\MerchantBalance;
+use App\Support\MerchantPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -34,20 +35,24 @@ class HomeController extends Controller
         $counts = ShipmentController::counts($merchant->id);
 
         $hour = (int) now('Asia/Baghdad')->format('G');
+        // موظّف التاجر (docs/plan/87): ما لم يُفتح له لا يصله — لا رصيدٌ لموظّف الإدخال، ولا شحناتٌ لمن لا يراها
+        $can = fn (string $p) => MerchantPermissions::allows($user, $p);
+        $shipments = $can('shipments');
 
         return response()->json([
             'greeting' => $hour < 12 ? 'صباح الخير' : 'مساء الخير',
-            'name' => $merchant->owner_name ?: $merchant->business_name,
+            'name' => MerchantPermissions::isOwner($user) ? ($merchant->owner_name ?: $merchant->business_name) : $user->name,
+            'permissions' => MerchantPermissions::of($user),
             // صورته أو شعاره، وإلّا فارغةٌ يضغطها ليضعها (docs/plan/59)
             'logo' => ProfileController::logoUrl($merchant),
             // الجرس: إعلاناتٌ لم يقرأها، وردودٌ من الشركة على محادثاته
             'unread' => Announcement::for($user)->whereDoesntHave('reads', fn ($q) => $q->where('user_id', $user->id))->count()
-                + Conversation::where('merchant_id', $merchant->id)->where('merchant_unread', true)
-                    ->where('last_author', Converse::STAFF)->count(),
+                + (! $can('support') ? 0 : Conversation::where('merchant_id', $merchant->id)->where('merchant_unread', true)
+                    ->where('last_author', Converse::STAFF)->count()),
             'banners' => $this->banners(),
             // إجمالي المستحقات والمتاح للسحب، وما قيد المطابقة بسببه (docs/plan/49)
-            'balance' => MerchantBalance::of($merchant)->toArray(),
-            'stats' => [
+            'balance' => $can('finance') ? MerchantBalance::of($merchant)->toArray() : null,
+            'stats' => ! $shipments ? null : [
                 'total' => $counts['all'],
                 'delivered' => $counts['delivered'],
                 'in_delivery' => $counts['open'],
@@ -62,20 +67,24 @@ class HomeController extends Controller
                 'returning' => $counts['returning'],
             ],
             // «الطابعة» (docs/plan/79): الجديدة للطباعة، وما طُبع ينتظر المندوب
-            'printer' => LabelController::counts($merchant->id),
+            'printer' => $can('print') ? LabelController::counts($merchant->id) : null,
             'processing' => [
-                'count' => $counts['processing'],
-                'allowed' => (bool) $merchant->can_process,
+                'count' => $can('processing') ? $counts['processing'] : 0,
+                'allowed' => (bool) $merchant->can_process && $can('processing'),
             ],
             // وتفاصيلها في قائمة الرئيسية قبل «آخر الشحنات» (docs/plan/61): هي الأهمّ
-            'attention' => ['count' => $counts['attention'], 'items' => $this->attention($merchant->id)],
+            'attention' => $shipments
+                ? ['count' => $counts['attention'], 'items' => $this->attention($merchant->id)]
+                : ['count' => 0, 'items' => []],
             'tools' => [
-                'import' => FeatureGate::enabled('excel_import'),
-                'waybills' => FeatureGate::enabled('waybills'),
-                'support' => FeatureGate::enabled('conversations'),
-                'ai' => FeatureGate::enabled('order_reading'),
+                'import' => FeatureGate::enabled('excel_import') && $can('create'),
+                'waybills' => FeatureGate::enabled('waybills') && $can('create'),
+                'support' => FeatureGate::enabled('conversations') && $can('support'),
+                'ai' => FeatureGate::enabled('order_reading') && $can('create'),
+                // موظّفو المتجر: لصاحبه، ما دامت الميزة مفتوحة
+                'staff' => FeatureGate::enabled('merchant_staff') && $can(MerchantPermissions::OWNER),
             ],
-            'recent' => $this->recent($merchant->id),
+            'recent' => $shipments ? $this->recent($merchant->id) : [],
         ]);
     }
 
@@ -106,7 +115,7 @@ class HomeController extends Controller
     {
         return Shipment::where('merchant_id', $merchantId)
             ->whereIn('status', array_map(fn ($s) => $s->value, self::ATTENTION))
-            ->with(['city:id,name_ar', 'governorate:id,name_ar', 'lastFailureReason:id,name_ar'])
+            ->with([...ShipmentController::ROW_WITH, 'lastFailureReason:id,name_ar'])
             ->orderBy('status_changed_at')->orderBy('id')
             ->limit(20)
             ->get()
@@ -130,7 +139,7 @@ class HomeController extends Controller
         return Shipment::where('merchant_id', $merchantId)
             // المؤرشفة لا تعود في الرئيسية (docs/plan/81)
             ->where(fn ($q) => ShipmentController::current($q))
-            ->with(['city:id,name_ar', 'governorate:id,name_ar'])
+            ->with(ShipmentController::ROW_WITH)
             ->orderByRaw('case when status in ('.implode(',', array_fill(0, count($needs), '?')).') then 0 else 1 end', $needs)
             ->orderByDesc('status_changed_at')->orderByDesc('id')
             ->limit(5)

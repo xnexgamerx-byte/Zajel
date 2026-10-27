@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\User;
+use App\Support\MerchantPermissions;
 use App\Support\Username;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -98,6 +99,9 @@ class AuthController extends Controller
                     'username' => 'لم يُفتح لمتجرك الدخول إلى البوابة. راجع شركة التوصيل.',
                 ]);
             }
+            if (! MerchantPermissions::active($user)) {
+                throw ValidationException::withMessages(['username' => 'حسابات موظّفي المتاجر غير مفعّلة. راجع صاحب المتجر.']);
+            }
         }
 
         // مندوبٌ موقوف، أو شركةٌ وسيطة تعمل بمفتاح الربط (docs/plan/64): لا يدخل تطبيق المندوب
@@ -144,11 +148,13 @@ class AuthController extends Controller
     private function profile(User $user, Company $company): array
     {
         $merchant = $user->role === UserRole::Merchant ? Merchant::find($user->merchant_id) : null;
+        // موظّف التاجر باسمه هو، وصاحب المتجر باسمه في سجلّ المتجر
+        $owner = $merchant && MerchantPermissions::isOwner($user);
 
         return [
             'user' => [
                 'id'   => $user->id,
-                'name' => $merchant ? ($merchant->owner_name ?: $merchant->business_name) : $user->name,
+                'name' => $owner ? ($merchant->owner_name ?: $merchant->business_name) : $user->name,
                 'role' => $user->role->value,
             ],
             'merchant' => $merchant ? [
@@ -156,6 +162,8 @@ class AuthController extends Controller
                 'store'       => $merchant->business_name,
                 'owner'       => $merchant->owner_name,
                 'can_process' => (bool) $merchant->can_process,
+                // ما يفتحه هذا الحساب (docs/plan/87): صاحب المتجر كلّها ومعها owner
+                'permissions' => MerchantPermissions::of($user),
             ] : null,
             'company' => $this->brand($company),
         ];

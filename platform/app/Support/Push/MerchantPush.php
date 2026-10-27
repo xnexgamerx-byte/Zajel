@@ -3,6 +3,7 @@
 namespace App\Support\Push;
 
 use App\Models\PushDevice;
+use App\Support\MerchantPermissions;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -16,9 +17,10 @@ final class MerchantPush
         try {
             $devices = PushDevice::query()
                 ->whereHas('user', fn ($q) => $q->where('merchant_id', $merchantId))
-                ->with('user:id,notify_prefs')
+                ->with('user:id,role,notify_prefs,merchant_permissions')
                 ->get(['id', 'token', 'user_id'])
-                ->filter(fn (PushDevice $d) => NotifyPrefs::allows($d->user, $kind));
+                // أخبار الشحنات لمن يراها من موظّفيه (docs/plan/87)
+                ->filter(fn (PushDevice $d) => MerchantPermissions::allows($d->user, 'shipments') && NotifyPrefs::allows($d->user, $kind));
 
             $dead = [];
             foreach ($devices->groupBy(fn (PushDevice $d) => NotifyPrefs::channel($d->user)) as $channel => $group) {

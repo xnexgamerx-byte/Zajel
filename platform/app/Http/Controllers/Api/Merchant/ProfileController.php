@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\Conversation;
 use App\Models\Merchant;
+use App\Support\MerchantPermissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -90,8 +91,9 @@ class ProfileController extends Controller
         $fresh = $announcements->filter(fn ($a) => $a->reads->isEmpty())->pluck('id')->all();
         $announce->markRead($announcements, $user);
 
-        $replies = Conversation::where('merchant_id', $merchant->id)->where('merchant_unread', true)
-            ->where('last_author', Converse::STAFF)->orderByDesc('last_message_at')->limit(20)->get();
+        // ردود الدعم لمن يفتح الدعم (docs/plan/87)
+        $replies = ! MerchantPermissions::allows($user, 'support') ? collect() : Conversation::where('merchant_id', $merchant->id)
+            ->where('merchant_unread', true)->where('last_author', Converse::STAFF)->orderByDesc('last_message_at')->limit(20)->get();
 
         return response()->json([
             'data' => $replies->map(fn (Conversation $c) => [
