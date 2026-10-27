@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Merchant;
 
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Support\ShipmentLocation;
@@ -28,8 +29,8 @@ class ShipmentController extends Controller
         'processing' => 'للمعالجة',
         'attention' => 'تحتاج انتباهك',
         'returns' => 'راجع مؤكدة',
-        // ما انتهى معه (docs/plan/81): واصلٌ حاسبناه عليه، وراجعٌ سلّمناه إليه
-        'archive' => 'المؤرشفة',
+        // ما انتهى معه — واصلٌ حاسبناه عليه، وراجعٌ سلّمناه إليه — يخرج من التطبيق إلى كشوفه وحدها
+        // (docs/plan/86)، ويجده البحث برقمه
     ];
 
     public function index(Request $request): JsonResponse
@@ -37,12 +38,15 @@ class ShipmentController extends Controller
         $merchant = $request->attributes->get('merchant');
         $filter = array_key_exists((string) $request->query('filter'), self::FILTERS)
             ? (string) $request->query('filter') : 'all';
+        // بمحافظةٍ واحدة (docs/plan/86): قيد التوصيل، والمسلّمة، وتحتاج انتباهك، والراجع
+        $governorate = (int) $request->query('governorate_id') ?: null;
 
         $page = Shipment::query()
             ->where('merchant_id', $merchant->id)
+            ->when($governorate, fn (Builder $q) => $q->where('governorate_id', $governorate))
             ->with(['city:id,name_ar', 'governorate:id,name_ar'])
             ->search($request->query('q'))
-            // البحث برقمٍ يجد المؤرشفة أيضاً، والقائمة بلا بحثٍ للجارية وحدها (docs/plan/81)
+            // البحث برقمٍ يجد ما انتهى أيضاً، والقائمة بلا بحثٍ للجارية وحدها (docs/plan/81)
             ->where(fn (Builder $q) => $filter === 'all' && filled($request->query('q')) ? $q : self::apply($q, $filter))
             ->orderByDesc('id')
             ->paginate(20)
@@ -50,6 +54,7 @@ class ShipmentController extends Controller
 
         return response()->json([
             'filters' => $this->filters(self::counts($merchant->id)),
+            'governorates' => $filter === 'all' ? [] : self::governorates($merchant->id, $filter),
             'data' => collect($page->items())->map(fn (Shipment $s) => self::row($s))->values(),
             'meta' => [
                 'page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total(),
@@ -138,6 +143,8 @@ class ShipmentController extends Controller
             'city' => $s->city?->name_ar,
             'amount' => (int) $s->cod_amount,
             'at' => ($s->status_changed_at ?? $s->created_at)?->toIso8601String(),
+            // المؤجّلة بموعدها (docs/plan/86): «مؤجل إلى غداً الساعة 9:00 م»
+            'until' => $s->status === ShipmentStatus::Postponed ? $s->scheduled_at?->toIso8601String() : null,
             'status' => $s->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $s->statusLabel(),
             // «للمعالجة» بلون الشركة في التطبيق، والراجع أحمر (docs/plan/50)، والمؤجل أصفر (docs/plan/79)
             'tone' => match ($s->status) {
@@ -159,35 +166,24 @@ class ShipmentController extends Controller
         return match ($filter) {
             'new' => $q->whereIn('status', ShipmentStatus::enteredValues()),
             'open' => $q->whereIn('status', ShipmentStatus::inDeliveryValues()),
-            // ما لم نحاسبه عليه بعد — والمحاسَب في «المؤرشفة»
+            // ما لم نحاسبه عليه بعد — والمحاسَب في كشوفه وحدها
             'delivered' => $q->where(fn ($w) => $w->where('status', ShipmentStatus::PartiallyDelivered->value)
                 ->orWhere(fn ($d) => $d->where('status', ShipmentStatus::Delivered->value)->whereNull('merchant_settled_at'))),
             'processing' => $q->where('status', ShipmentStatus::FailedAttempt->value),
             'attention' => $q->whereIn('status', $values(ShipmentStatus::Postponed, ShipmentStatus::Returning)),
-            // ما زال في طريقه إليه — وما سُلِّم إليه في «المؤرشفة»
+            // ما زال في طريقه إليه — وما سُلِّم إليه في كشوف الراجع وحدها
             'returns' => $q->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at'),
-            'archive' => self::archived($q),
             default => self::current($q),
         };
     }
 
-    /** الجارية: كلّ ما ليس في «المؤرشفة» */
+    /** الجارية: كلّ ما لم ينتهِ معه — لا واصلٌ حاسبناه عليه، ولا راجعٌ سلّمناه إليه */
     public static function current(Builder $q): Builder
     {
         return $q->where(fn ($w) => $w->whereIn('status', array_values(array_diff(
             array_map(fn (ShipmentStatus $s) => $s->value, ShipmentStatus::cases()),
             [ShipmentStatus::Returned->value, ShipmentStatus::Delivered->value],
         )))->orWhere(fn ($d) => $d->where('status', ShipmentStatus::Delivered->value)->whereNull('merchant_settled_at')));
-    }
-
-    /**
-     * «المؤرشفة» (docs/plan/81): ما انتهى مع التاجر فخرج من قوائمه وأرقامه — راجعٌ سلّمناه إليه، وواصلٌ
-     * حاسبناه عليه (merchant_settled_at). يبقى في أرشيفه، ويجده بالبحث برقمه، وفي كشوف حسابه.
-     */
-    public static function archived(Builder $q): Builder
-    {
-        return $q->where(fn ($w) => $w->where('status', ShipmentStatus::Returned->value)
-            ->orWhere(fn ($d) => $d->where('status', ShipmentStatus::Delivered->value)->whereNotNull('merchant_settled_at')));
     }
 
     /**
@@ -203,7 +199,7 @@ class ShipmentController extends Controller
 
         $of = fn (ShipmentStatus ...$s) => (int) collect($s)->sum(fn ($x) => $rows[$x->value] ?? 0);
 
-        // الواصل الذي حاسبناه عليه في «المؤرشفة» مع الراجع الذي سُلِّم إليه (docs/plan/81)
+        // الواصل الذي حاسبناه عليه والراجع الذي سُلِّم إليه خارج التطبيق، في كشوفه (docs/plan/81، 86)
         $settled = Shipment::where('merchant_id', $merchantId)->where('status', ShipmentStatus::Delivered->value)
             ->whereNotNull('merchant_settled_at')->count();
         $archived = $of(ShipmentStatus::Returned) + $settled;
@@ -217,13 +213,31 @@ class ShipmentController extends Controller
             'attention' => $of(ShipmentStatus::Postponed, ShipmentStatus::Returning),
             'returns' => Shipment::where('merchant_id', $merchantId)
                 ->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_confirmed_at')->count(),
-            'archive' => $archived,
             // «رحلة شحناتك» في الرئيسية (docs/plan/70): أين هي الآن، محطّةً محطّة
             'waiting' => $of(ShipmentStatus::Created, ShipmentStatus::PendingPickup),
             'warehouse' => $of(ShipmentStatus::PickedUp, ShipmentStatus::AtHub, ShipmentStatus::InTransit),
             'courier' => $of(ShipmentStatus::OutForDelivery),
             'returning' => $of(ShipmentStatus::Returning),
         ];
+    }
+
+    /**
+     * محافظات الشريحة بعدد ما في كلٍّ (docs/plan/86) — للفرز بمحافظة، الأكثر أوّلاً.
+     *
+     * @return list<array{id: int, name: string, count: int}>
+     */
+    public static function governorates(int $merchantId, string $filter): array
+    {
+        $counts = Shipment::query()->where('merchant_id', $merchantId)
+            ->where(fn (Builder $q) => self::apply($q, $filter))
+            ->whereNotNull('governorate_id')
+            ->selectRaw('governorate_id, count(*) as c')->groupBy('governorate_id')
+            ->toBase()->get()->pluck('c', 'governorate_id');
+        $names = Governorate::query()->whereIn('id', $counts->keys())->pluck('name_ar', 'id');
+
+        return $counts->map(fn ($c, $id) => ['id' => (int) $id, 'name' => (string) ($names[$id] ?? ''), 'count' => (int) $c])
+            ->filter(fn ($g) => $g['name'] !== '')
+            ->sortByDesc('count')->values()->all();
     }
 
     /** @param array<string, int> $counts */

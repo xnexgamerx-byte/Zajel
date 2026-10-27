@@ -8,6 +8,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
 use App\Support\MerchantNotice;
+use App\Support\PostponedUntil;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -89,7 +90,7 @@ class ProcessFailedAttempt
 
             // «عولجت شحنتك» في جرس التاجر (docs/plan/81) — وقراره هو لا يُشعَر به
             if ($by === 'staff') {
-                MerchantNotice::processed($shipment, $action, $until ? Carbon::parse($until)->toDateString() : null);
+                MerchantNotice::processed($shipment, $action, $until ? PostponedUntil::label(Carbon::parse($until)) : null);
             }
 
             return $to;

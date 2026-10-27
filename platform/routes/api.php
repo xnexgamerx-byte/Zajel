@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceContro
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
 use App\Http\Controllers\Api\Merchant\ImportController as MerchantImportController;
 use App\Http\Controllers\Api\Merchant\LabelController as MerchantLabelController;
+use App\Http\Controllers\Api\Merchant\NotificationSettingsController as MerchantNotificationSettingsController;
 use App\Http\Controllers\Api\Merchant\PickupController as MerchantPickupController;
 use App\Http\Controllers\Api\Merchant\ProcessingController as MerchantProcessingController;
 use App\Http\Controllers\Api\Merchant\ProfileController as MerchantProfileController;
@@ -186,6 +187,10 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::post('/logo', [MerchantProfileController::class, 'uploadLogo'])->middleware('throttle:20,60')->name('logo.store');
             Route::delete('/logo', [MerchantProfileController::class, 'deleteLogo'])->name('logo.destroy');
             Route::get('/notifications', [MerchantProfileController::class, 'notifications'])->name('notifications');
+            // ما يصل هاتفه منها، وبصوتٍ أم بلا صوت (docs/plan/86)
+            Route::get('/notifications/settings', [MerchantNotificationSettingsController::class, 'show'])->name('notifications.settings');
+            Route::put('/notifications/settings', [MerchantNotificationSettingsController::class, 'update'])->middleware('throttle:30,1')
+                ->name('notifications.settings.update');
             Route::get('/shipments', [MerchantShipmentController::class, 'index'])->name('shipments.index');
             Route::get('/shipments/{shipment}', [MerchantShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.show');
             // «طلب جديد» (docs/plan/52): نموذج البوابة نفسه

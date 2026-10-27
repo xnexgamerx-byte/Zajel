@@ -44,6 +44,8 @@ class User extends Authenticatable
         return [
             'permissions'  => 'array',
             'home_layout'  => 'array',
+            // ما يصل هاتف التاجر من الإشعارات، وبصوتٍ أم بلا صوت (docs/plan/86)
+            'notify_prefs' => 'array',
             'email_verified_at' => 'datetime',
             'last_login_at'     => 'datetime',
             'password'          => 'hashed',

@@ -303,6 +303,7 @@ class Demo {
         },
         until: until,
         withCourier: action == 'return' ? true : null,
+        merchant: c.merchant,
       ),
     );
     _log(c.id, c.number, c.name, action);
@@ -545,7 +546,17 @@ class Demo {
       }
       _board['postponed']!.insert(
         0,
-        _row(s.id, s.number, s.recipient, s.place, s.amount, ('postponed', 'مؤجل'), until: until, minutes: 0),
+        _row(
+          s.id,
+          s.number,
+          s.recipient,
+          s.place,
+          s.amount,
+          ('postponed', 'مؤجل'),
+          until: until,
+          minutes: 0,
+          merchant: s.merchant ?? 'متجر الوردة',
+        ),
       );
       return 'تم تحديث الشحنة ${s.number} إلى «مؤجل» إلى ${postponedText(until)}.';
     }
@@ -566,6 +577,7 @@ class Demo {
       ('postponed', 'مؤجل'),
       until: until,
       reason: s.reason,
+      merchant: s.merchant ?? 'متجر الوردة',
     );
     return 'صار موعد ${s.number}: ${postponedText(until)}.';
   }
@@ -731,13 +743,14 @@ class Demo {
     bool? withCourier,
     String? reason,
     int minutes = 120,
+    String merchant = 'متجر الوردة',
   }) => FoundShipment(
     id: id,
     number: number,
     recipient: name,
     phone: '07801234567',
     place: place,
-    merchant: 'متجر الوردة',
+    merchant: merchant,
     status: status.$1,
     statusLabel: status.$2,
     amount: amount,
@@ -753,8 +766,27 @@ class Demo {
     return {
       'in_delivery': [
         _row(301, '180301', 'علي حسين', 'بغداد · المنصور', 35000, ('out_for_delivery', 'قيد التوصيل'), minutes: 40),
-        _row(302, '180302', 'هدى كريم', 'بغداد · الأعظمية', 48000, ('out_for_delivery', 'قيد التوصيل'), minutes: 75),
-        _row(303, '180303', 'مصطفى جبار', 'بابل · الحلة', 22000, ('out_for_delivery', 'قيد التوصيل'), minutes: 160),
+        _row(
+          302,
+          '180302',
+          'هدى كريم',
+          'بغداد · الأعظمية',
+          48000,
+          ('out_for_delivery', 'قيد التوصيل'),
+          minutes: 75,
+          merchant: 'أزياء ليلى',
+        ),
+        // يومٌ وأكثر بلا تحديث (docs/plan/86)
+        _row(
+          303,
+          '180303',
+          'مصطفى جبار',
+          'بابل · الحلة',
+          22000,
+          ('out_for_delivery', 'قيد التوصيل'),
+          minutes: 26 * 60,
+          merchant: 'بيت العطور',
+        ),
       ],
       'postponed': [
         _row(
@@ -776,6 +808,9 @@ class Demo {
           ('postponed', 'مؤجل'),
           until: DateTime(today.year, today.month, today.day + 2),
           reason: 'خارج المحافظة',
+          // مؤجّلةٌ منذ يومين وأكثر (docs/plan/86)
+          minutes: 50 * 60,
+          merchant: 'متجر النخيل',
         ),
       ],
       'redelivery': [

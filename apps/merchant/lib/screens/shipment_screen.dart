@@ -385,6 +385,8 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
               Text('آخر تحديث: ${d.lastStatus ?? d.row.status}', style: font(14, w8, Palette.ink, height: 1.4)),
               Text(when(d.lastAt ?? d.row.at), style: font(12, w6, Palette.slate, height: 1.4)),
               if (d.courier != null) Text('مع المندوب: ${d.courier}', style: font(12.5, w7, brand.main, height: 1.4)),
+              // موعد المؤجّلة (docs/plan/86)
+              if (d.row.until != null) ...[const SizedBox(height: 4), PostponedChip(d.row.until!, size: 12)],
             ],
           ),
         ),

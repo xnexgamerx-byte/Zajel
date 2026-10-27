@@ -354,6 +354,11 @@ class ChangeShipmentStatus
                 MerchantNotice::delivered($shipment);
             }
 
+            // «لم تُسلَّم — للمعالجة» (docs/plan/86)
+            if ($to === ShipmentStatus::FailedAttempt) {
+                MerchantNotice::failed($shipment);
+            }
+
             return $shipment->refresh();
         });
     }

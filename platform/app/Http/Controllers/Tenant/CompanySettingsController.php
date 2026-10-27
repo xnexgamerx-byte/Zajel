@@ -66,6 +66,8 @@ class CompanySettingsController extends Controller
             'notify_amount_change' => ['sometimes', 'boolean'],
             // إشعار التاجر بوصول شحنته وبقرار معالجتها (docs/plan/81)
             'notify_delivered' => ['sometimes', 'boolean'],
+            // ولم تُسلَّم — للمعالجة (docs/plan/86)
+            'notify_failed' => ['sometimes', 'boolean'],
             'notify_processed' => ['sometimes', 'boolean'],
             // إلزام المندوب بتفعيل موقع هاتفه (docs/plan/62)
             'courier_require_location' => ['sometimes', 'boolean'],
@@ -114,6 +116,7 @@ class CompanySettingsController extends Controller
             'payout_offered' => implode(',', array_keys(PayoutMethods::offered($company))),
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
             'notify_delivered' => MerchantNotice::deliveredEnabled($company) ? '1' : '0',
+            'notify_failed' => MerchantNotice::failedEnabled($company) ? '1' : '0',
             'notify_processed' => MerchantNotice::processedEnabled($company) ? '1' : '0',
             'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
             'reading_batch_max' => BatchReading::max($company),
@@ -132,7 +135,7 @@ class CompanySettingsController extends Controller
         if (array_key_exists('notify_amount_change', $data)) {
             data_set($settings, 'notify.amount_change', (bool) $data['notify_amount_change']);
         }
-        foreach (['delivered', 'processed'] as $notice) {
+        foreach (['delivered', 'failed', 'processed'] as $notice) {
             if (array_key_exists("notify_{$notice}", $data)) {
                 data_set($settings, "notify.{$notice}", (bool) $data["notify_{$notice}"]);
             }
@@ -171,6 +174,7 @@ class CompanySettingsController extends Controller
             'payout_offered' => implode(',', array_keys(PayoutMethods::offered($company))),
             'notify_amount_change' => MerchantNotice::amountChangeEnabled($company) ? '1' : '0',
             'notify_delivered' => MerchantNotice::deliveredEnabled($company) ? '1' : '0',
+            'notify_failed' => MerchantNotice::failedEnabled($company) ? '1' : '0',
             'notify_processed' => MerchantNotice::processedEnabled($company) ? '1' : '0',
             'courier_require_location' => CourierLocation::required($company) ? '1' : '0',
             'reading_batch_max' => BatchReading::max($company),

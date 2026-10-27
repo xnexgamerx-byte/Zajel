@@ -46,7 +46,8 @@ final class Fcm
      * @param  array<string, string>  $data
      * @return list<string> الرموز التي رفضتها Firebase نهائياً، لتُمسح من الجدول
      */
-    public static function send(array $tokens, string $title, string $body, array $data = []): array
+    /** @param  string|null  $channel  قناة أندرويد: بصوتٍ أو بلا صوت (docs/plan/86) */
+    public static function send(array $tokens, string $title, string $body, array $data = [], ?string $channel = null): array
     {
         $creds = self::credentials();
 
@@ -69,7 +70,7 @@ final class Fcm
                     'token' => $token,
                     'notification' => ['title' => $title, 'body' => $body],
                     'data' => array_map('strval', $data),
-                    'android' => ['priority' => 'HIGH'],
+                    'android' => ['priority' => 'HIGH'] + ($channel ? ['notification' => ['channel_id' => $channel]] : []),
                 ],
             ]);
 

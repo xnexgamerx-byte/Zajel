@@ -144,6 +144,7 @@ class RecentShipment {
     this.tone = 'slate',
     this.governorate,
     this.city,
+    this.until,
   });
 
   factory RecentShipment.fromJson(Map<String, dynamic> j) => RecentShipment(
@@ -158,11 +159,15 @@ class RecentShipment {
     tone: j['tone'] as String? ?? 'slate',
     governorate: j['governorate'] as String?,
     city: j['city'] as String?,
+    until: DateTime.tryParse(j['until'] as String? ?? '')?.toLocal(),
   );
 
   final int id;
   final String number;
   final String name;
+
+  /// المؤجّلة بموعدها (docs/plan/86): «مؤجل إلى غداً الساعة 9:00 م»
+  final DateTime? until;
 
   /// المنطقة، أو المحافظة إن لم تُحدَّد — ما يرسله النظام القديم وحده
   final String area;
@@ -196,6 +201,18 @@ class ShipmentFilter {
   final int count;
 }
 
+/// محافظةٌ في شريحة، بعدد ما فيها (docs/plan/86): «بغداد 12»
+class GovernorateCount {
+  GovernorateCount({required this.id, required this.name, required this.count});
+
+  factory GovernorateCount.fromJson(Map<String, dynamic> j) =>
+      GovernorateCount(id: j['id'] as int, name: j['name'] as String? ?? '', count: j['count'] as int? ?? 0);
+
+  final int id;
+  final String name;
+  final int count;
+}
+
 /// صفحةٌ من «شحناتي»: GET /api/v1/merchant/shipments
 class ShipmentPage {
   ShipmentPage({
@@ -204,6 +221,7 @@ class ShipmentPage {
     required this.page,
     required this.lastPage,
     required this.total,
+    this.governorates = const [],
   });
 
   factory ShipmentPage.fromJson(Map<String, dynamic> j) => ShipmentPage(
@@ -212,13 +230,35 @@ class ShipmentPage {
     page: j['meta']['page'] as int,
     lastPage: j['meta']['last_page'] as int,
     total: j['meta']['total'] as int,
+    governorates: [
+      for (final g in (j['governorates'] as List?) ?? const []) GovernorateCount.fromJson((g as Map).cast()),
+    ],
   );
 
+  /// محافظات الشريحة للفرز بها (docs/plan/86)
+  final List<GovernorateCount> governorates;
   final List<ShipmentFilter> filters;
   final List<RecentShipment> items;
   final int page;
   final int lastPage;
   final int total;
+}
+
+/// ما يصل هاتف التاجر من الإشعارات، وبصوتٍ أم بلا صوت (docs/plan/86)
+class NotifySettings {
+  NotifySettings({required this.kinds, required this.sound});
+
+  factory NotifySettings.fromJson(Map<String, dynamic> j) => NotifySettings(
+    kinds: [
+      for (final k in (j['kinds'] as List?) ?? const [])
+        (key: (k as Map)['key'] as String, label: k['label'] as String? ?? '', on: k['on'] as bool? ?? true),
+    ],
+    sound: j['sound'] as bool? ?? true,
+  );
+
+  /// delivered · failed · processed · amount
+  final List<({String key, String label, bool on})> kinds;
+  final bool sound;
 }
 
 /// سطرٌ في مسار الشحنة

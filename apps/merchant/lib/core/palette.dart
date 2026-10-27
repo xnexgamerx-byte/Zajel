@@ -137,6 +137,28 @@ String money(int value) {
   return out.toString();
 }
 
+/// موعدٌ بساعته، لا يومٌ وحده: منتصف الليل يعني «اليوم كلّه» (docs/plan/83)
+bool hasHour(DateTime at) => at.hour != 0 || at.minute != 0;
+
+const _weekdays = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+
+/// موعد التأجيل بكلام الناس (docs/plan/86): «اليوم»، «غداً الساعة 9:00 م»، «الخميس 30/10» — و«فات موعده»
+/// ليومٍ مضى
+String postponedText(DateTime at) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final days = DateTime(at.year, at.month, at.day).difference(today).inDays;
+  final day = switch (days) {
+    < 0 => 'فات موعده ${at.day}/${at.month}',
+    0 => 'اليوم',
+    1 => 'غداً',
+    _ => '${_weekdays[at.weekday - 1]} ${at.day}/${at.month}',
+  };
+  if (!hasHour(at)) return day;
+  final h = at.hour % 12 == 0 ? 12 : at.hour % 12;
+  return '$day الساعة $h:${at.minute.toString().padLeft(2, '0')} ${at.hour < 12 ? 'ص' : 'م'}';
+}
+
 /// «اليوم 10:45 ص»، «أمس 04:15 م»، أو التاريخ
 String when(DateTime? at) {
   if (at == null) return '';

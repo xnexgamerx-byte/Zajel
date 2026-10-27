@@ -6,6 +6,7 @@ use App\Actions\Shipments\CreateShipment;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Models\Company;
+use App\Models\Governorate;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
@@ -227,11 +228,11 @@ class MerchantApiTest extends TestCase
         $this->shipment('زبون راجع', ShipmentStatus::Returned);
 
         $token = $this->token();
-        // الراجع المسلَّم في «المؤرشفة» لا في الجارية (docs/plan/81)
+        // الراجع المسلَّم خارج التطبيق، في كشوفه (docs/plan/81، 86)
         $list = $this->withToken($token)->getJson($this->api('/merchant/shipments'))->assertOk()
             ->assertJsonPath('meta.total', 3);
         $chips = collect($list->json('filters'))->pluck('count', 'key');
-        $this->assertSame(['all' => 3, 'new' => 0, 'open' => 1, 'delivered' => 1, 'processing' => 1, 'attention' => 0, 'returns' => 0, 'archive' => 1], $chips->all());
+        $this->assertSame(['all' => 3, 'new' => 0, 'open' => 1, 'delivered' => 1, 'processing' => 1, 'attention' => 0, 'returns' => 0], $chips->all());
 
         $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=delivered'))->assertOk()
             ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'محمد علي');
@@ -302,7 +303,7 @@ class MerchantApiTest extends TestCase
             ->assertJsonPath('balance.pending_count', 1);
     }
 
-    public function test_settled_deliveries_and_handed_returns_move_to_the_archive(): void
+    public function test_settled_deliveries_and_handed_returns_leave_the_app_for_the_statements(): void
     {
         $settled = $this->shipment('واصل محاسَب', ShipmentStatus::Delivered);
         $this->shipment('واصل لم يُحاسَب', ShipmentStatus::Delivered);
@@ -315,10 +316,11 @@ class MerchantApiTest extends TestCase
             ->assertJsonPath('meta.total', 2)->json('filters'))->pluck('count', 'key');
         $this->assertSame(2, $chips['all']);
         $this->assertSame(1, $chips['delivered']);
-        $this->assertSame(2, $chips['archive']);
-
+        // لا شريحة لها في التطبيق (docs/plan/86): في كشوفه وحدها
+        $this->assertArrayNotHasKey('archive', $chips->all());
         $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=archive'))->assertOk()
-            ->assertJsonPath('meta.total', 2)->assertJsonCount(2, 'data');
+            ->assertJsonPath('meta.total', 2)->assertJsonPath('data', fn ($rows) => collect($rows)->pluck('name')
+                ->doesntContain('واصل محاسَب') && collect($rows)->pluck('name')->doesntContain('راجع سُلّم'));
         $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=delivered'))->assertOk()
             ->assertJsonPath('data.0.name', 'واصل لم يُحاسَب')->assertJsonPath('meta.total', 1);
         // يجده بالبحث برقمه
@@ -328,5 +330,35 @@ class MerchantApiTest extends TestCase
         $this->withToken($token)->getJson($this->api('/merchant/home'))->assertOk()
             ->assertJsonPath('stats.total', 2)
             ->assertJsonPath('recent', fn ($recent) => collect($recent)->pluck('name')->doesntContain('واصل محاسَب'));
+    }
+
+    public function test_a_status_list_filters_by_governorate_and_shows_the_postponed_date(): void
+    {
+        $baghdad = $this->shipment('زبون بغداد', ShipmentStatus::OutForDelivery);
+        $other = $this->shipment('زبون بابل', ShipmentStatus::OutForDelivery);
+        $babil = Governorate::query()->whereKeyNot($this->baghdad()->id)->firstOrFail();
+        Tenancy::runFor($this->company, fn () => $other->forceFill(['governorate_id' => $babil->id, 'city_id' => null])->save());
+        $postponed = $this->shipment('زبون مؤجل', ShipmentStatus::Postponed);
+        $at = now()->addDay()->setTime(21, 0);
+        Tenancy::runFor($this->company, fn () => $postponed->forceFill(['scheduled_at' => $at])->save());
+        $token = $this->token();
+
+        // محافظات الشريحة بأعدادها، والفرز بواحدةٍ منها (docs/plan/86)
+        $open = $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=open'))->assertOk();
+        $this->assertEqualsCanonicalizing(
+            [[$this->baghdad()->id, 1], [$babil->id, 1]],
+            collect($open->json('governorates'))->map(fn ($g) => [$g['id'], $g['count']])->all(),
+        );
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=open&governorate_id='.$babil->id))->assertOk()
+            ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.number', $other->number);
+        $this->assertSame([], $this->withToken($token)->getJson($this->api('/merchant/shipments'))->json('governorates'));
+
+        // المؤجّلة بموعدها في القائمة والشحنة
+        $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=attention'))->assertOk()
+            ->assertJsonPath('data.0.until', $at->toIso8601String());
+        $this->withToken($token)->getJson($this->api("/merchant/shipments/{$postponed->id}"))->assertOk()
+            ->assertJsonPath('until', $at->toIso8601String());
+        $this->withToken($token)->getJson($this->api("/merchant/shipments/{$baghdad->id}"))->assertOk()
+            ->assertJsonPath('until', null);
     }
 }

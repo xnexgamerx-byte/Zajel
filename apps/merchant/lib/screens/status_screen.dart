@@ -84,6 +84,10 @@ class _StatusScreenState extends State<StatusScreen> {
   String? error;
   int ticket = 0;
 
+  /// محافظةٌ واحدة من الشريحة (docs/plan/86)، ومحافظاتها بأعدادها
+  int? governorate;
+  List<GovernorateCount> governorates = [];
+
   StatusView get view => widget.view;
   Color get color => view.color;
 
@@ -114,14 +118,23 @@ class _StatusScreenState extends State<StatusScreen> {
     final mine = ++ticket;
     setState(() => (loading = true, error = null));
     try {
-      final r = await Api.instance.shipments(filter: view.filter, q: search.text.trim(), page: p);
+      final r = await Api.instance.shipments(
+        filter: view.filter,
+        q: search.text.trim(),
+        page: p,
+        governorateId: governorate,
+      );
       if (!mounted || mine != ticket) return;
       setState(() {
         items = p == 1 ? r.items : [...items, ...r.items];
         page = r.page;
         lastPage = r.lastPage;
-        // العدد في الرأس عدد الحالة كلّها، لا ما طابق البحث
-        total = r.filters.where((f) => f.key == view.filter).firstOrNull?.count ?? r.total;
+        if (p == 1) governorates = r.governorates;
+        // العدد في الرأس عدد الحالة كلّها — أو محافظتها إن اختيرت — لا ما طابق البحث
+        final whole = r.filters.where((f) => f.key == view.filter).firstOrNull?.count ?? r.total;
+        total = governorate == null
+            ? whole
+            : governorates.where((g) => g.id == governorate).firstOrNull?.count ?? r.total;
       });
     } on ApiError catch (e) {
       if (mounted && mine == ticket) setState(() => error = e.message);
@@ -143,7 +156,13 @@ class _StatusScreenState extends State<StatusScreen> {
         _hero(context),
         Transform.translate(
           offset: const Offset(0, -22),
-          child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _search()),
+          child: Column(
+            children: [
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _search()),
+              // بمحافظة (docs/plan/86): تظهر حين في الشريحة أكثر من محافظة
+              if (governorates.length > 1 || governorate != null) ...[const SizedBox(height: 8), _governorates()],
+            ],
+          ),
         ),
         Expanded(child: _list()),
       ],
@@ -180,7 +199,7 @@ class _StatusScreenState extends State<StatusScreen> {
                 ),
               ),
               const Spacer(),
-              Text('حالة الشحنات', style: font(12, w7, Colors.white.withValues(alpha: .85))),
+              Text('رحلة شحناتك اليوم', style: font(12, w7, Colors.white.withValues(alpha: .85))),
             ],
           ),
           const SizedBox(height: 14),
@@ -241,6 +260,46 @@ class _StatusScreenState extends State<StatusScreen> {
       ),
     ),
   );
+
+  /// شرائح المحافظات: «كل المحافظات»، ثم كلّ محافظةٍ بعددها — الأكثر أوّلاً
+  Widget _governorates() {
+    final all = governorates.fold<int>(0, (n, g) => n + g.count);
+    Widget chip(String label, bool on, VoidCallback onTap) => Padding(
+      padding: const EdgeInsetsDirectional.only(end: 6),
+      child: ChoiceChip(
+        selected: on,
+        showCheckmark: false,
+        onSelected: (_) => onTap(),
+        selectedColor: color,
+        backgroundColor: Colors.white,
+        side: BorderSide(color: on ? color : Palette.line),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        visualDensity: VisualDensity.compact,
+        label: Text(label, style: font(12, w7, on ? Colors.white : Palette.ink)),
+      ),
+    );
+    void pick(int? id) {
+      if (governorate == id) return;
+      setState(() => governorate = id);
+      _reload();
+    }
+
+    return SizedBox(
+      height: 38,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          chip(
+            governorate == null ? 'كل المحافظات ${money(all)}' : 'كل المحافظات',
+            governorate == null,
+            () => pick(null),
+          ),
+          for (final g in governorates) chip('${g.name} ${money(g.count)}', governorate == g.id, () => pick(g.id)),
+        ],
+      ),
+    );
+  }
 
   Widget _list() {
     if (items.isEmpty) {
@@ -336,6 +395,8 @@ class _StatusScreenState extends State<StatusScreen> {
                             Expanded(child: Text(row.place, style: font(12, w6, Palette.slate, height: 1.35))),
                           ],
                         ),
+                      // موعد المؤجّلة (docs/plan/86)
+                      if (row.until != null) ...[const SizedBox(height: 5), PostponedChip(row.until!)],
                       const SizedBox(height: 6),
                       Row(
                         children: [

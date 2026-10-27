@@ -264,8 +264,22 @@ class _BoardScreenState extends State<BoardScreen> {
     ),
   );
 
-  /// بطاقة الشحنة: شريطٌ بلون الخانة، والزبون ومنطقته، وما يخصّ الخانة (الموعد، أو بيد المندوب)، والرقم والمبلغ
+  /// بلا تحديثٍ طويلاً (docs/plan/86): قيد التوصيل بعد ٢٤ ساعة، والمؤجّل بعد ٤٨ — 0 لا، 1 تجاوزها، 2 ضعفها
+  int _stale(FoundShipment s) {
+    final limit = switch (view.kind) {
+      'in_delivery' => 24,
+      'postponed' => 48,
+      _ => null,
+    };
+    if (limit == null || s.since == null) return 0;
+    final hours = DateTime.now().difference(s.since!).inHours;
+    return hours >= limit * 2 ? 2 : (hours >= limit ? 1 : 0);
+  }
+
+  /// بطاقة الشحنة: شريطٌ بلون الخانة، والمتجر (اسم البيج) ومنطقة زبونه، وما يخصّ الخانة (الموعد، أو بيد
+  /// المندوب)، والرقم والمبلغ. وما طال بلا تحديثٍ أعمق لوناً
   Widget _card(FoundShipment s) {
+    final stale = _stale(s);
     final extra = [
       if (s.withCourier == true) 'بيد المندوب ${s.courier ?? ''}'.trim(),
       if (s.withCourier == false) 'استُلم في المخزن',
@@ -277,7 +291,13 @@ class _BoardScreenState extends State<BoardScreen> {
       shadow: cardShadow,
       onTap: () => _open(s),
       child: Ink(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+        decoration: BoxDecoration(
+          color: stale == 0 ? Colors.white : Color.lerp(Colors.white, view.color, stale == 1 ? .08 : .17),
+          borderRadius: BorderRadius.circular(18),
+          border: stale == 0
+              ? null
+              : Border.all(color: view.color.withValues(alpha: stale == 1 ? .35 : .7), width: 1.2),
+        ),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -299,9 +319,10 @@ class _BoardScreenState extends State<BoardScreen> {
                     children: [
                       Row(
                         children: [
+                          // اسم البيج لا اسم الزبون (docs/plan/86): به تُعرف الشحنة عند الاتصال
                           Expanded(
                             child: Text(
-                              s.recipient,
+                              (s.merchant ?? '').isNotEmpty ? s.merchant! : s.recipient,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: font(14, w8, Palette.ink, height: 1.3),
@@ -316,11 +337,25 @@ class _BoardScreenState extends State<BoardScreen> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        [s.place, if ((s.merchant ?? '').isNotEmpty) s.merchant!].join(' · '),
+                        s.place,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: font(12, w6, Palette.slate, height: 1.4),
                       ),
+                      if (stale > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.hourglass_bottom_rounded, size: 14, color: view.ink),
+                              const SizedBox(width: 4),
+                              Text(
+                                'بلا تحديث ${ago(DateTime.now().difference(s.since!).inMinutes)}',
+                                style: font(11.5, w8, view.ink, height: 1.3),
+                              ),
+                            ],
+                          ),
+                        ),
                       if (extra.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),

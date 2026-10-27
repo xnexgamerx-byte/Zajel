@@ -4,6 +4,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import 'notify_settings_screen.dart';
 import 'shipment_screen.dart';
 import '../widgets/page.dart';
 import 'support_screen.dart' show ThreadScreen;
@@ -61,7 +62,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         bottom: false,
         child: Column(
           children: [
-            const PageBar(title: 'الإشعارات', subtitle: 'إعلانات شركتك، وردودها على رسائلك'),
+            PageBar(
+              title: 'الإشعارات',
+              subtitle: 'إعلانات شركتك، وردودها على رسائلك',
+              // ما يصل هاتفك منها، وبصوتٍ أم بلا صوت (docs/plan/86)
+              trailing: IconButton(
+                tooltip: 'اختيار الإشعارات',
+                onPressed: () => openNotifySettings(context, brand),
+                icon: Icon(Icons.tune_rounded, color: brand.main),
+              ),
+            ),
             Expanded(
               child: list == null
                   ? Waiting(brand: brand, error: error, onRetry: _load)

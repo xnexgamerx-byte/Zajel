@@ -11,10 +11,11 @@ use App\Support\Push\MerchantPush;
 
 /**
  * إشعارٌ لتاجرٍ بعينه في جرس تطبيقه وبوابته (docs/plan/61، 81): «تغيّر مبلغ وصلك»، و«وصلت شحنتك»،
- * و«عولجت شحنتك» بقرارها — إعادة توصيل أو تأجيل أو راجع مؤكد.
+ * و«لم تُسلَّم — للمعالجة» (docs/plan/86)، و«عولجت شحنتك» بقرارها — إعادة توصيل أو تأجيل أو راجع مؤكد.
  *
- * كلٌّ يُطفأ ويُشغَّل من «بيانات الشركة» (notify.amount_change · notify.delivered · notify.processed)،
- * وهو شغّالٌ ما لم يُطفأ. ولا يُشعَر التاجر بما فعله هو بنفسه.
+ * كلٌّ يُطفأ ويُشغَّل من «بيانات الشركة» (notify.amount_change · notify.delivered · notify.failed ·
+ * notify.processed)، وهو شغّالٌ ما لم يُطفأ. ولا يُشعَر التاجر بما فعله هو بنفسه. وهاتفه يصله منها ما
+ * اختاره هو، بصوتٍ أو بلا صوت (NotifyPrefs).
  */
 final class MerchantNotice
 {
@@ -45,12 +46,17 @@ final class MerchantNotice
                 .($shipment->recipient_name && $shipment->recipient_name !== Shipment::UNNAMED_RECIPIENT ? " — زبونك {$shipment->recipient_name}" : '')
                 .'. وتحدّث في وصلك وحسابك.',
             'created_by_user_id' => $actor?->id,
-        ]);
+        ], 'amount');
     }
 
     public static function deliveredEnabled(?Company $company): bool
     {
         return (bool) ($company?->setting('notify.delivered', true) ?? true);
+    }
+
+    public static function failedEnabled(?Company $company): bool
+    {
+        return (bool) ($company?->setting('notify.failed', true) ?? true);
     }
 
     public static function processedEnabled(?Company $company): bool
@@ -70,7 +76,23 @@ final class MerchantNotice
 
         self::notify($shipment, $partial ? "وصلت شحنتك {$shipment->number} جزئياً" : "وصلت شحنتك {$shipment->number}", ($partial
             ? 'سُلّم بعضها وقُبض '.number_format($collected).' د.ع من '.number_format((int) $shipment->cod_amount).'، والباقي يرجع إليك'
-            : 'سُلّمت وقُبض '.number_format($collected).' د.ع').self::to($shipment).'.');
+            : 'سُلّمت وقُبض '.number_format($collected).' د.ع').self::to($shipment).'.', 'delivered');
+    }
+
+    /**
+     * «لم تُسلَّم — للمعالجة» (docs/plan/86): محاولةٌ لم تنجح، بسببها. المتابعة تتّصل بالزبون، وقرارها يصله
+     * بعدها في «تمت معالجتها».
+     */
+    public static function failed(Shipment $shipment): void
+    {
+        if ($shipment->merchant_id === null || ! self::failedEnabled(Company::find($shipment->company_id))) {
+            return;
+        }
+
+        $reason = $shipment->loadMissing('lastFailureReason')->lastFailureReason?->name_ar;
+
+        self::notify($shipment, "شحنتك {$shipment->number} لم تُسلَّم — للمعالجة",
+            ($reason ? "السبب: {$reason}. " : '').'نتّصل بالزبون ونخبرك بالقرار'.self::to($shipment).'.', 'failed');
     }
 
     /**
@@ -85,11 +107,12 @@ final class MerchantNotice
 
         [$title, $body] = match ($action) {
             'redeliver' => ["إعادة توصيل شحنتك {$shipment->number}", 'اتّصلنا بالزبون، وتخرج إليه ثانيةً'],
-            'postpone' => ["أُجّلت شحنتك {$shipment->number}", 'اتّفقنا مع الزبون على التسليم'.($until ? ' يوم '.$until : ' لاحقاً')],
+            // الموعد بكلام الناس (docs/plan/86): «غداً الساعة 9:00 م»، «الخميس 30/10»
+            'postpone' => ["أُجّلت شحنتك {$shipment->number}", 'اتّفقنا مع الزبون على التسليم '.($until ?: 'لاحقاً')],
             default => ["شحنتك {$shipment->number} راجعة إليك", 'تأكّد أنّ الزبون لا يستلمها، فترجع إليك مع الراجع'],
         };
 
-        self::notify($shipment, $title, $body.self::to($shipment).'.');
+        self::notify($shipment, $title, $body.self::to($shipment).'.', 'processed');
     }
 
     private static function to(Shipment $shipment): string
@@ -97,7 +120,7 @@ final class MerchantNotice
         return $shipment->recipient_name && $shipment->recipient_name !== Shipment::UNNAMED_RECIPIENT ? " — زبونك {$shipment->recipient_name}" : '';
     }
 
-    private static function notify(Shipment $shipment, string $title, string $body): void
+    private static function notify(Shipment $shipment, string $title, string $body, string $kind): void
     {
         self::announce([
             'company_id' => $shipment->company_id,
@@ -107,14 +130,14 @@ final class MerchantNotice
             'title' => $title,
             'body' => $body,
             'created_by_user_id' => null,
-        ]);
+        ], $kind);
     }
 
-    /** الجرس أوّلاً، ثم هواتف التاجر (docs/plan/82) */
-    private static function announce(array $attributes): void
+    /** الجرس أوّلاً، ثم هواتف التاجر بما اختاره كلٌّ (docs/plan/82، 86) */
+    private static function announce(array $attributes, string $kind): void
     {
         Announcement::create($attributes);
 
-        MerchantPush::notify((int) $attributes['merchant_id'], $attributes['title'], (string) $attributes['body']);
+        MerchantPush::notify((int) $attributes['merchant_id'], $attributes['title'], (string) $attributes['body'], $kind);
     }
 }

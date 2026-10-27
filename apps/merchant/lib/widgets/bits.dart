@@ -367,3 +367,40 @@ class HeroButton extends StatelessWidget {
     ),
   );
 }
+
+/// «مؤجل إلى غداً الساعة 9:00 م» (docs/plan/86): الموعد الذي اتّفقت عليه الشركة مع زبونه — أصفر، ويحمرّ إن فات
+class PostponedChip extends StatelessWidget {
+  const PostponedChip(this.until, {super.key, this.size = 11});
+
+  final DateTime until;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final late = until.isBefore(DateTime(now.year, now.month, now.day));
+    final color = late ? Palette.returnRed : Palette.postponedInk;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: late ? Palette.returnRed.withValues(alpha: .1) : Palette.postponedSoft,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.event_rounded, size: size + 2, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              'مؤجل إلى ${postponedText(until)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: font(size, w8, color, height: 1.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

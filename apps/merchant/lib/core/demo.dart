@@ -91,8 +91,18 @@ class Demo {
   /// شحنات العرض: الثلاث التي في التصميم وما يكمل شرائحها
   static final List<RecentShipment> _all = [
     ...home.recent.asMap().entries.map((e) => _with(e.value, id: e.key + 1)),
-    _row(4, 'علي حسين', 'الأعظمية', 60000, 'قيد التوصيل', 'blue', hours: 3),
-    _row(5, 'زهراء كريم', 'الكاظمية', 25000, 'مؤجل', 'yellow', urgent: true, hours: 20),
+    _row(4, 'علي حسين', 'الحلة', 60000, 'قيد التوصيل', 'blue', hours: 3, governorate: 'بابل'),
+    _row(
+      5,
+      'زهراء كريم',
+      'الكاظمية',
+      25000,
+      'مؤجل',
+      'yellow',
+      urgent: true,
+      hours: 20,
+      until: _today(21, 0).add(const Duration(days: 1)),
+    ),
     _row(6, 'حسن جبار', 'البياع', 38000, 'واصل', 'green', hours: 26),
     _row(7, 'مريم سعد', 'المنصور', 52000, 'راجع للتاجر', 'red', hours: 50),
     _row(8, 'كرار عادل', 'الدورة', 19000, 'بالمخزن', 'slate', hours: 52),
@@ -107,8 +117,10 @@ class Demo {
     'processing': 'للمعالجة',
     'attention': 'تحتاج انتباهك',
     'returns': 'راجع مؤكدة',
-    'archive': 'المؤرشفة',
   };
+
+  /// محافظات العرض بأرقامها في النظام
+  static const _governorateIds = {'بغداد': 1, 'بابل': 2};
 
   static bool _in(RecentShipment s, String f) => switch (f) {
     'new' => s.status == 'جديد',
@@ -116,17 +128,30 @@ class Demo {
     'delivered' => s.tone == 'green',
     'processing' => s.status == 'للمعالجة',
     'attention' => s.status == 'مؤجل',
-    // ما سُلِّم للتاجر في «المؤرشفة» (docs/plan/81)
+    // ما سُلِّم للتاجر خارج التطبيق، في كشوفه (docs/plan/86)
     'returns' => false,
-    'archive' => s.status == 'راجع للتاجر',
     _ => s.status != 'راجع للتاجر',
   };
 
-  static ShipmentPage shipments(String filter, String q, int page) {
-    final items = _all
+  static ShipmentPage shipments(String filter, String q, int page, {int? governorateId}) {
+    final inFilter = _all
         .where((s) => _in(s, filter) && (q.isEmpty || s.name.contains(q) || s.number.contains(q)))
         .toList();
+    final items = [
+      for (final s in inFilter)
+        if (governorateId == null || _governorateIds[s.governorate] == governorateId) s,
+    ];
+    final byGovernorate = <String, int>{};
+    for (final s in inFilter) {
+      if (s.governorate != null) byGovernorate[s.governorate!] = (byGovernorate[s.governorate!] ?? 0) + 1;
+    }
     return ShipmentPage(
+      governorates: filter == 'all'
+          ? const []
+          : [
+              for (final e in byGovernorate.entries)
+                GovernorateCount(id: _governorateIds[e.key] ?? 0, name: e.key, count: e.value),
+            ],
       filters: [
         for (final f in _filters.entries)
           ShipmentFilter(key: f.key, label: f.value, count: _all.where((s) => _in(s, f.key)).length),
@@ -198,13 +223,16 @@ class Demo {
     String tone, {
     bool urgent = false,
     int hours = 1,
+    String governorate = 'بغداد',
+    DateTime? until,
   }) => RecentShipment(
     id: id,
     number: 'ZA-${20260121 + id}',
     name: name,
     area: area,
-    governorate: 'بغداد',
+    governorate: governorate,
     city: area,
+    until: until,
     amount: amount,
     at: DateTime.now().subtract(Duration(hours: hours)),
     status: status,
@@ -225,6 +253,27 @@ class Demo {
     urgent: s.urgent,
     tone: s.urgent ? 'urgent' : (s.status == 'مسلمة' ? 'green' : 'blue'),
   );
+
+  // ---------------------------------------------------------------- اختيار الإشعارات (docs/plan/86)
+
+  static final Map<String, bool> _notify = {};
+
+  static const _notifyKinds = {
+    'delivered': 'وصلت شحنتك',
+    'failed': 'للمعالجة',
+    'processed': 'تمت معالجتها',
+    'amount': 'تغيّر مبلغ الوصل',
+  };
+
+  static NotifySettings notifySettings() => NotifySettings(
+    kinds: [for (final e in _notifyKinds.entries) (key: e.key, label: e.value, on: _notify[e.key] ?? true)],
+    sound: _notify['sound'] ?? true,
+  );
+
+  static NotifySettings saveNotifySettings(Map<String, bool> changes) {
+    _notify.addAll(changes);
+    return notifySettings();
+  }
 
   static DateTime _today(int h, int m) {
     final n = DateTime.now();

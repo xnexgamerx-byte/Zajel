@@ -156,9 +156,10 @@
             </label>
         </div>
 
-        {{-- وصول الشحنة، وقرار معالجتها (docs/plan/81): شغّالان ما لم يُطفآ --}}
+        {{-- وصول الشحنة، وعدم تسليمها، وقرار معالجتها (docs/plan/81، 86): شغّالةٌ ما لم تُطفأ --}}
         @foreach ([
             ['notify_delivered', \App\Support\MerchantNotice::deliveredEnabled($company), 'إشعار التاجر حين تصل شحنته', 'يصل جرسه: «وصلت شحنتك … وقُبض كذا»، والواصل الجزئي بما قُبض منه.'],
+            ['notify_failed', \App\Support\MerchantNotice::failedEnabled($company), 'إشعار التاجر حين لا تُسلَّم شحنته', 'يصل جرسه: «شحنتك … لم تُسلَّم — للمعالجة» بسببها، قبل أن تقرّر المتابعة.'],
             ['notify_processed', \App\Support\MerchantNotice::processedEnabled($company), 'إشعار التاجر بقرار المعالجة', 'يصل جرسه حين يقرّر الكول سنتر فيما لم يُسلَّم: إعادة توصيل، أو تأجيل بموعده، أو راجع مؤكد.'],
         ] as [$field, $on, $title, $hint])
             <div class="rounded-xl border border-ink-200 p-4">

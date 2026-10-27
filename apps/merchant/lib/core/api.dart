@@ -77,10 +77,17 @@ class Api {
     return HomeData.fromJson(await _send(http.get(_uri('/merchant/home'), headers: _headers)));
   }
 
-  Future<ShipmentPage> shipments({String filter = 'all', String q = '', int page = 1}) async {
-    if (AppConfig.demo) return Demo.shipments(filter, q, page);
-    final uri = _uri('/merchant/shipments')
-        .replace(queryParameters: {'filter': filter, if (q.isNotEmpty) 'q': q, 'page': '$page'});
+  /// governorateId: شحنات محافظةٍ واحدة من الشريحة (docs/plan/86)
+  Future<ShipmentPage> shipments({String filter = 'all', String q = '', int page = 1, int? governorateId}) async {
+    if (AppConfig.demo) return Demo.shipments(filter, q, page, governorateId: governorateId);
+    final uri = _uri('/merchant/shipments').replace(
+      queryParameters: {
+        'filter': filter,
+        if (q.isNotEmpty) 'q': q,
+        'page': '$page',
+        if (governorateId != null) 'governorate_id': '$governorateId',
+      },
+    );
     return ShipmentPage.fromJson(await _send(http.get(uri, headers: _headers)));
   }
 
@@ -199,7 +206,23 @@ class Api {
     await _storage.delete(key: _tokenKey);
   }
 
-  // ---------------------------------------------------------------- إشعارات الهاتف (docs/plan/82)
+  // ---------------------------------------------------------------- إشعارات الهاتف (docs/plan/82، 86)
+
+  /// ما يصل هاتفه منها، وبصوتٍ أم بلا صوت
+  Future<NotifySettings> notifySettings() async {
+    if (AppConfig.demo) return Demo.notifySettings();
+    final body = await _send(http.get(_uri('/merchant/notifications/settings'), headers: _headers));
+    return NotifySettings.fromJson((body['data'] as Map).cast());
+  }
+
+  /// {delivered: false, sound: true…} — ما تغيّر وحده
+  Future<NotifySettings> saveNotifySettings(Map<String, bool> changes) async {
+    if (AppConfig.demo) return Demo.saveNotifySettings(changes);
+    final body = await _send(
+      http.put(_uri('/merchant/notifications/settings'), headers: _headers, body: jsonEncode(changes)),
+    );
+    return NotifySettings.fromJson((body['data'] as Map).cast());
+  }
 
   /// الهاتف برمز Firebase: إليه تصل «وصلت شحنتك» وقرار المعالجة
   Future<void> registerDevice(String token) async {

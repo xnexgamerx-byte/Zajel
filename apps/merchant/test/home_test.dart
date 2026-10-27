@@ -40,8 +40,8 @@ void main() {
       'نسبة التسليم',
       // ما ينتظر قراره
       'عالجها',
-      // حالة الشحنات حول «إنشاء شحنة»
-      'حالة الشحنات',
+      // رحلة شحناتك اليوم حول «إنشاء شحنة» (docs/plan/86)
+      'رحلة شحناتك اليوم',
       'قيد التوصيل',
       'مسلّمة',
       'راجع مؤكّد',
@@ -92,15 +92,60 @@ void main() {
     expect(find.text('كرار عادل'), findsOneWidget);
     expect(find.text('مريم سعد'), findsNothing);
     expect(find.text('زهراء كريم'), findsNothing);
+
+    // بمحافظةٍ واحدة (docs/plan/86)
+    expect(find.textContaining('كل المحافظات'), findsOneWidget);
+    await tester.tap(find.text('بابل 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('علي حسين'), findsOneWidget);
+    expect(find.text('كرار عادل'), findsNothing);
+    await tester.tap(find.text('كل المحافظات'));
+    await tester.pumpAndSettle();
+    expect(find.text('كرار عادل'), findsOneWidget);
     await tester.tap(find.byTooltip('رجوع'));
     await tester.pumpAndSettle();
 
-    // «تحتاج انتباهك»: المؤجّلة بشارتها الصفراء
+    // «تحتاج انتباهك»: المؤجّلة بشارتها الصفراء، وموعدها (docs/plan/86)
     await _reveal(tester, find.text('تحتاج انتباهك').first);
     await tester.tap(find.text('تحتاج انتباهك').first);
     await tester.pumpAndSettle();
     expect(find.text('زهراء كريم'), findsOneWidget);
     expect(find.text('علي حسين'), findsNothing);
+    expect(find.text('مؤجل إلى غداً الساعة 9:00 م'), findsOneWidget);
+  });
+
+  testWidgets('اختيار الإشعارات: ما يصل الهاتف، وبصوتٍ أم بلا صوت، وكيف يظهر', (tester) async {
+    tester.view.physicalSize = const Size(393 * 3, 849 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('الإشعارات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('اختيار الإشعارات'));
+    await tester.pumpAndSettle();
+
+    for (final text in ['وصلت شحنتك', 'للمعالجة', 'تمت معالجتها', 'صوت الإشعار', 'هكذا تظهر على شاشة هاتفك']) {
+      expect(find.text(text), findsOneWidget, reason: text);
+    }
+    expect(find.text('وصلت شحنتك 000288'), findsOneWidget);
+
+    // الواصل لا يصل الهاتف: تختفي معاينته
+    await tester.tap(find.widgetWithText(SwitchListTile, 'وصلت شحنتك'));
+    await tester.pumpAndSettle();
+    expect(find.text('وصلت شحنتك 000288'), findsNothing);
+    expect(find.text('شحنتك 000291 لم تُسلَّم — للمعالجة'), findsOneWidget);
+
+    // بلا صوت
+    await tester.tap(find.widgetWithText(SwitchListTile, 'صوت الإشعار'));
+    await tester.pumpAndSettle();
+    expect(find.text('يصل بصمت في شريط الإشعارات'), findsOneWidget);
+
+    // يعود كما كان لبقية الاختبارات
+    await tester.tap(find.widgetWithText(SwitchListTile, 'وصلت شحنتك'));
+    await tester.tap(find.widgetWithText(SwitchListTile, 'صوت الإشعار'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('شحناتي: الشرائح والبحث وفتح الشحنة', (tester) async {

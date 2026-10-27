@@ -550,7 +550,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  Text('حالة الشحنات', style: display(14.5, w7, Palette.ink)),
+                  Text('رحلة شحناتك اليوم', style: display(14.5, w7, Palette.ink)),
                   const Spacer(),
                   const Chev(size: 8, left: true, stroke: 1.6),
                 ],
@@ -852,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final why = [
       if (item.reason != null) item.reason!,
       if (item.attempts > 0) 'محاولات: ${item.attempts}',
-      if (item.until != null) 'مؤجّلة إلى ${when(item.until)}',
+      if (item.until != null) 'مؤجل إلى ${postponedText(item.until!)}',
     ].join(' · ');
     return Tap(
       radius: 20,

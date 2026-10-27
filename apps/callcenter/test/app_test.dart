@@ -172,7 +172,7 @@ void main() {
     // المؤجل بموعده
     await _tap(tester, find.text('مؤجل').first);
     expect(find.text('اتُّفق مع الزبون على موعد — ما فات موعده أو اليوم أوّلاً'), findsOneWidget);
-    expect(find.text('زهراء كريم'), findsOneWidget);
+    expect(find.text(tag('180311')), findsOneWidget);
     expect(find.textContaining('مؤجل إلى'), findsWidgets);
     expect(find.text('علي حسين'), findsNothing);
     await _tap(tester, find.byTooltip('رجوع'));
@@ -181,7 +181,7 @@ void main() {
     await _tap(tester, find.text('راجع مؤكد').first);
     expect(find.textContaining('بيد المندوب أحمد كريم'), findsOneWidget);
     expect(find.textContaining('استُلم في المخزن'), findsOneWidget);
-    await _tap(tester, find.text('أحمد ناصر'));
+    await _tap(tester, find.text(tag('180331')));
     await _tap(tester, find.text('أعيديها للتوصيل'));
     await _tap(tester, find.text('أعيديها'));
     expect(find.text('اكتبي لماذا تعود للتوصيل: من اتّفق مع الزبون وعلى ماذا.'), findsOneWidget);
@@ -375,7 +375,7 @@ void main() {
     await _tap(tester, find.byTooltip('رجوع').last);
     await _tap(tester, find.byTooltip('رجوع').last);
     await _tap(tester, find.text('مؤجل').first);
-    expect(find.text('هدى كريم'), findsOneWidget);
+    expect(find.text(tag('180302')), findsOneWidget);
     expect(find.text('مؤجل إلى غداً الساعة 9:00 م'), findsOneWidget);
   });
 
@@ -385,7 +385,7 @@ void main() {
     // ملاحظة نور على زهراء كريم في سطرها
     expect(find.textContaining('نور: اتّصلتُ ولم تردّ — أعيد الاتصال العصر'), findsOneWidget);
 
-    await _tap(tester, find.text('نبأ سالم'));
+    await _tap(tester, find.text(tag('180312')));
     expect(find.text('ملاحظة للموظّفين'), findsOneWidget);
     await _tap(tester, find.text('اكتبي'));
     await _tap(tester, find.text('الهاتف مغلق'));
@@ -419,14 +419,14 @@ void main() {
     // وفي «حالة الشحنات»: مؤجّلةٌ بموعدها وملاحظتها
     await _tab(tester, 'الرئيسية');
     await _tap(tester, find.text('مؤجل').first);
-    expect(find.text('عمر فاضل'), findsOneWidget);
+    expect(find.text(tag('180234')), findsOneWidget);
     expect(find.textContaining('سارة: يردّ بعد الخامسة'), findsOneWidget);
   });
 
   testWidgets('المؤجّلة: يتغيّر موعدها وتبقى «مؤجل»', (tester) async {
     await _start(tester);
     await _tap(tester, find.text('مؤجل').first);
-    await _tap(tester, find.text('نبأ سالم'));
+    await _tap(tester, find.text(tag('180312')));
     await _scrollTo(tester, find.text('غيّري موعد التأجيل'));
     await _tap(tester, find.text('غيّري موعد التأجيل'));
     await _tap(tester, find.text('غداً'));
@@ -441,7 +441,7 @@ void main() {
   testWidgets('المؤجّلة: واصل أو لم يُسلَّم مباشرةً من «حدّثي الحالة»', (tester) async {
     await _start(tester);
     await _tap(tester, find.text('مؤجل').first);
-    await _tap(tester, find.text('نبأ سالم'));
+    await _tap(tester, find.text(tag('180312')));
     await _scrollTo(tester, find.text('حدّثي الحالة'));
     await _tap(tester, find.text('حدّثي الحالة'));
     expect(find.widgetWithText(ChoiceChip, 'واصل'), findsOneWidget);
@@ -454,5 +454,21 @@ void main() {
     await _tap(tester, find.widgetWithText(ChoiceChip, 'واصل'));
     await _tap(tester, find.text('حدّثي'));
     expect(find.text('تم تحديث الشحنة 180312.'), findsOneWidget);
+  });
+
+  testWidgets('حالة الشحنات: اسم البيج مكان الزبون، وما طال بلا تحديثٍ بلونٍ أعمق', (tester) async {
+    await _start(tester);
+
+    // قيد التوصيل: البطاقة باسم المتجر، و180303 منذ أكثر من يوم
+    await _tap(tester, find.text('قيد التوصيل').first);
+    expect(find.text('أزياء ليلى'), findsOneWidget);
+    expect(find.text('هدى كريم'), findsNothing);
+    expect(find.text('بلا تحديث منذ يوم'), findsOneWidget);
+    await _tap(tester, find.byTooltip('رجوع'));
+
+    // المؤجّل: بعد ٤٨ ساعة
+    await _tap(tester, find.text('مؤجل').first);
+    expect(find.text('متجر النخيل'), findsOneWidget);
+    expect(find.text('بلا تحديث منذ يومين'), findsOneWidget);
   });
 }

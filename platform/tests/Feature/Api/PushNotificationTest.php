@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Actions\Shipments\CreateShipment;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Models\Announcement;
 use App\Models\Company;
+use App\Models\FailureReason;
 use App\Models\Merchant;
 use App\Models\PushDevice;
 use App\Models\Shipment;
@@ -152,5 +154,81 @@ class PushNotificationTest extends TestCase
         // رفضت Firebase الرمز نهائياً فيُمسح، ولا يُكرَّر إليه
         $this->assertSame(0, Tenancy::runFor($this->company, fn () => PushDevice::where('token', 'fcm-phone-3')->count()));
         $this->assertSame(1, Tenancy::runFor($this->company, fn () => PushDevice::where('token', 'fcm-phone-other')->count()));
+    }
+
+    private function merchantHeaders(): array
+    {
+        Tenancy::runFor($this->company, fn () => $this->user->refresh());
+        $this->app['auth']->forgetGuards();
+        $token = $this->postJson('http://zajel.'.config('zajel.tenant_domain').'/api/v1/login', [
+            'username' => $this->user->username, 'password' => 'password', 'app' => 'merchant',
+        ])->assertOk()->json('token');
+
+        return ['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'];
+    }
+
+    public function test_the_merchant_chooses_which_notices_reach_the_phone_and_with_or_without_sound(): void
+    {
+        config(['services.firebase.service_account' => $this->keyFile]);
+        Http::fake(['fcm.googleapis.com/*' => Http::response([], 200)]);
+        $this->device('fcm-phone-4', $this->user);
+        $api = 'http://zajel.'.config('zajel.tenant_domain').'/api/v1/merchant/notifications/settings';
+        $headers = $this->merchantHeaders();
+
+        // كلّها شغّالة بصوت ما لم يختر
+        $this->getJson($api, $headers)->assertOk()
+            ->assertJsonPath('data.sound', true)
+            ->assertJsonPath('data.kinds.0.key', 'delivered')->assertJsonPath('data.kinds.0.on', true)
+            ->assertJsonPath('data.kinds.1.key', 'failed')->assertJsonPath('data.kinds.2.key', 'processed');
+
+        $shipment = $this->delivered('زبون بصوت');
+        Tenancy::runFor($this->company, fn () => MerchantNotice::delivered($shipment));
+        Http::assertSent(fn ($r) => ($r['message']['android']['notification']['channel_id'] ?? null) === 'updates'
+            && ($r['message']['data']['kind'] ?? null) === 'delivered');
+
+        // بلا صوت، والواصل لا يصل الهاتف — والجرس يبقى يحمله
+        $this->putJson($api, ['sound' => false, 'delivered' => false], $headers)->assertOk()
+            ->assertJsonPath('data.sound', false)->assertJsonPath('data.kinds.0.on', false)
+            ->assertJsonPath('data.kinds.2.on', true);
+        $sent = count(Http::recorded());
+        $second = $this->delivered('زبون بلا صوت');
+        Tenancy::runFor($this->company, fn () => MerchantNotice::delivered($second));
+        $this->assertCount($sent, Http::recorded(), 'الواصل لا يصل هاتفاً أطفأه');
+        $this->assertSame(1, Tenancy::runFor($this->company, fn () => Announcement::where('title', "وصلت شحنتك {$second->number}")->count()));
+
+        Tenancy::runFor($this->company, fn () => MerchantNotice::processed($second, 'redeliver'));
+        Http::assertSent(fn ($r) => ($r['message']['android']['notification']['channel_id'] ?? null) === 'updates_silent'
+            && ($r['message']['data']['kind'] ?? null) === 'processed');
+    }
+
+    public function test_a_failed_attempt_tells_the_merchant_it_is_in_processing(): void
+    {
+        config(['services.firebase.service_account' => $this->keyFile]);
+        $this->fakeGoogle();
+        $this->device('fcm-phone-5', $this->user);
+        $shipment = $this->delivered('زبون لم يستلم');
+        Tenancy::runFor($this->company, fn () => $shipment->forceFill(['status' => ShipmentStatus::OutForDelivery->value])->save());
+        $reason = Tenancy::runFor($this->company, fn () => FailureReason::availableFor($this->company->id)->where('requires_note', false)->firstOrFail());
+
+        Tenancy::runFor($this->company, fn () => app(ChangeShipmentStatus::class)
+            ->handle($shipment->refresh(), ShipmentStatus::FailedAttempt, $this->staff, ['failure_reason_id' => $reason->id]));
+
+        $title = "شحنتك {$shipment->number} لم تُسلَّم — للمعالجة";
+        $this->assertSame(1, Tenancy::runFor($this->company, fn () => Announcement::where('merchant_id', $this->merchant->id)->where('title', $title)->count()));
+        Http::assertSent(fn ($r) => $r['message']['notification']['title'] === $title
+            && str_contains($r['message']['notification']['body'], "السبب: {$reason->name_ar}")
+            && $r['message']['data']['kind'] === 'failed');
+
+        // والشركة تطفئه من «بيانات الشركة»
+        Tenancy::runFor($this->company, function () {
+            $settings = $this->company->settings ?? [];
+            data_set($settings, 'notify.failed', false);
+            $this->company->forceFill(['settings' => $settings])->save();
+        });
+        $other = $this->delivered('زبون ثانٍ');
+        Tenancy::runFor($this->company, fn () => $other->forceFill(['status' => ShipmentStatus::OutForDelivery->value])->save());
+        Tenancy::runFor($this->company, fn () => app(ChangeShipmentStatus::class)
+            ->handle($other->refresh(), ShipmentStatus::FailedAttempt, $this->staff, ['failure_reason_id' => $reason->id]));
+        $this->assertSame(0, Tenancy::runFor($this->company, fn () => Announcement::where('title', "شحنتك {$other->number} لم تُسلَّم — للمعالجة")->count()));
     }
 }
