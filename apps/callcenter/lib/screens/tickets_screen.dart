@@ -6,6 +6,7 @@ import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/filters.dart';
 import '../widgets/digits.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
@@ -33,6 +34,9 @@ class TicketsScreen extends StatefulWidget {
 class _TicketsScreenState extends State<TicketsScreen> {
   List<TicketItem>? items;
   String? error;
+
+  /// محافظةٌ أو مندوبٌ أو تاجر (docs/plan/93)
+  FilterPick filter = const FilterPick();
 
   Brand get brand => widget.brand;
 
@@ -66,31 +70,57 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final list = items;
+    final all = items;
+    final list = all
+        ?.where(
+          (t) =>
+              filter.matches(governorate: governorateOf(t.place), courier: t.courier.name, merchant: t.merchant.name),
+        )
+        .toList();
     return TabPage(
       title: 'تذاكر المبلغ',
       subtitle: 'المندوب عند الباب — الأقدم أوّلاً',
       color: brand.main,
       icon: Icons.price_change_rounded,
-      count: list?.length,
+      count: all?.length,
       child: list == null
           ? Waiting(brand: brand, error: error, onRetry: _load)
-          : RefreshIndicator(
-              color: brand.main,
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 130),
-                children: [
-                  if (list.isEmpty)
-                    const Empty(
-                      icon: Icons.task_alt_rounded,
-                      title: 'لا تذكرة تنتظر',
-                      text: 'حين يطلب مندوبٌ تغيير المبلغ عند الباب تظهر هنا فوراً.',
-                    )
-                  else
-                    for (final t in list) ...[_card(t), const SizedBox(height: 10)],
-                ],
-              ),
+          : Column(
+              children: [
+                FilterBar(
+                  facets: Facets.of<TicketItem>(
+                    all ?? const [],
+                    governorate: (t) => governorateOf(t.place),
+                    courier: (t) => t.courier.name,
+                    merchant: (t) => t.merchant.name,
+                  ),
+                  pick: filter,
+                  total: all?.length,
+                  color: brand.main,
+                  onChanged: (f) => setState(() => filter = f),
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    color: brand.main,
+                    onRefresh: _load,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 130),
+                      children: [
+                        if (list.isEmpty)
+                          Empty(
+                            icon: Icons.task_alt_rounded,
+                            title: filter.any ? 'لا تذكرة بهذا الفرز' : 'لا تذكرة تنتظر',
+                            text: filter.any
+                                ? 'اختاري «الكل» لترَي التذاكر كلّها.'
+                                : 'حين يطلب مندوبٌ تغيير المبلغ عند الباب تظهر هنا فوراً.',
+                          )
+                        else
+                          for (final t in list) ...[_card(t), const SizedBox(height: 10)],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }
@@ -139,9 +169,14 @@ class _TicketsScreenState extends State<TicketsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(t.recipient ?? '—', style: font(14.5, w8, Palette.ink)),
+                        // اسم المتجر لا «الزبون» (docs/plan/93)
+                        Text(storeTitle(t.merchant.name, t.recipient), style: font(14.5, w8, Palette.ink)),
                         Text(
-                          [t.place, if (t.courier.name != null) 'المندوب ${t.courier.name}'].join(' · '),
+                          [
+                            ?namedRecipient(t.recipient),
+                            t.place,
+                            if (t.courier.name != null) 'المندوب ${t.courier.name}',
+                          ].where((x) => x.isNotEmpty).join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: font(11.5, w6, Palette.slate),

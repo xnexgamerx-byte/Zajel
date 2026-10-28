@@ -93,15 +93,8 @@ void main() {
     expect(find.text('مريم سعد'), findsNothing);
     expect(find.text('زهراء كريم'), findsNothing);
 
-    // بمحافظةٍ واحدة (docs/plan/86)
-    expect(find.textContaining('كل المحافظات'), findsOneWidget);
-    await tester.tap(find.text('بابل 1'));
-    await tester.pumpAndSettle();
-    expect(find.text('علي حسين'), findsOneWidget);
-    expect(find.text('كرار عادل'), findsNothing);
-    await tester.tap(find.text('كل المحافظات'));
-    await tester.pumpAndSettle();
-    expect(find.text('كرار عادل'), findsOneWidget);
+    // شرائح المحافظات صارت في الكول سنتر وحده (docs/plan/93)
+    expect(find.textContaining('كل المحافظات'), findsNothing);
     await tester.tap(find.byTooltip('رجوع'));
     await tester.pumpAndSettle();
 

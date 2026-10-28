@@ -1,4 +1,5 @@
 import 'config.dart';
+import 'facets.dart';
 
 // ما تعيده واجهة الكول سنتر (/api/v1/callcenter/…، docs/plan/73) — بأسماء حقولها في النظام نفسها.
 
@@ -540,12 +541,22 @@ class BoardKind {
 
 /// ما في الخانة، وعددها كلّها
 class BoardPage {
-  BoardPage({required this.kind, required this.label, required this.count, required this.items});
+  BoardPage({
+    required this.kind,
+    required this.label,
+    required this.count,
+    required this.items,
+    int? matched,
+    Facets? facets,
+  }) : matched = matched ?? count,
+       facets = facets ?? const Facets();
 
   factory BoardPage.fromJson(Map<String, dynamic> j) => BoardPage(
     kind: j['kind'] as String? ?? '',
     label: j['label'] as String? ?? '',
     count: _int(j['count']),
+    matched: j['matched'] == null ? null : _int(j['matched']),
+    facets: Facets.fromJson(j['facets']),
     items: [for (final s in _list(j['data'])) FoundShipment.fromJson(s)],
   );
 
@@ -553,6 +564,10 @@ class BoardPage {
   final String label;
   final int count;
   final List<FoundShipment> items;
+
+  /// ما طابق الفرز والبحث، وشرائح الفرز بأعدادها في الخانة كلّها (docs/plan/93)
+  final int matched;
+  final Facets facets;
 }
 
 /// سطرٌ في «أنجزتِ اليوم» (docs/plan/80): قرار معالجة، أو تذكرة مبلغٍ حسمتها

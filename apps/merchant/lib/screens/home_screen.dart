@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/access.dart';
 import '../core/api.dart';
@@ -1071,11 +1072,15 @@ class _AdsState extends State<_Ads> {
   List<Widget> get slides => widget.banners.isNotEmpty
       ? [
           for (final b in widget.banners)
-            Image.network(
-              b.image,
-              headers: Api.instance.imageHeaders,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Image.asset('assets/images/banner.jpg', fit: BoxFit.cover),
+            // إعلانٌ له رابط: يفتح موقعه بلمسة (docs/plan/93)
+            GestureDetector(
+              onTap: (b.link ?? '').trim().isEmpty ? null : () => _visit(b.link!),
+              child: Image.network(
+                b.image,
+                headers: Api.instance.imageHeaders,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Image.asset('assets/images/banner.jpg', fit: BoxFit.cover),
+              ),
             ),
         ]
       : [
@@ -1107,6 +1112,15 @@ class _AdsState extends State<_Ads> {
     timer?.cancel();
     controller.dispose();
     super.dispose();
+  }
+
+  /// رابط الإعلان في المتصفّح، خارج التطبيق — http وhttps وحدهما
+  Future<void> _visit(String link) async {
+    final uri = Uri.tryParse(link.trim());
+    if (uri == null || !(uri.scheme == 'https' || uri.scheme == 'http')) return;
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذّر فتح الرابط على هذا الجهاز.')));
+    }
   }
 
   Widget _slide(String title, String text, IconData icon, String screen) {

@@ -4,6 +4,7 @@ import '../core/api.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/push.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 import 'board_screen.dart';
@@ -117,6 +118,18 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => QuickRepliesScreen(brand: brand)));
+            },
+          ),
+          const SizedBox(height: 8),
+          // إشعارات الهاتف (docs/plan/93): يُسأل الإذن، ويرسل النظام إشعاراً تجريبيّاً، ويقال أين يقف
+          SheetButton(
+            brand: brand,
+            label: 'جرّبي إشعاراً الآن',
+            icon: Icons.notifications_active_outlined,
+            outlined: true,
+            onTap: () async {
+              final said = await Push.tryIt();
+              if (mounted) toast(this.context, said); // ignore: unnecessary_this
             },
           ),
           const SizedBox(height: 8),

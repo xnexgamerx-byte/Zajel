@@ -151,6 +151,28 @@ class StaffPushTest extends TestCase
         $this->assertSame(['fcm-courier'], $this->sentTo('رسالة من الكول سنتر'));
     }
 
+    public function test_the_courier_and_call_centre_try_a_notification_from_their_app(): void
+    {
+        $api = fn (string $path) => 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain').'/api/v1'.$path;
+        $login = function (User $user, string $app) use ($api) {
+            $this->app['auth']->forgetGuards();
+
+            return ['Authorization' => 'Bearer '.$this->postJson($api('/login'), [
+                'username' => $user->username, 'password' => 'password', 'app' => $app,
+            ])->assertOk()->json('token'), 'Accept' => 'application/json'];
+        };
+
+        $this->postJson($api('/devices/test'), [], $login($this->courierUser, 'courier'))->assertOk()
+            ->assertJsonPath('ok', true)->assertJsonPath('devices', 1);
+        $this->assertSame(['fcm-courier'], $this->sentTo('تجربة الإشعارات'));
+        Http::assertSent(fn ($r) => ($r['message']['android']['notification']['channel_id'] ?? null) === 'updates');
+
+        // هاتفٌ لم يُسجَّل: يقال لها ذلك
+        Tenancy::runFor($this->company, fn () => PushDevice::where('user_id', $this->callCentre->id)->delete());
+        $this->postJson($api('/devices/test'), [], $login($this->callCentre, 'callcenter'))->assertStatus(422)
+            ->assertJsonPath('ok', false)->assertJsonPath('message', fn ($m) => str_contains($m, 'غير مسجّل'));
+    }
+
     public function test_a_failed_push_does_not_stop_the_work_it_follows(): void
     {
         Http::fake(['fcm.googleapis.com/*' => Http::response(['error' => 'boom'], 500)]);

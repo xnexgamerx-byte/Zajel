@@ -4,6 +4,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/filters.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
 import 'my_message_screen.dart';
@@ -33,6 +34,9 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
   /// «تنتظر ردّنا» وحدها، أو كلّ المفتوحة
   bool waiting = true;
+
+  /// تاجرٌ بعينه (docs/plan/93)
+  FilterPick filter = const FilterPick();
 
   Brand get brand => widget.brand;
 
@@ -66,13 +70,14 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final list = items;
+    final all = items;
+    final list = all?.where((c) => filter.matches(merchant: c.merchant.name)).toList();
     return TabPage(
       title: 'محادثات التجّار',
       subtitle: waiting ? 'تنتظر ردّك — الأقدم أوّلاً' : 'كلّ المفتوحة',
       color: Queue.merchants,
       icon: Icons.forum_rounded,
-      count: waiting ? list?.length : null,
+      count: waiting ? all?.length : null,
       trailing: FilterChip(
         label: Text('تنتظر', style: font(12, w7, waiting ? Colors.white : Palette.slate)),
         selected: waiting,
@@ -87,22 +92,35 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       ),
       child: list == null
           ? Waiting(brand: brand, error: error, onRetry: _load)
-          : RefreshIndicator(
-              color: brand.main,
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 130),
-                children: [
-                  if (list.isEmpty)
-                    const Empty(
-                      icon: Icons.mark_chat_read_rounded,
-                      title: 'لا محادثة تنتظر',
-                      text: 'ما يكتبه التجّار للشركة يصل هنا.',
-                    )
-                  else
-                    for (final c in list) ...[_card(c), const SizedBox(height: 8)],
-                ],
-              ),
+          : Column(
+              children: [
+                FilterBar(
+                  facets: Facets.of<ConversationItem>(all ?? const [], merchant: (c) => c.merchant.name),
+                  pick: filter,
+                  total: all?.length,
+                  color: Queue.merchants,
+                  onChanged: (f) => setState(() => filter = f),
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    color: brand.main,
+                    onRefresh: _load,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 130),
+                      children: [
+                        if (list.isEmpty)
+                          const Empty(
+                            icon: Icons.mark_chat_read_rounded,
+                            title: 'لا محادثة تنتظر',
+                            text: 'ما يكتبه التجّار للشركة يصل هنا.',
+                          )
+                        else
+                          for (final c in list) ...[_card(c), const SizedBox(height: 8)],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }

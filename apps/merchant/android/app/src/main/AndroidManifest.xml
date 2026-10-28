@@ -70,6 +70,11 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
         </intent>
+        <!-- رابط إعلانٍ بـhttp (docs/plan/93) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
         <!-- السماع على الهاتف نفسه (docs/plan/61): خدمة التعرّف على الكلام -->
         <intent>
             <action android:name="android.speech.RecognitionService"/>

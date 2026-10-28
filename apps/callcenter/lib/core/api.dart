@@ -80,6 +80,13 @@ class Api {
     await _send(http.post(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
   }
 
+  /// إشعارٌ تجريبيّ إلى هواتف هذا الحساب (docs/plan/93): جوابه يقول أين يقف الإرسال
+  Future<String> testPush() async {
+    if (AppConfig.demo) return 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
+    final body = await _post('/devices/test');
+    return body['message'] as String? ?? 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
+  }
+
   Future<void> unregisterDevice(String token) async {
     await _send(http.delete(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
   }
@@ -352,9 +359,23 @@ class Api {
     return [for (final k in body['data'] as List) BoardKind.fromJson((k as Map).cast())];
   }
 
-  Future<BoardPage> boardList(String kind, {String q = ''}) async {
-    if (AppConfig.demo) return Demo.boardList(kind, q);
-    return BoardPage.fromJson(await _get('/callcenter/board/$kind', {if (q.trim().isNotEmpty) 'q': q.trim()}));
+  /// governorate · courier · merchant: شريط الفرز بمفاتيح شرائحه (docs/plan/93)
+  Future<BoardPage> boardList(
+    String kind, {
+    String q = '',
+    String? governorate,
+    String? courier,
+    String? merchant,
+  }) async {
+    if (AppConfig.demo) return Demo.boardList(kind, q, governorate: governorate, courier: courier, merchant: merchant);
+    return BoardPage.fromJson(
+      await _get('/callcenter/board/$kind', {
+        if (q.trim().isNotEmpty) 'q': q.trim(),
+        'governorate_id': ?governorate,
+        'courier_id': ?courier,
+        'merchant_id': ?merchant,
+      }),
+    );
   }
 
   /// processed: قرارات المعالجة اليوم · tickets: تذاكر المبلغ التي حسمتها اليوم

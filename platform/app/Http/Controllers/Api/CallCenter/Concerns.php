@@ -8,12 +8,17 @@ use App\Actions\Support\CourierChat;
 use App\Enums\Feature;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
+use App\Models\Courier;
 use App\Models\CourierMessage;
+use App\Models\Governorate;
+use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\WorkClaim;
 use App\Support\FeatureGate;
 use App\Support\MerchantMessage;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 
 /**
  * ما تشترك فيه شاشات تطبيق الكول سنتر (docs/plan/73): الحجز كما يُعرض، والانتظار بالدقائق، ورسالة
@@ -29,6 +34,45 @@ trait Concerns
             'mine' => (int) $claim->user_id === (int) $user->id,
             'since' => $claim->claimed_at?->toIso8601String(),
             'text' => (int) $claim->user_id === (int) $user->id ? 'تعالجها أنت' : Claims::message($claim),
+        ];
+    }
+
+    /**
+     * شريط الفرز (docs/plan/93): محافظةٌ أو مندوبٌ أو تاجرٌ من الطلب — governorate_id · courier_id · merchant_id.
+     */
+    protected static function filtered(Builder $query, Request $request): Builder
+    {
+        foreach (['governorate_id' => 'shipments.governorate_id', 'courier_id' => 'shipments.delivery_courier_id',
+            'merchant_id' => 'shipments.merchant_id'] as $param => $column) {
+            if ($request->filled($param)) {
+                $query->where($column, $request->integer($param));
+            }
+        }
+
+        return $query;
+    }
+
+    /**
+     * ما في القائمة كلّها بأعداده، لشرائح الفرز: المحافظات والمناديب والتجّار — الأكثر أوّلاً.
+     *
+     * @return array{governorates: list<array{key: string, label: string, count: int}>, couriers: list<array{key: string, label: string, count: int}>, merchants: list<array{key: string, label: string, count: int}>}
+     */
+    protected static function facets(Builder $query): array
+    {
+        $count = function (string $column, callable $names) use ($query) {
+            $counts = (clone $query)->reorder()->whereNotNull($column)
+                ->selectRaw("{$column} as k, count(*) as n")->groupBy($column)->orderByDesc('n')->limit(60)
+                ->toBase()->pluck('n', 'k');
+            $labels = $names($counts->keys()->all());
+
+            return $counts->map(fn ($n, $id) => ['key' => (string) $id, 'label' => (string) ($labels[$id] ?? '—'), 'count' => (int) $n])
+                ->values()->all();
+        };
+
+        return [
+            'governorates' => $count('shipments.governorate_id', fn ($ids) => Governorate::whereIn('id', $ids)->pluck('name_ar', 'id')),
+            'couriers' => $count('shipments.delivery_courier_id', fn ($ids) => Courier::withTrashed()->whereIn('id', $ids)->pluck('name', 'id')),
+            'merchants' => $count('shipments.merchant_id', fn ($ids) => Merchant::withTrashed()->whereIn('id', $ids)->pluck('business_name', 'id')),
         ];
     }
 

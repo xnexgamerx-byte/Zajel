@@ -68,6 +68,7 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
         // إشعارات الهاتف: يُسجَّل بعد الدخول ويُلغى عند الخروج (docs/plan/82)
         Route::post('/devices', [PushDeviceController::class, 'store'])->middleware('throttle:30,1')->name('devices.store');
         Route::delete('/devices', [PushDeviceController::class, 'destroy'])->name('devices.destroy');
+        Route::post('/devices/test', [PushDeviceController::class, 'test'])->middleware('throttle:10,1,device-test')->name('devices.test');
 
         Route::get('/me', [AuthController::class, 'me'])->name('me');
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

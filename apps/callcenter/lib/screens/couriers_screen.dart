@@ -26,6 +26,9 @@ class _CouriersScreenState extends State<CouriersScreen> {
   List<CourierThreadRow>? items;
   String? error;
 
+  /// كلّ المناديب في القائمة (docs/plan/93): يُبحث عن أحدهم بالاسم أو الهاتف ليُكتب له
+  String query = '';
+
   Brand get brand => widget.brand;
 
   @override
@@ -54,20 +57,38 @@ class _CouriersScreenState extends State<CouriersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final list = items;
+    final q = query.trim();
+    final list = items?.where((c) => q.isEmpty || c.name.contains(q) || (c.phone ?? '').contains(q)).toList();
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            const PageBar(title: 'رسائل المناديب', subtitle: 'ما ينتظر ردّك أوّلاً'),
+            const PageBar(title: 'رسائل المناديب', subtitle: 'ما ينتظر ردّك أوّلاً، ثم كلّ المناديب — اكتبي لأيّهم'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: TextField(
+                onChanged: (v) => setState(() => query = v),
+                textInputAction: TextInputAction.search,
+                style: font(13, w6, Palette.ink),
+                decoration: InputDecoration(
+                  hintText: 'ابحثي عن مندوب بالاسم أو الهاتف',
+                  hintStyle: font(12, w5, Palette.muted),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 21),
+                  filled: true,
+                  fillColor: Colors.white,
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+            ),
             Expanded(
               child: list == null
                   ? Waiting(brand: brand, error: error, onRetry: _load)
                   : list.isEmpty
-                  ? const Empty(
+                  ? Empty(
                       icon: Icons.delivery_dining_rounded,
-                      title: 'لا رسائل من المناديب',
-                      text: 'حين يكتب مندوبٌ للمكتب تظهر محادثته هنا.',
+                      title: q.isEmpty ? 'لا مناديب' : 'لا مندوب بهذا الاسم',
+                      text: q.isEmpty ? 'مناديب الشركة يظهرون هنا ليُكتب لهم.' : 'جرّبي جزءاً من الاسم أو الهاتف.',
                     )
                   : RefreshIndicator(
                       color: brand.main,
@@ -121,16 +142,18 @@ class _CouriersScreenState extends State<CouriersScreen> {
                       ),
                   ],
                 ),
+                // مندوبٌ لم تُفتح معه محادثة: يُكتب له متى شئتِ (docs/plan/93)
                 Text(
-                  c.last ?? '',
+                  c.last ?? 'لا رسائل بعد — اكتبي له',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: font(12, w6, Palette.slate, height: 1.4),
+                  style: font(12, w6, c.last == null ? Palette.muted : Palette.slate, height: 1.4),
                 ),
-                Text(
-                  c.waiting ? 'ينتظر ردّك ${ago(c.waitingMinutes)}' : ago(c.waitingMinutes),
-                  style: font(11, c.waiting ? w8 : w6, c.waiting ? Queue.couriers : Palette.muted),
-                ),
+                if (c.last != null)
+                  Text(
+                    c.waiting ? 'ينتظر ردّك ${ago(c.waitingMinutes)}' : ago(c.waitingMinutes),
+                    style: font(11, c.waiting ? w8 : w6, c.waiting ? Queue.couriers : Palette.muted),
+                  ),
               ],
             ),
           ),

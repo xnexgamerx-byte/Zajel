@@ -39,7 +39,7 @@ class ProcessingController extends Controller
         abort_unless($user->can('shipments.status'), 403);
         $term = trim((string) $request->query('q'));
 
-        $shipments = $this->pending($request)
+        $shipments = self::filtered($this->pending($request), $request)
             ->when($term !== '', fn ($q) => $q->search($term))
             ->select('shipments.*')->selectRaw(self::WAITING_ON_US.' as waiting_on_us')
             ->with(self::WITH)
@@ -49,6 +49,8 @@ class ProcessingController extends Controller
 
         return response()->json([
             'data' => $shipments->map(fn (Shipment $s) => $this->row($s, $claims[$s->id] ?? null, $request))->values(),
+            // شرائح الفرز بأعدادها في المعالجة كلّها (docs/plan/93)
+            'facets' => self::facets($this->pending($request)),
         ]);
     }
 

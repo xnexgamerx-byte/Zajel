@@ -37,6 +37,13 @@ class CourierController extends Controller
         $last = CourierMessage::query()->whereIn('id', CourierMessage::query()->whereIn('courier_thread_id', $threads->pluck('id'))
             ->selectRaw('max(id)')->groupBy('courier_thread_id'))->get()->keyBy('courier_thread_id');
 
+        // وكلّ مندوبٍ لم تُفتح معه محادثةٌ بعد، تحتها: الكول سنتر يكتب لأيّ مندوبٍ متى شاء (docs/plan/93)
+        $others = Courier::visibleTo($request->user())->where('status', 'active')
+            ->whereNotIn('id', $threads->pluck('courier_id'))
+            ->when($q !== '', fn ($c) => $c->where(fn ($w) => $w->where('name', 'like', "%{$q}%")
+                ->orWhere('phone', 'like', "%{$q}%")->orWhere('code', 'like', "%{$q}%")))
+            ->orderBy('name')->limit(200)->get(['id', 'name', 'phone']);
+
         return response()->json(['data' => $threads->map(fn (CourierThread $t) => [
             'id' => $t->courier_id,
             'name' => $t->courier?->name,
@@ -46,7 +53,16 @@ class CourierController extends Controller
             'last' => $last->get($t->id)?->body,
             'waiting_minutes' => self::minutesSince($t->last_message_at),
             'at' => $t->last_message_at?->toIso8601String(),
-        ])->values()]);
+        ])->concat($others->map(fn (Courier $c) => [
+            'id' => $c->id,
+            'name' => $c->name,
+            'phone' => $c->phone,
+            'unread' => false,
+            'waiting' => false,
+            'last' => null,
+            'waiting_minutes' => 0,
+            'at' => null,
+        ]))->values()]);
     }
 
     /** محادثة المندوب — وفتحها قراءتها */

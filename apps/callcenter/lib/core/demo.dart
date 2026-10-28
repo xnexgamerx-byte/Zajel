@@ -1,4 +1,5 @@
 import 'api.dart';
+import 'facets.dart';
 import 'models.dart';
 import 'palette.dart' show postponedText;
 
@@ -846,16 +847,34 @@ class Demo {
     for (final e in _kinds.entries) BoardKind(kind: e.key, label: e.value, count: _board[e.key]!.length),
   ];
 
-  static Future<BoardPage> boardList(String kind, String q) async {
+  /// في العرض مفتاح الشريحة اسمها (docs/plan/93)
+  static Future<BoardPage> boardList(
+    String kind,
+    String q, {
+    String? governorate,
+    String? courier,
+    String? merchant,
+  }) async {
     final rows = _board[kind] ?? const <FoundShipment>[];
+    final pick = FilterPick(governorate: governorate, courier: courier, merchant: merchant);
+    final items = [
+      for (final r in rows)
+        if ((q.trim().isEmpty || r.number.contains(q.trim()) || r.recipient.contains(q.trim())) &&
+            pick.matches(governorate: governorateOf(r.place), courier: r.courier, merchant: r.merchant))
+          _noted(r),
+    ];
     return BoardPage(
       kind: kind,
       label: _kinds[kind] ?? '',
       count: rows.length,
-      items: [
-        for (final r in rows)
-          if (q.trim().isEmpty || r.number.contains(q.trim()) || r.recipient.contains(q.trim())) _noted(r),
-      ],
+      matched: items.length,
+      facets: Facets.of<FoundShipment>(
+        rows,
+        governorate: (r) => governorateOf(r.place),
+        courier: (r) => r.courier,
+        merchant: (r) => r.merchant,
+      ),
+      items: items,
     );
   }
 

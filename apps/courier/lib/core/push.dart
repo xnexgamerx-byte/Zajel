@@ -96,6 +96,21 @@ class Push {
     }
   }
 
+  /// «جرّب إشعاراً الآن» (docs/plan/93): يُسأل الإذن ويُسجَّل الهاتف، ثم يرسل النظام إشعاراً إليه — والجواب
+  /// يقول أين يقف: النسخة، أو إذن الهاتف، أو تسجيله، أو مفتاح الخادم.
+  static Future<String> tryIt() async {
+    if (!configured) return 'هذه النسخة بُنيت بلا إشعارات الهاتف: ثبّت أحدث نسخةٍ من التطبيق.';
+    await register();
+    if (await permission() == 'denied') {
+      return 'الإشعارات مطفأةٌ لهذا التطبيق في الهاتف: الإعدادات ← التطبيقات ← هذا التطبيق ← الإشعارات، وشغّلها.';
+    }
+    try {
+      return await Api.instance.testPush();
+    } on ApiError catch (e) {
+      return e.message;
+    }
+  }
+
   /// قبل الخروج: الهاتف لا يُشعَر بعدها بشحنات من خرج
   static Future<void> unregister() async {
     if (!_ready) return;

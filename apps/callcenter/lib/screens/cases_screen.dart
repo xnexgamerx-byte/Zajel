@@ -6,6 +6,7 @@ import '../core/models.dart';
 import '../core/palette.dart';
 import '../core/whatsapp_template.dart';
 import '../widgets/bits.dart';
+import '../widgets/filters.dart';
 import '../widgets/follow_up.dart';
 import '../widgets/page.dart';
 import '../widgets/work.dart';
@@ -36,6 +37,9 @@ class _CasesScreenState extends State<CasesScreen> {
 
   /// «ما لم تفتحه زميلة» وحده
   bool onlyFree = false;
+
+  /// محافظةٌ أو مندوبٌ أو تاجر (docs/plan/93)
+  FilterPick filter = const FilterPick();
 
   Brand get brand => widget.brand;
 
@@ -71,7 +75,19 @@ class _CasesScreenState extends State<CasesScreen> {
   Widget build(BuildContext context) {
     final all = items;
     // «الحرّة»: ما لم تفتحه أيّ موظّفة بعد — لا لزميلتها ولا لها (docs/plan/81)
-    final list = all?.where((c) => !onlyFree || c.claim == null).toList();
+    final list = all
+        ?.where((c) => !onlyFree || c.claim == null)
+        .where(
+          (c) =>
+              filter.matches(governorate: governorateOf(c.place), courier: c.courier.name, merchant: c.merchant.name),
+        )
+        .toList();
+    final facets = Facets.of<CaseItem>(
+      all ?? const [],
+      governorate: (c) => governorateOf(c.place),
+      courier: (c) => c.courier.name,
+      merchant: (c) => c.merchant.name,
+    );
     return TabPage(
       title: 'للمعالجة',
       subtitle: 'لم تُسلَّم — اتصلي بالزبون وقرّري',
@@ -92,22 +108,37 @@ class _CasesScreenState extends State<CasesScreen> {
       ),
       child: list == null
           ? Waiting(brand: brand, error: error, onRetry: _load)
-          : RefreshIndicator(
-              color: brand.main,
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(14, 6, 14, 130),
-                children: [
-                  if (list.isEmpty)
-                    const Empty(
-                      icon: Icons.task_alt_rounded,
-                      title: 'لا شيء ينتظر المعالجة',
-                      text: 'كلّ محاولةٍ فاشلة في محافظاتك تظهر هنا حتى تُقرَّر.',
-                    )
-                  else
-                    for (final c in list) ...[_card(c), const SizedBox(height: 10)],
-                ],
-              ),
+          : Column(
+              children: [
+                FilterBar(
+                  facets: facets,
+                  pick: filter,
+                  total: all?.length,
+                  color: Queue.processing,
+                  onChanged: (f) => setState(() => filter = f),
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    color: brand.main,
+                    onRefresh: _load,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 130),
+                      children: [
+                        if (list.isEmpty)
+                          Empty(
+                            icon: Icons.task_alt_rounded,
+                            title: filter.any ? 'لا شيء بهذا الفرز' : 'لا شيء ينتظر المعالجة',
+                            text: filter.any
+                                ? 'اختاري «الكل» لترَي القائمة كلّها.'
+                                : 'كلّ محاولةٍ فاشلة في محافظاتك تظهر هنا حتى تُقرَّر.',
+                          )
+                        else
+                          for (final c in list) ...[_card(c), const SizedBox(height: 10)],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }
@@ -145,12 +176,18 @@ class _CasesScreenState extends State<CasesScreen> {
                 ),
               Row(
                 children: [
-                  Expanded(child: Text(c.recipient, style: font(15, w8, Palette.ink))),
+                  // اسم المتجر لا «الزبون» (docs/plan/93): به تُعرف الشحنة عند الاتصال
+                  Expanded(child: Text(storeTitle(c.merchant.name, c.recipient), style: font(15, w8, Palette.ink))),
                   WaitChip(c.waitingMinutes, late: c.late),
                 ],
               ),
               Text(
-                '${c.place} · ${tag(c.number)} · ${money(c.amount)} د.ع',
+                [
+                  ?namedRecipient(c.recipient),
+                  c.place,
+                  tag(c.number),
+                  '${money(c.amount)} د.ع',
+                ].where((t) => t.isNotEmpty).join(' · '),
                 style: font(11.5, w6, Palette.slate, height: 1.5),
               ),
               const SizedBox(height: 8),

@@ -12,6 +12,7 @@ use App\Models\Announcement;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\FailureReason;
+use App\Models\Governorate;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\ShipmentTicket;
@@ -92,6 +93,11 @@ class CallCenterBoardTest extends TestCase
 
             return $shipment->refresh();
         });
+    }
+
+    private function basraGov(): Governorate
+    {
+        return Governorate::where('name_ar', 'البصرة')->firstOrFail();
     }
 
     private function ticket(): ShipmentTicket
@@ -284,6 +290,60 @@ class CallCenterBoardTest extends TestCase
         $this->postJson($this->api("/callcenter/couriers/{$this->courier->id}/reply"), ['body' => 'x', 'shipment' => '999999999'], $sara)
             ->assertStatus(422);
         $this->getJson($this->api('/callcenter/couriers'), $sara)->assertJsonPath('data.0.waiting', false);
+    }
+
+    public function test_the_call_centre_writes_to_any_courier_even_one_who_never_wrote(): void
+    {
+        $shipment = $this->withCourier();
+        $sara = $this->as($this->sara);
+
+        // أحمد لم يكتب بعد، وشحنته قيد التوصيل: يظهر في «المناديب» ويُكتب له (docs/plan/93)
+        $this->getJson($this->api('/callcenter/couriers'), $sara)->assertOk()
+            ->assertJsonPath('data.0.name', 'أحمد')->assertJsonPath('data.0.last', null)->assertJsonPath('data.0.unread', false);
+        $this->getJson($this->api('/callcenter/couriers?q=زيد'), $sara)->assertOk()->assertJsonCount(0, 'data');
+
+        $this->postJson($this->api("/callcenter/couriers/{$this->courier->id}/reply"), ['body' => 'استعجل الوصل', 'shipment' => $shipment->number], $sara)
+            ->assertCreated();
+        $this->getJson($this->api('/callcenter/couriers'), $sara)->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.last', 'استعجل الوصل');
+    }
+
+    public function test_board_and_processing_filter_by_governorate_courier_and_merchant(): void
+    {
+        $baghdad = $this->withCourier('علي');
+        $other = Tenancy::runFor($this->company, function () {
+            $courier = Courier::create(['code' => 'C2', 'name' => 'سجاد', 'phone' => '07720000002',
+                'type' => 'delivery', 'status' => 'active', 'commission_per_delivery' => 1500]);
+            $shipment = app(CreateShipment::class)->handle([
+                'merchant_id' => $this->merchant->id, 'recipient_name' => 'حسن', 'recipient_phone' => '07801234568',
+                'governorate_id' => $this->basraGov()->id, 'address' => 'العنوان', 'cod_amount' => 20_000,
+            ], $this->owner);
+            $change = app(ChangeShipmentStatus::class);
+            $change->handle($shipment, ShipmentStatus::PickedUp, $this->owner);
+            $change->handle($shipment->refresh(), ShipmentStatus::OutForDelivery, $this->owner, ['courier_id' => $courier->id]);
+
+            return $shipment->refresh();
+        });
+        $sara = $this->as($this->sara);
+
+        $page = $this->getJson($this->api('/callcenter/board/in_delivery'), $sara)->assertOk()
+            ->assertJsonPath('count', 2)->assertJsonPath('matched', 2)->json();
+        $this->assertEqualsCanonicalizing([$this->baghdad()->name_ar, $this->basraGov()->name_ar], array_column($page['facets']['governorates'], 'label'));
+        $this->assertEqualsCanonicalizing(['أحمد', 'سجاد'], array_column($page['facets']['couriers'], 'label'));
+        $this->assertSame([$this->merchant->business_name], array_column($page['facets']['merchants'], 'label'));
+
+        $this->getJson($this->api('/callcenter/board/in_delivery?governorate_id='.$this->basraGov()->id), $sara)
+            ->assertJsonPath('count', 2)->assertJsonPath('matched', 1)->assertJsonPath('data.0.number', $other->number);
+        $this->getJson($this->api('/callcenter/board/in_delivery?courier_id='.$this->courier->id), $sara)
+            ->assertJsonPath('matched', 1)->assertJsonPath('data.0.number', $baghdad->number);
+        $this->getJson($this->api('/callcenter/board/in_delivery?merchant_id='.$this->merchant->id), $sara)->assertJsonPath('matched', 2);
+
+        // والمعالجة كذلك
+        $failed = $this->failed();
+        $this->getJson($this->api('/callcenter/processing'), $sara)->assertOk()
+            ->assertJsonPath('facets.governorates.0.label', $this->baghdad()->name_ar)
+            ->assertJsonPath('data.0.number', $failed->number);
+        $this->getJson($this->api('/callcenter/processing?governorate_id='.$this->basraGov()->id), $sara)->assertJsonCount(0, 'data');
     }
 
     public function test_the_merchant_is_notified_of_deliveries_and_processing_decisions(): void

@@ -71,6 +71,13 @@ class Api {
     await _send(http.post(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
   }
 
+  /// إشعارٌ تجريبيّ إلى هواتف هذا الحساب (docs/plan/93): جوابه يقول أين يقف الإرسال
+  Future<String> testPush() async {
+    if (AppConfig.demo) return 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
+    final body = await _send(http.post(_uri('/devices/test'), headers: _headers));
+    return body['message'] as String? ?? 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
+  }
+
   Future<void> unregisterDevice(String token) async {
     await _send(http.delete(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
   }

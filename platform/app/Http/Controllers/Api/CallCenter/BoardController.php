@@ -53,7 +53,7 @@ class BoardController extends Controller
         abort_unless($user->can('shipments.view') && array_key_exists($kind, self::KINDS), 404);
         $term = trim((string) $request->query('q'));
 
-        $query = self::of($user, $kind)
+        $query = self::filtered(self::of($user, $kind), $request)
             ->when($term !== '', fn ($q) => $q->search($term))
             ->with(['merchant:id,business_name', 'governorate:id,name_ar', 'city:id,name_ar',
                 'deliveryCourier:id,name', 'lastFailureReason:id,name_ar']);
@@ -71,6 +71,9 @@ class BoardController extends Controller
             'kind' => $kind,
             'label' => self::KINDS[$kind],
             'count' => self::of($user, $kind)->count(),
+            // ما طابق الفرز والبحث، وشرائح الفرز بأعدادها في الخانة كلّها (docs/plan/93)
+            'matched' => (clone $query)->reorder()->count(),
+            'facets' => self::facets(self::of($user, $kind)),
             'data' => $query->limit(self::LIMIT)->get()->map(fn (Shipment $s) => self::row($s))->values(),
         ]);
     }

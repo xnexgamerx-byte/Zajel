@@ -121,7 +121,7 @@ void main() {
     expect(find.text('كتب عنها التاجر أو المندوب — ينتظر ردّك'), findsOneWidget);
     expect(find.text('تعالجها نور'), findsOneWidget);
 
-    await _tap(tester, find.text('منى جاسم'));
+    await _tap(tester, find.textContaining('منى جاسم'));
     expect(find.text('الزبونة اتصلت بينا، تريد التوصيل بعد العصر'), findsOneWidget);
     await _tap(tester, find.text('أعالجها'));
     await _scrollTo(tester, find.byTooltip('أرسل'));
@@ -132,10 +132,10 @@ void main() {
     await _tap(tester, find.text('إعادة توصيل'));
     await _tap(tester, find.text('نعم، أعيديها'));
     expect(find.text('عولجت 180231: إعادة توصيل.'), findsOneWidget);
-    expect(find.text('منى جاسم'), findsNothing);
+    expect(find.textContaining('منى جاسم'), findsNothing);
 
     // شحنة نور
-    await _tap(tester, find.text('كرار عادل'));
+    await _tap(tester, find.textContaining('كرار عادل'));
     expect(find.text('تعالجها نور'), findsOneWidget);
     expect(find.text('أعالجها'), findsNothing);
   });
@@ -256,7 +256,7 @@ void main() {
   testWidgets('المعالجة: توضيح المندوب مع السبب، ورسالة واتساب من القالب', (tester) async {
     await _start(tester);
     await _tab(tester, 'المعالجة');
-    await _tap(tester, find.text('منى جاسم'));
+    await _tap(tester, find.textContaining('منى جاسم'));
     expect(find.textContaining('توضيح المندوب: اتّصلت مرّتين'), findsOneWidget);
     expect(find.text('07801234567'), findsOneWidget);
     await _tap(tester, find.byTooltip('تواصلي مع الزبون'));
@@ -266,13 +266,13 @@ void main() {
   testWidgets('المعالجة: «الحرّة» تفرز ما لم تفتحه أحد، ولمس رقم الوصل يفتح تتبّعها، والردود الجاهزة', (tester) async {
     await _start(tester);
     await _tab(tester, 'المعالجة');
-    expect(find.text('كرار عادل'), findsOneWidget);
+    expect(find.textContaining('كرار عادل'), findsOneWidget);
     await _tap(tester, find.text('الحرّة'));
-    expect(find.text('كرار عادل'), findsNothing, reason: 'تعالجها نور');
-    expect(find.text('منى جاسم'), findsOneWidget);
+    expect(find.textContaining('كرار عادل'), findsNothing, reason: 'تعالجها نور');
+    expect(find.textContaining('منى جاسم'), findsOneWidget);
     await _tap(tester, find.textContaining('الحرّة'));
 
-    await _tap(tester, find.text('منى جاسم'));
+    await _tap(tester, find.textContaining('منى جاسم'));
     await _tap(tester, find.text('التتبّع'));
     expect(find.text('في المعالجة — افتحيها'), findsOneWidget);
     await _tap(tester, find.byTooltip('رجوع').last);
@@ -400,7 +400,7 @@ void main() {
   testWidgets('المعالجة: التأجيل بساعته، والملاحظة في الشحنة وسطرها', (tester) async {
     await _start(tester);
     await _tab(tester, 'المعالجة');
-    await _tap(tester, find.text('عمر فاضل'));
+    await _tap(tester, find.textContaining('عمر فاضل'));
     await _tap(tester, find.text('اكتبي'));
     await tester.enterText(find.byType(TextField).last, 'يردّ بعد الخامسة');
     await _tap(tester, find.text('احفظي الملاحظة'));
@@ -470,5 +470,25 @@ void main() {
     await _tap(tester, find.text('مؤجل').first);
     expect(find.text('متجر النخيل'), findsOneWidget);
     expect(find.text('بلا تحديث منذ يومين'), findsOneWidget);
+  });
+
+  testWidgets('المعالجة: اسم المتجر عنواناً، وشريط الفرز بالمحافظات والمندوب والتاجر (docs/plan/93)', (tester) async {
+    await _start(tester);
+    await _tab(tester, 'المعالجة');
+    // المتجر عنوان البطاقة، والزبون في سطرها
+    expect(find.text('متجر الوردة'), findsWidgets);
+    expect(find.textContaining('منى جاسم · بغداد · الكرادة'), findsOneWidget);
+
+    await _tap(tester, find.text('بابل 1'));
+    expect(find.textContaining('سجى محمد'), findsOneWidget);
+    expect(find.textContaining('منى جاسم'), findsNothing);
+    await _tap(tester, find.textContaining(RegExp(r'^الكل')));
+    expect(find.textContaining('منى جاسم'), findsOneWidget);
+
+    await _tap(tester, find.text('التاجر: الكل'));
+    await _tap(tester, find.text('بيت العطور').last);
+    expect(find.text('التاجر: بيت العطور'), findsOneWidget);
+    expect(find.textContaining('كرار عادل'), findsOneWidget);
+    expect(find.textContaining('منى جاسم'), findsNothing);
   });
 }

@@ -6,6 +6,7 @@ import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 import '../widgets/bits.dart';
+import '../widgets/filters.dart';
 import '../widgets/follow_up.dart';
 import '../widgets/page.dart';
 import 'search_screen.dart';
@@ -87,6 +88,9 @@ class _BoardScreenState extends State<BoardScreen> {
   String? error;
   int ticket = 0;
 
+  /// محافظةٌ أو مندوبٌ أو تاجر — يُفرز في النظام، فالخانة كلّها لا ما حُمّل منها (docs/plan/93)
+  FilterPick filter = const FilterPick();
+
   BoardView get view => widget.view;
 
   @override
@@ -105,7 +109,13 @@ class _BoardScreenState extends State<BoardScreen> {
   Future<void> _load() async {
     final mine = ++ticket;
     try {
-      final p = await Api.instance.boardList(view.kind, q: search.text);
+      final p = await Api.instance.boardList(
+        view.kind,
+        q: search.text,
+        governorate: filter.governorate,
+        courier: filter.courier,
+        merchant: filter.merchant,
+      );
       if (mounted && mine == ticket) setState(() => (page = p, error = null));
     } on ApiError catch (e) {
       if (mounted && mine == ticket) setState(() => error = e.message);
@@ -138,6 +148,20 @@ class _BoardScreenState extends State<BoardScreen> {
             offset: const Offset(0, -22),
             child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _search()),
           ),
+          if (p != null)
+            Transform.translate(
+              offset: const Offset(0, -12),
+              child: FilterBar(
+                facets: p.facets,
+                pick: filter,
+                total: p.count,
+                color: view.color,
+                onChanged: (f) {
+                  setState(() => filter = f);
+                  _load();
+                },
+              ),
+            ),
           Expanded(
             child: p == null
                 ? Waiting(brand: widget.brand, error: error, onRetry: _load)
@@ -152,9 +176,11 @@ class _BoardScreenState extends State<BoardScreen> {
                               Icon(view.icon, size: 46, color: view.color.withValues(alpha: .45)),
                               const SizedBox(height: 10),
                               Text(
-                                search.text.isEmpty
-                                    ? 'لا شحنات «${view.title}» الآن.'
-                                    : 'لا شحنة تطابق «${search.text}».',
+                                search.text.isNotEmpty
+                                    ? 'لا شحنة تطابق «${search.text}».'
+                                    : filter.any
+                                    ? 'لا شحنات بهذا الفرز. اختاري «الكل» لترَي الخانة كلّها.'
+                                    : 'لا شحنات «${view.title}» الآن.',
                                 textAlign: TextAlign.center,
                                 style: font(13, w6, Palette.slate, height: 1.6),
                               ),
@@ -235,7 +261,10 @@ class _BoardScreenState extends State<BoardScreen> {
               const SizedBox(width: 10),
               Column(
                 children: [
-                  Text(p == null ? '—' : money(p.count), style: display(28, w7, Colors.white, height: 1.1)),
+                  Text(
+                    p == null ? '—' : money(filter.any ? p.matched : p.count),
+                    style: display(28, w7, Colors.white, height: 1.1),
+                  ),
                   Text('شحنة', style: font(11, w7, Colors.white.withValues(alpha: .85))),
                 ],
               ),

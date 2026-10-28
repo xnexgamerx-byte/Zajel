@@ -6,6 +6,7 @@ import '../core/config.dart';
 import '../core/location.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/push.dart';
 import '../core/whatsapp.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
@@ -205,6 +206,25 @@ class _MoreScreenState extends State<MoreScreen> {
                     ),
                   ),
                 ),
+        ),
+        // إشعارات الهاتف (docs/plan/93): يُسأل الإذن، ويرسل النظام إشعاراً تجريبيّاً، ويقال أين يقف
+        const SectionTitle('إشعارات الهاتف'),
+        Text(
+          'شحنات تُسند إليك ورسائل الكول سنتر تصل هاتفك والتطبيق مغلق. إن لم تصلك جرّب من هنا.',
+          style: font(12, w6, Palette.slate, height: 1.6),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: () async {
+            final said = await Push.tryIt();
+            if (context.mounted) toast(context, said);
+          },
+          icon: const Icon(Icons.notifications_active_outlined),
+          label: Text('جرّب إشعاراً الآن', style: font(14, w7, Palette.ink)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
         ),
         const SectionTitle('الحساب'),
         Text(
