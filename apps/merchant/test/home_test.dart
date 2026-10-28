@@ -131,6 +131,16 @@ void main() {
     }
     expect(find.text('وصلت شحنتك 000288'), findsOneWidget);
 
+    // هل تصل الإشعارات؟ (docs/plan/89): الحال سطراً سطراً، و«جرّب إشعاراً الآن»
+    expect(find.text('إشعارات الهاتف لا تصل'), findsOneWidget);
+    expect(find.textContaining('نسخة العرض: لا تصل الهاتف إشعارات'), findsOneWidget);
+    expect(find.textContaining('جاهزٌ للإرسال'), findsOneWidget);
+    await tester.tap(find.text('جرّب إشعاراً الآن'));
+    await tester.pumpAndSettle();
+    expect(find.text('في نسخة العرض لا تصل الهاتف إشعارات.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
     // الواصل لا يصل الهاتف: تختفي معاينته
     await tester.tap(find.widgetWithText(SwitchListTile, 'وصلت شحنتك'));
     await tester.pumpAndSettle();

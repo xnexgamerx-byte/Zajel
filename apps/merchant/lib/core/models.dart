@@ -268,7 +268,7 @@ class ShipmentPage {
 
 /// ما يصل هاتف التاجر من الإشعارات، وبصوتٍ أم بلا صوت (docs/plan/86)
 class NotifySettings {
-  NotifySettings({required this.kinds, required this.sound});
+  NotifySettings({required this.kinds, required this.sound, this.pushServer = true, this.devices});
 
   factory NotifySettings.fromJson(Map<String, dynamic> j) => NotifySettings(
     kinds: [
@@ -276,11 +276,17 @@ class NotifySettings {
         (key: (k as Map)['key'] as String, label: k['label'] as String? ?? '', on: k['on'] as bool? ?? true),
     ],
     sound: j['sound'] as bool? ?? true,
+    pushServer: (j['push'] as Map?)?['server'] as bool? ?? true,
+    devices: (j['push'] as Map?)?['devices'] as int?,
   );
 
   /// delivered · failed · processed · amount
   final List<({String key, String label, bool on})> kinds;
   final bool sound;
+
+  /// حال إشعارات الهاتف (docs/plan/89): مفتاح Firebase على الخادم، وهواتف هذا الحساب المسجّلة (null: نظامٌ أقدم)
+  final bool pushServer;
+  final int? devices;
 }
 
 /// سطرٌ في مسار الشحنة

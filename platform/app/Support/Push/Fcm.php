@@ -49,19 +49,37 @@ final class Fcm
     /** @param  string|null  $channel  قناة أندرويد: بصوتٍ أو بلا صوت (docs/plan/86) */
     public static function send(array $tokens, string $title, string $body, array $data = [], ?string $channel = null): array
     {
+        return self::deliver($tokens, $title, $body, $data, $channel)['dead'];
+    }
+
+    /**
+     * الإرسال بتقريره (docs/plan/89): كم وصل Firebase، وما رُفض نهائياً، ولماذا لم يُرسل شيء — لزرّ «جرّب
+     * الإشعار» في التطبيق.
+     *
+     * @param  list<string>  $tokens
+     * @param  array<string, string>  $data
+     * @return array{sent: int, dead: list<string>, error: ?string}
+     */
+    public static function deliver(array $tokens, string $title, string $body, array $data = [], ?string $channel = null): array
+    {
         $creds = self::credentials();
 
-        if ($creds === null || $tokens === []) {
-            return [];
+        if ($creds === null) {
+            return ['sent' => 0, 'dead' => [], 'error' => 'no_key'];
+        }
+        if ($tokens === []) {
+            return ['sent' => 0, 'dead' => [], 'error' => 'no_device'];
         }
 
         $access = self::accessToken($creds);
 
         if ($access === null) {
-            return [];
+            return ['sent' => 0, 'dead' => [], 'error' => 'auth'];
         }
 
         $dead = [];
+        $sent = 0;
+        $error = null;
         $url = "https://fcm.googleapis.com/v1/projects/{$creds['project_id']}/messages:send";
 
         foreach ($tokens as $token) {
@@ -74,14 +92,17 @@ final class Fcm
                 ],
             ]);
 
-            if ($response->status() === 404 || str_contains((string) $response->body(), 'UNREGISTERED')) {
+            if ($response->successful()) {
+                $sent++;
+            } elseif ($response->status() === 404 || str_contains((string) $response->body(), 'UNREGISTERED')) {
                 $dead[] = $token;
-            } elseif (! $response->successful()) {
+            } else {
+                $error = 'rejected';
                 Log::warning('FCM: الإرسال رُفض', ['status' => $response->status()]);
             }
         }
 
-        return $dead;
+        return ['sent' => $sent, 'dead' => $dead, 'error' => $sent > 0 ? null : ($error ?? ($dead !== [] ? 'expired' : null))];
     }
 
     /** رمز الوصول يُستعمل ساعةً، ويُحفظ نصف ساعة أقل من ذلك */

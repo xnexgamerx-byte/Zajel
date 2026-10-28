@@ -231,4 +231,49 @@ class PushNotificationTest extends TestCase
             ->handle($other->refresh(), ShipmentStatus::FailedAttempt, $this->staff, ['failure_reason_id' => $reason->id]));
         $this->assertSame(0, Tenancy::runFor($this->company, fn () => Announcement::where('title', "شحنتك {$other->number} لم تُسلَّم — للمعالجة")->count()));
     }
+
+    public function test_the_merchant_tries_a_notification_and_learns_where_it_fails(): void
+    {
+        $this->app['auth']->forgetGuards();
+        $api = 'http://zajel.'.config('zajel.tenant_domain').'/api/v1';
+        $token = $this->postJson($api.'/login', [
+            'username' => $this->user->username, 'password' => 'password', 'app' => 'merchant',
+        ])->assertOk()->json('token');
+        $headers = ['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'];
+
+        // بلا مفتاحٍ على الخادم: يقول ذلك، وحال الإشعارات في الاختيار
+        config(['services.firebase.service_account' => null]);
+        $this->getJson($api.'/merchant/notifications/settings', $headers)->assertOk()
+            ->assertJsonPath('data.push.server', false)->assertJsonPath('data.push.devices', 0);
+        $this->postJson($api.'/merchant/notifications/test', [], $headers)->assertUnprocessable()
+            ->assertJsonPath('ok', false)->assertJsonPath('message', fn ($m) => str_contains($m, 'مفتاح Firebase'));
+
+        // بمفتاحٍ وبلا هاتف
+        config(['services.firebase.service_account' => $this->keyFile]);
+        $this->postJson($api.'/merchant/notifications/test', [], $headers)->assertUnprocessable()
+            ->assertJsonPath('message', fn ($m) => str_contains($m, 'غير مسجّل'));
+
+        // هاتفه وحده يصله الإشعار، لا هاتف غيره
+        $other = Tenancy::runFor($this->company, fn () => User::create(['name' => 'آخر', 'phone' => '07790000008',
+            'password' => 'password', 'role' => UserRole::Merchant, 'merchant_id' => $this->merchant->id, 'is_active' => true]));
+        $this->device('fcm-mine', $this->user);
+        $this->device('fcm-theirs', $other);
+        // ردّ Firebase يتبدّل في الاختبار نفسه: ناجحٌ ثم رمزٌ قديم
+        $reply = [[], 200];
+        Http::fake(['fcm.googleapis.com/*' => function () use (&$reply) {
+            return Http::response($reply[0], $reply[1]);
+        }]);
+        $this->getJson($api.'/merchant/notifications/settings', $headers)->assertOk()
+            ->assertJsonPath('data.push.server', true)->assertJsonPath('data.push.devices', 1);
+        $this->postJson($api.'/merchant/notifications/test', [], $headers)->assertOk()
+            ->assertJsonPath('ok', true)->assertJsonPath('sent', 1);
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($r) => $r['message']['token'] === 'fcm-mine' && $r['message']['notification']['title'] === 'تجربة الإشعارات');
+
+        // رمزٌ قديم: يُحذف ويقال
+        $reply = [['error' => ['status' => 'NOT_FOUND', 'message' => 'UNREGISTERED']], 404];
+        $this->postJson($api.'/merchant/notifications/test', [], $headers)->assertUnprocessable()
+            ->assertJsonPath('message', fn ($m) => str_contains($m, 'قديم'));
+        $this->assertSame(1, Tenancy::runFor($this->company, fn () => PushDevice::count()));
+    }
 }

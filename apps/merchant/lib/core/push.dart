@@ -80,6 +80,22 @@ class Push {
     }
   }
 
+  /// إذن الإشعارات في الهاتف (docs/plan/89): granted · denied · unknown — وoff حين بُنيت النسخة بلا إشعارات
+  static Future<String> permission() async {
+    await _init();
+    if (!_ready) return 'off';
+    try {
+      final s = await FirebaseMessaging.instance.getNotificationSettings();
+      return switch (s.authorizationStatus) {
+        AuthorizationStatus.authorized || AuthorizationStatus.provisional => 'granted',
+        AuthorizationStatus.denied => 'denied',
+        _ => 'unknown',
+      };
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
   /// قبل الخروج: الهاتف لا يُشعَر بعدها بشحنات من خرج
   static Future<void> unregister() async {
     if (!_ready) return;

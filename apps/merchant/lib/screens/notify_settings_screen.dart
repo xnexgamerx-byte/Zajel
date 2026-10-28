@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
+import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/push.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
 
@@ -24,6 +26,10 @@ class _NotifySettingsScreenState extends State<NotifySettingsScreen> {
   NotifySettings? settings;
   String? error;
   bool saving = false;
+
+  /// إذن الإشعارات في الهاتف (docs/plan/89)
+  String permission = 'unknown';
+  bool testing = false;
 
   Brand get brand => widget.brand;
 
@@ -51,9 +57,36 @@ class _NotifySettingsScreenState extends State<NotifySettingsScreen> {
   Future<void> _load() async {
     try {
       final s = await Api.instance.notifySettings();
-      if (mounted) setState(() => (settings = s, error = null));
+      final p = await Push.permission();
+      if (mounted) setState(() => (settings = s, error = null, permission = p));
     } on ApiError catch (e) {
       if (mounted) setState(() => error = e.message);
+    }
+  }
+
+  /// يطلب الإذن ثانيةً ويسجّل الهاتف، ثم يعيد الحال
+  Future<void> _allow() async {
+    await Push.register();
+    await _load();
+    if (mounted && permission == 'denied') {
+      toast(
+        context,
+        'الإشعارات مطفأةٌ للتطبيق: افتح إعدادات الهاتف ← التطبيقات ← هذا التطبيق ← الإشعارات، وشغّلها.',
+        bad: true,
+      );
+    }
+  }
+
+  Future<void> _test() async {
+    setState(() => testing = true);
+    try {
+      final message = await Api.instance.testNotification();
+      if (mounted) toast(context, message);
+    } on ApiError catch (e) {
+      if (mounted) toast(context, e.message, bad: true);
+    } finally {
+      if (mounted) setState(() => testing = false);
+      await _load();
     }
   }
 
@@ -87,6 +120,8 @@ class _NotifySettingsScreenState extends State<NotifySettingsScreen> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(14, 4, 14, 32),
                       children: [
+                        _status(s),
+                        const SizedBox(height: 14),
                         WhiteCard(
                           padding: EdgeInsets.zero,
                           child: Column(
@@ -120,6 +155,98 @@ class _NotifySettingsScreenState extends State<NotifySettingsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// هل تصل إشعاراتك؟ (docs/plan/89): النسخة، وإذن الهاتف، والخادم، وتسجيل هاتفك — كلٌّ بحاله، وما يُصلحه،
+  /// و«جرّب إشعاراً الآن»
+  Widget _status(NotifySettings s) {
+    final built = Push.configured;
+    final lines = <(bool, String, String)>[
+      (
+        built,
+        'هذه النسخة',
+        AppConfig.demo
+            ? 'نسخة العرض: لا تصل الهاتف إشعارات'
+            : built
+            ? 'إشعارات الهاتف مفعّلةٌ فيها'
+            : 'بُنيت بلا إشعارات الهاتف — ثبّت آخر نسخةٍ من التطبيق',
+      ),
+      if (built)
+        (
+          permission == 'granted',
+          'إذن الهاتف',
+          permission == 'granted' ? 'مسموحٌ للتطبيق بالإشعارات' : 'الإشعارات مطفأةٌ للتطبيق في الهاتف',
+        ),
+      (s.pushServer, 'الخادم', s.pushServer ? 'جاهزٌ للإرسال' : 'غير مهيّأ لإشعارات الهاتف بعد — راجع شركة التوصيل'),
+      if (s.devices != null) (s.devices! > 0, 'هاتفك', s.devices! > 0 ? 'مسجّلٌ للإشعارات' : 'غير مسجّلٍ بعد'),
+    ];
+    final ok = lines.every((l) => l.$1);
+    return WhiteCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                ok ? Icons.notifications_active_rounded : Icons.notifications_off_outlined,
+                color: ok ? Palette.ok : brand.main,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                ok ? 'إشعارات الهاتف تعمل' : 'إشعارات الهاتف لا تصل',
+                style: font(14.5, w8, ok ? Palette.ok : brand.main),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final (good, label, text) in lines)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    good ? Icons.check_circle_rounded : Icons.error_rounded,
+                    size: 17,
+                    color: good ? Palette.ok : Palette.returnRed,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: '$label: ', style: font(12.5, w8, Palette.ink, height: 1.5)),
+                          TextSpan(text: text, style: font(12.5, w5, Palette.slate, height: 1.5)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 10),
+          if (built && (permission != 'granted' || (s.devices ?? 1) == 0)) ...[
+            SheetButton(
+              brand: brand,
+              label: 'اسمح بالإشعارات',
+              icon: Icons.notifications_active_outlined,
+              onTap: _allow,
+            ),
+            const SizedBox(height: 8),
+          ],
+          SheetButton(
+            brand: brand,
+            label: 'جرّب إشعاراً الآن',
+            icon: Icons.send_rounded,
+            outlined: true,
+            busy: testing,
+            onTap: _test,
+          ),
+        ],
       ),
     );
   }

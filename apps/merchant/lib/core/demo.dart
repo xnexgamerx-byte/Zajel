@@ -460,6 +460,7 @@ class Demo {
   static NotifySettings notifySettings() => NotifySettings(
     kinds: [for (final e in _notifyKinds.entries) (key: e.key, label: e.value, on: _notify[e.key] ?? true)],
     sound: _notify['sound'] ?? true,
+    devices: 1,
   );
 
   static NotifySettings saveNotifySettings(Map<String, bool> changes) {

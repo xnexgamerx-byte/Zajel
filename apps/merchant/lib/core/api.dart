@@ -273,6 +273,13 @@ class Api {
     return NotifySettings.fromJson((body['data'] as Map).cast());
   }
 
+  /// «جرّب الإشعار» (docs/plan/89): إشعارٌ إلى هواتفك الآن، ويعود بما جرى — أو بالعطل بكلامه
+  Future<String> testNotification() async {
+    if (AppConfig.demo) return 'في نسخة العرض لا تصل الهاتف إشعارات.';
+    final body = await _send(http.post(_uri('/merchant/notifications/test'), headers: _headers));
+    return body['message'] as String? ?? 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
+  }
+
   /// الهاتف برمز Firebase: إليه تصل «وصلت شحنتك» وقرار المعالجة
   Future<void> registerDevice(String token) async {
     await _send(http.post(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));

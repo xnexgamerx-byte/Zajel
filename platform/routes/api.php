@@ -192,6 +192,8 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
             Route::get('/notifications', [MerchantProfileController::class, 'notifications'])->name('notifications');
             // ما يصل هاتفه منها، وبصوتٍ أم بلا صوت (docs/plan/86)
             Route::get('/notifications/settings', [MerchantNotificationSettingsController::class, 'show'])->name('notifications.settings');
+            Route::post('/notifications/test', [MerchantNotificationSettingsController::class, 'test'])->middleware('throttle:10,1,notify-test')
+                ->name('notifications.test');
             Route::put('/notifications/settings', [MerchantNotificationSettingsController::class, 'update'])->middleware('throttle:30,1')
                 ->name('notifications.settings.update');
             // موظّفو المتجر: لصاحبه وحده، وما دامت الميزة مفتوحةً لشركته
