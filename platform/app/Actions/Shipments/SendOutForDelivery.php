@@ -6,6 +6,7 @@ use App\Enums\ShipmentStatus;
 use App\Models\Courier;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Support\Arabic;
 use App\Support\Push\StaffPush;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -80,7 +81,7 @@ class SendOutForDelivery
             DB::afterCommit(fn () => StaffPush::courier(
                 $courier,
                 'شحنات جديدة للتوصيل',
-                $count === 1 ? "أُسندت إليك الشحنة {$first} — افتح التطبيق لتراها." : "أُسندت إليك {$count} شحنة للتوصيل — افتح التطبيق لتراها.",
+                $count === 1 ? "أُسندت إليك الشحنة {$first} — افتح التطبيق لتراها." : 'أُسندت إليك '.Arabic::shipments($count).' للتوصيل — افتح التطبيق لتراها.',
                 'assigned',
             ));
         }
