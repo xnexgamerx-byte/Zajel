@@ -7,6 +7,7 @@ use App\Models\CourierMessage;
 use App\Models\CourierThread;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Support\NotifyTexts;
 use App\Support\Push\StaffPush;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -61,9 +62,11 @@ class CourierChat
 
             $preview = mb_substr($body, 0, 120);
             if ($author === self::STAFF) {
-                DB::afterCommit(fn () => StaffPush::courier($courier, 'رسالة من الكول سنتر', $preview, 'message'));
+                DB::afterCommit(fn () => StaffPush::courier($courier, ...NotifyTexts::apply('courier_message', 'رسالة من الكول سنتر', $preview,
+                    ['{الرسالة}' => $preview]), kind: 'message'));
             } else {
-                DB::afterCommit(fn () => StaffPush::callCentre("رسالة من مندوب: {$courier->name}", $preview, 'message'));
+                DB::afterCommit(fn () => StaffPush::callCentre(...NotifyTexts::apply('callcenter_courier_message', "رسالة من مندوب: {$courier->name}", $preview,
+                    ['{المندوب}' => $courier->name, '{الرسالة}' => $preview]), kind: 'message'));
             }
 
             return $message;

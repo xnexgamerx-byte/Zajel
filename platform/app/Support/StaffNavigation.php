@@ -167,6 +167,8 @@ final class StaffNavigation
                 ['announcements.index', 'إشعار لمندوبي التوصيل', ['announcements.*'], 'notify.send', ['audience' => 'delivery_couriers']],
                 ['announcements.index', 'إشعار لمندوبي الاستلام', ['announcements.*'], 'notify.send', ['audience' => 'pickup_couriers']],
                 ['app-ads.index', 'إعلانات التطبيق', ['app-ads.*'], 'notify.send'],
+                // ما يصل الهواتف وحده، بكلام الشركة (docs/plan/91)
+                ['notify-texts.edit', 'نصوص الإشعارات', ['notify-texts.*'], 'notify.texts'],
             ]],
             // الناس والأسعار والشركة: ما يُضبط مرّةً ويُعدَّل أحياناً
             'settings' => ['الإعدادات', 'building', [

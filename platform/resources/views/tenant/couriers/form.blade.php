@@ -92,6 +92,18 @@
                         </span>
                     </label>
                 </div>
+                {{-- هاتف التاجر في تطبيق المندوب (docs/plan/92) --}}
+                <div class="sm:col-span-3">
+                    <input type="hidden" name="sees_merchant_phone" value="0">
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="checkbox" name="sees_merchant_phone" value="1" class="mt-1"
+                               @checked(old('sees_merchant_phone', $courier->sees_merchant_phone ?? true))>
+                        <span>
+                            <span class="font-semibold">يرى هاتف التاجر</span>
+                            <span class="block text-xs text-ink-500">في تطبيقه: زرّ الاتصال وواتساب التاجر في الشحنة، وهاتفه في طلب الاستلام. أطفئه فلا يصله الرقم أبداً.</span>
+                        </span>
+                    </label>
+                </div>
                 <div>
                     <label class="field-label" for="vehicle_type">وسيلة النقل</label>
                     <select id="vehicle_type" name="vehicle_type" class="field-input" required>

@@ -25,7 +25,7 @@ class Courier extends Model
 
     protected function casts(): array
     {
-        return ['is_available' => 'boolean', 'is_intermediary' => 'boolean', 'hidden_from_merchants' => 'boolean', 'last_seen_at' => 'datetime'];
+        return ['is_available' => 'boolean', 'is_intermediary' => 'boolean', 'hidden_from_merchants' => 'boolean', 'sees_merchant_phone' => 'boolean', 'last_seen_at' => 'datetime'];
     }
 
     public function user(): BelongsTo
@@ -105,6 +105,12 @@ class Courier extends Model
      * «إخفاء المندوب عن العميل» (docs/plan/81): لا يرى التاجر شيئاً عنه — لا اسمه ولا هاتفه ولا موقعه.
      * والشركة الوسيطة مخفيّةٌ باسمها كما كانت.
      */
+    /** هاتف التاجر في تطبيقه (docs/plan/92): يراه ما لم تطفئه الشركة له */
+    public function seesMerchantPhone(): bool
+    {
+        return $this->sees_merchant_phone !== false;
+    }
+
     public function hiddenFromMerchants(): bool
     {
         return (bool) $this->hidden_from_merchants;

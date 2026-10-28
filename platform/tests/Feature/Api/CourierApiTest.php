@@ -441,6 +441,38 @@ class CourierApiTest extends TestCase
             ->assertJsonPath('today.collected', 40_000)->assertJsonPath('chat.unread', false);
     }
 
+    public function test_the_merchant_phone_reaches_only_the_couriers_the_company_gives_it_to(): void
+    {
+        $shipment = $this->ship('منى');
+        $merchantPhone = $this->merchant->phone;
+        $this->assertNotEmpty($merchantPhone);
+
+        $token = $this->token();
+        $this->getJson($this->api('/courier/shipments/'.$shipment->id), $this->auth($token))->assertOk()
+            ->assertJsonPath('data.merchant.phone', $merchantPhone);
+
+        // الشركة تطفئه له من صفحته (docs/plan/92): يبقى اسم المتجر، ويغيب الرقم
+        Tenancy::runFor($this->company, fn () => $this->courier->update(['sees_merchant_phone' => false]));
+        $this->getJson($this->api('/courier/shipments/'.$shipment->id), $this->auth($token))->assertOk()
+            ->assertJsonPath('data.merchant.name', $this->merchant->business_name)
+            ->assertJsonPath('data.merchant.phone', null);
+
+        // وفي طلب الاستلام كذلك
+        [$picker, $pickerUser] = $this->courierWithLogin('سجاد', '07721230009', ['type' => 'pickup', 'sees_merchant_phone' => false]);
+        Tenancy::runFor($this->company, fn () => PickupRequest::create([
+            'merchant_id' => $this->merchant->id, 'courier_id' => $picker->id,
+            'number' => 'PU000001', 'status' => 'assigned', 'expected_count' => 1,
+        ]));
+        $this->app['auth']->forgetGuards();
+        $this->getJson($this->api('/courier/pickups'), $this->auth($this->token($pickerUser)))->assertOk()
+            ->assertJsonPath('data.0.number', 'PU000001')->assertJsonPath('data.0.phone', null);
+
+        // والنموذج في الموقع يحمل الخيار
+        $this->actingAs($this->staff)
+            ->get('http://'.$this->company->slug.'.'.config('zajel.tenant_domain').'/couriers/'.$picker->id.'/edit')
+            ->assertOk()->assertSee('يرى هاتف التاجر');
+    }
+
     public function test_a_pickup_courier_closes_his_pickup_from_the_app_and_nobody_elses(): void
     {
         [$picker, $pickerUser] = $this->courierWithLogin('سجاد', '07721230009', ['type' => 'pickup']);

@@ -10,6 +10,7 @@ use App\Models\ShipmentEvent;
 use App\Models\ShipmentTicket;
 use App\Models\User;
 use App\Services\SequenceGenerator;
+use App\Support\NotifyTexts;
 use App\Support\Push\StaffPush;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -90,11 +91,12 @@ class ShipmentTickets
                 .($kind === 'partial' && $pieces ? " — رجعت {$pieces} قطعة" : '')
                 .' — '.$ticket->kindLabel().'. '.$reason, $courier->id);
 
-            DB::afterCommit(fn () => StaffPush::callCentre(
+            DB::afterCommit(fn () => StaffPush::callCentre(...NotifyTexts::apply(
+                'callcenter_ticket',
                 'تذكرة جديدة من مندوب',
                 "شحنة {$shipment->number}: {$ticket->kindLabel()} — {$ticket->number}. افتح التذكرة لتقرّر.",
-                'ticket',
-            ));
+                ['{الوصل}' => $shipment->number, '{الطلب}' => $ticket->kindLabel(), '{التذكرة}' => $ticket->number, '{المندوب}' => $courier->name],
+            ), kind: 'ticket'));
 
             return $ticket;
         });

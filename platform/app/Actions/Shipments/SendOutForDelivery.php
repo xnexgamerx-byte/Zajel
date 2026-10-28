@@ -7,6 +7,7 @@ use App\Models\Courier;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Support\Arabic;
+use App\Support\NotifyTexts;
 use App\Support\Push\StaffPush;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -78,12 +79,12 @@ class SendOutForDelivery
         if ($moved !== []) {
             $count = count($moved);
             $first = $moved[0];
-            DB::afterCommit(fn () => StaffPush::courier(
-                $courier,
+            DB::afterCommit(fn () => StaffPush::courier($courier, ...NotifyTexts::apply(
+                $count === 1 ? 'courier_assigned_one' : 'courier_assigned_many',
                 'شحنات جديدة للتوصيل',
                 $count === 1 ? "أُسندت إليك الشحنة {$first} — افتح التطبيق لتراها." : 'أُسندت إليك '.Arabic::shipments($count).' للتوصيل — افتح التطبيق لتراها.',
-                'assigned',
-            ));
+                ['{الوصل}' => $first, '{الشحنات}' => Arabic::shipments($count)],
+            ), kind: 'assigned'));
         }
 
         return ['moved' => $moved, 'received' => $received, 'skipped' => $skipped];

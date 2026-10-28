@@ -8,6 +8,7 @@ use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Support\MerchantHours;
+use App\Support\NotifyTexts;
 use App\Support\Push\StaffPush;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -126,7 +127,9 @@ class Converse
         // رسالة التاجر تصل الكول سنتر هاتفه (docs/plan/90)، بعد حفظها
         if ($author === self::MERCHANT) {
             $name = $conversation->merchant?->business_name ?? 'تاجر';
-            DB::afterCommit(fn () => StaffPush::callCentre("رسالة من تاجر: {$name}", mb_substr($body, 0, 120), 'message'));
+            $preview = mb_substr($body, 0, 120);
+            DB::afterCommit(fn () => StaffPush::callCentre(...NotifyTexts::apply('callcenter_merchant_message', "رسالة من تاجر: {$name}", $preview,
+                ['{المتجر}' => $name, '{الرسالة}' => $preview]), kind: 'message'));
         }
 
         if ($body === '' && ! $file) {

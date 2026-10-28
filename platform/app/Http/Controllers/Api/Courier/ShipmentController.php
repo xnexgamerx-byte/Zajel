@@ -223,7 +223,8 @@ class ShipmentController extends Controller
             ],
             'location' => $shipment->lat !== null && $shipment->lng !== null
                 ? ['lat' => (float) $shipment->lat, 'lng' => (float) $shipment->lng] : null,
-            'merchant' => ['name' => $shipment->merchant?->business_name, 'phone' => $shipment->merchant?->phone],
+            // هاتف التاجر لمن أعطته الشركة إيّاه (docs/plan/92)
+            'merchant' => ['name' => $shipment->merchant?->business_name, 'phone' => $courier->seesMerchantPhone() ? $shipment->merchant?->phone : null],
             'amount' => (int) $shipment->cod_amount,
             // يُمسح الطرد قبل أيّ تسجيل (docs/plan/72)
             'needs_scan' => $canAct && ScanParcel::required(),

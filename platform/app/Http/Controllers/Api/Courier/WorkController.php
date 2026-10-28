@@ -79,7 +79,8 @@ class WorkController extends Controller
                     'landmark' => $p->landmark ?: $p->merchant?->landmark,
                     'notes' => $p->notes,
                     // يُتّصل به من الزرّ ولا يُنسخ (docs/plan/66 §الأمان)
-                    'phone' => $p->contact_phone ?: $p->merchant?->phone,
+                    // وهاتف التاجر لمن أعطته الشركة إيّاه (docs/plan/92)
+                    'phone' => $courier->seesMerchantPhone() ? ($p->contact_phone ?: $p->merchant?->phone) : null,
                     'at' => $p->scheduled_at?->toIso8601String(),
                 ])->values(),
         ]);

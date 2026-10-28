@@ -22,6 +22,12 @@ class Ability
     /** إعلانٌ واحد يبلغ كل المناديب أو كل التجّار */
     public const NOTIFY_SEND = 'notify.send';
 
+    /**
+     * نصوص الإشعارات التي تصل هواتف التجّار والمناديب والكول سنتر (docs/plan/91): للشركة كلّها،
+     * فلصاحبها ومديرها افتراضاً، ويمنحها من يشاء بمرتبةٍ أو صلاحيةٍ استثنائية.
+     */
+    public const NOTIFY_TEXTS = 'notify.texts';
+
     // الشحنات
     public const SHIPMENTS_VIEW = 'shipments.view';
 
@@ -165,7 +171,7 @@ class Ability
      */
     public const COMPANY_WIDE = [
         self::SETTINGS_PERMISSIONS, self::SETTINGS_BRANCHES,
-        self::SETTINGS_PRICING, self::SETTINGS_COMPANY,
+        self::SETTINGS_PRICING, self::SETTINGS_COMPANY, self::NOTIFY_TEXTS,
         // السحب من أرباح الشركة كلّها: من الفرع الرئيسي وحده (docs/plan/68 §١٣)
         self::WITHDRAWALS_REQUEST, self::WITHDRAWALS_APPROVE, self::PERIODS_PREPARE, self::PERIODS_CLOSE, self::FINANCE_SETTINGS,
     ];
@@ -228,6 +234,7 @@ class Ability
                 self::SUPPORT_REPLY => 'محادثات التجّار',
                 self::TICKETS_HANDLE => 'طلبات المناديب لتغيير المبلغ (اعتمادٌ يغيّر مبلغ الشحنة)',
                 self::NOTIFY_SEND => 'الإشعارات وإعلانات التطبيق',
+                self::NOTIFY_TEXTS => 'نصوص إشعارات التطبيقات (التاجر والمندوب والكول سنتر)',
                 self::CONTROL_REVIEW => 'إجازة الشحنات المعلّقة للمراجعة',
                 self::CONTROL_DUPLICATES => 'حسم الشحنات المكرّرة',
                 self::CONTROL_FORCE => 'التغيير الإجباري خارج المسار',

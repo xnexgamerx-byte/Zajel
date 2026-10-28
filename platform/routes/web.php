@@ -77,6 +77,7 @@ use App\Http\Controllers\Tenant\MerchantController;
 use App\Http\Controllers\Tenant\MerchantRequestController;
 use App\Http\Controllers\Tenant\MerchantSettlementController;
 use App\Http\Controllers\Tenant\MyCashBoxController;
+use App\Http\Controllers\Tenant\NotifyTextController;
 use App\Http\Controllers\Tenant\OpeningBalanceController;
 use App\Http\Controllers\Tenant\OperationalAlertController;
 use App\Http\Controllers\Tenant\PassedThroughController;
@@ -462,6 +463,12 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/billing/invoices/{invoice}', [BillingController::class, 'invoice'])->whereNumber('invoice')->name('billing.invoice');
                 Route::post('/billing/notices', [BillingController::class, 'notify'])->middleware('throttle:10,60,billing-notices')->name('billing.notify');
                 Route::get('/billing/notices/{notice}/proof', [BillingController::class, 'proof'])->whereNumber('notice')->name('billing.proof');
+            });
+
+            // نصوص الإشعارات التي تصل الهواتف، بكلام الشركة (docs/plan/91)
+            Route::middleware(['feature:notify_texts', 'can:notify.texts'])->group(function () {
+                Route::get('/notify-texts', [NotifyTextController::class, 'edit'])->name('notify-texts.edit');
+                Route::put('/notify-texts', [NotifyTextController::class, 'update'])->name('notify-texts.update');
             });
 
             // الإشعارات الجماعية: إعلانٌ واحد للمناديب أو للتجّار، ومَن قرأه
