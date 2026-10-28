@@ -10,6 +10,7 @@ use App\Models\Merchant;
 use App\Models\User;
 use App\Support\MerchantPermissions;
 use App\Support\Username;
+use App\Support\Push\StaffPush;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -27,7 +28,7 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     /** أيّ الأدوار يدخل كلّ تطبيق */
-    private const APPS = [
+    public const APPS = [
         'merchant' => [UserRole::Merchant],
         'courier'  => [UserRole::Courier],
         // تطبيق الكول سنتر (docs/plan/73): موظّفو الشركة ممّن يعالجون التذاكر أو الشحنات أو المحادثات

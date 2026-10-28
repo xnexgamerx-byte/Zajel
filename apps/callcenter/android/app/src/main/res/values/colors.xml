@@ -4,4 +4,6 @@
     <color name="ic_launcher_background">#FFFFFF</color>
     <!-- خلفية شاشة الفتح: خلفية التطبيق نفسها -->
     <color name="launch_background">#FBF6F5</color>
+    <!-- لون الجرس في إشعار الهاتف (docs/plan/90) -->
+    <color name="notification">#B3202A</color>
 </resources>

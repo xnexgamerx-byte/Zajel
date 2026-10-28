@@ -55,6 +55,9 @@ class Api {
   /// الصور في المحادثات تُطلب برمز الموظّفة
   Map<String, String> get fileHeaders => {if (_token != null) 'Authorization': 'Bearer $_token'};
 
+  /// داخلٌ برمزه: إليه يُسجَّل هاتف الإشعارات (docs/plan/90)
+  bool get signedIn => _token != null;
+
   Future<bool> restore() async {
     if (AppConfig.demo) return false;
     _token = await _storage.read(key: _tokenKey);
@@ -70,6 +73,15 @@ class Api {
     } catch (_) {
       return null;
     }
+  }
+
+  /// الهاتف برمز Firebase: إليه تصل الإشعارات (docs/plan/90)
+  Future<void> registerDevice(String token) async {
+    await _send(http.post(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
+  }
+
+  Future<void> unregisterDevice(String token) async {
+    await _send(http.delete(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
   }
 
   Future<Session> login(String username, String password) async {

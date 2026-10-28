@@ -7,6 +7,7 @@ use App\Models\CourierMessage;
 use App\Models\CourierThread;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Support\Push\StaffPush;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -57,6 +58,13 @@ class CourierChat
                 'staff_unread'    => $author === self::COURIER,
                 'courier_unread'  => $author === self::STAFF,
             ])->save();
+
+            $preview = mb_substr($body, 0, 120);
+            if ($author === self::STAFF) {
+                DB::afterCommit(fn () => StaffPush::courier($courier, 'رسالة من الكول سنتر', $preview, 'message'));
+            } else {
+                DB::afterCommit(fn () => StaffPush::callCentre("رسالة من مندوب: {$courier->name}", $preview, 'message'));
+            }
 
             return $message;
         });

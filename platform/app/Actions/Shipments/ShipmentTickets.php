@@ -10,6 +10,7 @@ use App\Models\ShipmentEvent;
 use App\Models\ShipmentTicket;
 use App\Models\User;
 use App\Services\SequenceGenerator;
+use App\Support\Push\StaffPush;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -88,6 +89,12 @@ class ShipmentTickets
                 .number_format($ticket->current_amount).' ← '.number_format($amount)
                 .($kind === 'partial' && $pieces ? " — رجعت {$pieces} قطعة" : '')
                 .' — '.$ticket->kindLabel().'. '.$reason, $courier->id);
+
+            DB::afterCommit(fn () => StaffPush::callCentre(
+                'تذكرة جديدة من مندوب',
+                "شحنة {$shipment->number}: {$ticket->kindLabel()} — {$ticket->number}. افتح التذكرة لتقرّر.",
+                'ticket',
+            ));
 
             return $ticket;
         });

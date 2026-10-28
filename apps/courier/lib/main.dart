@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/api.dart';
+import 'core/push.dart';
 import 'core/brand_cache.dart';
 import 'core/config.dart';
 import 'core/models.dart';
@@ -42,10 +43,15 @@ class _CourierAppState extends State<CourierApp> {
   late Brand brand = Brand.hex(AppConfig.brandColor);
   Session? session;
   late bool signedIn = widget.signedIn || AppConfig.demo;
+  final messenger = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
     super.initState();
+    // إشعارٌ وصل والتطبيق مفتوح: شريطٌ في أسفله (docs/plan/90)
+    Push.onForeground = (title, body) => messenger.currentState?.showSnackBar(
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text([title, body].where((t) => t.isNotEmpty).join('\n'))),
+    );
     if (signedIn) _loadSession();
   }
 
@@ -57,15 +63,20 @@ class _CourierAppState extends State<CourierApp> {
     }
   }
 
-  void _adopt(Session s) => setState(() {
-    session = s;
-    signedIn = true;
-    if (s.companyColor != null && !AppConfig.brandFixed) {
-      brand = Brand.hex(s.companyColor, fallback: AppConfig.brandColor);
-    }
-  });
+  void _adopt(Session s) {
+    setState(() {
+      session = s;
+      signedIn = true;
+      if (s.companyColor != null && !AppConfig.brandFixed) {
+        brand = Brand.hex(s.companyColor, fallback: AppConfig.brandColor);
+      }
+    });
+    // الهاتف يُسجَّل للإشعارات بعد الدخول ومع كلّ فتح (docs/plan/90)
+    Push.register();
+  }
 
   Future<void> _logout() async {
+    await Push.unregister();
     await Api.instance.logout();
     setState(() {
       session = null;
@@ -77,6 +88,7 @@ class _CourierAppState extends State<CourierApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppConfig.appName,
+      scaffoldMessengerKey: messenger,
       debugShowCheckedModeBanner: false,
       locale: const Locale('ar'),
       supportedLocales: const [Locale('ar')],

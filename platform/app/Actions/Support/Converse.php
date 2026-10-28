@@ -8,6 +8,7 @@ use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Support\MerchantHours;
+use App\Support\Push\StaffPush;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -121,6 +122,12 @@ class Converse
     protected function write(Conversation $conversation, string $author, string $body, User $actor, ?UploadedFile $file = null): ConversationMessage
     {
         $body = trim($body);
+
+        // رسالة التاجر تصل الكول سنتر هاتفه (docs/plan/90)، بعد حفظها
+        if ($author === self::MERCHANT) {
+            $name = $conversation->merchant?->business_name ?? 'تاجر';
+            DB::afterCommit(fn () => StaffPush::callCentre("رسالة من تاجر: {$name}", mb_substr($body, 0, 120), 'message'));
+        }
 
         if ($body === '' && ! $file) {
             throw ValidationException::withMessages(['body' => 'لا تُرسَل رسالة فارغة.']);

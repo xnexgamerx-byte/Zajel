@@ -15,6 +15,7 @@ on:
   push:
     paths:
       - 'apps/callcenter/**'
+      - '.github/scripts/firebase_defines.py'
       - '.github/workflows/callcenter-app.yml'
   workflow_dispatch:
 
@@ -56,9 +57,17 @@ jobs:
       - name: Tests
         run: flutter test --dart-define-from-file=config/demo.json
 
+      # إشعارات الهاتف (docs/plan/82، 90): إعداد Firebase من سرّ المستودع، لا من ملفٍّ في الكود. بلا السرّ
+      # يُبنى بلا إشعارات، والتطبيق يعمل بجرسه
+      - name: Firebase settings
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: python3 ../../.github/scripts/firebase_defines.py iq.wahaj.callcenter_app config/zajel.json build-config.json
+
       - name: APK — the real system
         run: |
-          flutter build apk --release --dart-define-from-file=config/zajel.json
+          flutter build apk --release --dart-define-from-file=build-config.json
+          rm build-config.json
           mv build/app/outputs/flutter-apk/app-release.apk zajel-callcenter.apk
 
       - uses: actions/upload-artifact@v4
