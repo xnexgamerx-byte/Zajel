@@ -35,6 +35,7 @@ class AuditLog extends Model
         'company_suspended'        => 'أُوقفت شركة',
         'company_activated'        => 'فُعّلت شركة',
         'company_settings_updated' => 'عُدِّلت بيانات الشركة',
+        'notify_texts_updated'     => 'عُدِّلت نصوص الإشعارات',
         'company_updated'          => 'عدّلت المنصّة بيانات الشركة',
         'subscription_started'     => 'بدأ اشتراكٌ جديد',
         'subscription_cancelled'   => 'أُلغي الاشتراك',
