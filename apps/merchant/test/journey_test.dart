@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:merchant_app/core/access.dart';
+import 'package:merchant_app/core/api.dart';
 import 'package:merchant_app/core/palette.dart';
 import 'package:merchant_app/main.dart';
 import 'package:merchant_app/screens/login_screen.dart';
@@ -213,5 +214,17 @@ void main() {
     await tester.tap(find.text('دخول'));
     await tester.pump();
     expect(find.text('اكتب اسم المستخدم وكلمة المرور.'), findsOneWidget);
+  });
+
+  test('رسائل النظام بالعربية وحدها: ما جاء بالإنكليزية يُقال بكلام التطبيق', () {
+    expect(arabicMessage('اسم المستخدم أو كلمة المرور غير صحيحة.', 422), 'اسم المستخدم أو كلمة المرور غير صحيحة.');
+    expect(arabicMessage('The route api/v1/merchant/states could not be found.', 404), contains('يحتاج تحديثاً'));
+    expect(
+      arabicMessage('No query results for model [App\\Models\\Shipment].', 404),
+      'لم يُعثر على المطلوب. ربّما حُذف أو نُقل.',
+    );
+    expect(arabicMessage('Server Error', 500), contains('حاول بعد قليل'));
+    expect(arabicMessage('Too Many Attempts.', 429), contains('انتظر قليلاً'));
+    expect(arabicMessage(null, 422), 'حدث خطأ. حاول مجدداً.');
   });
 }

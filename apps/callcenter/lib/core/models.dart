@@ -832,4 +832,6 @@ class CompanyBrand {
   final String initial;
   final String? color;
   final String? logo;
+
+  Map<String, dynamic> toJson() => {'name': name, 'initial': initial, 'color': color, 'logo': logo};
 }

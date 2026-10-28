@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/access.dart';
 import 'core/api.dart';
+import 'core/brand_cache.dart';
 import 'core/config.dart';
 import 'core/models.dart';
 import 'core/palette.dart';
@@ -21,6 +22,11 @@ Future<void> main() async {
     ),
   );
   final signedIn = await Api.instance.restore();
+  // شعار الشركة من الهاتف لشاشة الدخول، ويُحدَّث من النظام في الخلفية (docs/plan/88)
+  await BrandCache.load();
+  Api.instance.company().then((c) {
+    if (c != null) BrandCache.save(c);
+  });
   runApp(MerchantApp(signedIn: signedIn));
 }
 

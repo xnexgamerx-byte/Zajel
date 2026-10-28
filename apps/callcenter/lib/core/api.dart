@@ -387,14 +387,14 @@ class Api {
     if (res.statusCode == 401) {
       _token = null;
       await _storage.delete(key: _tokenKey);
-      throw ApiError(body['message'] as String? ?? 'انتهى دخولك. سجّل الدخول من جديد.', unauthorised: true);
+      throw ApiError(arabicMessage(body['message'], 401), unauthorised: true);
     }
 
     if (res.statusCode >= 400) {
       final errors = body['errors'] as Map<String, dynamic>?;
       final first = errors?.values.whereType<List>().expand((e) => e).firstOrNull;
       throw ApiError(
-        (first ?? body['message'] ?? 'حدث خطأ. حاول مجدداً.').toString(),
+        arabicMessage(first ?? body['message'], res.statusCode),
         notFound: res.statusCode == 404,
         fields: {
           for (final e in (errors ?? const {}).entries)
@@ -405,4 +405,23 @@ class Api {
 
     return body;
   }
+}
+
+/// رسالة النظام كما يُريها التطبيق (docs/plan/88): ما كتبه النظام بالعربية يُعرض كما هو، وما جاء من إطار العمل
+/// بالإنكليزية — مسارٌ لا يعرفه نظامٌ لم يُحدَّث، أو خطأ خادم — يُقال بكلام التطبيق، فلا يرى المستخدم إنكليزية
+String arabicMessage(Object? message, int status) {
+  final text = message?.toString() ?? '';
+  if (RegExp(r'[؀-ۿ]').hasMatch(text)) return text;
+  if (status == 404) {
+    return text.startsWith('The route')
+        ? 'هذه الخدمة لم تصل نظام الشركة بعد: يحتاج تحديثاً. راجع شركة التوصيل.'
+        : 'لم يُعثر على المطلوب. ربّما حُذف أو نُقل.';
+  }
+  return switch (status) {
+    401 || 419 => 'انتهى دخولك. سجّل الدخول من جديد.',
+    403 => 'لا تملك صلاحية هذا.',
+    429 => 'طلباتٌ كثيرة في وقتٍ قصير. انتظر قليلاً وحاول مجدداً.',
+    >= 500 => 'تعذّر على النظام إتمام الطلب الآن. حاول بعد قليل.',
+    _ => 'حدث خطأ. حاول مجدداً.',
+  };
 }

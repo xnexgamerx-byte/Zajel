@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
+import '../core/brand_cache.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
@@ -34,7 +35,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   bool busy = false;
   bool shown = false;
   String? error;
-  CompanyBrand? company;
+
+  /// ما حُفظ في الهاتف أوّلاً — الشعار من أوّل لحظة — ثم ما يصل من النظام
+  CompanyBrand? company = BrandCache.brand;
 
   /// الموج والنجوم ونبض الإطار ولمعة الزرّ: دورةٌ واحدة من اثنتي عشرة ثانية
   late final AnimationController loop = AnimationController(vsync: this, duration: const Duration(seconds: 12));
@@ -50,8 +53,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     enter.forward();
     // تحت flutter test لا تتكرّر حركة، فينتهي الاختبار
     if (!AppConfig.testing) loop.repeat();
-    Api.instance.company().then((c) {
-      if (mounted && c != null) setState(() => company = c);
+    Api.instance.company().then((c) async {
+      if (c == null) return;
+      await BrandCache.save(c);
+      if (mounted) setState(() => company = c);
     });
   }
 
@@ -123,10 +128,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       padding: EdgeInsets.only(top: top + 34),
                       child: Column(
                         children: [
-                          Opacity(
-                            opacity: _part(0, .55),
-                            child: Transform.scale(scale: .82 + .18 * _part(0, .55), child: _logo(t)),
-                          ),
+                          // الشعار ظاهرٌ من أوّل لحظة، يكبر قليلاً وحسب
+                          Transform.scale(scale: .94 + .06 * _part(0, .5), child: _logo(t)),
                           const SizedBox(height: 16),
                           Opacity(
                             opacity: _part(.2, .75),
@@ -180,6 +183,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     }
 
     final logo = company?.logo;
+    final saved = logo == null ? null : BrandCache.logo;
     final letter = Center(child: Text(_initial, style: display(58, w8, brand.main, height: 1)));
     return SizedBox(
       width: side * 1.4,
@@ -201,6 +205,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             ),
             child: logo == null
                 ? letter
+                : saved != null
+                ? Image.memory(saved, fit: BoxFit.contain, gaplessPlayback: true, errorBuilder: (_, _, _) => letter)
                 : Image.network(
                     logo,
                     fit: BoxFit.contain,

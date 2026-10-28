@@ -2,4 +2,6 @@
 <resources>
     <!-- خلفية أيقونة التطبيق (docs/plan/88) -->
     <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- خلفية شاشة الفتح: خلفية التطبيق نفسها -->
+    <color name="launch_background">#FBF6F5</color>
 </resources>
