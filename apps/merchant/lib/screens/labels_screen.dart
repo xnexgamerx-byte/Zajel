@@ -328,8 +328,15 @@ class _SizeSheetState extends State<_SizeSheet> {
   bool busy = false;
   String? error;
 
-  /// مقاسا التطبيق (docs/plan/87): ما يشتريه التاجر من ملصقاتٍ حرارية
-  static const _hints = {'100x100': 'مربّع: عرضه ١٠ سم وطوله ١٠ سم', '80x120': 'طويل: عرضه ٨ سم وطوله ١٢ سم'};
+  /// مقاسات التطبيق (docs/plan/87، 94): ملصقاتٌ حرارية يشتريها التاجر، أو ورقٌ بوصلٍ واحدٍ يملؤه
+  static const _hints = {
+    '100x100': 'مربّع: عرضه ١٠ سم وطوله ١٠ سم',
+    '80x120': 'طويل: عرضه ٨ سم وطوله ١٢ سم',
+    'a6': 'طويل: عرضه ١٠ سم وطوله ١٥ سم',
+    'a5': 'وصلٌ واحدٌ يملأ الورقة',
+    'a4one': 'وصلٌ واحدٌ يملأ الورقة',
+    'a3': 'وصلٌ واحدٌ يملأ الورقة',
+  };
 
   Future<void> _go() async {
     setState(() => (busy = true, error = null));
@@ -355,7 +362,7 @@ class _SizeSheetState extends State<_SizeSheet> {
               radius: 14,
               onTap: () => setState(() => size = s.key),
               child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
                 decoration: BoxDecoration(
                   color: size == s.key ? brand.soft : Colors.white,
                   borderRadius: BorderRadius.circular(14),
@@ -401,11 +408,13 @@ class _LabelShape extends StatelessWidget {
   final bool on;
   final Brand brand;
 
+  /// الورق بمقاسه المعروف بالمليمتر (docs/plan/94)، والملصق من مفتاحه «عرض×طول»
+  static const _paper = {'a6': (100.0, 150.0), 'a5': (148.0, 210.0), 'a4one': (210.0, 297.0), 'a3': (297.0, 420.0)};
+
   @override
   Widget build(BuildContext context) {
     final parts = size.split('x').map((p) => double.tryParse(p) ?? 100).toList();
-    final w = parts.first;
-    final h = parts.length > 1 ? parts[1] : w;
+    final (w, h) = _paper[size] ?? (parts.first, parts.length > 1 ? parts[1] : parts.first);
     const tall = 52.0;
     return SizedBox(
       width: tall,

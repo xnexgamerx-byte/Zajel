@@ -33,6 +33,38 @@
     </div>
 </section>
 
+{{-- شعار الوصل المختصر (docs/plan/94): حرف الشعار وحده، يُطبع كبيراً في أعلى كلّ وصل --}}
+<section id="mark" class="card mb-5 flex flex-wrap items-center gap-5 p-5">
+    <div class="flex size-24 items-center justify-center rounded-2xl border border-ink-200 bg-white p-2">
+        @if ($company->markUrl())
+            <img src="{{ $company->markUrl() }}" alt="" class="max-h-full max-w-full object-contain">
+        @else
+            <span class="font-heading text-3xl font-bold text-ink-400">{{ $company->initial() }}</span>
+        @endif
+    </div>
+    <div class="min-w-64 flex-1">
+        <h2 class="card-title">شعار الوصل</h2>
+        <p class="card-hint">
+            حرف الشعار وحده، يُطبع كبيراً في أعلى كلّ وصل يميناً ورمز التتبّع يساراً. صورةٌ مربّعةٌ بخلفيةٍ شفّافة أوضح على
+            الطابعة الحرارية. وما لم يُرفع يُطبع لوغو الشركة كاملاً.
+        </p>
+        <form method="POST" action="{{ route('settings.company.mark') }}" enctype="multipart/form-data" class="mt-3 flex flex-wrap items-center gap-2">
+            @csrf
+            <input type="file" name="mark" accept="image/*" required aria-label="صورة شعار الوصل"
+                   class="field-input max-w-80 py-1.5 file:me-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1 file:text-sm">
+            <button type="submit" class="btn-primary">{{ $company->mark_path ? 'غيّر شعار الوصل' : 'ارفع شعار الوصل' }}</button>
+        </form>
+        @error('mark') <p class="field-error">{{ $message }}</p> @enderror
+        @if ($company->mark_path)
+            <form method="POST" action="{{ route('settings.company.mark.destroy') }}" class="mt-2" data-confirm="يُزال شعار الوصل ويُطبع اللوغو كاملاً؟">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="text-xs text-bad-700 underline">أزِل شعار الوصل</button>
+            </form>
+        @endif
+    </div>
+</section>
+
 <form method="POST" action="{{ route('settings.company.update') }}" class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     @csrf
     @method('PUT')

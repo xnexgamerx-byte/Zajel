@@ -81,10 +81,11 @@ class ShipmentLabelTest extends TestCase
             ->get($this->labels('/shipments/labels', [$first->id, $second->id]))
             ->assertOk()
             ->assertSee('size: 100mm 150mm', false)
-            ->assertSeeInOrder([$first->number, '07801234567', 'الكرادة - زقاق ٧', '50,000',
-                $second->number, '07709998887', 'مدفوعة مسبقاً'])
+            // المستلم، ثم المبلغ، وتحته الباركود برقمه (docs/plan/94)
+            ->assertSeeInOrder(['07801234567', 'الكرادة - زقاق ٧', '50,000', $first->number,
+                '07709998887', 'مدفوعة مسبقاً', $second->number])
             ->assertSee(Code128::dataUri($first->number), false)
-            ->assertSee('امسح الرمز لتتبّع شحنتك');
+            ->assertSee('رمز التتبّع');
 
         $this->actingAs($this->owner)
             ->get($this->labels('/shipments/labels', [$first->id], ['size' => 'a4']))

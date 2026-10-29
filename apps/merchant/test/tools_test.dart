@@ -181,9 +181,10 @@ void main() {
     await tester.tap(find.text('اطبع 4 وصل'));
     await tester.pumpAndSettle();
     expect(find.text('اختر المقاس'), findsOneWidget);
-    // مقاسان وحدهما (docs/plan/87)، كلٌّ بعرضه وطوله
-    expect(find.text('ملصق ١٠٠×١٠٠ ملم'), findsOneWidget);
-    expect(find.text('ملصق ١٢٠×٨٠ ملم'), findsOneWidget);
+    // ملصقات الطابعة الحرارية وورق A5 وA4 وA3 (docs/plan/87، 94)، كلٌّ بعرضه وطوله
+    for (final size in ['ملصق ١٠٠×١٠٠ ملم', 'ملصق ١٢٠×٨٠ ملم', 'ملصق ١٠٠×١٥٠ ملم', 'ورقة A5', 'ورقة A4', 'ورقة A3']) {
+      expect(find.text(size), findsOneWidget, reason: size);
+    }
     expect(find.text('طويل: عرضه ٨ سم وطوله ١٢ سم'), findsOneWidget);
     expect(find.text('A4 — أربعة في الورقة'), findsNothing);
     await tester.tap(find.text('ملصق ١٢٠×٨٠ ملم'));

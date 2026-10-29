@@ -82,16 +82,21 @@ class MerchantAppLabelsTest extends TestCase
         $theirs = $this->ship($this->other, 'غيره');
         $headers = $this->headers();
 
-        // المدخلة وحدها، الأحدث أوّلاً، ومقاسا التطبيق بعرضهما وطولهما (docs/plan/87)
+        // المدخلة وحدها، الأحدث أوّلاً، ومقاسات التطبيق بعرضها وطولها (docs/plan/87، 94)
         $this->getJson($this->host().'/api/v1/merchant/labels', $headers)->assertOk()
             ->assertJsonCount(2, 'shipments')
             ->assertJsonPath('shipments.0.name', 'زينب')
             ->assertJsonPath('shipments.1.number', $a->number)
-            ->assertJsonCount(2, 'sizes')
+            ->assertJsonCount(6, 'sizes')
             ->assertJsonPath('sizes.0.key', '100x100')
             ->assertJsonPath('sizes.1.key', '80x120')
             ->assertJsonPath('sizes.1.width', 80)
-            ->assertJsonPath('sizes.1.height', 120);
+            ->assertJsonPath('sizes.1.height', 120)
+            ->assertJsonPath('sizes.2.label', 'ملصق ١٠٠×١٥٠ ملم')
+            ->assertJsonPath('sizes.3.label', 'ورقة A5')
+            ->assertJsonPath('sizes.4.label', 'ورقة A4')
+            ->assertJsonPath('sizes.5.label', 'ورقة A3')
+            ->assertJsonPath('sizes.5.width', 297);
 
         // شحنة غيره لا تدخل الرابط
         $url = $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id, $b->id, $theirs->id], 'size' => '100x100'], $headers)
@@ -104,13 +109,18 @@ class MerchantAppLabelsTest extends TestCase
         // الرابط موقَّع: يُغيَّر فيه شيءٌ فلا يُفتح
         $this->get(str_replace('size=100x100', 'size=a4', $url))->assertForbidden();
 
+        // الورق بمقاسه في الطابعة: وصلٌ واحدٌ يملأ ورقة A4
+        $paper = $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id], 'size' => 'a4one'], $headers)
+            ->assertCreated()->json('url');
+        $this->get($paper)->assertOk()->assertSee('size: A4;', false);
+
         $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$a->id], 'size' => 'huge'], $headers)
             ->assertUnprocessable();
         $this->postJson($this->host().'/api/v1/merchant/labels', ['ids' => [$theirs->id], 'size' => '80x120'], $headers)
             ->assertUnprocessable();
     }
 
-    public function test_the_label_has_the_company_logo_and_barcode_on_top_and_the_qr_at_the_bottom(): void
+    public function test_the_label_has_the_mark_and_qr_on_top_then_the_recipient_then_the_amount_and_barcode(): void
     {
         $a = $this->ship($this->merchant, 'علي');
         Tenancy::runFor($this->company, fn () => $this->company->forceFill(['logo_path' => 'logos/x.png'])->save());
@@ -119,15 +129,22 @@ class MerchantAppLabelsTest extends TestCase
             ->assertCreated()->json('url');
         $html = $this->get($url)->assertOk()->getContent();
 
-        // شعار الشركة من بياناتها (docs/plan/87) أعلى الملصق مع الباركود، ثم المستلم، ثم رمز التتبّع أسفله
-        $logo = strpos($html, 'class="logo"');
-        $barcode = strpos($html, 'class="barcode"');
-        $recipient = strpos($html, 'المستلم');
+        // الشعار يميناً ورمز التتبّع يساراً (docs/plan/94)، ثم المستلم، ثم المبلغ، وتحته الباركود
+        $mark = strpos($html, 'class="mark"');
         $qr = strpos($html, 'class="qr"');
-        $this->assertNotFalse($logo);
+        $recipient = strpos($html, 'المستلم');
+        $amount = strpos($html, 'المبلغ المطلوب');
+        $barcode = strpos($html, 'class="barcode"');
+        $this->assertNotFalse($mark);
+        $this->assertTrue($mark < $qr && $qr < $recipient && $recipient < $amount && $amount < $barcode);
+        // بلا شعار الوصل المختصر يُطبع اللوغو كاملاً، بلونه الرماديّ
         $this->assertStringContainsString($this->company->logoUrl(), $html);
-        $this->assertTrue($logo < $barcode && $barcode < $recipient && $recipient < $qr);
-        $this->assertTrue(strpos($html, 'امسح الرمز لتتبّع شحنتك') < $qr, 'الرمز يسار النصّ: آخر الصفّ في الاتجاه العربيّ');
+
+        // شعار الوصل المختصر من «بيانات الشركة» يحلّ محلّه، أسود كاملاً
+        Tenancy::runFor($this->company, fn () => $this->company->forceFill(['mark_path' => 'logos/mark.png'])->save());
+        $html = $this->get($url)->assertOk()->getContent();
+        $this->assertStringContainsString(e($this->company->refresh()->markUrl()), $html);
+        $this->assertStringContainsString('class="solid"', $html);
     }
 
     public function test_the_printer_sorts_new_orders_into_to_print_and_printed_apart_from_in_delivery(): void

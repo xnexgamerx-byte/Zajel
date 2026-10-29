@@ -142,6 +142,8 @@ Route::middleware('tenant')->group(function () {
      */
     // لوغو الشركة: يُرى في صفحة الدخول والتتبّع قبل الدخول أيضاً (docs/plan/45)
     Route::get('/logo', [CompanyLogoController::class, 'show'])->name('company.logo');
+    // شعار الوصل المختصر (docs/plan/94): يُطبع في الوصل، ومن الرابط الموقَّع لتطبيق التاجر بلا دخول
+    Route::get('/mark', [CompanyLogoController::class, 'showMark'])->name('company.mark');
     // ما يفتحه تطبيق التاجر في متصفّح الهاتف برابطٍ موقَّعٍ لساعة (docs/plan/57) — بلا دخول
     Route::middleware(['signed', 'throttle:30,1'])->prefix('app')->name('app.')->group(function () {
         Route::get('/waybills/{book}/print', [AppLinkController::class, 'waybills'])->whereNumber('book')->name('waybills.print');
@@ -454,6 +456,8 @@ Route::middleware('tenant')->group(function () {
                 Route::put('/settings/company', [CompanySettingsController::class, 'update'])->name('settings.company.update');
                 Route::post('/settings/company/logo', [CompanyLogoController::class, 'store'])->middleware('throttle:20,1')->name('settings.company.logo');
                 Route::delete('/settings/company/logo', [CompanyLogoController::class, 'destroy'])->name('settings.company.logo.destroy');
+                Route::post('/settings/company/mark', [CompanyLogoController::class, 'storeMark'])->middleware('throttle:20,1')->name('settings.company.mark');
+                Route::delete('/settings/company/mark', [CompanyLogoController::class, 'destroyMark'])->name('settings.company.mark.destroy');
             });
 
             // «اشتراك الشركة وفواتيرها»: ما عليها للمنصّة وكيف تدفع (docs/plan/36). وحين يوقفها

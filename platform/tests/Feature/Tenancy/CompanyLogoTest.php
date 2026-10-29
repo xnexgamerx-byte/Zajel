@@ -84,4 +84,32 @@ class CompanyLogoTest extends TestCase
             ->assertForbidden();
         $this->assertNull($this->company->refresh()->logo_path);
     }
+
+    public function test_the_label_mark_is_its_own_upload_and_falls_back_to_the_logo(): void
+    {
+        // بلا لوغو ولا شعار وصل: لا رابط
+        $this->assertNull($this->company->markUrl());
+
+        $this->actingAs($this->owner)->post($this->host().'/settings/company/logo', ['logo' => UploadedFile::fake()->image('logo.png', 600, 300)]);
+        $this->assertSame($this->company->refresh()->logoUrl(), $this->company->markUrl(), 'بلا شعار الوصل يُطبع اللوغو');
+
+        // حرف الشعار وحده (docs/plan/94): صورةٌ ثانية لا تمسّ اللوغو
+        $this->actingAs($this->owner)->post($this->host().'/settings/company/mark', ['mark' => UploadedFile::fake()->image('z.png', 400, 400)])
+            ->assertRedirect(route('settings.company'))->assertSessionHas('success');
+        $company = $this->company->refresh();
+        Storage::disk('local')->assertExists($company->mark_path);
+        $this->assertNotNull($company->logo_path);
+        $this->assertStringContainsString('/mark?v=', $company->markUrl());
+        $this->get($this->host().'/mark')->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->actingAs($this->owner)->get($this->host().'/settings/company')->assertOk()->assertSee('شعار الوصل');
+
+        $this->actingAs($this->owner)->post($this->host().'/settings/company/mark', ['mark' => UploadedFile::fake()->createWithContent('z.svg', '<svg/>')])
+            ->assertSessionHasErrors('mark');
+        $agent = $this->makeUser($this->company, UserRole::CustomerService);
+        $this->actingAs($agent)->post($this->host().'/settings/company/mark', ['mark' => UploadedFile::fake()->image('z.png')])->assertForbidden();
+
+        $this->actingAs($this->owner)->delete($this->host().'/settings/company/mark')->assertRedirect();
+        $this->assertNull($this->company->refresh()->mark_path);
+        $this->assertSame($this->company->logoUrl(), $this->company->markUrl());
+    }
 }

@@ -891,7 +891,14 @@ class Demo {
         ),
     ],
     // مقاسا التطبيق (docs/plan/87)
-    sizes: const [Choice('100x100', 'ملصق ١٠٠×١٠٠ ملم'), Choice('80x120', 'ملصق ١٢٠×٨٠ ملم')],
+    sizes: const [
+      Choice('100x100', 'ملصق ١٠٠×١٠٠ ملم'),
+      Choice('80x120', 'ملصق ١٢٠×٨٠ ملم'),
+      Choice('a6', 'ملصق ١٠٠×١٥٠ ملم'),
+      Choice('a5', 'ورقة A5'),
+      Choice('a4one', 'ورقة A4'),
+      Choice('a3', 'ورقة A3'),
+    ],
   );
 
   static ReturnReceiptDetail returnReceipt(int id) {

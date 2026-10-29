@@ -23,7 +23,17 @@ class CompanyLogoController extends Controller
 
     public function show(TenantContext $tenant): Response
     {
-        $path = $tenant->company()?->logo_path;
+        return $this->serve($tenant->company()?->logo_path);
+    }
+
+    /** شعار الوصل المختصر (docs/plan/94) */
+    public function showMark(TenantContext $tenant): Response
+    {
+        return $this->serve($tenant->company()?->mark_path);
+    }
+
+    private function serve(?string $path): Response
+    {
         abort_unless($path && Storage::disk('local')->exists($path), 404);
 
         return Storage::disk('local')->response($path, 'logo.png', [
@@ -34,21 +44,38 @@ class CompanyLogoController extends Controller
 
     public function store(Request $request, TenantContext $tenant): RedirectResponse
     {
+        $this->save($request, $tenant, 'logo');
+
+        return redirect()->route('settings.company')->with('success', 'رُفع اللوغو — يظهر الآن في رأس كل شاشة.');
+    }
+
+    /** شعار الوصل المختصر (docs/plan/94): حرف الشعار وحده، يُطبع كبيراً في أعلى الوصل */
+    public function storeMark(Request $request, TenantContext $tenant): RedirectResponse
+    {
+        $this->save($request, $tenant, 'mark');
+
+        return redirect()->route('settings.company')->with('success', 'رُفع شعار الوصل — يُطبع في أعلى كلّ وصل.');
+    }
+
+    /** logo · mark: الصورة من الحقل باسمه، وتُحفظ في عمود {اسمه}_path */
+    private function save(Request $request, TenantContext $tenant, string $kind): void
+    {
+        $noun = $kind === 'logo' ? 'اللوغو' : 'شعار الوصل';
         $request->validate([
             // حدّ PHP للرفع ٨ ميغابايت (docker/php.ini): الرسالة العربية قبله
-            'logo' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,gif', 'max:7168'],
+            $kind => ['required', 'file', 'mimes:jpg,jpeg,png,webp,gif', 'max:7168'],
         ], [
-            'logo.required' => 'اختر صورة اللوغو.',
-            'logo.mimes'    => 'اللوغو صورة JPG أو PNG أو WEBP.',
-            'logo.max'      => 'الصورة أكبر من ٧ ميغابايت — اختر أصغر منها.',
-            'logo.uploaded' => 'تعذّر رفع الصورة — أعد.',
+            "{$kind}.required" => "اختر صورة {$noun}.",
+            "{$kind}.mimes"    => "{$noun} صورة JPG أو PNG أو WEBP.",
+            "{$kind}.max"      => 'الصورة أكبر من ٧ ميغابايت — اختر أصغر منها.',
+            "{$kind}.uploaded" => 'تعذّر رفع الصورة — أعد.',
         ]);
 
         $company = $tenant->company();
-        $source = @imagecreatefromstring((string) file_get_contents($request->file('logo')->getRealPath()));
+        $source = @imagecreatefromstring((string) file_get_contents($request->file($kind)->getRealPath()));
 
         if (! $source) {
-            throw ValidationException::withMessages(['logo' => 'تعذّرت قراءة الصورة — اختر صورةً أخرى.']);
+            throw ValidationException::withMessages([$kind => 'تعذّرت قراءة الصورة — اختر صورةً أخرى.']);
         }
 
         // يُصغَّر داخل مربّعٍ شفّاف بحجمه: لا يُقصّ ولا يتمطّط
@@ -72,16 +99,15 @@ class CompanyLogoController extends Controller
         imagedestroy($canvas);
         imagedestroy($source);
 
-        $old = $company->logo_path;
-        $path = 'logos/'.$company->id.'/logo-'.now()->format('YmdHis').'.png';
+        $column = "{$kind}_path";
+        $old = $company->{$column};
+        $path = 'logos/'.$company->id.'/'.$kind.'-'.now()->format('YmdHis').'.png';
         Storage::disk('local')->put($path, $png);
-        $company->forceFill(['logo_path' => $path])->save();
+        $company->forceFill([$column => $path])->save();
 
         if ($old && $old !== $path) {
             Storage::disk('local')->delete($old);
         }
-
-        return redirect()->route('settings.company')->with('success', 'رُفع اللوغو — يظهر الآن في رأس كل شاشة.');
     }
 
     public function destroy(TenantContext $tenant): RedirectResponse
@@ -94,5 +120,17 @@ class CompanyLogoController extends Controller
         }
 
         return redirect()->route('settings.company')->with('success', 'أُزيل اللوغو — يعود الحرف الأوّل من اسم الشركة.');
+    }
+
+    public function destroyMark(TenantContext $tenant): RedirectResponse
+    {
+        $company = $tenant->company();
+
+        if ($company->mark_path) {
+            Storage::disk('local')->delete($company->mark_path);
+            $company->forceFill(['mark_path' => null])->save();
+        }
+
+        return redirect()->route('settings.company')->with('success', 'أُزيل شعار الوصل — يُطبع اللوغو كاملاً.');
     }
 }

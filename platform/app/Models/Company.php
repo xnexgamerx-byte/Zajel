@@ -140,6 +140,12 @@ class Company extends Model
         return $this->logo_path ? route('company.logo', ['v' => substr(md5($this->logo_path), 0, 8)]) : null;
     }
 
+    /** شعار الوصل المختصر (docs/plan/94): حرف الشعار وحده إن رُفع، وإلّا اللوغو كاملاً */
+    public function markUrl(): ?string
+    {
+        return $this->mark_path ? route('company.mark', ['v' => substr(md5($this->mark_path), 0, 8)]) : $this->logoUrl();
+    }
+
     public function initial(): string
     {
         return mb_substr((string) preg_replace('/^ال(?=\S)/u', '', trim((string) $this->name)), 0, 1);
