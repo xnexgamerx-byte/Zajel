@@ -135,8 +135,13 @@ function enhancePhone(input) {
 /**
  * حقول الهاتف في النماذج: الهاتف وواتساب الدعم وهاتف الشكاوى — كلّها 07 وتسعة أرقام.
  * وما ليس رقماً كاملاً (آخر أربعة أرقام في صفحة التتبّع) يحمل data-plain.
+ *
+ * حقلٌ يُكتب فيه وحده: مربّع «يرى هاتف التاجر» اسمه فيه «phone» وليس رقماً، فلا يُفحص فيمنع
+ * حفظ النموذج (docs/plan/95).
  */
-const isPhone = (input) => input.matches(
+const TYPED = ['', 'text', 'tel', 'search', 'number'];
+
+const isPhone = (input) => TYPED.includes(input.getAttribute('type') ?? '') && input.matches(
     'input[type="tel"], input[name*="phone"], input[name*="whatsapp"], input[name*="complaints"]',
 ) && input.dataset.phoneInput === undefined && input.dataset.plain === undefined;
 

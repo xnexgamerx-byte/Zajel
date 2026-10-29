@@ -90,30 +90,31 @@ class Courier extends Model
 
     /**
      * الاسم الذي يُعرض للتاجر: الشركة الوسيطة تبقى «شريك التوصيل» بلا اسمها (docs/plan/64)،
-     * فلا يعرف التاجر من يوصل شحنته خارج بغداد، ولا يتّصل بهم خلف ظهرنا.
+     * فلا يعرف التاجر من يوصل شحنته خارج بغداد، ولا يتّصل بهم خلف ظهرنا. وتاجرٌ يُخفى عنه المندوب
+     * (docs/plan/95) يرى «مندوب الشركة».
      */
-    public function merchantFacingName(): string
+    public function merchantFacingName(?Merchant $for = null): string
     {
         return match (true) {
             $this->is_intermediary => 'شريك التوصيل',
-            $this->hidden_from_merchants => 'مندوب الشركة',
+            $this->hiddenFrom($for) => 'مندوب الشركة',
             default => $this->name,
         };
     }
 
     /**
-     * «إخفاء المندوب عن العميل» (docs/plan/81): لا يرى التاجر شيئاً عنه — لا اسمه ولا هاتفه ولا موقعه.
-     * والشركة الوسيطة مخفيّةٌ باسمها كما كانت.
+     * «إخفاء المندوب عن التاجر» (docs/plan/95): خيارٌ للتاجر لا للمندوب — لا يرى اسمه ولا هاتفه ولا موقعه.
+     * وبلا تاجرٍ معروف يُخفى.
      */
-    /** هاتف التاجر في تطبيقه (docs/plan/92): يراه ما لم تطفئه الشركة له */
-    public function seesMerchantPhone(): bool
+    public function hiddenFrom(?Merchant $merchant): bool
     {
-        return $this->sees_merchant_phone !== false;
+        return $merchant === null || $merchant->hidesCourier();
     }
 
-    public function hiddenFromMerchants(): bool
+    /** هاتف التاجر في تطبيقه (docs/plan/92، 95): لا يراه حتى تعطيه الشركة إيّاه */
+    public function seesMerchantPhone(): bool
     {
-        return (bool) $this->hidden_from_merchants;
+        return (bool) $this->sees_merchant_phone;
     }
 
     public function partnerLabel(): ?string

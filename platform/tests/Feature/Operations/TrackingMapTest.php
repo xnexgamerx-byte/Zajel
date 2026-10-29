@@ -87,6 +87,8 @@ class TrackingMapTest extends TestCase
     public function test_the_merchant_app_and_the_customer_see_the_shipment_on_the_map(): void
     {
         $shipment = $this->outWith([33.31, 44.42]);
+        // الموقع لتاجرٍ فُتح له المندوب (docs/plan/95)
+        Tenancy::runFor($this->company, fn () => $this->merchant->update(['hides_courier' => false]));
         $user = Tenancy::runFor($this->company, fn () => User::create(['name' => 'ت', 'phone' => '07790000001', 'password' => 'password',
             'role' => UserRole::Merchant, 'merchant_id' => $this->merchant->id, 'is_active' => true]));
         $api = $this->host().'/api/v1';

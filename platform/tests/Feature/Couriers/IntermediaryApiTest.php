@@ -394,6 +394,8 @@ class IntermediaryApiTest extends TestCase
     public function test_the_merchant_never_sees_the_intermediary_name_but_sees_a_normal_courier(): void
     {
         $merchant = $this->makeMerchant($this->company, 'MX1');
+        // تاجرٌ فُتح له المندوب (docs/plan/95): الوسيطة تبقى «شريك التوصيل»
+        Tenancy::runFor($this->company, fn () => $merchant->update(['hides_courier' => false]));
         $merchantUser = Tenancy::runFor($this->company, fn () => User::create([
             'name' => 'تاجر', 'phone' => $this->phoneFrom($this->company->slug.'merchant-x', '0779'),
             'password' => 'password', 'role' => UserRole::Merchant, 'merchant_id' => $merchant->id, 'is_active' => true,

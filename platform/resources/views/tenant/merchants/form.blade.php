@@ -135,6 +135,13 @@
                                @checked(old('prepaid_billing', $merchant->prepaid_billing))>
                         <span>يُحاسَب مقدّماً <span class="block text-xs text-ink-500">يدفع أجور شحناته حين يُرسلها فلا تُخصم من مبالغها — تُقبض من «المال ← استلام أجور مدفوعة مقدّماً»</span></span>
                     </label>
+                    {{-- إخفاء المندوب عن التاجر (docs/plan/95): مُعلَّمٌ لكلّ تاجرٍ حتى يُفتح له --}}
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="hidden" name="hides_courier" value="0">
+                        <input type="checkbox" name="hides_courier" value="1" class="mt-1 size-4 accent-[var(--brand)]"
+                               @checked(old('hides_courier', $merchant->exists ? $merchant->hides_courier : true))>
+                        <span>إخفاء المندوب عن التاجر <span class="block text-xs text-ink-500">لا يرى اسم المندوب ولا هاتفه ولا موقعه على الخريطة، في تطبيقه وبوّابته. يرى «مندوب الشركة» فقط</span></span>
+                    </label>
                 </div>
             </div>
         </section>

@@ -140,6 +140,8 @@ class MerchantAppProfileTest extends TestCase
     public function test_a_shipment_shows_its_courier_and_last_update(): void
     {
         $shipment = $this->outForDelivery();
+        // المندوب مخفيٌّ عن كلّ تاجرٍ حتى يُفتح له (docs/plan/95)
+        Tenancy::runFor($this->company, fn () => $this->merchant->update(['hides_courier' => false]));
 
         $this->getJson($this->api("/merchant/shipments/{$shipment->id}"), $this->headers())->assertOk()
             ->assertJsonPath('tracking.courier', 'عباس')

@@ -32,7 +32,6 @@ class CourierRequest extends FormRequest
 
             'type'                    => ['required', Rule::in(['delivery', 'pickup', 'both', 'transfer'])],
             'is_intermediary'         => ['nullable', 'boolean'],
-            'hidden_from_merchants'   => ['nullable', 'boolean'],
             'sees_merchant_phone'     => ['nullable', 'boolean'],
             'vehicle_type'            => ['required', Rule::in(['motorcycle', 'car', 'van', 'truck', 'on_foot'])],
             'vehicle_number'          => ['nullable', 'string', 'max:40'],
@@ -64,9 +63,8 @@ class CourierRequest extends FormRequest
 
         if ($key === null) {
             $data['is_intermediary'] = (bool) ($data['is_intermediary'] ?? false);
-            $data['hidden_from_merchants'] = (bool) ($data['hidden_from_merchants'] ?? false);
-            // ما لم يُرسَل يبقى كما كان: يراه (docs/plan/92)
-            $data['sees_merchant_phone'] = (bool) ($data['sees_merchant_phone'] ?? true);
+            // ما لم يُعلَّم لا يراه (docs/plan/95)
+            $data['sees_merchant_phone'] = (bool) ($data['sees_merchant_phone'] ?? false);
             $data['parent_id'] = filled($data['parent_id'] ?? null) ? (int) $data['parent_id'] : null;
             $data['partner_centre_type'] = $data['partner_centre_type'] ?? 'none';
             $data['partner_centre_value'] = $data['partner_centre_type'] === 'none' ? 0 : (int) ($data['partner_centre_value'] ?? 0);

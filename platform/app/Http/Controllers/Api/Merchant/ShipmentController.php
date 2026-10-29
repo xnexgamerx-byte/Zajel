@@ -117,9 +117,9 @@ class ShipmentController extends Controller
         ]);
 
         $open = $shipment->status->isOpen();
-        // مندوبٌ أخفته الشركة عن العميل (docs/plan/81): لا اسمه ولا موقعه
+        // تاجرٌ يُخفى عنه المندوب (docs/plan/95): لا اسمه ولا موقعه
         $carrier = $shipment->deliveryCourier ?? $shipment->pickupCourier;
-        $hidden = (bool) $carrier?->hiddenFromMerchants();
+        $hidden = (bool) $carrier?->hiddenFrom($merchant);
         $returnFee = $shipment->status === ShipmentStatus::Returned ? (int) $shipment->return_fee : 0;
 
         return response()->json([
@@ -135,7 +135,7 @@ class ShipmentController extends Controller
             'tracking_url' => Tracking::url($shipment),
             // تتبّعه الآن (docs/plan/59): من معه الطرد، وآخر ما جرى عليه ومتى
             'tracking' => [
-                'courier' => $open && ! $hidden ? $carrier?->merchantFacingName() : null,
+                'courier' => $open && ! $hidden ? $carrier?->merchantFacingName($merchant) : null,
                 'status' => $shipment->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $shipment->statusLabel(),
                 'at' => ($shipment->status_changed_at ?? $shipment->created_at)?->toIso8601String(),
                 // على الخريطة ما دامت لم تُحسم (docs/plan/61): دقيقٌ من هاتف المندوب، أو تقريبيٌّ بمحافظتها

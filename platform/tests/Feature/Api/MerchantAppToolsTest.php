@@ -155,7 +155,8 @@ class MerchantAppToolsTest extends TestCase
         $this->postJson($this->api("/merchant/requests/{$request->id}/cancel"), [], $headers)->assertOk();
         $this->postJson($this->api("/merchant/requests/{$request->id}/cancel"), [], $headers)->assertStatus(422);
 
-        // مندوب الاستلام يحمل الراجع بإيصالٍ لكلّ تاجر — والتاجر يؤكّد إيصاله وحده
+        // مندوب الاستلام يحمل الراجع بإيصالٍ لكلّ تاجر — والتاجر يؤكّد إيصاله وحده. والمندوب يُسمّى لتاجرٍ فُتح له (docs/plan/95)
+        Tenancy::runFor($this->company, fn () => $this->merchant->update(['hides_courier' => false]));
         Tenancy::runFor($this->company, fn () => app(HandOverReturns::class)->toPickupCourier([$mine->id, $theirs->id], $this->pickup, $this->staff));
         [$a, $b] = Tenancy::runFor($this->company, fn () => [
             ReturnBatch::where('merchant_id', $this->merchant->id)->sole(),

@@ -65,6 +65,50 @@ class PeopleManagementTest extends TestCase
 
     // ------------------------------------------------------------- التجّار
 
+    public function test_the_courier_hiding_option_is_saved_on_the_merchant_and_on_by_default(): void
+    {
+        // مُعلَّمٌ لكلّ تاجرٍ جديد (docs/plan/95)
+        $this->actingAs($this->staff)->get($this->host().'/merchants/create')->assertOk()->assertSee('إخفاء المندوب عن التاجر');
+        $this->actingAs($this->staff)->post($this->host().'/merchants', $this->merchantPayload(['hides_courier' => '1']))
+            ->assertSessionHas('success');
+        $merchant = Tenancy::runFor($this->company, fn () => Merchant::firstOrFail());
+        $this->assertTrue($merchant->hides_courier);
+
+        $this->actingAs($this->staff)->put($this->host().'/merchants/'.$merchant->id, $this->merchantPayload(['hides_courier' => '0']))
+            ->assertSessionHas('success');
+        $this->assertFalse(Tenancy::runFor($this->company, fn () => $merchant->fresh()->hides_courier));
+
+        // تاجرٌ لم يُرسَل الخيار في نموذجه: يبقى مخفيّاً عنه
+        $this->actingAs($this->staff)->post($this->host().'/merchants', $this->merchantPayload(['business_name' => 'ثانٍ', 'phone' => '07733445567']));
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => Merchant::where('business_name', 'ثانٍ')->firstOrFail()->hidesCourier()));
+    }
+
+    public function test_the_merchant_phone_option_is_saved_on_the_courier_and_off_by_default(): void
+    {
+        $this->actingAs($this->staff)->get($this->host().'/couriers/create')->assertOk()
+            ->assertSee('يرى هاتف التاجر')->assertDontSee('إخفاء المندوب عن العميل')
+            // ليس حقل هاتف: لا يفحص المتصفّح رقمه فيمنع الحفظ
+            ->assertSee('name="sees_merchant_phone" value="1" class="mt-1" data-plain', false);
+
+        $this->actingAs($this->staff)->post($this->host().'/couriers', $this->courierPayload(['sees_merchant_phone' => '0']))
+            ->assertSessionHas('success');
+        $courier = Tenancy::runFor($this->company, fn () => Courier::firstOrFail());
+        $this->assertFalse($courier->seesMerchantPhone());
+
+        $this->actingAs($this->staff)->put($this->host().'/couriers/'.$courier->id, $this->courierPayload(['sees_merchant_phone' => '1']))
+            ->assertSessionHas('success');
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => $courier->fresh()->seesMerchantPhone()));
+
+        $this->actingAs($this->staff)->put($this->host().'/couriers/'.$courier->id, $this->courierPayload(['sees_merchant_phone' => '0']))
+            ->assertSessionHas('success');
+        $this->assertFalse(Tenancy::runFor($this->company, fn () => $courier->fresh()->seesMerchantPhone()));
+
+        // مندوبٌ يُضاف بلا الخيار: لا يرى
+        $other = Tenancy::runFor($this->company, fn () => Courier::create(['code' => 'CX', 'name' => 'آخر', 'phone' => '07755667700',
+            'type' => 'delivery', 'status' => 'active'])->fresh());
+        $this->assertFalse($other->seesMerchantPhone());
+    }
+
     public function test_a_merchant_is_created_with_a_generated_code(): void
     {
         $this->actingAs($this->staff)

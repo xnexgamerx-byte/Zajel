@@ -30,7 +30,7 @@
                                 <td class="px-4 py-3 font-semibold" dir="ltr">{{ $pickup->actual_count ?: '—' }}</td>
                                 <td class="px-4 py-3">
                                     {{-- المخفيّ عن العميل لا يُسمّى (docs/plan/81) --}}
-                                    @if ($pickup->courier && ! $pickup->courier->hiddenFromMerchants())
+                                    @if ($pickup->courier && ! $pickup->courier->hiddenFrom(auth()->user()->merchant))
                                         {{ $pickup->courier->name }}
                                         <div class="text-xs text-ink-500" dir="ltr">{{ $pickup->courier->phone }}</div>
                                     @else

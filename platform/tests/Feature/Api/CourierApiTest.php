@@ -447,15 +447,16 @@ class CourierApiTest extends TestCase
         $merchantPhone = $this->merchant->phone;
         $this->assertNotEmpty($merchantPhone);
 
+        // مطفأٌ لكلّ مندوب (docs/plan/95): يبقى اسم المتجر، ويغيب الرقم
         $token = $this->token();
-        $this->getJson($this->api('/courier/shipments/'.$shipment->id), $this->auth($token))->assertOk()
-            ->assertJsonPath('data.merchant.phone', $merchantPhone);
-
-        // الشركة تطفئه له من صفحته (docs/plan/92): يبقى اسم المتجر، ويغيب الرقم
-        Tenancy::runFor($this->company, fn () => $this->courier->update(['sees_merchant_phone' => false]));
         $this->getJson($this->api('/courier/shipments/'.$shipment->id), $this->auth($token))->assertOk()
             ->assertJsonPath('data.merchant.name', $this->merchant->business_name)
             ->assertJsonPath('data.merchant.phone', null);
+
+        // تعطيه الشركة إيّاه من صفحته (docs/plan/92)
+        Tenancy::runFor($this->company, fn () => $this->courier->update(['sees_merchant_phone' => true]));
+        $this->getJson($this->api('/courier/shipments/'.$shipment->id), $this->auth($token))->assertOk()
+            ->assertJsonPath('data.merchant.phone', $merchantPhone);
 
         // وفي طلب الاستلام كذلك
         [$picker, $pickerUser] = $this->courierWithLogin('سجاد', '07721230009', ['type' => 'pickup', 'sees_merchant_phone' => false]);

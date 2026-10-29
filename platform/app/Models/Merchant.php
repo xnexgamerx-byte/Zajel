@@ -45,7 +45,7 @@ class Merchant extends Model
     {
         return ['is_vip' => 'boolean', 'portal_access' => 'boolean',
                 'requires_delivery_code' => 'boolean', 'hold_for_review' => 'boolean', 'can_process' => 'boolean',
-                'prepaid_billing' => 'boolean'];
+                'prepaid_billing' => 'boolean', 'hides_courier' => 'boolean'];
     }
 
     public function goodsTypeLabel(): ?string
@@ -109,5 +109,13 @@ class Merchant extends Model
         return $this->priceList
             ?? ($branchList?->is_active ? $branchList : null)
             ?? PriceList::where('is_default', true)->where('is_active', true)->first();
+    }
+
+    /**
+     * «إخفاء المندوب عن التاجر» (docs/plan/95): لا يرى اسم المندوب ولا هاتفه ولا موقعه — مُعلَّمٌ لكلّ تاجرٍ حتى يُفتح له.
+     */
+    public function hidesCourier(): bool
+    {
+        return $this->hides_courier !== false;
     }
 }

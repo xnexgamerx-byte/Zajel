@@ -45,8 +45,8 @@ class PickupController extends Controller
                 'label'    => self::STATUSES[$p->status] ?? $p->status,
                 'expected' => (int) $p->expected_count,
                 'actual'   => $p->actual_count ? (int) $p->actual_count : null,
-                // المخفيّ عن العميل لا يُذكر (docs/plan/81)
-                'courier'  => $p->courier && $p->courier->hiddenFromMerchants() === false ? ['name' => $p->courier->name, 'phone' => $p->courier->phone] : null,
+                // تاجرٌ يُخفى عنه المندوب لا يُذكر له (docs/plan/95)
+                'courier'  => $p->courier && ! $p->courier->hiddenFrom($merchant) ? ['name' => $p->courier->name, 'phone' => $p->courier->phone] : null,
                 'at'       => $p->requested_at?->toIso8601String(),
                 'day'      => $p->scheduled_at?->toDateString(),
                 'notes'    => $p->notes,

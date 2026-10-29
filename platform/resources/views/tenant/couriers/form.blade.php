@@ -80,27 +80,15 @@
                     </label>
                     @error('is_intermediary') <p class="field-error">{{ $message }}</p> @enderror
                 </div>
-                {{-- إخفاء المندوب عن العميل (docs/plan/81): لا اسمه ولا هاتفه ولا موقعه في تطبيق التاجر وبوّابته --}}
+                {{-- هاتف التاجر في تطبيق المندوب (docs/plan/92، 95): مطفأٌ حتى يُعطاه. وdata-plain: ليس حقل هاتفٍ يُفحص رقمه --}}
                 <div class="sm:col-span-3">
-                    <input type="hidden" name="hidden_from_merchants" value="0">
+                    <input type="hidden" name="sees_merchant_phone" value="0" data-plain>
                     <label class="flex items-start gap-2 text-sm">
-                        <input type="checkbox" name="hidden_from_merchants" value="1" class="mt-1"
-                               @checked(old('hidden_from_merchants', $courier->hidden_from_merchants ?? false))>
-                        <span>
-                            <span class="font-semibold">إخفاء المندوب عن العميل</span>
-                            <span class="block text-xs text-ink-500">لا يرى التاجر اسمه ولا هاتفه ولا موقعه على الخريطة، في تطبيقه وبوّابته. يرى «مندوب الشركة» فقط.</span>
-                        </span>
-                    </label>
-                </div>
-                {{-- هاتف التاجر في تطبيق المندوب (docs/plan/92) --}}
-                <div class="sm:col-span-3">
-                    <input type="hidden" name="sees_merchant_phone" value="0">
-                    <label class="flex items-start gap-2 text-sm">
-                        <input type="checkbox" name="sees_merchant_phone" value="1" class="mt-1"
-                               @checked(old('sees_merchant_phone', $courier->sees_merchant_phone ?? true))>
+                        <input type="checkbox" name="sees_merchant_phone" value="1" class="mt-1" data-plain
+                               @checked(old('sees_merchant_phone', $courier->sees_merchant_phone ?? false))>
                         <span>
                             <span class="font-semibold">يرى هاتف التاجر</span>
-                            <span class="block text-xs text-ink-500">في تطبيقه: زرّ الاتصال وواتساب التاجر في الشحنة، وهاتفه في طلب الاستلام. أطفئه فلا يصله الرقم أبداً.</span>
+                            <span class="block text-xs text-ink-500">في تطبيقه: زرّ الاتصال وواتساب التاجر في الشحنة، وهاتفه في طلب الاستلام. ومن دونه لا يصله الرقم أبداً.</span>
                         </span>
                     </label>
                 </div>

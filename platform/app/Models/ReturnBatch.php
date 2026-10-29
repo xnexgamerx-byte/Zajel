@@ -69,11 +69,11 @@ class ReturnBatch extends Model
         return $this->hasMany(Shipment::class);
     }
 
-    /** $merchant: للتاجر — والمندوب المخفيّ عنه لا يُسمّى (docs/plan/81) */
+    /** $merchant: للتاجر — والمندوب المخفيّ عنه لا يُسمّى (docs/plan/81، 95) */
     public function viaLabel(bool $merchant = false): string
     {
         return $this->via === 'pickup_courier' && $this->courier
-            ? 'مع '.($merchant && $this->courier->hiddenFromMerchants() ? 'مندوب الشركة' : $this->courier->name)
+            ? 'مع '.($merchant && $this->courier->hiddenFrom($this->merchant) ? 'مندوب الشركة' : $this->courier->name)
             : (self::VIA[$this->via] ?? $this->via);
     }
 

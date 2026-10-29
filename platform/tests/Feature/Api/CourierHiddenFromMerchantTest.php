@@ -17,8 +17,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * «إخفاء المندوب عن العميل» (docs/plan/81): مندوبٌ أخفته الشركة لا يرى التاجر اسمه ولا هاتفه ولا موقعه —
- * والظاهر يُرى كما كان.
+ * «إخفاء المندوب عن التاجر» (docs/plan/81، 95): خيارٌ للتاجر، مُعلَّمٌ لكلّ تاجر — لا يرى اسم المندوب ولا هاتفه
+ * ولا موقعه حتى يُفتح له.
  */
 class CourierHiddenFromMerchantTest extends TestCase
 {
@@ -76,44 +76,53 @@ class CourierHiddenFromMerchantTest extends TestCase
         });
     }
 
-    private function out(bool $hidden): Shipment
+    private function out(): Shipment
     {
-        return Tenancy::runFor($this->company, function () use ($hidden) {
-            $courier = Courier::create(['code' => 'C'.($hidden ? 'H' : 'V'), 'name' => $hidden ? 'مندوب سرّي' : 'مندوب ظاهر',
-                'phone' => $hidden ? '07720000071' : '07720000072', 'type' => 'both', 'status' => 'active',
-                'hidden_from_merchants' => $hidden, 'last_lat' => 33.3, 'last_lng' => 44.4, 'last_seen_at' => now()]);
-            $shipment = $this->ship($this->merchant, $hidden ? 'زبون أ' : 'زبون ب', pickedUp: true);
+        return Tenancy::runFor($this->company, function () {
+            $courier = Courier::create(['code' => 'C1', 'name' => 'مندوب الكرادة', 'phone' => '07720000071', 'type' => 'both',
+                'status' => 'active', 'last_lat' => 33.3, 'last_lng' => 44.4, 'last_seen_at' => now()]);
+            $shipment = $this->ship($this->merchant, 'زبون', pickedUp: true);
             app(ChangeShipmentStatus::class)->handle($shipment, ShipmentStatus::OutForDelivery, $this->staff, ['courier_id' => $courier->id]);
-            PickupRequest::create(['number' => 'PR-'.($hidden ? '1' : '2'), 'merchant_id' => $this->merchant->id, 'courier_id' => $courier->id,
+            PickupRequest::create(['number' => 'PR-1', 'merchant_id' => $this->merchant->id, 'courier_id' => $courier->id,
                 'status' => 'assigned', 'expected_count' => 3, 'requested_at' => now()]);
 
             return $shipment->refresh();
         });
     }
 
-    public function test_a_hidden_courier_is_not_shown_to_the_merchant(): void
+    public function test_the_courier_is_hidden_from_every_merchant_until_opened_for_one(): void
     {
-        $hidden = $this->out(true);
-        $shown = $this->out(false);
+        $shipment = $this->out();
         $headers = $this->headers();
 
-        $this->getJson($this->host().'/api/v1/merchant/shipments/'.$hidden->id, $headers)->assertOk()
+        // مُعلَّمٌ للتاجر: لا اسم ولا هاتف ولا موقع
+        $this->assertTrue($this->merchant->refresh()->hidesCourier());
+        $this->getJson($this->host().'/api/v1/merchant/shipments/'.$shipment->id, $headers)->assertOk()
             ->assertJsonPath('tracking.courier', null)->assertJsonPath('tracking.location', null)
-            ->assertDontSee('مندوب سرّي');
-        $this->getJson($this->host().'/api/v1/merchant/shipments/'.$shown->id, $headers)->assertOk()
-            ->assertJsonPath('tracking.courier', 'مندوب ظاهر')
-            ->assertJsonPath('tracking.location.exact', true);
-
+            ->assertDontSee('مندوب الكرادة');
         $this->getJson($this->host().'/api/v1/merchant/pickups', $headers)->assertOk()
-            ->assertJsonPath('data.0.courier.name', 'مندوب ظاهر')->assertJsonPath('data.1.courier', null)
-            ->assertDontSee('07720000071');
-
+            ->assertJsonPath('data.0.courier', null)->assertDontSee('07720000071');
         $this->actingAs($this->user)->get($this->host().'/portal/pickups')->assertOk()
-            ->assertDontSee('مندوب سرّي')->assertDontSee('07720000071')->assertSee('مندوب ظاهر');
+            ->assertDontSee('مندوب الكرادة')->assertDontSee('07720000071');
+
+        // تُفتح لهذا التاجر وحده
+        Tenancy::runFor($this->company, fn () => $this->merchant->update(['hides_courier' => false]));
+        $this->app['auth']->forgetGuards();
+        $this->getJson($this->host().'/api/v1/merchant/shipments/'.$shipment->id, $headers)->assertOk()
+            ->assertJsonPath('tracking.courier', 'مندوب الكرادة')
+            ->assertJsonPath('tracking.location.exact', true);
+        $this->getJson($this->host().'/api/v1/merchant/pickups', $headers)->assertOk()
+            ->assertJsonPath('data.0.courier.name', 'مندوب الكرادة');
+        $this->actingAs($this->user->fresh())->get($this->host().'/portal/pickups')->assertOk()->assertSee('مندوب الكرادة');
+
+        // والتاجر الآخر ما زال مخفيّاً عنه
+        $this->assertTrue($this->other->refresh()->hidesCourier());
     }
 
-    public function test_staff_set_the_option_on_the_courier_form(): void
+    public function test_staff_set_the_option_on_the_merchant_form_not_the_courier_form(): void
     {
-        $this->actingAs($this->staff)->get($this->host().'/couriers/create')->assertOk()->assertSee('إخفاء المندوب عن العميل');
+        $this->actingAs($this->staff)->get($this->host().'/merchants/'.$this->merchant->id.'/edit')->assertOk()
+            ->assertSee('إخفاء المندوب عن التاجر');
+        $this->actingAs($this->staff)->get($this->host().'/couriers/create')->assertOk()->assertDontSee('إخفاء المندوب');
     }
 }

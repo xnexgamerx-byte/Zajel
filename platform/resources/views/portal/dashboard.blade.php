@@ -138,7 +138,7 @@
                         <div class="mt-0.5 text-xs text-info-700">
                             {{ ['pending' => 'بانتظار إسناد مندوب', 'assigned' => 'أُسند لمندوب',
                                 'in_progress' => 'المندوب في الطريق'][$pickup->status] ?? $pickup->status }}
-                            @if ($pickup->courier && ! $pickup->courier->hiddenFromMerchants()) — {{ $pickup->courier->name }} @endif
+                            @if ($pickup->courier && ! $pickup->courier->hiddenFrom(auth()->user()->merchant)) — {{ $pickup->courier->name }} @endif
                         </div>
                     </div>
                 @endforeach
