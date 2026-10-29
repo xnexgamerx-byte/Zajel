@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -13,7 +15,7 @@ val dartDefines: Map<String, String> =
         ?.split(",")
         ?.filter { it.isNotBlank() }
         ?.mapNotNull { encoded ->
-            String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+            String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
                 .split("=", limit = 2)
                 .takeIf { it.size == 2 }
                 ?.let { it[0] to it[1] }
