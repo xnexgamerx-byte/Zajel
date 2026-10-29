@@ -44,7 +44,7 @@ class LoginController extends Controller
         | صيغةٍ خمسُ محاولاتٍ جديدة على الحساب نفسه. الآن للحساب مفتاحٌ واحد،
         | والاستعلام لا يرى إلا الصيغة المحفوظة — وما لا يُوحَّد لا يصل القاعدة.
         */
-        $username = Username::normalise($data['username']);
+        $username = Username::forLogin($data['username']);
         $key = 'login:'.$request->ip().':'.($username ?? '?');
 
         if (RateLimiter::tooManyAttempts($key, 5)) {

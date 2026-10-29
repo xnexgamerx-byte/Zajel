@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Merchant;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
+use App\Models\PushDevice;
 use App\Models\User;
 use App\Support\MerchantPermissions;
 use App\Support\Phone;
@@ -77,9 +78,9 @@ class StaffController extends Controller
         }
         $user->save();
 
-        // موقوفٌ أو بكلمة مرورٍ جديدة: يخرج من أجهزته كلّها
+        // موقوفٌ أو بكلمة مرورٍ جديدة: يخرج من أجهزته كلّها، ولا يصل هواتفه إشعارٌ بعدها
         if (! $user->is_active || filled($data['password'] ?? null)) {
-            $user->tokens()->delete();
+            $this->signOut($user);
         }
 
         return response()->json(['staff' => $this->row($user->refresh())]);
@@ -90,7 +91,7 @@ class StaffController extends Controller
     {
         $user = $this->find($request->attributes->get('merchant'), $staff);
 
-        $user->tokens()->delete();
+        $this->signOut($user);
         $user->forceFill([
             'is_active' => false,
             'phone' => 'x'.$user->id,
@@ -99,6 +100,13 @@ class StaffController extends Controller
         $user->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /** يخرج من كلّ هاتف: رموز الدخول، وتسجيل الإشعارات */
+    private function signOut(User $user): void
+    {
+        $user->tokens()->delete();
+        PushDevice::query()->where('user_id', $user->id)->delete();
     }
 
     /** موظّفو المتجر: حساباته بصلاحيات، لا صاحبه */

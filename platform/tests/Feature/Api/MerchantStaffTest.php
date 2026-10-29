@@ -13,10 +13,14 @@ use App\Models\CompanyFeature;
 use App\Models\Governorate;
 use App\Models\Hub;
 use App\Models\Merchant;
+use App\Models\PushDevice;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Support\Push\MerchantPush;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -278,6 +282,76 @@ class MerchantStaffTest extends TestCase
 
         // صاحب المتجر يبقى حساب المتجر في الموقع
         $this->assertSame($this->owner->id, Tenancy::runFor($this->company, fn () => $this->merchant->loginAccount()?->id));
+    }
+
+    /** docs/plan/96: الموظّف يدخل بهاتفه كما يكتبه، والموقوف والمحذوف لا يصل هاتفه إشعارٌ بعدها */
+    public function test_staff_log_in_with_the_phone_as_typed_and_a_suspended_one_gets_no_push(): void
+    {
+        $this->setFeature($this->company, Feature::MerchantStaff);
+        $ownerToken = $this->tokenFor($this->owner->username);
+        $clerk = $this->addStaff($ownerToken, ['shipments'], '0770 111 2233');
+        $this->assertSame('07701112233', $clerk['username']);
+
+        foreach (['0770 111 2233', '+964 770 111 2233', '٠٧٧٠١١١٢٢٣٣'] as $typed) {
+            $this->tokenFor($typed, 'secret12');
+        }
+
+        $token = $this->tokenFor('07701112233', 'secret12');
+        $this->as($token)->postJson($this->api('/devices'), ['token' => 'fcm-clerk'])->assertCreated();
+        $this->as($ownerToken)->postJson($this->api('/devices'), ['token' => 'fcm-owner'])->assertCreated();
+
+        $keyFile = sys_get_temp_dir().'/fcm-test-'.uniqid().'.json';
+        file_put_contents($keyFile, json_encode([
+            'type' => 'service_account', 'project_id' => 'zajel-test',
+            'client_email' => 'svc@zajel-test.iam.gserviceaccount.com', 'private_key' => 'test-only',
+        ]));
+        config(['services.firebase.service_account' => $keyFile]);
+        Cache::put('fcm.access_token', 'ya29.test', now()->addMinutes(10));
+        Http::fake(['fcm.googleapis.com/*' => Http::response([], 200)]);
+        $sentTo = fn () => collect(Http::recorded())->map(fn ($r) => $r[0]['message']['token'] ?? null)->filter()->values()->all();
+
+        Tenancy::runFor($this->company, fn () => MerchantPush::notify($this->merchant->id, 'سُلّمت', 'شحنة', 'delivered'));
+        $this->assertEqualsCanonicalizing(['fcm-clerk', 'fcm-owner'], $sentTo());
+
+        // موقوف: تسجيل هاتفه يُمسح مع رموز دخوله
+        $this->as($ownerToken)->putJson($this->api('/merchant/staff/'.$clerk['id']), [
+            'name' => 'سجى', 'phone' => '07701112233', 'permissions' => ['shipments'], 'active' => false,
+        ])->assertOk();
+        $this->assertSame(0, Tenancy::runFor($this->company, fn () => PushDevice::where('user_id', $clerk['id'])->count()));
+
+        // ولو بقي له هاتفٌ مسجّل لا يصله شيء
+        Tenancy::runFor($this->company, fn () => PushDevice::create(['user_id' => $clerk['id'], 'token' => 'fcm-stale', 'platform' => 'android']));
+        Http::fake(['fcm.googleapis.com/*' => Http::response([], 200)]);
+        Tenancy::runFor($this->company, fn () => MerchantPush::notify($this->merchant->id, 'سُلّمت', 'شحنة', 'delivered'));
+        $this->assertSame(['fcm-owner'], $sentTo());
+
+        // محذوف: لا يبقى له هاتف
+        $this->as($ownerToken)->deleteJson($this->api('/merchant/staff/'.$clerk['id']))->assertOk();
+        $this->assertSame(0, Tenancy::runFor($this->company, fn () => PushDevice::where('user_id', $clerk['id'])->count()));
+
+        @unlink($keyFile);
+    }
+
+    /** docs/plan/96: الترحيل يفتح «موظّفو التاجر» لكلّ شركةٍ قائمة، ومن أُغلقت له تُفتح، والجديدة بعده مطفأة */
+    public function test_the_migration_opens_merchant_staff_for_every_current_company(): void
+    {
+        $closed = $this->makeCompany('barq', 'البرق');
+        $this->setFeature($closed, Feature::MerchantStaff, false);
+        $this->assertFalse($closed->fresh()->hasFeature(Feature::MerchantStaff));
+
+        $migration = require database_path('migrations/2026_01_03_010000_open_merchant_staff_for_current_companies.php');
+        $migration->up();
+        $migration->up();
+
+        $this->assertTrue($this->company->fresh()->hasFeature(Feature::MerchantStaff));
+        $this->assertTrue($closed->fresh()->hasFeature(Feature::MerchantStaff));
+        $this->assertSame(1, Tenancy::runFor($closed, fn () => CompanyFeature::where('feature', 'merchant_staff')->whereNull('ends_at')->count()));
+        $this->assertFalse($this->makeCompany('saree', 'السريع')->hasFeature(Feature::MerchantStaff));
+
+        $ownerToken = $this->tokenFor($this->owner->username);
+        $this->as($ownerToken)->getJson($this->api('/merchant/home'))->assertOk()->assertJsonPath('tools.staff', true);
+        $this->as($ownerToken)->getJson($this->api('/merchant/staff'))->assertOk()
+            ->assertJsonPath('permissions.*.key', ['shipments', 'create', 'print', 'pickups', 'processing', 'finance', 'support']);
     }
 
     public function test_staff_validation_and_boundaries(): void

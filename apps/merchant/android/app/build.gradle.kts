@@ -4,6 +4,21 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+/**
+ * اسم التطبيق على الهاتف من ملف إعداد الشركة (APP_LABEL في config/<company>.json، docs/plan/96): لكلّ شركةٍ تطبيقٌ
+ * باسمها. يصل من --dart-define-from-file كما يصل غيره، وبلاه «التاجر».
+ */
+val dartDefines: Map<String, String> =
+    (project.findProperty("dart-defines") as String?)
+        ?.split(",")
+        ?.filter { it.isNotBlank() }
+        ?.mapNotNull { encoded ->
+            String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8)
+                .split("=", limit = 2)
+                .takeIf { it.size == 2 }
+                ?.let { it[0] to it[1] }
+        }?.toMap() ?: emptyMap()
+
 android {
     namespace = "iq.wahaj.merchant_app"
     compileSdk = flutter.compileSdkVersion
@@ -27,6 +42,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = dartDefines["APP_LABEL"]?.takeIf { it.isNotBlank() } ?: "التاجر"
     }
 
     buildTypes {

@@ -35,4 +35,13 @@ class Username
 
         return preg_match(static::PATTERN, $name) ? $name : null;
     }
+
+    /**
+     * ما يُكتب في شاشة الدخول: اسمٌ، أو رقم هاتفٍ بأيّ شكل («0770 123 4567»، «‎+964 770…») — فمن اسمه هاتفه
+     * (موظّف التاجر، docs/plan/96) يدخل به كما يكتبه.
+     */
+    public static function forLogin(?string $raw): ?string
+    {
+        return static::normalise($raw) ?? Phone::normalise($raw);
+    }
 }

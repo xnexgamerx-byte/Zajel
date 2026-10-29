@@ -17,10 +17,11 @@ final class MerchantPush
         try {
             $devices = PushDevice::query()
                 ->whereHas('user', fn ($q) => $q->where('merchant_id', $merchantId))
-                ->with('user:id,role,notify_prefs,merchant_permissions')
+                ->with('user:id,role,is_active,notify_prefs,merchant_permissions')
                 ->get(['id', 'token', 'user_id'])
-                // أخبار الشحنات لمن يراها من موظّفيه (docs/plan/87)
-                ->filter(fn (PushDevice $d) => MerchantPermissions::allows($d->user, 'shipments') && NotifyPrefs::allows($d->user, $kind));
+                // أخبار الشحنات لمن يراها من موظّفيه (docs/plan/87)، لا لموقوفٍ ولا لموظّفٍ أُغلقت ميزته (docs/plan/96)
+                ->filter(fn (PushDevice $d) => $d->user->is_active && MerchantPermissions::active($d->user)
+                    && MerchantPermissions::allows($d->user, 'shipments') && NotifyPrefs::allows($d->user, $kind));
 
             $dead = [];
             foreach ($devices->groupBy(fn (PushDevice $d) => NotifyPrefs::channel($d->user)) as $channel => $group) {

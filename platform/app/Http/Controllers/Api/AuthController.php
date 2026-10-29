@@ -57,7 +57,7 @@ class AuthController extends Controller
         ], [], ['username' => 'اسم المستخدم', 'password' => 'كلمة المرور']);
 
         // مفتاح المحاولات على الصيغة الموحّدة كالموقع (LoginController)
-        $username = Username::normalise($data['username']);
+        $username = Username::forLogin($data['username']);
         $key = 'login:'.$request->ip().':'.($username ?? '?');
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
