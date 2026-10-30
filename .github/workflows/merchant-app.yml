@@ -6,8 +6,13 @@
 # ونسخة العرض (config/demo.json) للاختبارات ولقطات الشاشة وحدها، لا تُنصَّب: بياناتها تجريبية،
 # فلا يرفع منها شيءٌ ولا تصل محادثاتها الشركة — وتشبه الحقيقية حتى يحسبها أحدٌ إيّاها.
 #
-# تُبنى هنا لا على خادم التطوير: أدوات أندرويد على أجهزة GitHub. والتوقيع توقيع التجربة؛ نسخة
-# المتجر بمفتاحٍ يُحفظ في أسرار المستودع، لا في الملفات.
+# تُبنى هنا لا على خادم التطوير: أدوات أندرويد على أجهزة GitHub. ونسخة المتجر (docs/plan/97):
+#
+#   zajel-merchant-aab  — ملف AAB للرفع إلى Google Play، يخرج حين تكون أسرار مفتاح الرفع في المستودع
+#                         (ANDROID_KEYSTORE_B64 وANDROID_KEYSTORE_PASSWORD وANDROID_KEY_ALIAS)
+#
+# والمفتاح في أسرار المستودع، لا في الملفات. وبلاها يُبنى AAB بمفتاحٍ مؤقّت للتحقّق من البناء وحده ولا يُرفع.
+# رقم البناء (versionCode) رقم تشغيل GitHub: يزيد وحده، وقوقل تطلب في كل رفعٍ رقماً أعلى.
 
 name: Merchant app
 
@@ -62,17 +67,57 @@ jobs:
       - name: Firebase settings
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
-        run: python3 ../../.github/scripts/firebase_defines.py iq.wahaj.merchant_app config/zajel.json build-config.json
+        run: python3 ../../.github/scripts/firebase_defines.py "$(jq -r .APP_ID config/zajel.json)" config/zajel.json build-config.json
+
+      # مفتاح رفع المتجر (docs/plan/97): من أسرار المستودع إلى ملفٍّ مؤقّت على جهاز البناء. بلاها: مفتاحٌ مؤقّت للتحقّق
+      - name: Upload key
+        id: key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          jks="$RUNNER_TEMP/upload.jks"
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$jks"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::لا أسرار مفتاح الرفع — يُبنى AAB بمفتاحٍ مؤقّت للتحقّق ولا يُرفع (docs/plan/97)."
+            keytool -genkeypair -keystore "$jks" -storetype PKCS12 -storepass ci-check-only -alias ci -keypass ci-check-only \
+              -dname "CN=ci" -keyalg RSA -keysize 2048 -validity 1 >/dev/null
+            echo "ANDROID_KEYSTORE_PASSWORD=ci-check-only" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_ALIAS=ci" >> "$GITHUB_ENV"
+            echo "ANDROID_KEY_PASSWORD=ci-check-only" >> "$GITHUB_ENV"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ANDROID_KEYSTORE_PATH=$jks" >> "$GITHUB_ENV"
 
       - name: APK — the real system
         run: |
-          flutter build apk --release --dart-define-from-file=build-config.json
-          rm build-config.json
+          flutter build apk --release --dart-define-from-file=build-config.json --build-number=${{ github.run_number }}
           mv build/app/outputs/flutter-apk/app-release.apk zajel-merchant.apk
+
+      - name: AAB — for Google Play
+        run: |
+          flutter build appbundle --release --dart-define-from-file=build-config.json --build-number=${{ github.run_number }}
+          rm build-config.json
+          mv build/app/outputs/bundle/release/app-release.aab zajel-merchant.aab
 
       - uses: actions/upload-artifact@v4
         with:
           name: zajel-merchant-apk
           path: apps/merchant/zajel-merchant.apk
           retention-days: 14
+
+      # ملف المتجر: لا يُرفع إلا بمفتاح الرفع الحقيقي
+      - uses: actions/upload-artifact@v4
+        if: steps.key.outputs.signed == 'true'
+        with:
+          name: zajel-merchant-aab
+          path: apps/merchant/zajel-merchant.aab
+          retention-days: 30
 

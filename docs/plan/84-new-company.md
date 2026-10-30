@@ -25,7 +25,7 @@
 
 | ما | اليوم | للشركة الثانية |
 |---|---|---|
-| معرّف التطبيق على المتجر | `iq.wahaj.merchant_app`، `iq.wahaj.courier_app`، `iq.wahaj.callcenter_app` | معرّفٌ لكلّ شركة، مثل `iq.wahaj.barq.merchant` |
+| معرّف التطبيق على المتجر | التاجر: `APP_ID` في `config/<شركة>.json` (للزاجل `iq.wahaj.zajel.merchant`، docs/plan/97). المندوب والكول سنتر: `iq.wahaj.courier_app`، `iq.wahaj.callcenter_app` | معرّفٌ لكلّ شركة، مثل `iq.wahaj.barq.merchant`، ويُسجَّل في Firebase |
 | اسم التطبيق على الهاتف | «التاجر»، «مندوب الزاجل»، «كول سنتر الزاجل» في `AndroidManifest.xml` | من إعداد الشركة |
 | أيقونة التطبيق | واحدة | لكلّ شركة |
 | لون جرس الإشعار | أحمر الزاجل في `res/values/colors.xml` | لونها |

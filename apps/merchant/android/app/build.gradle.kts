@@ -1,4 +1,5 @@
 import java.util.Base64
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -21,6 +22,19 @@ val dartDefines: Map<String, String> =
                 ?.let { it[0] to it[1] }
         }?.toMap() ?: emptyMap()
 
+/**
+ * مفتاح رفع التطبيق إلى المتجر (docs/plan/97): من android/key.properties على الجهاز، أو من متغيّرات البيئة في
+ * GitHub (أسرار المستودع). وبلاه يبقى توقيع التجربة، فيُبنى التطبيق للتجربة كما كان.
+ */
+val keyProps = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+fun signingValue(key: String, env: String): String? =
+    (keyProps.getProperty(key) ?: System.getenv(env))?.takeIf { it.isNotBlank() }
+
+val uploadKeyFile = signingValue("storeFile", "ANDROID_KEYSTORE_PATH")?.let { rootProject.file(it) }?.takeIf { it.exists() }
+
 android {
     namespace = "iq.wahaj.merchant_app"
     compileSdk = flutter.compileSdkVersion
@@ -32,8 +46,9 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "iq.wahaj.merchant_app"
+        // معرّف التطبيق على المتجر من ملف إعداد الشركة (APP_ID في config/<company>.json، docs/plan/97): لكلّ شركةٍ
+        // معرّفها. لا يتغيّر بعد أوّل رفعٍ إلى المتجر. وبلاه المعرّف القديم، لبناءات التجربة.
+        applicationId = dartDefines["APP_ID"]?.takeIf { it.isNotBlank() } ?: "iq.wahaj.merchant_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -47,11 +62,21 @@ android {
         manifestPlaceholders["appLabel"] = dartDefines["APP_LABEL"]?.takeIf { it.isNotBlank() } ?: "التاجر"
     }
 
+    signingConfigs {
+        if (uploadKeyFile != null) {
+            create("upload") {
+                storeFile = uploadKeyFile
+                storePassword = signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "ANDROID_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "ANDROID_KEY_PASSWORD") ?: signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // بمفتاح الرفع إن وُجد، وإلّا توقيع التجربة فيعمل `flutter run --release`
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }
 }
