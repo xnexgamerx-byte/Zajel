@@ -17,6 +17,9 @@
         @case('box')
             <path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5"/><path d="M12 12v9"/>
             @break
+        @case('trash')
+            <path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 12.5h9l1-12.5"/><path d="M10 11v5"/><path d="M14 11v5"/>
+            @break
         @case('plus')
             <path d="M12 5v14"/><path d="M5 12h14"/>
             @break

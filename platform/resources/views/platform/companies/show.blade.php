@@ -30,6 +30,12 @@
             <x-icon name="sliders" class="size-4"/>
             الميزات والمظهر
         </a>
+        @if (auth()->user()->role === \App\Enums\UserRole::PlatformAdmin)
+            <a href="{{ route('admin.purge.index', ['company' => $company->id]) }}" class="btn-ghost text-bad-700">
+                <x-icon name="trash" class="size-4"/>
+                حذف بيانات
+            </a>
+        @endif
 
         <form method="POST" action="{{ route('admin.companies.impersonate', $company) }}">
             @csrf
@@ -143,6 +149,11 @@
                                     «{{ \App\Support\Theme::NAMES[$entry->new_values['theme'] ?? ''] ?? '' }}»
                                 @elseif ($entry->action === 'design_changed')
                                     «{{ \App\Support\UiDesign::make((string) ($entry->new_values['ui'] ?? ''))->name() }}»
+                                @elseif ($entry->action === 'data_purged')
+                                    «{{ collect($entry->new_values['parts'] ?? [])->map(fn ($p) => \App\Services\Platform\CompanyDataPurge::PARTS[$p][0] ?? $p)->join('، ') }}»
+                                    — {{ \App\Http\Controllers\Platform\DataPurgeController::period(
+                                        ($entry->new_values['from'] ?? null) ? \Carbon\CarbonImmutable::parse($entry->new_values['from']) : null,
+                                        ($entry->new_values['to'] ?? null) ? \Carbon\CarbonImmutable::parse($entry->new_values['to']) : null) }}
                                 @endif
                                 @if ($entry->user_name)
                                     <span class="text-ink-500">— {{ $entry->user_name }}</span>

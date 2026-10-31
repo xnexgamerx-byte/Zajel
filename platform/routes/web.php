@@ -15,6 +15,7 @@ use App\Http\Controllers\OrderListeningController;
 use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
 use App\Http\Controllers\Platform\CompanySystemController;
+use App\Http\Controllers\Platform\DataPurgeController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 use App\Http\Controllers\Platform\FeatureController;
 use App\Http\Controllers\Platform\ImpersonationController;
@@ -904,6 +905,11 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
         Route::get('/settings', [PlatformSettingsController::class, 'edit'])->name('settings');
         Route::put('/settings', [PlatformSettingsController::class, 'update'])->name('settings.update');
         Route::post('/companies/{company}/billing-exempt', [PlatformCompanyController::class, 'billingExempt'])->name('companies.billing-exempt');
+
+        // حذف بيانات شركة: ما يُحذف ومدّته، ثم أعداده، ثم التأكيد (docs/plan/102)
+        Route::get('/purge', [DataPurgeController::class, 'index'])->name('purge.index');
+        Route::get('/purge/preview', [DataPurgeController::class, 'preview'])->name('purge.preview');
+        Route::post('/purge', [DataPurgeController::class, 'destroy'])->name('purge.run');
 
         Route::get('/plans', [PlanController::class, 'index'])->name('plans.index');
         Route::get('/plans/create', [PlanController::class, 'create'])->name('plans.create');

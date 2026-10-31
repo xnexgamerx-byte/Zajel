@@ -24,6 +24,7 @@
         ['admin.subscriptions.index', 'الاشتراكات', 'admin.subscriptions.*', 'wallet'],
         ['admin.invoices.index', 'الفواتير', 'admin.invoices.*', 'invoice'],
         ['admin.plans.index', 'الباقات', 'admin.plans.*', 'tag'],
+        ['admin.purge.index', 'حذف البيانات', 'admin.purge.*', 'trash'],
         ['admin.settings', 'الإعدادات', 'admin.settings*', 'sliders'],
     ];
     // دفعاتٌ أبلغت عنها الشركات تنتظر التأكيد (docs/plan/36)

@@ -62,6 +62,7 @@ class AuditLog extends Model
         'feature_price_changed'    => 'تغيّر رسم ميزة',
         'theme_changed'            => 'تغيّر مظهر النظام',
         'design_changed'           => 'تغيّر تصميم النظام',
+        'data_purged'              => 'حُذفت بيانات من المنصّة',
         'payment_notice_reported'  => 'أبلغت الشركة عن دفعة',
         'payment_notice_rejected'  => 'رُفض إبلاغٌ عن دفعة',
         'billing_exempt_changed'   => 'تغيّر الإعفاء من الإيقاف التلقائي',
