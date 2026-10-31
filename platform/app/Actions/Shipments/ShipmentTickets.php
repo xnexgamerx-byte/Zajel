@@ -40,7 +40,7 @@ class ShipmentTickets
     public function open(
         Shipment $shipment,
         Courier $courier,
-        User $actor,
+        ?User $actor,
         string $kind,
         int $amount,
         string $reason,
@@ -75,7 +75,7 @@ class ShipmentTickets
                 'shipment_id'       => $shipment->id,
                 'governorate_id'    => $shipment->governorate_id,
                 'courier_id'        => $courier->id,
-                'opened_by_user_id' => $actor->id,
+                'opened_by_user_id' => $actor?->id,
                 'kind'              => $kind,
                 'current_amount'    => (int) $shipment->cod_amount,
                 'requested_amount'  => $amount,
@@ -89,7 +89,7 @@ class ShipmentTickets
                 : "طلب المندوب تغيير المبلغ ({$ticket->number}): ")
                 .number_format($ticket->current_amount).' ← '.number_format($amount)
                 .($kind === 'partial' && $pieces ? " — رجعت {$pieces} قطعة" : '')
-                .' — '.$ticket->kindLabel().'. '.$reason, $courier->id);
+                .' — '.$ticket->kindLabel().'. '.$reason, $courier->id, $actor ? null : $courier->name.' — ربط آلي');
 
             DB::afterCommit(fn () => StaffPush::callCentre(...NotifyTexts::apply(
                 'callcenter_ticket',
@@ -256,7 +256,7 @@ class ShipmentTickets
         return [$ticket, $shipment];
     }
 
-    protected function log(Shipment $shipment, User $actor, string $actorType, string $note, ?int $courierId): void
+    protected function log(Shipment $shipment, ?User $actor, string $actorType, string $note, ?int $courierId, ?string $actorName = null): void
     {
         ShipmentEvent::create([
             'shipment_id' => $shipment->id,
@@ -264,8 +264,8 @@ class ShipmentTickets
             'to_status'   => $shipment->status->value,
             'event_type'  => 'ticket',
             'actor_type'  => $actorType,
-            'actor_id'    => $actor->id,
-            'actor_name'  => $actor->name,
+            'actor_id'    => $actor?->id,
+            'actor_name'  => $actorName ?? $actor?->name,
             'courier_id'  => $courierId,
             'note'        => $note,
             'ip'          => request()->ip(),

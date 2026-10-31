@@ -9,6 +9,7 @@ use App\Models\Hub;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Services\Aggregator\AggregatorOutbox;
 use App\Services\SequenceGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -80,6 +81,9 @@ class ReceiveReturns
                     'note'        => $note ?: 'استُلم الراجع من المندوب',
                     'ip'          => request()->ip(),
                 ]);
+
+                // راجعٌ من الشركة الوسيطة المربوطة: يصير عندهم «راجعٌ للتاجر» (docs/plan/104)
+                AggregatorOutbox::afterReturnReceived($shipment);
             }
 
             // لكلّ مندوبٍ إيصاله (إيصالات راجع المندوبين): ما سلّمه في هذا الاستلام ومن استلمه

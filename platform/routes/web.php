@@ -37,6 +37,7 @@ use App\Http\Controllers\Portal\SupportController as PortalSupportController;
 use App\Http\Controllers\Portal\WaybillController as PortalWaybillController;
 use App\Http\Controllers\ShipmentLabelController;
 use App\Http\Controllers\Tenant\AccountantAccountsController;
+use App\Http\Controllers\Tenant\AggregatorController;
 use App\Http\Controllers\Tenant\AnnouncementController;
 use App\Http\Controllers\Tenant\AppAdController;
 use App\Http\Controllers\Tenant\AreaController;
@@ -468,6 +469,21 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/billing/invoices/{invoice}', [BillingController::class, 'invoice'])->whereNumber('invoice')->name('billing.invoice');
                 Route::post('/billing/notices', [BillingController::class, 'notify'])->middleware('throttle:10,60,billing-notices')->name('billing.notify');
                 Route::get('/billing/notices/{notice}/proof', [BillingController::class, 'proof'])->whereNumber('notice')->name('billing.proof');
+            });
+
+            // الربط الآلي مع نظام الشركة الوسيطة (docs/plan/104)
+            Route::middleware(['feature:aggregator', 'can:settings.company', 'main-branch'])->prefix('aggregator')->name('aggregator.')->group(function () {
+                Route::get('/', [AggregatorController::class, 'edit'])->name('edit');
+                Route::put('/', [AggregatorController::class, 'update'])->name('update');
+                Route::post('/connect', [AggregatorController::class, 'connect'])->middleware('throttle:10,1')->name('connect');
+                Route::post('/merchant', [AggregatorController::class, 'merchant'])->middleware('throttle:10,1')->name('merchant');
+                Route::post('/hook', [AggregatorController::class, 'hook'])->name('hook');
+                Route::put('/statuses', [AggregatorController::class, 'statuses'])->name('statuses');
+                Route::get('/areas', [AggregatorController::class, 'areas'])->name('areas');
+                Route::put('/areas', [AggregatorController::class, 'saveAreas'])->name('areas.update');
+                Route::post('/areas/auto', [AggregatorController::class, 'autoAreas'])->middleware('throttle:5,1')->name('areas.auto');
+                Route::get('/log', [AggregatorController::class, 'log'])->name('log');
+                Route::post('/jobs/{job}/retry', [AggregatorController::class, 'retry'])->whereNumber('job')->name('jobs.retry');
             });
 
             // نصوص الإشعارات التي تصل الهواتف، بكلام الشركة (docs/plan/91)

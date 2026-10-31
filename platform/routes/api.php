@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Aggregator\AggregatorWebhookController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CallCenter\BoardController as CallCenterBoardController;
 use App\Http\Controllers\Api\CallCenter\ConversationController as CallCenterConversationController;
@@ -49,6 +50,9 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(function () {
     Route::get('/company', [AuthController::class, 'company'])->name('company');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1')->name('login');
+
+    // نظام الشركة الوسيطة يرسل تحديثات طلباتنا هنا بمفتاحٍ في الترويسة (docs/plan/104)
+    Route::post('/aggregator/webhook', AggregatorWebhookController::class)->middleware('throttle:600,1')->name('aggregator.webhook');
 
     // واجهة الشركة الوسيطة (docs/plan/64): مندوبٌ عندنا يحدّث شحناته من نظامه بمفتاح ربط
     Route::prefix('partner')->name('partner.')->middleware('partner.key')->group(function () {

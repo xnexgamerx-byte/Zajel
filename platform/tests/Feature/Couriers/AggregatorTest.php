@@ -1,0 +1,377 @@
+<?php
+
+namespace Tests\Feature\Couriers;
+
+use App\Actions\Returns\ReceiveReturns;
+use App\Actions\Shipments\CreateShipment;
+use App\Actions\Shipments\ProcessFailedAttempt;
+use App\Actions\Shipments\SendOutForDelivery;
+use App\Enums\Feature;
+use App\Enums\ShipmentStatus;
+use App\Models\AggregatorEvent;
+use App\Models\AggregatorJob;
+use App\Models\AggregatorLink;
+use App\Models\AggregatorPlace;
+use App\Models\Company;
+use App\Models\CompanyFeature;
+use App\Models\Courier;
+use App\Models\FailureReason;
+use App\Models\Governorate;
+use App\Models\Shipment;
+use App\Models\ShipmentTicket;
+use App\Models\User;
+use App\Services\Aggregator\AggregatorOutbox;
+use App\Support\Tenancy\Tenancy;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request as HttpRequest;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
+use Tests\TestCase;
+
+/**
+ * الربط مع نظام الشركة الوسيطة (docs/plan/104): ما يُسلَّم للوسيط يُنشأ عندهم برقم وصلنا، وما يصلنا
+ * منهم يُطبَّق بقواعد المندوب، واستلام الراجع يُبلَّغ لهم — لشركةٍ فُتحت لها الميزة، وفي شركتها وحدها.
+ */
+class AggregatorTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private const BASE = 'https://agg.test/v1';
+
+    private const HOOK = 'hook-secret-123';
+
+    private Company $company;
+
+    private User $staff;
+
+    private Courier $agent;
+
+    private AggregatorLink $link;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seedReference();
+        $this->company = $this->makeCompany('zajel', 'الزاجل');
+        $this->staff = $this->makeUser($this->company);
+        $this->agent = $this->courier('وسيط الجنوب', intermediary: true);
+        $this->setFeature($this->company, Feature::Aggregator);
+        $this->link = $this->link($this->company, $this->agent);
+    }
+
+    private function courier(string $name, bool $intermediary = false, ?Company $company = null): Courier
+    {
+        return Tenancy::runFor($company ?? $this->company, fn () => Courier::create([
+            'code' => 'C'.random_int(100, 999), 'name' => $name, 'phone' => '0772'.random_int(1_000_000, 9_999_999),
+            'type' => 'delivery', 'status' => 'active', 'is_intermediary' => $intermediary,
+            'commission_per_delivery' => 6_000, 'commission_per_return' => 2_000,
+        ]));
+    }
+
+    private function link(Company $company, Courier $courier, string $hook = self::HOOK): AggregatorLink
+    {
+        return Tenancy::runFor($company, function () use ($company, $courier, $hook) {
+            $basra = Governorate::where('code', 'BSR')->firstOrFail();
+            AggregatorPlace::create(['kind' => 'governorate', 'local_id' => $basra->id, 'remote_id' => '5', 'remote_name' => 'البصرة']);
+            AggregatorPlace::create(['kind' => 'city', 'local_id' => $this->area('العشار', $basra), 'remote_id' => '77', 'remote_name' => 'العشار']);
+
+            return AggregatorLink::create([
+                'courier_id' => $courier->id, 'base_url' => self::BASE,
+                'username' => 'acct', 'password' => 'pass-123',
+                'merchant_id' => '55', 'merchant_name' => $company->name, 'merchant_token' => 'merchant-tok',
+                'order_prefix' => 'ZJL_', 'package_size_id' => '1',
+                'failure_reason_id' => $this->reason($company)->id,
+                'webhook_header' => 'X-Hook-Key', 'webhook_token_hash' => hash('sha256', $hook), 'webhook_token_last4' => substr($hook, -4),
+                'sends_orders' => true,
+            ]);
+        });
+    }
+
+    private function reason(Company $company): FailureReason
+    {
+        return FailureReason::availableFor($company->id)->where('requires_note', false)->firstOrFail();
+    }
+
+    /** شحنةٌ للعشار في البصرة سُلِّمت لمندوب (الوسيط افتراضاً): «بالطريق» إليه */
+    private function ship(?Courier $courier = null, array $extra = []): Shipment
+    {
+        return Tenancy::runFor($this->company, function () use ($courier, $extra) {
+            $basra = Governorate::where('code', 'BSR')->firstOrFail();
+            $shipment = app(CreateShipment::class)->handle(array_merge([
+                'merchant_id' => $this->makeMerchant($this->company, 'M'.random_int(1000, 9999))->id,
+                'recipient_name' => 'علي', 'recipient_phone' => '07801234567', 'recipient_phone_alt' => '07701112233',
+                'governorate_id' => $basra->id, 'city_id' => $this->area('العشار', $basra),
+                'address' => 'قرب السوق', 'cod_amount' => 40_000, 'pieces_count' => 2,
+            ], $extra), $this->staff);
+
+            app(SendOutForDelivery::class)->handle(collect([$shipment->refresh()]), $courier ?? $this->agent, $this->staff);
+
+            return $shipment->refresh();
+        });
+    }
+
+    private function fresh(Shipment $shipment): Shipment
+    {
+        return Tenancy::runFor($this->company, fn () => $shipment->refresh());
+    }
+
+    private function jobs(): Collection
+    {
+        return Tenancy::runFor($this->company, fn () => AggregatorJob::query()->orderBy('id')->get());
+    }
+
+    /** نظامهم كما في وثائقهم: الدخول، والإنشاء الجماعي، وغيرهما */
+    private function fakeApi(array $extra = []): void
+    {
+        Http::fake($extra + [
+            self::BASE.'/aggre/login' => Http::response(['status' => true, 'errNum' => 'S000', 'msg' => 'ok', 'data' => ['token' => 'agg-tok']]),
+            self::BASE.'/aggre/create-bulk-orders*' => function (HttpRequest $request) {
+                $orders = json_decode($this->field($request, 'data'), true);
+
+                return Http::response(['status' => true, 'errNum' => 'S000', 'msg' => 'Done Successfully.', 'data' => [
+                    'succeed' => array_map(fn ($o) => ['id' => 9000 + (int) $o['metadata'], 'company_order_id' => $o['company_order_id'], 'metadata' => $o['metadata']], $orders),
+                    'failed' => [],
+                ]]);
+            },
+            self::BASE.'/aggre/receive-returned-order*' => Http::response(['status' => true, 'errNum' => 'S000', 'msg' => 'Done Successfully.']),
+        ]);
+    }
+
+    /** حقلٌ من طلب multipart */
+    private function field(HttpRequest $request, string $name): ?string
+    {
+        foreach ($request->data() as $part) {
+            if (($part['name'] ?? null) === $name) {
+                return (string) $part['contents'];
+            }
+        }
+
+        return null;
+    }
+
+    private function hook(array $payload, string $token = self::HOOK, ?Company $company = null): TestResponse
+    {
+        $host = 'http://'.($company ?? $this->company)->slug.'.'.config('zajel.tenant_domain');
+
+        return $this->postJson($host.'/api/v1/aggregator/webhook', $payload, ['X-Hook-Key' => $token]);
+    }
+
+    private function order(Shipment $shipment, array $over = []): array
+    {
+        return $over + [
+            'id' => (string) $shipment->aggregator_order_id ?: '9'.$shipment->id,
+            'company_order_id' => 'ZJL_'.$shipment->number,
+            'client_name' => 'علي', 'client_mobile' => '+9647801234567',
+            'status_id' => '2', 'status' => 'تم استلام الطلب من قبل المندوب', 'deliver_done' => 0,
+            'price' => '40000', 'old_price' => -1, 'issue_notes' => 'لا یوجد', 'send_to_store' => 0,
+            'updated_at' => now()->toDateTimeString(),
+        ];
+    }
+
+    public function test_a_shipment_handed_to_the_linked_intermediary_is_created_there_with_our_number(): void
+    {
+        $this->fakeApi();
+        $shipment = $this->ship();
+        $other = $this->ship($this->courier('مندوب عادي'));
+
+        // الوسيط وحده: الشحنة «بالطريق» إليه ولها عملٌ واحد، والمندوب العادي لا
+        $this->assertSame(ShipmentStatus::InTransit, $shipment->status);
+        $this->assertSame([[$shipment->id, 'create', 'pending']], $this->jobs()->map(fn ($j) => [$j->shipment_id, $j->action, $j->status])->all());
+
+        $this->artisan('aggregator:sync')->assertSuccessful();
+
+        Http::assertSent(fn (HttpRequest $r) => str_contains($r->url(), '/aggre/login') && $this->field($r, 'username') === 'acct');
+        Http::assertSent(function (HttpRequest $r) use ($shipment) {
+            if (! str_contains($r->url(), '/aggre/create-bulk-orders') || ! str_contains($r->url(), 'token=agg-tok')) {
+                return false;
+            }
+            $order = json_decode($this->field($r, 'data'), true)[0];
+
+            return $order['company_order_id'] === 'ZJL_'.$shipment->number
+                && $order['client_mobile'] === '+9647801234567' && $order['client_mobile2'] === '+9647701112233'
+                && $order['city_id'] === 5 && $order['region_id'] === 77 && $order['price'] === 40_000
+                && $order['merchant_id'] === 55 && $order['package_size'] === 1 && $order['items_number'] === 2
+                && $order['metadata'] === (string) $shipment->id && str_contains($order['location'], 'قرب السوق');
+        });
+
+        $this->assertSame((string) (9000 + $shipment->id), $this->fresh($shipment)->aggregator_order_id);
+        $this->assertNull($this->fresh($other)->aggregator_order_id);
+        $this->assertSame('done', $this->jobs()->first()->status);
+
+        // رمز الدخول وكلمة المرور مشفّرتان في القاعدة، ويُستعمل الرمز حتى يقارب انتهاؤه
+        $row = DB::table('aggregator_links')->first();
+        $this->assertStringNotContainsString('agg-tok', (string) $row->aggre_token);
+        $this->assertStringNotContainsString('pass-123', (string) $row->password);
+
+        // لا يُنشأ ثانيةً إن عادت للوسيط «بالطريق» (إعادة توصيل): له رقمٌ عندهم
+        Tenancy::runFor($this->company, fn () => AggregatorOutbox::afterTransition($this->fresh($shipment), ShipmentStatus::InTransit));
+        $this->assertCount(1, $this->jobs());
+        $this->artisan('aggregator:sync')->assertSuccessful();
+        Http::assertSentCount(2);
+    }
+
+    public function test_an_unmapped_area_fails_with_its_reason_and_is_retried_until_mapped(): void
+    {
+        $this->fakeApi();
+        Tenancy::runFor($this->company, fn () => AggregatorPlace::where('kind', 'city')->delete());
+        $shipment = $this->ship();
+
+        $this->artisan('aggregator:sync')->assertSuccessful();
+
+        $job = $this->jobs()->first();
+        $this->assertSame('pending', $job->status);
+        $this->assertSame(1, $job->attempts);
+        $this->assertStringContainsString('منطقة «العشار» غير مربوطة', $job->last_error);
+        $this->assertTrue($job->next_attempt_at->isFuture());
+        Http::assertNothingSent();
+
+        // رُبطت المنطقة وحان موعده: يُسأل عنه أوّلاً (لعلّه أُنشئ ولم يصلنا الردّ)، ثم يُنشأ
+        Tenancy::runFor($this->company, function () use ($job) {
+            $basra = Governorate::where('code', 'BSR')->firstOrFail();
+            AggregatorPlace::create(['kind' => 'city', 'local_id' => $this->area('العشار', $basra), 'remote_id' => '77']);
+            $job->forceFill(['next_attempt_at' => now()->subMinute()])->save();
+        });
+        $this->fakeApi([self::BASE.'/aggre/check-order-exists-by-company-order-number*' => Http::response(['status' => true, 'data' => ['order' => []]])]);
+
+        $this->artisan('aggregator:sync')->assertSuccessful();
+
+        $this->assertSame('done', $this->jobs()->first()->status);
+        $this->assertNotNull($this->fresh($shipment)->aggregator_order_id);
+    }
+
+    public function test_an_order_they_created_but_we_did_not_hear_about_is_not_created_twice(): void
+    {
+        Http::fake([
+            self::BASE.'/aggre/login' => Http::response(['status' => true, 'data' => ['token' => 'agg-tok']]),
+            self::BASE.'/aggre/create-bulk-orders*' => fn () => throw new ConnectionException('timeout'),
+        ]);
+        $shipment = $this->ship();
+
+        $this->artisan('aggregator:sync')->assertSuccessful();
+        $this->assertStringContainsString('لم يردّ', $this->jobs()->first()->last_error);
+
+        Tenancy::runFor($this->company, fn () => AggregatorJob::query()->update(['next_attempt_at' => now()->subMinute()]));
+        Http::fake([
+            self::BASE.'/aggre/check-order-exists-by-company-order-number*' => Http::response(['status' => true, 'data' => ['order' => [['id' => '777', 'company_order_id' => 'ZJL_'.$shipment->number]]]]),
+        ]);
+
+        $this->artisan('aggregator:sync')->assertSuccessful();
+
+        $this->assertSame('777', $this->fresh($shipment)->aggregator_order_id);
+        Http::assertNotSent(fn (HttpRequest $r) => str_contains($r->url(), 'create-bulk-orders'));
+    }
+
+    public function test_their_updates_move_the_shipment_by_courier_rules(): void
+    {
+        $this->fakeApi();
+        $shipment = $this->ship();
+        $this->artisan('aggregator:sync');
+        $shipment = $this->fresh($shipment);
+
+        // مفتاحٌ خاطئ يُرفض ولا يُحفظ
+        $this->hook($this->order($shipment, ['status_id' => '3']), 'wrong')->assertStatus(401);
+
+        // مع مندوبهم ← قيد التوصيل
+        $this->hook($this->order($shipment, ['status_id' => '3', 'status' => 'مع المندوب']))->assertOk()->assertJsonPath('status', true);
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+
+        // التحديث نفسه ثانيةً لا يُطبَّق مرّتين
+        $this->hook($this->order($shipment, ['status_id' => '3', 'status' => 'مع المندوب']))->assertOk();
+        $this->assertSame(1, Tenancy::runFor($this->company, fn () => AggregatorEvent::count()));
+
+        // واصل بعلامتهم وبمبلغ الوصل ← واصلة، والمبلغ بيد الوسيط كمندوب
+        $this->hook($this->order($shipment, ['status_id' => '4', 'status' => 'تم التسليم', 'deliver_done' => 1]))->assertOk();
+        $done = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::Delivered, $done->status);
+        $this->assertSame(40_000, (int) $done->collected_amount);
+        $this->assertSame(40_000, (int) Tenancy::runFor($this->company, fn () => $this->agent->refresh()->cash_in_hand));
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => $done->events()->where('actor_name', 'وسيط الجنوب — ربط آلي')->exists()));
+    }
+
+    public function test_a_changed_price_goes_to_the_call_centre_and_never_changes_the_amount_by_itself(): void
+    {
+        $this->fakeApi();
+        $first = $this->ship();
+        $second = $this->ship();
+        $this->artisan('aggregator:sync');
+
+        // السعر تغيّر وهي مع مندوبهم: تذكرة «السعر تغيّر» والمبلغ كما هو
+        $this->hook($this->order($this->fresh($first), ['status_id' => '3', 'price' => '35000', 'old_price' => '40000']))->assertOk();
+        $ticket = Tenancy::runFor($this->company, fn () => ShipmentTicket::where('shipment_id', $first->id)->sole());
+        $this->assertSame(['price', 35_000, false], [$ticket->kind, (int) $ticket->requested_amount, (bool) $ticket->finalize]);
+        $this->assertSame(40_000, (int) $this->fresh($first)->cod_amount);
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($first)->status);
+
+        // سُلّمت بغير مبلغ الوصل: لا تُسجَّل واصلة، تذكرة «سلّمها بسعرٍ آخر» تنتظر الموافقة
+        $this->hook($this->order($this->fresh($second), ['status_id' => '4', 'deliver_done' => 1, 'price' => '30000']))->assertOk();
+        $ticket = Tenancy::runFor($this->company, fn () => ShipmentTicket::where('shipment_id', $second->id)->sole());
+        $this->assertSame([30_000, true], [(int) $ticket->requested_amount, (bool) $ticket->finalize]);
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($second)->status);
+    }
+
+    public function test_a_return_goes_to_processing_and_receiving_it_is_reported_to_them(): void
+    {
+        $this->fakeApi();
+        $shipment = $this->ship();
+        $this->artisan('aggregator:sync');
+        $shipment = $this->fresh($shipment);
+        $this->hook($this->order($shipment, ['status_id' => '3']))->assertOk();
+
+        // راجعٌ إلى مخزنهم ← لم يُسلَّم بالسبب المختار، وتذهب للمعالجة؛ ومراحله بعدها سطور تتبّع
+        $this->hook($this->order($shipment, ['status_id' => '23', 'status' => 'راجع الى مخزن الرواجع', 'issue_notes' => 'الزبون رفض']))->assertOk();
+        $failed = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::FailedAttempt, $failed->status);
+        $this->assertSame($this->reason($this->company)->id, $failed->last_failure_reason_id);
+
+        $this->hook($this->order($shipment, ['status_id' => '23', 'status' => 'راجع الى مخزن الرواجع', 'issue_notes' => 'الزبون رفض', 'send_to_store' => 2]))->assertOk();
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => $shipment->events()->where('event_type', 'tracking')
+            ->where('note', 'like', '%وصلت مخزنهم في بغداد%')->exists()));
+
+        // سلّموها بعدُ وهي «لم يُسلَّم» عندنا: لا تُسجَّل بلا قرار، وتظهر خطأً في السجلّ
+        $this->hook($this->order($shipment, ['status_id' => '4', 'status' => 'تم التسليم', 'deliver_done' => 1]))->assertOk();
+        $this->assertSame(ShipmentStatus::FailedAttempt, $this->fresh($shipment)->status);
+        $this->assertSame('error', Tenancy::runFor($this->company, fn () => AggregatorEvent::latest('id')->first()->result));
+
+        // الكول سنتر يقرّر الإرجاع، ونستلمه من الوسيط ← يُبلَّغ لهم «راجعٌ للتاجر» برقمهم
+        Tenancy::runFor($this->company, function () use ($shipment) {
+            app(ProcessFailedAttempt::class)->handle($shipment->refresh(), 'return', $this->staff);
+            app(ReceiveReturns::class)->handle([$shipment->id], $this->staff);
+        });
+        $this->assertSame(['create', 'receive_return'], $this->jobs()->pluck('action')->all());
+
+        $this->artisan('aggregator:sync')->assertSuccessful();
+
+        Http::assertSent(fn (HttpRequest $r) => str_contains($r->url(), '/aggre/receive-returned-order')
+            && $this->field($r, 'merchant-token') === 'merchant-tok' && $this->field($r, 'order-id') === $shipment->aggregator_order_id);
+        $this->assertSame(['done', 'done'], $this->jobs()->pluck('status')->all());
+    }
+
+    public function test_nothing_happens_without_the_feature_and_no_company_reaches_another(): void
+    {
+        $this->fakeApi();
+        $shipment = $this->ship();
+        $this->artisan('aggregator:sync');
+        $shipment = $this->fresh($shipment);
+
+        // شركةٌ أخرى مربوطةٌ بمفتاحها: مفتاحها لا يفتح نطاقنا، ونطاقها لا يرى شحنتنا
+        $other = $this->makeCompany('other', 'شركة أخرى');
+        $this->setFeature($other, Feature::Aggregator);
+        $this->link($other, $this->courier('وسيط آخر', true, $other), 'other-hook');
+
+        $this->hook($this->order($shipment, ['status_id' => '3']), 'other-hook')->assertStatus(401);
+        $this->hook($this->order($shipment, ['status_id' => '3']), 'other-hook', $other)->assertOk();
+        $this->assertSame(ShipmentStatus::InTransit, $this->fresh($shipment)->status);
+        $this->assertSame('unmatched', Tenancy::runFor($other, fn () => AggregatorEvent::sole()->result));
+
+        // أُغلقت الميزة: لا عمل يُكتب، ولا تحديث يُقبل
+        Tenancy::runFor($this->company, fn () => CompanyFeature::where('feature', Feature::Aggregator->value)->update(['enabled' => false]));
+        $this->company->forgetFeatures();
+        $this->ship();
+        $this->assertCount(1, $this->jobs());
+        $this->hook($this->order($shipment, ['status_id' => '3']))->assertNotFound();
+    }
+}

@@ -30,6 +30,11 @@ class Arabic
         return static::count($n, ['يوم واحد', 'يومان', 'أيام', 'يوماً']);
     }
 
+    public static function attempts(int $n): string
+    {
+        return static::count($n, ['محاولة واحدة', 'محاولتان', 'محاولات', 'محاولة']);
+    }
+
     public static function shipments(int $n): string
     {
         return static::count($n, ['شحنة واحدة', 'شحنتان', 'شحنات', 'شحنة']);

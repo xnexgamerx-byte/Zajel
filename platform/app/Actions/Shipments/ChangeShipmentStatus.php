@@ -8,6 +8,7 @@ use App\Models\Courier;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\User;
+use App\Services\Aggregator\AggregatorOutbox;
 use App\Services\Ledger;
 use App\Support\MerchantNotice;
 use Illuminate\Support\Facades\DB;
@@ -334,6 +335,9 @@ class ChangeShipmentStatus
             ]);
 
             $shipment->refresh();
+
+            // سُلِّمت للشركة الوسيطة المربوطة: تُنشأ في نظامها بالمجدوِل (docs/plan/104)
+            AggregatorOutbox::afterTransition($shipment, $to);
 
             // خرجت من يد المندوب: طلباته لتغيير المبلغ تُحسم معها (docs/plan/30)
             if ($from === ShipmentStatus::OutForDelivery) {

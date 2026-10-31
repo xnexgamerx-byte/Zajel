@@ -79,3 +79,12 @@ Schedule::command('finance:alerts --daily')
     ->dailyAt('01:50')
     ->timezone('Asia/Baghdad')
     ->withoutOverlapping();
+
+/*
+| الربط مع نظام الشركة الوسيطة (docs/plan/104): ما سُلِّم لها يُنشأ عندهم، وراجعها المستلَم يُبلَّغ.
+| كل دقيقة: الإسناد لا ينتظر نظامهم، والمتأخّر لا يتأخّر أكثر من دقيقة.
+*/
+Schedule::command('aggregator:sync')
+    ->everyMinute()
+    ->withoutOverlapping(10)
+    ->runInBackground();
