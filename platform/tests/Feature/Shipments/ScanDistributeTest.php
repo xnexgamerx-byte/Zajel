@@ -5,6 +5,7 @@ namespace Tests\Feature\Shipments;
 use App\Actions\Shipments\CreateShipment;
 use App\Enums\ShipmentStatus;
 use App\Models\Branch;
+use App\Models\City;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\CourierZone;
@@ -18,7 +19,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * «توزيع بالمسح» (docs/plan/50): لكلّ محافظةٍ توزيعها، ولكلّ منطقةٍ مندوبها.
+ * «توزيع بالمسح» (docs/plan/50): لكلّ منطقةٍ مندوبها. والمحافظات كلّها أو ما يُختار منها (docs/plan/98).
  */
 class ScanDistributeTest extends TestCase
 {
@@ -76,27 +77,52 @@ class ScanDistributeTest extends TestCase
         ], $this->owner));
     }
 
-    public function test_the_screen_opens_on_the_branch_governorate(): void
+    /** docs/plan/98: يفتح على كلّ المحافظات، ويُختار منها واحدةٌ أو أكثر */
+    public function test_the_screen_opens_on_every_governorate_or_the_chosen_ones(): void
     {
+        $basra = Governorate::where('code', 'BSR')->firstOrFail();
+
         $this->actingAs($this->owner)->get($this->host().'/shipments/distribute')
-            ->assertOk()->assertSee('توزيع بالمسح')->assertSee('رقم الوصل — بغداد')->assertSee('مندوب الكرادة');
+            ->assertOk()->assertSee('توزيع بالمسح')->assertSee('رقم الوصل — كل المحافظات')->assertSee('مندوب الكرادة')
+            ->assertSee('مندوبٌ واحد لكلّ المناطق')->assertDontSee('خارج المحافظات المختارة');
+
+        $this->actingAs($this->owner)->get($this->host().'/shipments/distribute?governorates[]='.$this->baghdad()->id)
+            ->assertOk()->assertSee('رقم الوصل — بغداد');
+
+        $this->actingAs($this->owner)
+            ->get($this->host().'/shipments/distribute?governorates[]='.$this->baghdad()->id.'&governorates[]='.$basra->id)
+            ->assertOk()->assertSee('رقم الوصل — بغداد، البصرة')
+            ->assertSee('name="governorates[]" value="'.$basra->id.'"', false);
     }
 
-    public function test_lookup_takes_only_this_governorate_and_suggests_the_area_courier(): void
+    public function test_lookup_takes_the_chosen_governorates_and_suggests_the_area_courier(): void
     {
         $karrada = $this->shipment('الكرادة');
         $basra = Governorate::where('code', 'BSR')->firstOrFail();
-        $far = $this->shipment(\App\Models\City::where('governorate_id', $basra->id)->value('name_ar'), $basra);
+        $far = $this->shipment(City::where('governorate_id', $basra->id)->value('name_ar'), $basra);
 
         $this->actingAs($this->owner)
-            ->getJson($this->host().'/shipments/distribute/lookup?governorate='.$this->baghdad()->id.'&number='.$karrada->number)
+            ->getJson($this->host().'/shipments/distribute/lookup?governorates='.$this->baghdad()->id.'&number='.$karrada->number)
             ->assertOk()
-            ->assertJson(['id' => $karrada->id, 'area' => 'الكرادة', 'suggested' => $this->karrada->id]);
+            ->assertJson(['id' => $karrada->id, 'area' => 'الكرادة', 'governorate' => 'بغداد', 'suggested' => $this->karrada->id]);
 
         $this->actingAs($this->owner)
-            ->getJson($this->host().'/shipments/distribute/lookup?governorate='.$this->baghdad()->id.'&number='.$far->number)
+            ->getJson($this->host().'/shipments/distribute/lookup?governorates='.$this->baghdad()->id.'&number='.$far->number)
             ->assertStatus(422)
-            ->assertJsonFragment(['error' => "{$far->number} وجهته البصرة — ليس من توزيع هذه المحافظة."]);
+            ->assertJsonFragment(['error' => "{$far->number} وجهته البصرة — خارج المحافظات المختارة."]);
+
+        // بغداد والبصرة معاً، أو بلا اختيار: كلّ المحافظات
+        foreach (['governorates='.$this->baghdad()->id.','.$basra->id.'&', ''] as $scope) {
+            $this->actingAs($this->owner)
+                ->getJson($this->host().'/shipments/distribute/lookup?'.$scope.'number='.$far->number)
+                ->assertOk()->assertJson(['id' => $far->id, 'governorate' => 'البصرة']);
+        }
+
+        // المنطقة بمحافظتها: لا تختلط منطقتان من محافظتين
+        $this->assertNotSame(
+            $this->actingAs($this->owner)->getJson($this->host().'/shipments/distribute/lookup?number='.$karrada->number)->json('area_id'),
+            $this->actingAs($this->owner)->getJson($this->host().'/shipments/distribute/lookup?number='.$far->number)->json('area_id'),
+        );
     }
 
     public function test_a_delivered_shipment_is_refused_at_the_scan(): void
@@ -125,17 +151,50 @@ class ScanDistributeTest extends TestCase
         });
     }
 
-    public function test_a_shipment_of_another_governorate_is_not_distributed_here(): void
+    public function test_a_shipment_outside_the_chosen_governorates_is_not_distributed(): void
     {
         $basra = Governorate::where('code', 'BSR')->firstOrFail();
-        $far = $this->shipment(\App\Models\City::where('governorate_id', $basra->id)->value('name_ar'), $basra);
+        $far = $this->shipment(City::where('governorate_id', $basra->id)->value('name_ar'), $basra);
 
+        $this->actingAs($this->owner)->post($this->host().'/shipments/distribute', [
+            'governorates' => [$this->baghdad()->id],
+            'courier' => [$far->id => $this->karrada->id],
+        ])->assertSessionHasErrors('courier');
+
+        // ورابطٌ قديم بمحافظةٍ واحدة كما كان
         $this->actingAs($this->owner)->post($this->host().'/shipments/distribute', [
             'governorate_id' => $this->baghdad()->id,
             'courier' => [$far->id => $this->karrada->id],
         ])->assertSessionHasErrors('courier');
 
         $this->assertSame(ShipmentStatus::Created, Tenancy::runFor($this->company, fn () => $far->refresh()->status));
+    }
+
+    /** docs/plan/98: الشركة الوسيطة توصل لمحافظاتٍ كثيرة — توزيعٌ واحد بلا محافظة، أو بمحافظاتٍ مختارة */
+    public function test_one_distribution_sends_shipments_of_many_governorates_to_the_partner(): void
+    {
+        $basra = Governorate::where('code', 'BSR')->firstOrFail();
+        $partner = $this->partner();
+        $a = $this->shipment('الكرادة');
+        $b = $this->shipment(City::where('governorate_id', $basra->id)->value('name_ar'), $basra);
+
+        $this->actingAs($this->owner)->post($this->host().'/shipments/distribute', [
+            'mode' => 'partner', 'courier' => [$a->id => $partner->id, $b->id => $partner->id],
+        ])->assertRedirect($this->host().'/shipments/distribute?mode=partner')->assertSessionHas('success');
+
+        $c = $this->shipment('المنصور');
+        $d = $this->shipment(City::where('governorate_id', $basra->id)->value('name_ar'), $basra);
+        $this->actingAs($this->owner)->post($this->host().'/shipments/distribute', [
+            'governorates' => [$this->baghdad()->id, $basra->id], 'mode' => 'partner',
+            'courier' => [$c->id => $partner->id, $d->id => $partner->id],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        Tenancy::runFor($this->company, function () use ($a, $b, $c, $d, $partner) {
+            foreach ([$a, $b, $c, $d] as $s) {
+                $s->refresh();
+                $this->assertSame([ShipmentStatus::InTransit, $partner->id], [$s->status, $s->delivery_courier_id]);
+            }
+        });
     }
 
     public function test_an_area_without_a_courier_stops_the_distribution(): void

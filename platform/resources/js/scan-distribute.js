@@ -1,9 +1,9 @@
 import { beep } from './beep';
 
 /**
- * «توزيع بالمسح» (docs/plan/50): كلّ وصلٍ يُمسح يُسأل عنه الخادم — لهذه المحافظة وحدها —
- * فيدخل الجدول، وتظهر منطقته في اللوحة بمندوبها المقترح. ثم «وزّع» يُرسل لكلّ وصلٍ
- * مندوبَ منطقته. الجدول في المتصفّح وحده حتى الحفظ.
+ * «توزيع بالمسح» (docs/plan/50): كلّ وصلٍ يُمسح يُسأل عنه الخادم — في المحافظات المختارة، أو كلّها
+ * (docs/plan/98) — فيدخل الجدول، وتظهر منطقته بمحافظتها في اللوحة بمندوبها المقترح. ثم «وزّع» يُرسل
+ * لكلّ وصلٍ مندوبَ منطقته. الجدول في المتصفّح وحده حتى الحفظ.
  */
 export function initScanDistribute(root) {
     const input = root.querySelector('[data-scan-input]');
@@ -17,10 +17,14 @@ export function initScanDistribute(root) {
     const areasEmpty = root.querySelector('[data-areas-empty]');
     const ownOptions = root.querySelector('[data-courier-options]');
     const partnerOptions = root.querySelector('[data-partner-options]');
+    const allCourier = root.querySelector('[data-all-courier]');
     const rows = new Map();
     const areas = new Map();
     const money = new Intl.NumberFormat('en-US');
     const tones = { green: 'chip-ok', blue: 'chip-info', amber: 'chip-warn', red: 'chip-bad', gray: 'chip-mute', slate: 'chip-mute' };
+    // محافظةٌ واحدة: المنطقة باسمها وحده؛ وأكثر: «البصرة — العشار»
+    const single = root.dataset.single === '1';
+    const place = (data) => (single || !data.governorate ? data.area : `${data.governorate} — ${data.area}`);
 
     /** مندوبو الشركة أو مندوب شركةٍ أخرى: الخيار الذي اختاره الموظّف فوق الجدول */
     const currentMode = () => (form.querySelector('input[name="mode"]:checked')?.value === 'partner' ? 'partner' : 'own');
@@ -59,16 +63,18 @@ export function initScanDistribute(root) {
         head.className = 'mb-2 flex items-center justify-between text-sm';
         const name = document.createElement('span');
         name.className = 'font-bold';
-        name.textContent = data.area;
+        name.textContent = place(data);
         const tally = document.createElement('span');
         tally.className = 'num text-ink-500';
         head.append(name, tally);
 
         const select = document.createElement('select');
         select.className = 'field-input';
-        select.setAttribute('aria-label', `مندوب ${data.area}`);
+        select.setAttribute('aria-label', `مندوب ${place(data)}`);
         select.append(optionsFor().content.cloneNode(true));
-        if (data.suggested && currentMode() === 'own') select.value = String(data.suggested);
+        // مندوب «لكلّ المناطق» إن اختير، وإلّا مندوب المنطقة المقترح
+        if (allCourier?.value) select.value = allCourier.value;
+        else if (data.suggested && currentMode() === 'own') select.value = String(data.suggested);
         select.addEventListener('change', () => { box.classList.toggle('ring-2', !select.value); });
 
         box.append(head, select);
@@ -131,7 +137,7 @@ export function initScanDistribute(root) {
         removeCell.append(remove);
 
         tr.append(
-            cell('', 'num'), numberCell, cell(data.area, 'font-semibold'), cell(data.merchant), statusCell,
+            cell('', 'num'), numberCell, cell(place(data), 'font-semibold'), cell(data.merchant), statusCell,
             cell(money.format(data.amount), 'num whitespace-nowrap'), cell(data.phone, 'num'), removeCell,
         );
 
@@ -140,6 +146,25 @@ export function initScanDistribute(root) {
         tallyArea(key);
         refresh();
     };
+
+    /** قائمة «لكلّ المناطق» بمناديب النوع الحالي؛ ومندوب شركةٍ أخرى وحيدٌ يُختار وحده */
+    const fillAll = () => {
+        if (!allCourier) return;
+        allCourier.replaceChildren(optionsFor().content.cloneNode(true));
+        allCourier.options[0].textContent = 'كلٌّ بمندوب منطقته';
+        const choices = [...allCourier.options].filter((o) => o.value);
+        if (currentMode() === 'partner' && choices.length === 1) allCourier.value = choices[0].value;
+    };
+
+    const applyAll = () => {
+        if (!allCourier?.value) return;
+        areas.forEach((area) => {
+            area.select.value = allCourier.value;
+            area.box.classList.remove('ring-2', 'ring-bad-200');
+        });
+    };
+
+    allCourier?.addEventListener('change', applyAll);
 
     let busy = false;
 
@@ -159,7 +184,7 @@ export function initScanDistribute(root) {
         try {
             const url = new URL(root.dataset.lookup, location.href);
             url.searchParams.set('number', number);
-            url.searchParams.set('governorate', root.dataset.governorate);
+            if (root.dataset.governorates) url.searchParams.set('governorates', root.dataset.governorates);
             url.searchParams.set('mode', currentMode());
             const response = await fetch(url, { headers: { Accept: 'application/json' } });
             const data = await response.json();
@@ -170,7 +195,7 @@ export function initScanDistribute(root) {
                 say(`${data.number} في الجدول سلفاً.`, true);
             } else {
                 add(data);
-                say(`أُضيف ${data.number} — ${data.area}.`);
+                say(`أُضيف ${data.number} — ${place(data)}.`);
             }
         } catch {
             say('انقطع الاتصال: امسحه ثانيةً.', true);
@@ -197,6 +222,8 @@ export function initScanDistribute(root) {
             area.select.replaceChildren(optionsFor().content.cloneNode(true));
             area.box.classList.remove('ring-2', 'ring-bad-200');
         });
+        fillAll();
+        applyAll();
     }));
 
     root.querySelector('[data-scan-clear]')?.addEventListener('click', () => {
@@ -229,5 +256,6 @@ export function initScanDistribute(root) {
         }
     });
 
+    fillAll();
     refresh();
 }
