@@ -877,6 +877,8 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
         Route::get('/companies/{company}/system', [CompanySystemController::class, 'show'])->name('companies.system');
         Route::post('/companies/{company}/features', [CompanySystemController::class, 'feature'])->name('companies.features.update');
         Route::post('/companies/{company}/theme', [CompanySystemController::class, 'theme'])->name('companies.theme');
+        // تصميم شاشاته: «نبض» أو «بطاقات فاتحة» أو «زجاجيّ» (docs/plan/100)
+        Route::post('/companies/{company}/design', [CompanySystemController::class, 'design'])->name('companies.design');
         Route::post('/companies/{company}/navigation', [CompanySystemController::class, 'navigation'])->name('companies.navigation');
 
         // الميزات من جهة الميزة: أيّ الشركات فُتحت لها، وكم تُدخل

@@ -52,6 +52,10 @@
             <span class="font-semibold text-ink-900">{{ $theme->name() }}</span>
         </div>
     </a>
+    <a href="#design" class="stat block">
+        <div class="stat-label">التصميم</div>
+        <div class="mt-2 font-semibold text-ink-900">{{ $design->name() }}</div>
+    </a>
 </div>
 
 <section id="features" class="card mb-5 scroll-mt-6 p-5">
@@ -142,6 +146,30 @@
             @endforeach
         </div>
         <button type="submit" class="btn-primary mt-4">احفظ المظهر</button>
+    </form>
+</section>
+
+{{-- تصميم الشاشات (docs/plan/100): شكلها، ولونها من «المظهر» فوقه --}}
+<section id="design" class="card mb-5 scroll-mt-6 p-5">
+    <h2 class="card-title">تصميم النظام</h2>
+    <p class="card-hint">
+        شكل شاشات موظّفي الشركة: الأسطح والقوائم والأزرار. اللون من «المظهر» أعلاه ويجري في كل تصميم —
+        و«بطاقات فاتحة» كما رُسم بالبرتقاليّ، فاختره معه إن أردته كذلك.
+    </p>
+
+    <form method="POST" action="{{ route('admin.companies.design', $company) }}">
+        @csrf
+        <div class="mt-3 grid gap-3 md:grid-cols-3">
+            @foreach (\App\Support\UiDesign::DESIGNS as $key => [$name, $hint])
+                <label class="cursor-pointer rounded-2xl border border-ink-200 bg-white p-3 transition hover:border-ink-300 has-checked:border-transparent has-checked:ring-2 has-checked:ring-[var(--brand)]">
+                    <input type="radio" name="design" value="{{ $key }}" class="sr-only" @checked($key === $design->key)>
+                    @include('platform.companies._design-preview', ['key' => $key, 'theme' => $theme])
+                    <span class="mt-3 block text-sm font-bold text-ink-900">{{ $name }}</span>
+                    <span class="mt-1 block text-xs leading-5 text-ink-500">{{ $hint }}</span>
+                </label>
+            @endforeach
+        </div>
+        <button type="submit" class="btn-primary mt-4">احفظ التصميم</button>
     </form>
 </section>
 

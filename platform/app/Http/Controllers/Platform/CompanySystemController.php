@@ -9,6 +9,7 @@ use App\Models\AuditLog;
 use App\Models\Company;
 use App\Support\StaffNavigation;
 use App\Support\Theme;
+use App\Support\UiDesign;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,6 +31,7 @@ class CompanySystemController extends Controller
             'themes'   => collect(Theme::NAMES)->keys()->map(fn (string $key) => Theme::make($key, $company->primary_color))
                 ->unique('key')->values()->all(),
             'theme'    => $company->theme(),
+            'design'   => $company->design(),
             'menus'    => StaffNavigation::ordered($company),
             'arranged' => is_array($company->setting('navigation')),
         ]);
@@ -94,6 +96,37 @@ class CompanySystemController extends Controller
 
         return redirect()->to(route('admin.companies.system', $company).'#theme')
             ->with('success', "صار مظهر نظام {$company->name}: ".Theme::NAMES[$data['theme']].'.');
+    }
+
+    /** تصميم شاشات الشركة (docs/plan/100): يُحفظ في إعداداتها ويُسجَّل كالمظهر */
+    public function design(Request $request, Company $company): RedirectResponse
+    {
+        $data = $request->validate([
+            'design' => ['required', Rule::in(array_keys(UiDesign::DESIGNS))],
+        ], [], ['design' => 'التصميم']);
+
+        $old = $company->design()->key;
+        $back = route('admin.companies.system', $company).'#design';
+
+        if ($old === $data['design']) {
+            return redirect()->to($back)->with('success', 'لم يتغيّر شيء.');
+        }
+
+        $company->forceFill(['settings' => ['ui' => $data['design']] + ($company->settings ?? [])])->save();
+
+        AuditLog::create([
+            'company_id'     => $company->id,
+            'user_id'        => $request->user()->id,
+            'user_name'      => $request->user()->name,
+            'action'         => 'design_changed',
+            'auditable_type' => Company::class,
+            'auditable_id'   => $company->id,
+            'old_values'     => ['ui' => $old],
+            'new_values'     => ['ui' => $data['design']],
+            'ip'             => $request->ip(),
+        ]);
+
+        return redirect()->to($back)->with('success', "صار تصميم نظام {$company->name}: ".UiDesign::make($data['design'])->name().'.');
     }
 
     /**

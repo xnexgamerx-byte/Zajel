@@ -133,6 +133,12 @@ class Company extends Model
         return Theme::for($this);
     }
 
+    /** تصميم نظامها كما اختارته المنصّة: شكل شاشاته (docs/plan/100) */
+    public function design(): \App\Support\UiDesign
+    {
+        return \App\Support\UiDesign::for($this);
+    }
+
     /** حرف الشعار: أوّل حرفٍ من الاسم بعد «ال» — «ز» للزاجل، و«ب» للبرق. */
     /** رابط اللوغو إن رُفع — ورقمه من اسم ملفه، فاللوغو الجديد لا يبقى خلف القديم في الذاكرة */
     public function logoUrl(): ?string

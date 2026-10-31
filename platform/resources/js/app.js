@@ -265,10 +265,27 @@ const closeMenus = (except = null) => {
     }
 };
 
+/** التصميمان ذوا الشريط العلويّ (docs/plan/100): القائمة تحت زرّها لا بجانب الشريط */
+const topNav = ['soft', 'glass'].includes(document.documentElement.dataset.ui ?? '');
+
 const place = (menu) => {
     if (getComputedStyle(menu.panel).position !== 'fixed') return;
 
     const anchor = menu.toggle.getBoundingClientRect();
+
+    if (topNav) {
+        // يبدأ من حافة زرّه اليمنى (الصفحة يمينية)، ولا يخرج من الشاشة يساراً
+        const width = menu.panel.offsetWidth;
+        const right = Math.max(8, Math.min(window.innerWidth - anchor.right, window.innerWidth - width - 8));
+        Object.assign(menu.panel.style, {
+            top: `${anchor.bottom + 8}px`,
+            right: `${right}px`,
+            left: 'auto',
+            maxHeight: `calc(100dvh - ${Math.round(anchor.bottom) + 16}px)`,
+        });
+        return;
+    }
+
     const room = window.innerHeight - menu.panel.offsetHeight - 8;
     menu.panel.style.top = `${Math.max(8, Math.min(anchor.top - 8, room))}px`;
 };
@@ -302,6 +319,14 @@ if (menus.length) {
 
     // البطاقة العائمة لا تتبع زرّها إن تحرّك: تُغلق ولا تبقى معلّقةً بعيداً عنه
     window.addEventListener('resize', () => closeMenus());
+    // في الشريط العلويّ: الصفحة تتمرّر فيبتعد الزرّ، والقائمة الأفقية تتمرّر جانباً
+    if (topNav) {
+        const away = () => {
+            if (menus.some((menu) => !menu.panel.hidden && getComputedStyle(menu.panel).position === 'fixed')) closeMenus();
+        };
+        window.addEventListener('scroll', away, { passive: true });
+        document.querySelector('.rail-menu')?.addEventListener('scroll', away, { passive: true });
+    }
     document.querySelector('[data-drawer]')?.addEventListener('scroll', () => {
         if (menus.some((menu) => !menu.panel.hidden && getComputedStyle(menu.panel).position === 'fixed')) closeMenus();
     });

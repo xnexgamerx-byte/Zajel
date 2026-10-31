@@ -1,0 +1,373 @@
+/*
+| تصاميم نظام الشركة (docs/plan/100): «نبض» الأصل في app.css، وهنا ما يتغيّر في التصميمين الآخرين وحده.
+| يختار صاحب المنصّة لكل شركةٍ تصميمها (App\Support\UiDesign)، فيصل سمةً على <html data-ui="…">.
+|
+|  - soft «بطاقات فاتحة»: أرضيةٌ رماديةٌ فاتحة، وبطاقاتٌ بيضاء بزوايا ٢٦، والقوائم في شريطٍ علويّ
+|    داخل حبّةٍ بيضاء، والحاليّة فحميّة. ولون الشركة للأزرار والبطاقة البارزة.
+|  - glass «زجاجيّ»: أرضيةٌ خضراء رمادية، وبطاقاتٌ زجاجية شفّافة بحدٍّ أبيض، والقوائم في شريطٍ علويّ،
+|    والحاليّ والفعل الأوّل بالليمونيّ وكتابته داكنة.
+|
+| في طبقة components ببادئة [data-ui]: تغلب «نبض» في طبقته، وتبقى أدوات Tailwind على عنصرٍ
+| (bg-primary-50 على بطاقةٍ مثلاً) غالبةً كما كانت.
+*/
+
+:root[data-ui='soft'] {
+    --color-canvas: #ebebed;
+    --ui-dark: #2e2b2b;
+}
+
+:root[data-ui='glass'] {
+    --color-canvas: #c9d3cf;
+    --ui-lime: #e8ef5c;
+    --ui-lime-deep: #d9e14a;
+    --ui-lime-soft: #f4f8b8;
+    --ui-ink: #1f2523;
+    --ui-glass: rgb(255 255 255 / 0.36);
+    --ui-glass-strong: rgb(255 255 255 / 0.55);
+    --ui-edge: rgb(255 255 255 / 0.62);
+}
+
+@layer components {
+    /* ------------------------------------------------------------ الأرضية */
+    [data-ui='glass'] body {
+        background: #b4c2bd radial-gradient(120% 90% at 85% 0%, #e4eae8 0%, #c6d1cd 38%, #a3b3ae 100%) fixed;
+    }
+
+    /* ------------------------------------------------------------ الأسطح */
+    [data-ui='soft'] .card,
+    [data-ui='soft'] .stat,
+    [data-ui='soft'] .kpi {
+        border-radius: 1.625rem;
+    }
+
+    [data-ui='soft'] .page-title {
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+
+    [data-ui='glass'] .card,
+    [data-ui='glass'] .stat,
+    [data-ui='glass'] .kpi,
+    [data-ui='glass'] .list-2l-item,
+    [data-ui='glass'] .row-link,
+    [data-ui='glass'] .app-chip,
+    [data-ui='glass'] .app-search {
+        background: var(--ui-glass);
+        border: 1px solid var(--ui-edge);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+    }
+
+    [data-ui='glass'] .card,
+    [data-ui='glass'] .stat,
+    [data-ui='glass'] .kpi {
+        border-radius: 1.375rem;
+        box-shadow: 0 18px 40px -28px rgb(30 50 45 / 0.45);
+    }
+
+    [data-ui='glass'] .list-2l-item:hover,
+    [data-ui='glass'] .row-link:hover,
+    [data-ui='glass'] .app-chip:hover {
+        background: var(--ui-glass-strong);
+    }
+
+    [data-ui='glass'] .tbl tbody tr:hover {
+        background: rgb(255 255 255 / 0.35);
+    }
+
+    [data-ui='glass'] .tbl tbody tr,
+    [data-ui='glass'] .tbl th {
+        border-color: rgb(255 255 255 / 0.55);
+    }
+
+    [data-ui='glass'] .tbl tfoot {
+        background: rgb(255 255 255 / 0.3);
+    }
+
+    [data-ui='glass'] .field-input {
+        background: rgb(255 255 255 / 0.7);
+    }
+
+    [data-ui='glass'] .modal,
+    [data-ui='glass'] .submenu,
+    [data-ui='glass'] .chart-tip {
+        background: rgb(247 249 248 / 0.94);
+        backdrop-filter: blur(18px);
+    }
+
+    /* البطاقة البارزة: فحميّةٌ في الزجاجيّ، يبرز عليها الليمونيّ */
+    [data-ui='glass'] .glow-card,
+    [data-ui='glass'] .kpi-accent,
+    [data-ui='glass'] a.kpi-accent:hover {
+        background: #26302d;
+        color: #fff;
+    }
+
+    [data-ui='glass'] .btn-on-brand {
+        background: var(--ui-lime);
+        color: var(--ui-ink);
+    }
+
+    /* ------------------------------------------------------------ الأزرار */
+    [data-ui='glass'] .btn-primary,
+    [data-ui='glass'] .btn-accent,
+    [data-ui='glass'] .fab,
+    [data-ui='glass'] .dash-card-plus {
+        background: var(--ui-lime);
+        color: var(--ui-ink);
+        box-shadow: 0 6px 16px -8px rgb(170 180 30 / 0.8);
+    }
+
+    [data-ui='glass'] .btn-primary:hover,
+    [data-ui='glass'] .btn-accent:hover,
+    [data-ui='glass'] .fab:hover {
+        background: var(--ui-lime-deep);
+    }
+
+    [data-ui='glass'] .btn-ghost {
+        background: var(--ui-glass-strong);
+        color: var(--ui-ink);
+    }
+
+    [data-ui='glass'] .btn-ghost:hover {
+        background: rgb(255 255 255 / 0.75);
+    }
+
+    /* التبويبات والروابط في القوائم: الحاليّ فحميّ أو ليمونيّ كالشريط */
+    [data-ui='soft'] .tab-link-active,
+    [data-ui='soft'] .tab-link-active:hover {
+        background: var(--ui-dark);
+        color: #fff;
+    }
+
+    [data-ui='glass'] .tab-link:hover {
+        background: var(--ui-glass-strong);
+    }
+
+    [data-ui='glass'] .tab-link-active,
+    [data-ui='glass'] .tab-link-active:hover,
+    [data-ui='glass'] .submenu-link-active,
+    [data-ui='glass'] .submenu-link-active:hover {
+        background: var(--ui-lime);
+        color: var(--ui-ink);
+    }
+
+    [data-ui='glass'] .submenu-link:hover {
+        background: var(--ui-lime-soft);
+    }
+
+    /* ------------------------------------------------------- الشريط العلويّ
+       على الشاشة الواسعة تصير القوائم شريطاً في أعلى الصفحة: الشعار، ثم القوائم في حبّة،
+       ثم «شحنة جديدة». والقائمة تنفتح بطاقةً تحت زرّها (app.js)، وتُغلق إن تمرّرت الصفحة.
+       وعلى الهاتف الدرج نفسه. */
+    .rail-name {
+        display: none;
+    }
+
+    @media (width >= 64rem) {
+        /* في مجرى الصفحة لا ثابتاً: بلا ستارٍ ولا مرشّح، فالبطاقة الثابتة (position: fixed) تحت زرّها
+           لا يحبسها الشريط ولا يقصّها تمرير القوائم */
+        :is([data-ui='soft'], [data-ui='glass']) .rail {
+            position: relative;
+            inset: auto;
+            z-index: 40;
+            width: auto;
+            flex-direction: row;
+            align-items: center;
+            gap: 1rem;
+            overflow: visible;
+            padding: 0.875rem max(1.5rem, calc((100% - 96rem) / 2 + 1.5rem)) 0.5rem;
+            background: transparent;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-head {
+            flex-direction: row;
+            padding: 0;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-brand {
+            gap: 0.625rem;
+            padding: 0.25rem 1rem 0.25rem 0.25rem;
+            border-radius: 9999px;
+            background: #fff;
+        }
+
+        [data-ui='glass'] .rail-brand {
+            background: var(--ui-glass-strong);
+            border: 1px solid var(--ui-edge);
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-brand .brand-tile {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 9999px;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-name {
+            display: block;
+            max-width: 10rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: var(--font-heading);
+            font-size: 1.125rem;
+            font-weight: 800;
+            color: var(--color-aeblack-950);
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-menu {
+            order: 2;
+            flex: 0 1 auto;
+            flex-direction: row;
+            align-items: center;
+            gap: 0.125rem;
+            min-width: 0;
+            margin-inline: auto;
+            padding: 0.3125rem;
+            border-radius: 9999px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            background: #fff;
+        }
+
+        [data-ui='glass'] .rail-menu {
+            background: var(--ui-glass-strong);
+            border: 1px solid var(--ui-edge);
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-menu::-webkit-scrollbar {
+            display: none;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .nav-item {
+            width: auto;
+            flex-direction: row;
+            gap: 0.375rem;
+            padding: 0.5rem 0.875rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            line-height: 1.5rem;
+            font-weight: 600;
+            white-space: nowrap;
+            color: var(--color-aeblack-700);
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .nav-label {
+            text-wrap: nowrap;
+            white-space: nowrap;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .nav-item:hover,
+        :is([data-ui='soft'], [data-ui='glass']) .nav-item[aria-expanded='true'] {
+            background: var(--color-aeblack-50);
+            color: var(--color-aeblack-950);
+        }
+
+        [data-ui='glass'] .nav-item:hover,
+        [data-ui='glass'] .nav-item[aria-expanded='true'] {
+            background: rgb(255 255 255 / 0.6);
+        }
+
+        [data-ui='soft'] .nav-item-active,
+        [data-ui='soft'] .nav-item-active:hover,
+        [data-ui='soft'] .nav-item-active[aria-expanded='true'] {
+            background: var(--ui-dark);
+            color: #fff;
+            font-weight: 700;
+        }
+
+        [data-ui='glass'] .nav-item-active,
+        [data-ui='glass'] .nav-item-active:hover,
+        [data-ui='glass'] .nav-item-active[aria-expanded='true'] {
+            background: var(--ui-lime);
+            color: var(--ui-ink);
+            font-weight: 700;
+            box-shadow: 0 4px 12px -6px rgb(170 180 30 / 0.9);
+        }
+
+        /* الأيقونات تُترك في الشريط العلويّ، ويبقى عدّادها بجانب الاسم */
+        :is([data-ui='soft'], [data-ui='glass']) .nav-pill,
+        :is([data-ui='soft'], [data-ui='glass']) .nav-item:hover .nav-pill,
+        :is([data-ui='soft'], [data-ui='glass']) .nav-item-active .nav-pill,
+        :is([data-ui='soft'], [data-ui='glass']) .nav-item[aria-expanded='true'] .nav-pill {
+            order: 2;
+            width: auto;
+            height: auto;
+            background: none;
+            color: inherit;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .nav-pill > svg {
+            display: none;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .nav-pill .nav-badge {
+            position: static;
+            box-shadow: none;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .nav-item-caret {
+            display: block;
+            order: 3;
+            width: 0.875rem;
+            height: 0.875rem;
+            margin: 0;
+            color: currentColor;
+            opacity: 0.6;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-fab {
+            order: 3;
+            width: 2.75rem;
+            height: 2.75rem;
+            margin: 0;
+            border-radius: 9999px;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-fab svg {
+            width: 1.375rem;
+            height: 1.375rem;
+        }
+
+        [data-ui='soft'] .rail-fab {
+            background: var(--ui-dark);
+            box-shadow: none;
+        }
+
+        [data-ui='glass'] .rail-fab {
+            background: var(--ui-lime);
+            color: var(--ui-ink);
+            box-shadow: 0 6px 16px -8px rgb(170 180 30 / 0.8);
+        }
+
+        /* البطاقة تحت زرّها: السكربت يضع أعلاها وجانبها */
+        :is([data-ui='soft'], [data-ui='glass']) .submenu {
+            inset-inline-start: auto;
+            animation-name: drop-in;
+        }
+
+    }
+}
+
+/* المحتوى لا يُزاح لشريطٍ جانبيّ في التصميمين: خارج الطبقات كقاعدته في app.css */
+@media (width >= 64rem) {
+    :is([data-ui='soft'], [data-ui='glass']) .has-rail .app-frame {
+        margin-inline-start: 0;
+    }
+
+    :is([data-ui='soft'], [data-ui='glass']) .has-rail .dock {
+        inset-inline-start: 0;
+    }
+
+    /* الشعار في الشريط العلويّ: لا يتكرّر في الرأس تحته. وخارج الطبقات ليغلب أداة flex على الرابط */
+    :is([data-ui='soft'], [data-ui='glass']) .app-brand {
+        display: none;
+    }
+}
+
+@keyframes drop-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+}

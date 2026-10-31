@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-ui="{{ isset($company) ? $company->design()->key : \App\Support\UiDesign::DEFAULT }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,6 +43,8 @@
     <div class="rail-head">
         <a href="{{ ! $company->logo_path && auth()->user()->can('settings.company') ? route('settings.company').'#logo' : route('dashboard') }}" class="rail-brand" title="{{ $company->name }}">
             <x-brand-tile :company="$company" />
+            {{-- اسم الشركة بجانب شعارها في الشريط العلويّ (docs/plan/100) --}}
+            <span class="rail-name">{{ $company->name }}</span>
             <span class="min-w-0 lg:hidden">
                 <span class="block truncate font-heading text-base leading-tight font-extrabold text-aeblack-950">{{ $company->name }}</span>
                 <span class="block text-xs text-ink-500">نظام إدارة الشحنات</span>
@@ -161,7 +163,7 @@
             </button>
         @endif
 
-        <a href="{{ ! $company->logo_path && auth()->user()->can('settings.company') ? route('settings.company').'#logo' : route($staff ? 'dashboard' : 'shipments.index') }}" class="flex min-w-0 items-center gap-3 max-lg:flex-1 lg:max-w-56">
+        <a href="{{ ! $company->logo_path && auth()->user()->can('settings.company') ? route('settings.company').'#logo' : route($staff ? 'dashboard' : 'shipments.index') }}" class="{{ $staff ? 'app-brand' : '' }} flex min-w-0 items-center gap-3 max-lg:flex-1 lg:max-w-56">
             <x-brand-tile :company="$company" :size="'size-10 text-base '.($staff ? 'lg:hidden' : '')" />
             <span class="min-w-0">
                 <span class="block truncate font-heading text-lg leading-tight font-extrabold text-aeblack-950">{{ $company->name }}</span>

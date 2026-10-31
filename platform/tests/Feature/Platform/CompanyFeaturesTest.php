@@ -389,6 +389,41 @@ class CompanyFeaturesTest extends TestCase
             ->assertSessionHasErrors('theme');
     }
 
+    /** docs/plan/100: التصميم لكل شركة — «نبض» ما لم يُختر، ويُسجَّل، ولا يمسّ شركةً أخرى */
+    public function test_the_design_is_chosen_per_company_from_the_platform(): void
+    {
+        $this->actingAs($this->owner)->get($this->host().'/')->assertOk()->assertSee('data-ui="nabd"', false);
+        $this->actingAs($this->admin)->get('/admin/companies/'.$this->company->id.'/system')
+            ->assertOk()->assertSee('تصميم النظام')->assertSee('بطاقات فاتحة')->assertSee('زجاجيّ')->assertSee('نبض (الحالي)');
+
+        foreach (['soft' => 'بطاقات فاتحة', 'glass' => 'زجاجيّ'] as $key => $name) {
+            $this->actingAs($this->admin)->post('/admin/companies/'.$this->company->id.'/design', ['design' => $key])
+                ->assertRedirect(route('admin.companies.system', $this->company).'#design')
+                ->assertSessionHas('success', "صار تصميم نظام الزاجل: {$name}.");
+
+            // الشريط العلويّ باسم الشركة، والقوائم هي نفسها
+            $this->actingAs($this->owner)->get($this->host().'/')->assertOk()
+                ->assertSee('data-ui="'.$key.'"', false)->assertSee('<span class="rail-name">الزاجل</span>', false)
+                ->assertSee('data-menu-toggle', false);
+        }
+
+        // شركةٌ أخرى على «نبض»، ولوحة المنصّة بلا تصميم شركة
+        $owner = $this->makeUser($this->other);
+        $this->actingAs($owner)->get($this->host($this->other).'/')->assertOk()->assertSee('data-ui="nabd"', false);
+
+        $audit = Tenancy::runAsPlatform(fn () => AuditLog::where('action', 'design_changed')->orderBy('id')->get());
+        $this->assertSame([['ui' => 'nabd'], ['ui' => 'soft']], $audit->pluck('old_values')->all());
+        $this->assertSame([['ui' => 'soft'], ['ui' => 'glass']], $audit->pluck('new_values')->all());
+        $this->actingAs($this->admin)->get('/admin/companies/'.$this->company->id)->assertOk()->assertSee('«زجاجيّ»');
+
+        $this->actingAs($this->admin)->post('/admin/companies/'.$this->company->id.'/design', ['design' => 'neon'])
+            ->assertSessionHasErrors('design');
+        $this->actingAs($this->admin)->post('/admin/companies/'.$this->company->id.'/design', ['design' => 'glass'])
+            ->assertSessionHas('success', 'لم يتغيّر شيء.');
+        $this->assertSame('glass', $this->company->fresh()->design()->key);
+        $this->assertSame('nabd', \App\Support\UiDesign::make('neon')->key);
+    }
+
     public function test_the_logo_theme_follows_the_company_colour(): void
     {
         Tenancy::runAsPlatform(fn () => $this->company->update(['primary_color' => '#1D4ED8']));

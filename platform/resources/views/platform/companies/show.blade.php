@@ -141,6 +141,8 @@
                                     «{{ $named->label() }}»@if ($entry->new_values['monthly_price'] ?? 0) بـ <span class="num">{{ number_format($entry->new_values['monthly_price']) }}</span> د.ع شهرياً@endif
                                 @elseif ($entry->action === 'theme_changed')
                                     «{{ \App\Support\Theme::NAMES[$entry->new_values['theme'] ?? ''] ?? '' }}»
+                                @elseif ($entry->action === 'design_changed')
+                                    «{{ \App\Support\UiDesign::make((string) ($entry->new_values['ui'] ?? ''))->name() }}»
                                 @endif
                                 @if ($entry->user_name)
                                     <span class="text-ink-500">— {{ $entry->user_name }}</span>
