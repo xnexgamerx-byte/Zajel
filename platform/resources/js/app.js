@@ -333,6 +333,49 @@ if (menus.length) {
 }
 
 /**
+ * قوائم الشريط العلويّ تتمرّر بسهمين على طرفيها (docs/plan/103): كل سهمٍ يمرّر نحو ما وراءه،
+ * ويُعطَّل حين لا يبقى شيءٌ في تلك الجهة. الصفحة يمينية، فالتمرير نحو «بعد» يكون يساراً.
+ */
+const railNav = document.querySelector('.rail-nav');
+const railList = railNav?.querySelector('.rail-menu');
+
+if (topNav && railNav && railList) {
+    const prev = railNav.querySelector('[data-rail-prev]');
+    const next = railNav.querySelector('[data-rail-next]');
+    const rtl = () => getComputedStyle(railList).direction === 'rtl';
+    const step = () => Math.max(160, Math.round(railList.clientWidth * 0.7));
+
+    const sync = () => {
+        const max = railList.scrollWidth - railList.clientWidth;
+        const at = Math.abs(railList.scrollLeft);
+
+        railNav.dataset.overflow = String(max > 2);
+        prev.disabled = at <= 2;
+        next.disabled = at >= max - 2;
+    };
+
+    const scrollBy = (toward) => {
+        // في الصفحة اليمينية يتقدّم التمرير بقيمةٍ سالبة
+        const sign = rtl() ? -1 : 1;
+        railList.scrollBy({ left: sign * toward * step(), behavior: 'smooth' });
+    };
+
+    next.addEventListener('click', (event) => {
+        event.stopPropagation();
+        scrollBy(1);
+    });
+    prev.addEventListener('click', (event) => {
+        event.stopPropagation();
+        scrollBy(-1);
+    });
+
+    railList.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    window.addEventListener('load', sync);
+    sync();
+}
+
+/**
  * نبض الشاشة (docs/plan/101): يُطوى بزرّه، ويبقى مطويّاً لقسمه على هذا الجهاز.
  */
 for (const pulse of document.querySelectorAll('[data-pulse]')) {

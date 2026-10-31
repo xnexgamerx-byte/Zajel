@@ -100,12 +100,31 @@
         </div>
     @endif
 
-    <ul class="rail-menu">
-        @foreach ($menus as $i => $menu)
-            @if ($menu['url'])
-                <li>
-                    <a href="{{ $menu['url'] }}" class="nav-item {{ $menu['active'] ? 'nav-item-active' : '' }}"
-                       @if ($menu['active']) aria-current="page" @endif>
+    {{-- القوائم في شريطٍ يتمرّر بسهمين على طرفيه (docs/plan/103)؛ على الهاتف الدرج كما هو --}}
+    <div class="rail-nav">
+        <button type="button" class="rail-arrow rail-arrow-prev" data-rail-prev aria-label="القوائم السابقة" title="القوائم السابقة">
+            <x-icon name="chevron" class="size-5"/>
+        </button>
+        <ul class="rail-menu">
+            @foreach ($menus as $i => $menu)
+                @if ($menu['url'])
+                    <li>
+                        <a href="{{ $menu['url'] }}" class="nav-item {{ $menu['active'] ? 'nav-item-active' : '' }}"
+                           @if ($menu['active']) aria-current="page" @endif>
+                            <span class="nav-pill">
+                                <x-icon :name="$menu['icon']" class="size-6"/>
+                                @if ($menu['badge'])
+                                    <span class="nav-badge">{{ $menu['badge'] }}</span>
+                                @endif
+                            </span>
+                            <span class="nav-label">{{ $menu['label'] }}</span>
+                        </a>
+                    </li>
+                    @continue
+                @endif
+                <li data-menu>
+                    <button type="button" class="nav-item {{ $menu['active'] ? 'nav-item-active' : '' }}"
+                            data-menu-toggle aria-expanded="false" aria-controls="menu-{{ $i }}">
                         <span class="nav-pill">
                             <x-icon :name="$menu['icon']" class="size-6"/>
                             @if ($menu['badge'])
@@ -113,44 +132,34 @@
                             @endif
                         </span>
                         <span class="nav-label">{{ $menu['label'] }}</span>
-                    </a>
-                </li>
-                @continue
-            @endif
-            <li data-menu>
-                <button type="button" class="nav-item {{ $menu['active'] ? 'nav-item-active' : '' }}"
-                        data-menu-toggle aria-expanded="false" aria-controls="menu-{{ $i }}">
-                    <span class="nav-pill">
-                        <x-icon :name="$menu['icon']" class="size-6"/>
-                        @if ($menu['badge'])
-                            <span class="nav-badge">{{ $menu['badge'] }}</span>
-                        @endif
-                    </span>
-                    <span class="nav-label">{{ $menu['label'] }}</span>
-                    <x-icon name="chevron-down" class="nav-item-caret"/>
-                </button>
+                        <x-icon name="chevron-down" class="nav-item-caret"/>
+                    </button>
 
-                <div id="menu-{{ $i }}" class="submenu {{ count($menu['links']) > 6 ? 'submenu-wide' : '' }}"
-                     data-menu-panel hidden>
-                    <div class="submenu-title">{{ $menu['label'] }}</div>
-                    <ul class="submenu-list">
-                        @foreach ($menu['links'] as $link)
-                            <li>
-                                <a href="{{ $link['url'] }}"
-                                   class="submenu-link {{ $link['active'] ? 'submenu-link-active' : '' }}"
-                                   @if ($link['active']) aria-current="page" @endif>
-                                    <span>{{ $link['label'] }}</span>
-                                    @if ($link['badge'])
-                                        <span class="nav-badge">{{ $link['badge'] }}</span>
-                                    @endif
-                                </a>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            </li>
-        @endforeach
-    </ul>
+                    <div id="menu-{{ $i }}" class="submenu {{ count($menu['links']) > 6 ? 'submenu-wide' : '' }}"
+                         data-menu-panel hidden>
+                        <div class="submenu-title">{{ $menu['label'] }}</div>
+                        <ul class="submenu-list">
+                            @foreach ($menu['links'] as $link)
+                                <li>
+                                    <a href="{{ $link['url'] }}"
+                                       class="submenu-link {{ $link['active'] ? 'submenu-link-active' : '' }}"
+                                       @if ($link['active']) aria-current="page" @endif>
+                                        <span>{{ $link['label'] }}</span>
+                                        @if ($link['badge'])
+                                            <span class="nav-badge">{{ $link['badge'] }}</span>
+                                        @endif
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </li>
+            @endforeach
+        </ul>
+        <button type="button" class="rail-arrow rail-arrow-next" data-rail-next aria-label="القوائم التالية" title="القوائم التالية">
+            <x-icon name="chevron" class="size-5"/>
+        </button>
+    </div>
 
     {{-- الحساب والخروج في أسفل الدرج على الهاتف؛ على الشاشة الواسعة هما في الرأس --}}
     <div class="rail-foot">

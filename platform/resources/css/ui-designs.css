@@ -165,6 +165,14 @@
         display: none;
     }
 
+    .rail-nav {
+        display: contents;
+    }
+
+    .rail-arrow {
+        display: none;
+    }
+
     @media (width >= 64rem) {
         /* في مجرى الصفحة لا ثابتاً: بلا ستارٍ ولا مرشّح، فالبطاقة الثابتة (position: fixed) تحت زرّها
            لا يحبسها الشريط ولا يقصّها تمرير القوائم */
@@ -216,24 +224,63 @@
             color: var(--color-aeblack-950);
         }
 
-        :is([data-ui='soft'], [data-ui='glass']) .rail-menu {
+        :is([data-ui='soft'], [data-ui='glass']) .rail-nav {
             order: 2;
+            display: flex;
             flex: 0 1 auto;
-            flex-direction: row;
             align-items: center;
             gap: 0.125rem;
             min-width: 0;
             margin-inline: auto;
             padding: 0.3125rem;
             border-radius: 9999px;
-            overflow-x: auto;
-            scrollbar-width: none;
             background: #fff;
         }
 
-        [data-ui='glass'] .rail-menu {
+        [data-ui='glass'] .rail-nav {
             background: var(--ui-glass-strong);
             border: 1px solid var(--ui-edge);
+        }
+
+        /* القوائم تتمرّر داخل الحبّة، وسهماها على طرفيها (docs/plan/103) */
+        :is([data-ui='soft'], [data-ui='glass']) .rail-menu {
+            flex: 0 1 auto;
+            flex-direction: row;
+            align-items: center;
+            gap: 0.125rem;
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+            scroll-behavior: smooth;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-arrow {
+            display: none;
+            place-items: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            flex: none;
+            border-radius: 9999px;
+            color: var(--color-aeblack-900);
+            cursor: pointer;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-arrow:hover:not(:disabled) {
+            background: rgb(0 0 0 / 0.06);
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-arrow:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
+
+        /* السهمان يظهران حين في القوائم ما هو خارج الحبّة؛ الذي يسارها يشير إلى ما بعدها */
+        :is([data-ui='soft'], [data-ui='glass']) .rail-nav[data-overflow='true'] .rail-arrow {
+            display: grid;
+        }
+
+        :is([data-ui='soft'], [data-ui='glass']) .rail-arrow-next svg {
+            transform: scaleX(-1);
         }
 
         :is([data-ui='soft'], [data-ui='glass']) .rail-menu::-webkit-scrollbar {
