@@ -583,8 +583,8 @@ Route::middleware('tenant')->group(function () {
                 ->middleware('can:money.cash')->name('branch-accounts.deposits.store');
 
             // دفتر القيود (docs/plan/68): الميزان ومطابقته وسطور القيود — للشركة كلّها
-            Route::middleware(['can:profits.view', 'main-branch'])->prefix('finance')->name('finance.')->group(function () {
-                // الإعدادات المالية (docs/plan/68 §١٣): لصاحب الشركة — خارج ميزة المحاسبة، فالوجبات والسحب تعمل بها
+            Route::middleware(['feature:accounting', 'can:profits.view', 'main-branch'])->prefix('finance')->name('finance.')->group(function () {
+                // الإعدادات المالية (docs/plan/68 §١٣): لصاحب الشركة. ومع الأرباح في ميزة المحاسبة (docs/plan/99)
                 Route::middleware('can:finance.settings')->group(function () {
                     Route::get('/settings', [FinanceSettingsController::class, 'edit'])->name('settings');
                     Route::put('/settings', [FinanceSettingsController::class, 'update'])->name('settings.update');
@@ -612,12 +612,13 @@ Route::middleware('tenant')->group(function () {
                 });
             });
 
-            // «العوائد» تحت «الموقف المالي»: وجبات التحصيل والأرباح، وتقريرها، وسحب الأرباح
-            Route::middleware('can:profits.view')->prefix('profits')->name('profits.')->group(function () {
+            // «إدارة الأرباح»: لوحة الأرباح ووجبات التحصيل وتقريرها وسحب الأرباح. في ميزة المحاسبة (docs/plan/99):
+            // إغلاقها يُخفيها كلّها من الشركة
+            Route::middleware(['feature:accounting', 'can:profits.view'])->prefix('profits')->name('profits.')->group(function () {
                 Route::get('/', [ProfitsController::class, 'index'])->name('index');
                 Route::get('/report', [ProfitsController::class, 'report'])->name('report');
                 Route::get('/export', [ProfitsController::class, 'export'])->name('export');
-                Route::get('/cash', CashPositionController::class)->middleware('feature:accounting')->name('cash');
+                Route::get('/cash', CashPositionController::class)->name('cash');
                 Route::get('/batches', [CollectionBatchController::class, 'index'])->name('batches.index');
                 Route::get('/batches/create', [CollectionBatchController::class, 'create'])->middleware('can:batches.prepare')->name('batches.create');
                 Route::post('/batches', [CollectionBatchController::class, 'store'])->middleware('can:batches.prepare')->name('batches.store');

@@ -228,12 +228,14 @@
             </label>
         </div>
 
-        {{-- الإعدادات المالية انتقلت إلى صفحتها (docs/plan/68 §١٣) --}}
+        {{-- الإعدادات المالية انتقلت إلى صفحتها (docs/plan/68 §١٣)، وهي في ميزة المحاسبة (docs/plan/99) --}}
         @can('finance.settings')
+        @feature('accounting')
             <div class="rounded-xl border border-ink-200 p-4 text-sm">
                 <span class="card-title block">الاعتماد المزدوج والاحتياطي وحدود السحب وعتبات التنبيهات</span>
                 <span class="card-hint">في <a href="{{ route('finance.settings') }}" class="text-[var(--brand)] hover:underline">الإعدادات المالية</a> تحت «إدارة الأرباح».</span>
             </div>
+        @endfeature
         @endcan
 
         {{-- طرق دفع مستحقّات التجّار في «طلب محاسبة» من بوابتهم (docs/plan/44) --}}

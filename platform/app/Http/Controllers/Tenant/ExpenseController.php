@@ -25,11 +25,13 @@ class ExpenseController extends Controller
     {
         $from = $request->date('from') ?? now()->startOfMonth();
         $to = $request->date('to') ?? now()->endOfMonth();
+        // حدّا اليوم كاملين: تاريخٌ يُحفظ بوقته (SQLite) في آخر يومٍ من الفترة لا يسقط منها
+        $between = [$from->copy()->startOfDay()->toDateTimeString(), $to->copy()->endOfDay()->toDateTimeString()];
 
         // مصروفات فرعه وحدها إن كان مقيَّداً بفرع
         $base = fn () => Expense::query()
             ->visibleTo($request->user())
-            ->whereBetween('spent_on', [$from->toDateString(), $to->toDateString()])
+            ->whereBetween('spent_on', $between)
             ->where('status', '!=', 'cancelled');
 
         $archive = $request->query('tab') === 'archive';
@@ -37,7 +39,7 @@ class ExpenseController extends Controller
         // «المصروفات» و«أرشيف المصروفات»: تبويبان على الفلاتر نفسها، وصفّ مجموعٍ لما فيهما
         $listed = fn () => Expense::query()
             ->visibleTo($request->user())
-            ->whereBetween('spent_on', [$from->toDateString(), $to->toDateString()])
+            ->whereBetween('spent_on', $between)
             ->when($archive, fn ($q) => $q->whereNotNull('archived_at'), fn ($q) => $q->whereNull('archived_at'))
             ->when($request->integer('category_id'), fn ($q, $id) => $q->where('expense_category_id', $id))
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
@@ -178,7 +180,7 @@ class ExpenseController extends Controller
         return Expense::query()
             ->visibleTo($request->user())
             ->join('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
-            ->whereBetween('expenses.spent_on', [$from->toDateString(), $to->toDateString()])
+            ->whereBetween('expenses.spent_on', [$from->copy()->startOfDay()->toDateTimeString(), $to->copy()->endOfDay()->toDateTimeString()])
             ->where('expenses.status', '!=', 'cancelled')
             ->selectRaw('expense_categories.name_ar as name, sum(expenses.amount) as total')
             ->groupBy('expense_categories.id', 'expense_categories.name_ar')

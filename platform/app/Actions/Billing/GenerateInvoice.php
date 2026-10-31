@@ -93,7 +93,8 @@ class GenerateInvoice
     protected function subscriptionFor(CarbonImmutable $start, CarbonImmutable $end): ?Subscription
     {
         return Subscription::query()
-            ->where('starts_at', '<=', $end->toDateString())
+            // آخر الفترة بوقته: اشتراكٌ بدأ في آخر يومٍ منها يُفوتَر فيها
+            ->where('starts_at', '<=', $end->endOfDay()->toDateTimeString())
             ->where(fn ($q) => $q->whereNull('cancelled_at')->orWhere('cancelled_at', '>=', $start))
             ->orderByDesc('id')
             ->first();

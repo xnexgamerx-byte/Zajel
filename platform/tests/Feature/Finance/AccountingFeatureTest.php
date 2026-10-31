@@ -17,8 +17,8 @@ use Tests\TestCase;
 
 /**
  * المحاسبة ميزةٌ في النواة (docs/plan/68 §١٩): مفتوحةٌ لكل شركةٍ ما لم تُغلق لها. إغلاقها يُخفي
- * شاشاتها وروابطها ويوقف فحص تنبيهاتها، والوجبات والسحب والإعدادات المالية باقية، والدفتر
- * يبقى يُكتب: فتحها ثانيةً يعرض أرقاماً كاملة.
+ * شاشاتها وروابطها، والأرباح كلّها معها (docs/plan/99)، ويوقف فحص تنبيهاتها. والدفتر يبقى يُكتب:
+ * فتحها ثانيةً يعرض أرقاماً كاملة.
  */
 class AccountingFeatureTest extends TestCase
 {
@@ -78,18 +78,22 @@ class AccountingFeatureTest extends TestCase
         }
         $this->actingAs($this->owner)->post($this->host().'/operational-alerts/finance/scan')->assertForbidden();
 
-        // ما يبقى: لوحة الأرباح بلا «تتبّع الرقم»، والوجبات والسحب، والإعدادات المالية التي تعمل بها
-        $this->actingAs($this->owner)->get($this->host().'/profits')
-            ->assertOk()->assertDontSee('/finance/ledger', false)->assertDontSee('/finance/trial-balance', false)->assertDontSee('/profits/cash', false);
-        $this->actingAs($this->owner)->get($this->host().'/profits/batches')->assertOk();
-        $this->actingAs($this->owner)->get($this->host().'/profits/withdrawals')->assertOk();
-        $this->actingAs($this->owner)->get($this->host().'/finance/settings')->assertOk();
+        // والأرباح كلّها معها (docs/plan/99): لوحتها ووجباتها وتقريرها وسحبها، والإعدادات المالية
+        foreach (['/profits', '/profits/report', '/profits/export', '/profits/batches', '/profits/withdrawals', '/finance/settings'] as $path) {
+            $this->actingAs($this->owner)->get($this->host().$path)->assertForbidden();
+        }
+        $this->actingAs($this->owner)->post($this->host().'/profits/withdrawals', ['amount' => 1000])->assertForbidden();
 
         // ولا تبويب للتنبيهات المالية
         $this->actingAs($this->owner)->get($this->host().'/operational-alerts?tab=finance')
             ->assertOk()->assertDontSee('التنبيهات المالية');
+        // ولا رابط لها في القائمة ولا في الصفحات
         $this->actingAs($this->owner)->get($this->host().'/')
-            ->assertOk()->assertDontSee('ميزان المراجعة')->assertDontSee('إقفال الفترات');
+            ->assertOk()->assertDontSee('ميزان المراجعة')->assertDontSee('إقفال الفترات')->assertDontSee('لوحة الأرباح')
+            ->assertDontSee('الإعدادات المالية')->assertSee('الموقف المالي');
+        $this->actingAs($this->owner)->get($this->host().'/settings/company')->assertOk()->assertDontSee('/finance/settings', false);
+        $courier = Tenancy::runFor($this->company, fn () => Courier::create(['code' => 'C9', 'name' => 'سعد', 'phone' => '07720000009', 'type' => 'delivery', 'status' => 'active']));
+        $this->actingAs($this->owner)->get($this->host().'/couriers/'.$courier->id)->assertOk()->assertDontSee('كشفه المالي');
     }
 
     public function test_a_closed_company_is_not_scanned_but_its_journal_keeps_being_written(): void

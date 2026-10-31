@@ -18,7 +18,7 @@
     </div>
     <div class="flex gap-2">
         <a href="{{ route('shipments.index', ['courier_id' => $courier->id]) }}" class="btn-ghost">شحناته</a>
-        @can('profits.view')<a href="{{ route('profits.couriers.show', $courier) }}" class="btn-ghost">كشفه المالي</a>@endcan
+        @can('profits.view')@feature('accounting')<a href="{{ route('profits.couriers.show', $courier) }}" class="btn-ghost">كشفه المالي</a>@endfeature @endcan
         <a href="{{ route('couriers.edit', $courier) }}" class="btn-ghost">تعديل</a>
     </div>
 </div>
