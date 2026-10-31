@@ -614,6 +614,11 @@
         .ds1-grid > :first-child { grid-column: 1 / -1; }
     }
 
+    /* تحت اللوحة: أقسام الرئيسية كما خصّصها الموظّف (docs/plan/101) */
+    .ds-more { margin-top: 1.75rem; }
+    .ds-more-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin: 0 0.25rem 1rem; }
+    .ds-more-head h2 { font-family: var(--font-heading); font-size: 1.375rem; font-weight: 800; }
+
     /* ------------------------------------------------------------ «زجاجيّ» */
     .ds2 { color: var(--ui-ink, #1f2523); }
     .ds2 h3 { display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 700; }
@@ -688,4 +693,119 @@
         .ds2-mid { grid-column: 2; grid-row: 1 / span 2; }
         .ds2-live { grid-column: 3; grid-row: 1 / span 2; }
     }
+}
+
+/*
+| نبض الشاشة (docs/plan/101): شريطٌ فوق شاشات كل قسمٍ في التصميمين الجديدين — رسمةٌ واسمٌ، وعدّادات،
+| ورسم أربعة عشر يوماً واليوم ملوّن. ويُطوى إلى سطرٍ باسمه.
+*/
+@layer components {
+    .pulse { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 0.75rem 1rem; align-items: center; margin-bottom: 1.25rem; padding: 1rem 1.25rem; border-radius: 1.625rem; background: #fff; }
+    .pulse-art { grid-row: span 2; width: 5.5rem; }
+    .pulse-art svg { display: block; width: 100%; height: auto; }
+    .pulse-head h2 { font-family: var(--font-heading); font-size: 1.125rem; font-weight: 800; line-height: 1.3; }
+    .pulse-head small { font-size: 0.75rem; color: var(--color-aeblack-500); }
+    .pulse-counters { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+    .pulse-counter b { display: block; font-size: 1.625rem; font-weight: 500; line-height: 1.15; }
+    .pulse-counter small { font-size: 0.75rem; font-weight: 600; color: var(--color-aeblack-600); }
+    .pulse-unit { font-size: 0.875rem; font-weight: 600; }
+    .pulse-chart { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: 0.3125rem; height: 4rem; }
+    .pulse-col { display: flex; flex: 1; align-items: flex-end; height: 100%; }
+    .pulse-col i { display: block; width: 100%; border-radius: 9999px; }
+    .pulse-toggle { position: absolute; top: 0.75rem; left: 0.75rem; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 9999px; color: var(--color-aeblack-700); transition: transform 0.2s; }
+    .pulse[data-collapsed] { padding-block: 0.625rem; }
+    .pulse[data-collapsed] .pulse-art,
+    .pulse[data-collapsed] .pulse-counters,
+    .pulse[data-collapsed] .pulse-chart,
+    .pulse[data-collapsed] .pulse-head small { display: none; }
+    .pulse[data-collapsed] .pulse-toggle { transform: rotate(180deg); top: 0.375rem; }
+
+    @media (width >= 64rem) {
+        .pulse { grid-template-columns: auto minmax(9rem, auto) 1fr minmax(14rem, 22rem); gap: 1.5rem; padding: 1.125rem 1.5rem 1.125rem 3.5rem; }
+        .pulse-art { grid-row: auto; }
+        .pulse-counters { justify-content: space-around; }
+        .pulse-chart { grid-column: auto; }
+    }
+
+    /* «بطاقات فاتحة»: أعمدةٌ مخطّطة واليوم بلون الشركة، والعدّادات بخطٍّ خفيف كبير */
+    [data-ui='soft'] .pulse-col i { background: repeating-linear-gradient(135deg, #dcdcdf 0 3px, transparent 3px 7px); }
+    [data-ui='soft'] .pulse-today i { background: var(--color-primary-500); }
+    [data-ui='soft'] .pulse-accent b { color: var(--color-primary-600); }
+    [data-ui='soft'] .pulse-warn b { color: #b45309; }
+    [data-ui='soft'] .pulse-ok b { color: #15803d; }
+    [data-ui='soft'] .pulse-toggle { background: #f3f3f4; }
+    [data-ui='soft'] .pulse-a { fill: var(--color-primary-500); }
+    [data-ui='soft'] .pulse-b { fill: var(--color-primary-100); }
+    [data-ui='soft'] .pulse-coin { fill: #f6c453; }
+
+    /* «زجاجيّ»: سطحٌ زجاجيّ، وأعمدةٌ رمادية خضراء واليوم ليمونيّ */
+    [data-ui='glass'] .pulse { background: var(--ui-glass); border: 1px solid var(--ui-edge); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    [data-ui='glass'] .pulse-col i { background: #8e9f9a; border-radius: 0.375rem; }
+    [data-ui='glass'] .pulse-today i { background: linear-gradient(180deg, #f2f77a, #dfe85a); }
+    [data-ui='glass'] .pulse-accent b { color: #5d6b10; }
+    [data-ui='glass'] .pulse-warn b { color: #8a4b0f; }
+    [data-ui='glass'] .pulse-ok b { color: #1f6b3a; }
+    [data-ui='glass'] .pulse-toggle { background: var(--ui-glass-strong); border: 1px solid var(--ui-edge); }
+    [data-ui='glass'] .pulse-a { fill: var(--ui-lime); }
+    [data-ui='glass'] .pulse-b { fill: rgb(255 255 255 / 0.75); }
+    [data-ui='glass'] .pulse-coin { fill: var(--ui-lime-deep); }
+
+    .pulse-shadow { fill: rgb(0 0 0 / 0.08); }
+    .pulse-dark { fill: #2e2b2b; }
+    .pulse-light { fill: #e5e5e7; }
+    .pulse-glass { fill: #3b4744; opacity: 0.75; }
+    .pulse-stroke { fill: none; stroke: #2e2b2b; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0.55; }
+    .pulse-stroke-light { fill: none; stroke: #fff; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .pulse-arrow { fill: none; stroke: #2e2b2b; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .pulse-line { fill: none; stroke: #c9c9cd; stroke-width: 3; stroke-linecap: round; }
+}
+
+/*
+| باقي الشاشات في التصميمين (docs/plan/101): العدّادات والبطاقات والجداول والحقول بروح الرئيسية — أرقامٌ
+| كبيرةٌ بخطٍّ خفيف، وأيقوناتٌ في دوائر، وحبّاتٌ لا مستطيلات. «نبض» لا يتغيّر.
+*/
+@layer components {
+    :is([data-ui='soft'], [data-ui='glass']) .page-title { font-weight: 700; letter-spacing: -0.01em; }
+    :is([data-ui='soft'], [data-ui='glass']) .stat-value { font-weight: 500; font-size: clamp(1.25rem, 5.4vw, 2rem); }
+    :is([data-ui='soft'], [data-ui='glass']) .kpi-value { font-weight: 500; font-size: 2rem; }
+    :is([data-ui='soft'], [data-ui='glass']) .stat-label,
+    :is([data-ui='soft'], [data-ui='glass']) .kpi-label { font-weight: 600; }
+
+    /* الأيقونة في دائرة لا «كعكة» */
+    :is([data-ui='soft'], [data-ui='glass']) .kpi-icon,
+    :is([data-ui='soft'], [data-ui='glass']) .panel-head-icon { clip-path: none; border-radius: 9999px; }
+    [data-ui='soft'] .kpi-icon,
+    [data-ui='soft'] .panel-head-icon { background: var(--color-primary-100); color: var(--color-primary-700); }
+    [data-ui='glass'] .kpi-icon,
+    [data-ui='glass'] .panel-head-icon { background: var(--ui-glass-strong); color: var(--ui-ink); border: 1px solid var(--ui-edge); }
+    [data-ui='glass'] .kpi-accent .kpi-icon { background: rgb(255 255 255 / 0.12); color: var(--ui-lime); border: 0; }
+
+    /* البطاقة البارزة: لون الشركة الصريح كبطاقة «للمعالجة» */
+    [data-ui='soft'] .glow-card,
+    [data-ui='soft'] .kpi-accent,
+    [data-ui='soft'] a.kpi-accent:hover { background: var(--color-primary-500); }
+    [data-ui='soft'] .glow-card::after { background: rgb(255 255 255 / 0.1); }
+
+    /* الجداول: رأسٌ هادئٌ في حبّة، وصفوفٌ تتنفّس */
+    [data-ui='soft'] .tbl thead { background: #f6f6f7; }
+    [data-ui='glass'] .tbl thead { background: rgb(255 255 255 / 0.32); }
+    :is([data-ui='soft'], [data-ui='glass']) .tbl th { border-bottom: 0; color: var(--color-aeblack-500); font-weight: 700; }
+    :is([data-ui='soft'], [data-ui='glass']) .tbl td { padding-block: 0.875rem; }
+
+    /* الشارات حبّات */
+    :is([data-ui='soft'], [data-ui='glass']) .chip { border-radius: 9999px; padding-inline: 0.625rem; }
+
+    /* الحقول: سطرٌ واحدٌ حبّة، والنصّ الطويل بزوايا واسعة */
+    :is([data-ui='soft'], [data-ui='glass']) input.field-input,
+    :is([data-ui='soft'], [data-ui='glass']) select.field-input:not([multiple]):not([size]) { border-radius: 9999px; }
+    :is([data-ui='soft'], [data-ui='glass']) textarea.field-input { border-radius: 1.25rem; }
+    [data-ui='soft'] .field-input { box-shadow: inset 0 0 0 1px #dcdcdf; }
+    [data-ui='soft'] .field-input:focus { box-shadow: inset 0 0 0 2px var(--color-primary-500); }
+    [data-ui='glass'] .field-input { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.85); }
+    [data-ui='glass'] .field-input:focus { box-shadow: inset 0 0 0 2px #c9d33b; }
+
+    /* التنبيهات وقوائم السطرين */
+    :is([data-ui='soft'], [data-ui='glass']) .alert { border-radius: 1.375rem; }
+    [data-ui='soft'] .list-2l-item { border-radius: 1.25rem; }
+    [data-ui='glass'] .btn-danger { background: rgb(252 220 216 / 0.8); }
 }

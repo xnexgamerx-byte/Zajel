@@ -13,6 +13,7 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 /**
@@ -83,7 +84,26 @@ class DesignDashboardTest extends TestCase
             ->assertSee('الشحنات المسلّمة')->assertSee('مواعيد الاستلام')->assertSee('طلب الاستلام')->assertSee($this->merchant->business_name)
             // الشريط العلويّ بالبحث والحساب، والرأس القديم مخفيٌّ على الشاشة الواسعة
             ->assertSee('class="rail-actions"', false)->assertSee('app-bar-top', false)
-            ->assertDontSee('خصّص الرئيسية');
+            // وتحت اللوحة رئيسيّته كما خصّصها (docs/plan/101)
+            ->assertSee('رئيسيّتي')->assertSee('خصّص الرئيسية')->assertSee(route('home.customize'), false);
+    }
+
+    /** docs/plan/101: تحت لوحة التصميم ما اختاره الموظّف من أقسام الرئيسية واختصاراتها، وحده */
+    public function test_the_customised_sections_sit_under_the_design_board(): void
+    {
+        $this->design('glass');
+
+        // الافتراضيّ: الأقسام كلّها إلا «اليوم» و«أين الشحنات الآن» فهما في اللوحة
+        $this->actingAs($this->owner)->get($this->host().'/')->assertOk()
+            ->assertSee('شحنات متعثّرة')->assertSee('قيد التنفيذ حسب المحافظة')->assertDontSee('في المخزن والنقل');
+
+        Tenancy::runFor($this->company, fn () => $this->owner->forceFill(['home_layout' => [
+            'sections' => ['stuck'], 'alerts' => [], 'shortcuts' => ['shipments.index'],
+        ]])->save());
+
+        $this->actingAs($this->owner->fresh())->get($this->host().'/')->assertOk()
+            ->assertSee('نظرة على التوصيل اليوم')->assertSee('شحنات متعثّرة')->assertDontSee('قيد التنفيذ حسب المحافظة')
+            ->assertSee('aria-label="اختصاراتي"', false);
     }
 
     public function test_the_glass_home_is_drawn_from_the_system(): void
@@ -109,6 +129,31 @@ class DesignDashboardTest extends TestCase
         $this->actingAs($agent)->get($this->host().'/')->assertOk()
             ->assertSee('نظرة على التوصيل اليوم')->assertDontSee('المبالغ المستلمة')->assertDontSee('120,000')
             ->assertSee('سُلّمت هذا الأسبوع');
+    }
+
+    /** docs/plan/101: فوق شاشات كل قسمٍ نبضه — عدّاداتٌ ورسم أيّامه — في التصميمين الجديدين وحدهما */
+    public function test_each_section_screen_carries_its_pulse_in_the_new_designs(): void
+    {
+        foreach (['soft', 'glass'] as $key) {
+            $this->design($key);
+            Cache::flush();
+
+            $this->actingAs($this->owner)->get($this->host().'/shipments')->assertOk()
+                ->assertSee('data-pulse="shipments"', false)->assertSee('نبض الشحنات')->assertSee('مع المناديب')->assertSee('آخر ١٤ يوماً');
+            $this->actingAs($this->owner)->get(route('pickups.index'))->assertOk()
+                ->assertSee('نبض الطلبات')->assertSee('استلامٌ ينتظر');
+            $this->actingAs($this->owner)->get(route('processing.index'))->assertOk()->assertSee('data-pulse=', false);
+            $this->actingAs($this->owner)->get(route('couriers.cash'))->assertOk()
+                ->assertSee('نبض المال')->assertSee('نقدٌ بيد المندوبين');
+            // وشاشةٌ خارج القوائم بقسمها من مسارها: المناديب في التوصيل
+            $this->actingAs($this->owner)->get(route('couriers.index'))->assertOk()->assertSee('نبض التوصيل');
+            // والرئيسية بلوحتها لا بنبض
+            $this->actingAs($this->owner)->get($this->host().'/')->assertOk()->assertDontSee('data-pulse=', false);
+        }
+
+        // «نبض» كما كان: لا شريط
+        $this->design('nabd');
+        $this->actingAs($this->owner)->get($this->host().'/shipments')->assertOk()->assertDontSee('data-pulse=', false);
     }
 
     public function test_nabd_keeps_its_own_home(): void

@@ -29,17 +29,19 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        // «بطاقات فاتحة» و«زجاجيّ» (docs/plan/100): رئيسيّتهما كما في صورتيهما، لمن يرى الشحنات
+        // «بطاقات فاتحة» و«زجاجيّ» (docs/plan/100): لوحتهما كما في صورتيهما لمن يرى الشحنات، وتحتها ما
+        // خصّصه من الرئيسية (docs/plan/101)
         $design = Tenancy::company()?->design();
-        if ($design?->topNav() && $user->can('shipments.view')) {
-            $board = new DesignBoard($user);
-
-            return view('tenant.dashboard-'.$design->key, ['b' => $design->key === 'soft' ? $board->soft() : $board->glass()]);
-        }
+        $board = $design?->topNav() && $user->can('shipments.view') ? new DesignBoard($user) : null;
 
         // لوحته كما خصّصها هو أو مرتبته (HomeLayout): ما أُخفي لا يُحسب أصلاً
         $home = HomeLayout::for($user);
         $show = $home['sections'];
+
+        // «اليوم» و«أين الشحنات الآن» في لوحة التصميم نفسها: لا تتكرّر تحتها
+        if ($board) {
+            unset($show['today'], $show['where']);
+        }
         $on = fn (string $section) => isset($show[$section]);
 
         // كل العدّادات من استعلام واحد مجمَّع بدل ستّة، على المفتوحة وحدها:
@@ -81,7 +83,8 @@ class DashboardController extends Controller
 
         $staleAfter = (int) config('zajel.stale_shipment_days', 5);
 
-        return view('tenant.dashboard', [
+        return view($board ? 'tenant.dashboard-'.$design->key : 'tenant.dashboard', [
+            'b'         => $board ? ($design->key === 'soft' ? $board->soft() : $board->glass()) : null,
             'show'      => $show,
             'shortcuts' => $home['shortcuts'],
 

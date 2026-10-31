@@ -184,5 +184,14 @@
             @endif
         </div>
     </section>
+
+    {{-- تحت اللوحة ما خصّصه الموظّف من الرئيسية (docs/plan/101): اختصاراته وأقسامه --}}
+    <div class="ds-more">
+        <div class="ds-more-head">
+            <h2>رئيسيّتي</h2>
+            <a href="{{ route('home.customize') }}" class="btn-ghost"><x-icon name="sliders" class="size-5"/> خصّص الرئيسية</a>
+        </div>
+        @include('tenant._dashboard-sections')
+    </div>
 </div>
 @endsection

@@ -333,6 +333,23 @@ if (menus.length) {
 }
 
 /**
+ * نبض الشاشة (docs/plan/101): يُطوى بزرّه، ويبقى مطويّاً لقسمه على هذا الجهاز.
+ */
+for (const pulse of document.querySelectorAll('[data-pulse]')) {
+    const key = `pulse:${pulse.dataset.pulse}`;
+    const set = (closed) => {
+        pulse.toggleAttribute('data-collapsed', closed);
+        pulse.querySelector('[data-pulse-toggle]')?.setAttribute('aria-expanded', String(!closed));
+    };
+    try { set(localStorage.getItem(key) === '1'); } catch { set(false); }
+    pulse.querySelector('[data-pulse-toggle]')?.addEventListener('click', () => {
+        const closed = !pulse.hasAttribute('data-collapsed');
+        set(closed);
+        try { localStorage.setItem(key, closed ? '1' : '0'); } catch { /* المتصفّح لا يحفظ: يُطوى لهذه الصفحة وحدها */ }
+    });
+}
+
+/**
  * درج القوائم على الشاشات الصغيرة.
  *
  * زرّ القائمة يقلب data-open، والظهور يقرّره CSS (.rail[data-open]). وما

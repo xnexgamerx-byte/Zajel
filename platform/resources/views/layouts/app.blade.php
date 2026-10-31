@@ -288,6 +288,17 @@
         </div>
     @endif
 
+    {{-- نبض الشاشة (docs/plan/101): في التصميمين الجديدين وحدهما، فوق شاشات كل قسمٍ له نبض --}}
+    @php
+        $menu = $topNav && ! request()->routeIs('dashboard')
+            ? \App\Services\Dashboard\ScreenPulse::menuFor(collect($menus)->firstWhere('active', true)['key'] ?? null, request()->route()?->getName())
+            : null;
+        $pulse = $menu ? (new \App\Services\Dashboard\ScreenPulse($user))->for($menu) : null;
+    @endphp
+    @if ($pulse)
+        @include('partials.screen-pulse')
+    @endif
+
     @yield('content')
 </main>
 </div>
