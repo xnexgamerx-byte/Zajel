@@ -28,10 +28,6 @@
     @if ($failing)<a href="{{ route('aggregator.log') }}" class="chip chip-bad">{{ $failing }} لم يُرسل</a>@endif
 </div>
 
-@if ($errors->has('connect') || $errors->has('merchant_id') || $errors->has('sends_orders'))
-    <div class="alert alert-bad mb-5">{{ $errors->first('connect') ?: ($errors->first('merchant_id') ?: $errors->first('sends_orders')) }}</div>
-@endif
-
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <form method="POST" action="{{ route('aggregator.update') }}" class="card space-y-5 p-5 lg:col-span-2">
         @csrf
@@ -121,7 +117,12 @@
     <div class="space-y-5">
         <section class="card space-y-3 p-5">
             <h2 class="card-title">الاتصال والتاجر</h2>
-            <p class="card-hint">يدخل بالحساب، ويجلب التجّار والمدن والحالات وأحجام الطرود.</p>
+            <p class="card-hint">
+                يدخل بالحساب المحفوظ، ويجلب التجّار والمدن والحالات وأحجام الطرود.
+                @unless ($link->username && $link->password)
+                    <b class="text-warn-700">اكتب اسم المستخدم وكلمة المرور واضغط «احفظ» أوّلاً.</b>
+                @endunless
+            </p>
             <form method="POST" action="{{ route('aggregator.connect') }}">
                 @csrf
                 <button type="submit" class="btn-ghost w-full justify-center"><x-icon name="bolt" class="size-5"/> اتّصل بنظامهم</button>
