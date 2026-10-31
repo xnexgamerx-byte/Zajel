@@ -101,8 +101,13 @@ class AggregatorSettingsTest extends TestCase
 
         // بادئةٌ بأرقام أو صغيرة مرفوضة، والإرسال لا يُفتح قبل اكتمال الربط
         $this->save(['order_prefix' => 'zj1'])->assertSessionHasErrors('order_prefix');
-        $this->save(['sends_orders' => 1])->assertSessionHasErrors('sends_orders');
         $this->save()->assertSessionHasNoErrors();
+
+        // الإرسال لا يُفتح ناقصاً: يُحفظ الباقي كلّه ويبقى الإرسال مغلقاً مع ما ينقصه
+        $this->save(['sends_orders' => 1])->assertSessionHasNoErrors()
+            ->assertSessionHas('success', fn ($m) => str_contains($m, 'لم يُفتح') && str_contains($m, 'ينقصه التاجر.'));
+        $this->assertFalse($this->link()->sends_orders);
+        $this->assertSame('ZJL_', $this->link()->order_prefix);
 
         $row = DB::table('aggregator_links')->first();
         $this->assertStringNotContainsString('pass-123', (string) $row->password);

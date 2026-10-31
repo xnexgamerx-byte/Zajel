@@ -21,7 +21,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -94,14 +93,24 @@ class AggregatorController extends Controller
             $link->aggre_token_at = null;
         }
 
+        // الإرسال لا يُفتح ناقصاً، لكن ما كُتب يُحفظ كلّه: يُفتح حين يكتمل
+        $missing = [];
         if ($link->sends_orders && ! $link->readyToSend()) {
-            throw ValidationException::withMessages(['sends_orders' => 'لا يُفتح الإرسال قبل أن يكتمل الربط: الحساب، والتاجر، والمندوب الوسيط، وحجم الطرد.']);
+            $link->sends_orders = false;
+            $missing = array_keys(array_filter([
+                'الحساب' => blank($link->username) || blank($link->password),
+                'التاجر' => blank($link->merchant_id),
+                'المندوب الوسيط' => blank($link->courier_id),
+                'حجم الطرد' => blank($link->package_size_id),
+            ]));
         }
 
         $link->save();
         $this->audit('aggregator_changed', ['sends_orders' => $link->sends_orders, 'courier_id' => $link->courier_id, 'prefix' => $link->order_prefix]);
 
-        return back()->with('success', 'حُفظ الربط.');
+        return back()->with('success', $missing
+            ? 'حُفظ الربط، لكن الإرسال لم يُفتح: ينقصه '.implode('، ', $missing).'. أكمله ثم فعّل الإرسال.'
+            : 'حُفظ الربط.');
     }
 
     /** يدخل بالحساب، ويجلب تجّار الحساب وحالاتهم ومدنهم وأحجام الطرود */
