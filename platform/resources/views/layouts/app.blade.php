@@ -30,6 +30,10 @@
         ->map(fn ($word) => mb_substr($word, 0, 1))->implode(' ');
     // الزرّ العائم على الهاتف، إلا في شاشات إدخال الشحنات نفسها
     $fab = $canCreate && ! request()->routeIs('shipments.create', 'shipments.quick*', 'shipments.import*', 'shipments.waybill');
+    // «صندوقي»: ما بيد الموظّف الآن، لمن له صندوق
+    $myBox = $staff ? \App\Models\CashBox::where('user_id', $user->id)->first(['id', 'balance']) : null;
+    // التصميمان ذوا الشريط العلويّ (docs/plan/100): الحساب والبحث والتنبيهات فيه
+    $topNav = $staff && isset($company) && $company->design()->topNav();
 @endphp
 
 @if ($staff)
@@ -59,6 +63,41 @@
         <a href="{{ route('shipments.create') }}" class="rail-fab" aria-label="شحنة جديدة" title="شحنة جديدة">
             <x-icon name="plus" class="size-7"/>
         </a>
+    @endif
+
+    @if ($topNav)
+        {{-- يسار الشريط العلويّ: البحث، و«صندوقي»، والمتابعة بعدد ما ينتظر، وبيانات الشركة، والحساب --}}
+        <div class="rail-actions">
+            <form method="GET" action="{{ route('shipments.index') }}" role="search" class="rail-search">
+                <label for="rail-q" class="rail-icon" title="ابحث عن شحنة"><x-icon name="search" class="size-5"/></label>
+                <input id="rail-q" name="q" value="{{ request()->routeIs('shipments.index') ? request('q') : '' }}" placeholder="رقم الوصل أو الهاتف…" enterkeyhint="search">
+            </form>
+            @if ($myBox)
+                <a href="{{ route('cash.mine') }}" class="app-chip" title="صندوقي"><x-icon name="cash" class="size-[18px]"/> <span class="num">{{ number_format($myBox->balance) }}</span></a>
+            @endif
+            @can('shipments.view')
+                @php $waitingTotal = collect($menus)->sum('badge'); @endphp
+                <a href="{{ route('operations.alerts') }}" class="rail-icon" title="المتابعة">
+                    <x-icon name="bell" class="size-5"/>
+                    @if ($waitingTotal)<span class="nav-badge rail-icon-badge">{{ $waitingTotal }}</span>@endif
+                </a>
+            @endcan
+            @can('settings.company')
+                <a href="{{ route('settings.company') }}" class="rail-icon" title="بيانات الشركة"><x-icon name="sliders" class="size-5"/></a>
+            @endcan
+            <details class="rail-user">
+                <summary>
+                    <span class="avatar" aria-hidden="true">{{ $initials }}</span>
+                    <span class="rail-user-name"><b>{{ $user->name }}</b><small>{{ $user->role->label() }}</small></span>
+                </summary>
+                <div class="rail-user-menu">
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="submenu-link w-full"><span>تسجيل الخروج</span><x-icon name="logout" class="size-5 rtl:-scale-x-100"/></button>
+                    </form>
+                </div>
+            </details>
+        </div>
     @endif
 
     <ul class="rail-menu">
@@ -154,7 +193,7 @@
   الرأس على أرضية الصفحة: البحث عن شحنة حبّةٌ بيضاء عريضة، ثم «صندوقي» والحساب.
   وعلى الهاتف زرّ الدرج وشعار الشركة، والبحث في سطرٍ تحتهما.
 --}}
-<header class="app-bar">
+<header class="app-bar {{ $topNav ? 'app-bar-top' : '' }}">
     <div class="shell flex flex-wrap items-center gap-x-3 gap-y-3 py-3 lg:py-4">
         @if ($staff)
             <button type="button" class="icon-btn lg:hidden" data-drawer-toggle aria-controls="main-nav" aria-expanded="false"
@@ -163,7 +202,7 @@
             </button>
         @endif
 
-        <a href="{{ ! $company->logo_path && auth()->user()->can('settings.company') ? route('settings.company').'#logo' : route($staff ? 'dashboard' : 'shipments.index') }}" class="{{ $staff ? 'app-brand' : '' }} flex min-w-0 items-center gap-3 max-lg:flex-1 lg:max-w-56">
+        <a href="{{ ! $company->logo_path && auth()->user()->can('settings.company') ? route('settings.company').'#logo' : route($staff ? 'dashboard' : 'shipments.index') }}" class="flex min-w-0 items-center gap-3 max-lg:flex-1 lg:max-w-56">
             <x-brand-tile :company="$company" :size="'size-10 text-base '.($staff ? 'lg:hidden' : '')" />
             <span class="min-w-0">
                 <span class="block truncate font-heading text-lg leading-tight font-extrabold text-aeblack-950">{{ $company->name }}</span>
@@ -183,7 +222,7 @@
 
         <div class="ms-auto flex items-center gap-2">
             {{-- «صندوقي»: ما بيد الموظّف الآن، لمن له صندوق --}}
-            @if ($staff && ($myBox = \App\Models\CashBox::where('user_id', $user->id)->first(['id', 'balance'])))
+            @if ($myBox)
                 <a href="{{ route('cash.mine') }}" class="app-chip" title="صندوقي">
                     <x-icon name="cash" class="size-[18px] text-primary-700"/>
                     <span class="max-sm:sr-only">صندوقي</span> <span class="num">{{ number_format($myBox->balance) }}</span>

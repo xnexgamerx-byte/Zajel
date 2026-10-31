@@ -9,8 +9,10 @@ use App\Models\Merchant;
 use App\Models\MerchantSettlement;
 use App\Models\PickupRequest;
 use App\Models\Shipment;
+use App\Services\Dashboard\DesignBoard;
 use App\Services\Dashboard\HomeAlerts;
 use App\Support\HomeLayout;
+use App\Support\Tenancy\Tenancy;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -26,6 +28,14 @@ class DashboardController extends Controller
     public function __invoke(Request $request): View
     {
         $user = $request->user();
+
+        // «بطاقات فاتحة» و«زجاجيّ» (docs/plan/100): رئيسيّتهما كما في صورتيهما، لمن يرى الشحنات
+        $design = Tenancy::company()?->design();
+        if ($design?->topNav() && $user->can('shipments.view')) {
+            $board = new DesignBoard($user);
+
+            return view('tenant.dashboard-'.$design->key, ['b' => $design->key === 'soft' ? $board->soft() : $board->glass()]);
+        }
 
         // لوحته كما خصّصها هو أو مرتبته (HomeLayout): ما أُخفي لا يُحسب أصلاً
         $home = HomeLayout::for($user);
