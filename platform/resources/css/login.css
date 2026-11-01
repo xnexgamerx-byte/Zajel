@@ -1,178 +1,211 @@
 /*
- * صفحات الدخول — داكنة، ببطاقةٍ زجاجية فوق شبكة نقاطٍ تتحرّك مع المؤشّر.
- * التصميم كما أُرسل (zajel-login-interactive.html)، وزيد عليه ما يحتاجه نظامٌ
- * حقيقي: رسالة الخطأ تحت حقلها، وتمريرٌ على الهاتف. ودخول الشركات بعنوان النظام
- * وحده كما في التصميم؛ والشعار (brand-mark) للوحة المنصّة.
+ * صفحات الدخول (docs/plan/105) — للشركات ولوحة المنصّة معاً.
+ *
+ * بطاقةٌ بيضاء بزوايا كبيرة: في جهةٍ رسمُ لوحة دوائر إلكترونية بطبقاتٍ من ورقٍ مقصوص (auth/partials/art)،
+ * يسري التيار في مساراتها، وفي الأخرى النموذج وفوقه شعار «وهج العراق». الألوان من --accent وحده.
+ * على الهاتف: الرسم فوق، والنموذج بطاقةٌ زجاجيّة عليه، والصفحة تمرّ حين تقصّرها لوحة المفاتيح.
  */
 
 :root {
-    color-scheme: dark;
-    --red: #df302b;
-    --red2: #fa503d;
-    --ink: #f6f7fb;
-    --muted: #9ca5bb;
-    --line: rgba(184, 195, 224, .16);
-    --error: #ff8f86;
+    color-scheme: light;
+    --accent: #b3202a;
+    --accent-deep: color-mix(in oklab, var(--accent) 72%, #000);
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #d6dce6;
+    --page: #e7ebf1;
+    --error: #dc2626;
 }
 
 * { box-sizing: border-box; }
 
-html, body {
-    margin: 0;
-    min-height: 100%;
-    font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
-}
+html, body { margin: 0; min-height: 100%; }
 
 body {
     min-height: 100svh;
-    /* لا تمرير أفقيّ أبداً، والعموديّ حين يضيق الارتفاع: لوحة مفاتيح الهاتف
-       تُقصّر الصفحة، وبلا تمريرٍ يختفي زرّ الدخول تحتها */
     overflow-x: hidden;
-    background: #0b1020;
+    font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
     color: var(--ink);
+    background:
+        radial-gradient(900px 600px at 85% 10%, #f6f8fb 0%, transparent 60%),
+        radial-gradient(700px 500px at 10% 90%, #f3f5f9 0%, transparent 60%),
+        var(--page);
     display: grid;
     place-items: center;
-    position: relative;
-    background-image: radial-gradient(ellipse at 50% 46%, rgba(44, 51, 82, .62) 0%, rgba(20, 26, 48, .65) 34%, rgba(10, 15, 30, .98) 78%);
+    padding: 40px 24px;
 }
 
-#network { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-
-/* وهجٌ يتبع المؤشّر — login.js يكتب موضعه في --mx و--my */
-.glow {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background: radial-gradient(430px circle at var(--mx, 50%) var(--my, 50%), rgba(221, 48, 43, .12), rgba(221, 48, 43, .035) 38%, transparent 72%);
-    transition: background .12s linear;
+/* ── الخلفية: أشياء برمجيّة مغبّشة ── */
+.bokeh { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.bokeh > * { position: absolute; filter: blur(14px); opacity: .55; }
+.bokeh .win { width: 360px; height: 230px; border-radius: 22px; background: #1d2a52; top: -60px; left: 6%; transform: rotate(-9deg); }
+.bokeh .win::after {
+    content: ""; position: absolute; inset: 52px 30px auto 30px; height: 12px; border-radius: 6px; opacity: .9;
+    background: var(--accent); box-shadow: 0 30px 0 #7c9cff, 0 60px 0 #a78bfa, 0 90px 0 #34d399;
 }
-
-.ambient { position: fixed; width: 360px; height: 360px; border-radius: 50%; filter: blur(105px); opacity: .12; pointer-events: none; z-index: 0; }
-.ambient.a { background: #dd302c; top: -210px; right: 8%; }
-.ambient.b { background: #536bba; bottom: -250px; left: 3%; }
-
-main { z-index: 1; width: min(100% - 32px, 440px); padding: 20px 0; position: relative; }
-
-/* ── العنوان فوق البطاقة ── */
-.brand { text-align: center; margin: 0 auto 27px; }
-
-/* شعار لوحة المنصّة، بأحمر التصميم أو بلونٍ يُمرَّر في --mark */
-.brand-mark {
-    --mark: #df302b;
-    width: 60px; height: 60px; margin: 0 auto 12px;
-    display: grid; place-items: center; border-radius: 18px;
-    background: linear-gradient(145deg, color-mix(in oklab, var(--mark) 78%, #ffffff), color-mix(in oklab, var(--mark) 88%, #000000));
-    box-shadow: 0 10px 30px color-mix(in oklab, var(--mark) 30%, transparent), inset 0 1px 0 rgba(255, 255, 255, .23);
-    font-size: 31px; font-weight: 700; color: #fff;
+.bokeh .tag { right: 4%; bottom: -40px; font: 800 220px/1 'JetBrains Mono', monospace; color: #26335e; filter: blur(10px); opacity: .45; }
+.bokeh .orb { width: 340px; height: 340px; border-radius: 50%; background: var(--accent); right: -90px; top: 8%; filter: blur(60px); opacity: .22; }
+.bokeh .brace { left: -20px; bottom: 8%; font: 800 260px/1 'JetBrains Mono', monospace; color: #2b3a68; opacity: .35; filter: blur(9px); }
+.bokeh .dots {
+    left: 38%; bottom: -30px; width: 260px; height: 140px; filter: blur(6px); opacity: .5;
+    background-image: radial-gradient(circle, #7c9cff 3px, transparent 4px); background-size: 26px 26px;
 }
-
-.brand h1 { font-size: 32px; line-height: 1.25; margin: 0 0 3px; letter-spacing: -.5px; }
-.brand p { margin: 0; color: #aab2c6; font-size: 14px; letter-spacing: .2px; }
 
 /* ── البطاقة ── */
-.card {
-    border: 1px solid rgba(189, 199, 224, .17);
-    background: linear-gradient(145deg, rgba(31, 37, 59, .9), rgba(22, 27, 46, .87));
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border-radius: 25px;
-    padding: 31px 32px 29px;
-    box-shadow: 0 25px 90px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .055);
+.sheet {
     position: relative;
+    z-index: 1;
+    width: min(1180px, 100%);
+    height: min(700px, calc(100svh - 80px));
+    min-height: 600px;
+    background: #fff;
+    border-radius: 34px;
     overflow: hidden;
+    box-shadow: 0 40px 90px -30px rgba(15, 23, 42, .35), 0 12px 30px -12px rgba(15, 23, 42, .18);
 }
 
-.card::before {
-    content: ""; position: absolute; top: 0; right: 12%; left: 12%; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .26), transparent);
+.art { position: absolute; inset-block: 0; left: 0; width: 66%; }
+.art svg { display: block; width: 100%; height: 100%; }
+
+.form-side {
+    position: absolute;
+    inset-block: 0;
+    right: 0;
+    width: 44%;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 96px 64px 40px;
 }
 
-.card-head { margin-bottom: 23px; }
-.card-head h2 { font-size: 20px; margin: 0 0 4px; font-weight: 600; }
-.card-head p { margin: 0; color: var(--muted); font-size: 13px; }
+/* شعار «وهج العراق» يمين فوق */
+.wahaj { position: absolute; top: 36px; right: 64px; display: flex; align-items: center; gap: 12px; }
+.wahaj-logo { width: 50px; height: 50px; flex: none; filter: drop-shadow(0 8px 16px rgba(17, 19, 93, .28)); }
+.wahaj b { display: block; font-size: 16px; font-weight: 700; color: #11135d; }
+.wahaj small { color: var(--muted); font-size: 12.5px; }
 
-/* ── الحقول ── */
-.field { margin: 0 0 17px; }
-.field label { display: block; color: #e7eaf2; font-size: 14px; font-weight: 500; margin: 0 0 8px; }
+.head h1 { margin: 0 0 6px; font-size: 32px; font-weight: 700; letter-spacing: -.3px; }
+.head p { margin: 0 0 28px; color: var(--muted); font-size: 14.5px; }
+.head p[role="status"] { color: var(--accent); font-weight: 500; }
 
-.input-wrap {
-    height: 49px; display: flex; align-items: center; gap: 11px;
-    border: 1px solid rgba(194, 202, 223, .19);
-    background: rgba(8, 12, 25, .29);
-    border-radius: 13px; padding: 0 13px;
-    transition: border-color .2s, box-shadow .2s, background .2s;
+.field { margin-bottom: 18px; }
+.field label { display: block; margin: 0 6px 8px; font-size: 13px; font-weight: 500; color: #475569; }
+.input {
+    display: flex; align-items: center; gap: 10px;
+    height: 54px; padding: 0 20px;
+    border: 1.5px solid var(--line); border-radius: 999px; background: #fff;
+    transition: border-color .2s, box-shadow .2s;
 }
+.input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 14%, transparent); }
+.input.is-invalid { border-color: var(--error); }
+.input > svg { width: 19px; height: 19px; color: #94a3b8; flex: none; }
+.input input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 15px; color: var(--ink); }
+.input input::placeholder { color: #a3adbd; }
+.eye { display: grid; padding: 4px; border: 0; border-radius: 8px; background: none; color: #94a3b8; cursor: pointer; }
+.eye svg { width: 20px; height: 20px; }
+.eye[aria-pressed="true"] { color: var(--accent); }
+.field-error { margin: 7px 14px 0; color: var(--error); font-size: 12.5px; }
 
-.input-wrap:focus-within {
-    border-color: rgba(238, 70, 58, .72);
-    box-shadow: 0 0 0 3px rgba(223, 48, 43, .12);
-    background: rgba(8, 12, 25, .42);
-}
-
-.input-wrap.is-invalid { border-color: rgba(255, 143, 134, .62); }
-
-.input-wrap svg { width: 18px; height: 18px; flex: none; color: #929cb4; }
-
-.input-wrap input {
-    min-width: 0; flex: 1; background: transparent; border: 0; outline: 0;
-    color: #fff; font: inherit; font-size: 14px;
-}
-
-.input-wrap input::placeholder { color: #758099; opacity: 1; }
-
-/* ما يملؤه المتصفّح وحده يبقى داكناً لا أصفر */
-.input-wrap input:-webkit-autofill {
-    -webkit-text-fill-color: #fff;
-    -webkit-box-shadow: 0 0 0 40px #141a2e inset;
-    caret-color: #fff;
-}
-
-.field-error { margin: 7px 2px 0; color: var(--error); font-size: 12.5px; }
-
-/* ── تذكّرني ونسيت كلمة المرور ── */
-.options {
-    display: flex; align-items: center; justify-content: space-between;
-    margin: 5px 1px 22px; font-size: 13px; color: #aab2c6;
-}
-
-.remember { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.remember input { accent-color: var(--red); width: 15px; height: 15px; margin: 0; }
-
-.forgot { color: #e19b96; text-decoration: none; }
-.forgot:hover { color: #ffb8ae; }
+.options { display: flex; align-items: center; justify-content: space-between; margin: 4px 6px 26px; font-size: 13.5px; }
+.remember { display: flex; align-items: center; gap: 8px; color: #475569; cursor: pointer; }
+.remember input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.forgot { color: var(--accent); text-decoration: none; font-weight: 500; }
+.forgot:hover { text-decoration: underline; }
 
 /* تظهر حين يُضغط «نسيت كلمة المرور؟» (#forgot)، بلا سكربت */
-.forgot-note { display: none; margin: 16px 0 0; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--line); background: rgba(8, 12, 25, .35); color: #c9cfdc; font-size: 12.5px; line-height: 1.7; }
+.forgot-note {
+    display: none; margin: 16px 0 0; padding: 11px 14px; border-radius: 14px;
+    border: 1px solid var(--line); background: #f8fafc; color: #475569; font-size: 12.5px; line-height: 1.7;
+}
 .forgot-note:target { display: block; }
 
-/* ── الدخول ── */
 .submit {
-    height: 51px; width: 100%; border: 0; border-radius: 13px; color: #fff;
-    background: linear-gradient(100deg, #c92728, #ec4032);
-    font-family: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
-    box-shadow: 0 9px 22px rgba(212, 44, 40, .23), inset 0 1px 0 rgba(255, 255, 255, .2);
-    transition: transform .2s, box-shadow .2s, filter .2s;
+    width: 100%; height: 56px; border: 0; border-radius: 999px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font: inherit; font-size: 16.5px; font-weight: 700; color: #fff;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 92%, #fff), var(--accent-deep));
+    box-shadow: 0 16px 30px -14px color-mix(in oklab, var(--accent) 80%, transparent), inset 0 1px 0 rgba(255, 255, 255, .22);
+    transition: transform .2s, filter .2s;
+}
+.submit:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.submit:active { transform: none; }
+.submit:focus-visible, .forgot:focus-visible, .eye:focus-visible, .remember input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 3px;
 }
 
-.submit:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 12px 28px rgba(212, 44, 40, .34), inset 0 1px 0 rgba(255, 255, 255, .2);
-    filter: brightness(1.06);
+.secure { display: flex; align-items: center; gap: 12px; margin: 28px 0 0; color: #94a3b8; font-size: 12.5px; }
+.secure::before, .secure::after { content: ""; flex: 1; height: 1px; background: #e2e8f0; }
+.secure svg { width: 15px; height: 15px; }
+
+/* ── ألوان الرسم، كلّها من --accent ── */
+.art .sky-a { stop-color: color-mix(in oklab, var(--accent) 18%, #04060b); }
+.art .sky-b { stop-color: color-mix(in oklab, var(--accent) 46%, #080b13); }
+.art .acc-stop { stop-color: var(--accent); }
+.art .trace-back { stroke: color-mix(in oklab, var(--accent) 45%, #0b0e17); }
+.art .pad-back { fill: color-mix(in oklab, var(--accent) 45%, #0b0e17); }
+.art .trace-mid { stroke: var(--accent); }
+.art .pad-mid { fill: var(--accent); }
+.art .trace-front { stroke: color-mix(in oklab, var(--accent) 62%, #fff); }
+.art .pad-front { fill: color-mix(in oklab, var(--accent) 62%, #fff); }
+.art .pad-hole, .art .chip-body { fill: color-mix(in oklab, var(--accent) 26%, #0a0c14); }
+.art .chip-pins { fill: color-mix(in oklab, var(--accent) 70%, #fff); }
+.art .chip-ring { stroke: color-mix(in oklab, var(--accent) 55%, #1a1d29); }
+.art .chip-glyph { fill: color-mix(in oklab, var(--accent) 60%, #fff); font: 800 48px 'JetBrains Mono', ui-monospace, monospace; }
+.art .chip-bar { fill: color-mix(in oklab, var(--accent) 45%, #1a1d29); }
+
+/*
+ * التيار: نبضةٌ قصيرة تسري من أول المسار إلى آخره ثم تغيب قليلاً قبل التالية. طول المسار 1 (pathLength)،
+ * والنبضة 0.08 منه، والفراغ بعدها 1.4 — فيمضي ثلث الدورة بلا نبضة، كتيارٍ متقطّع لا خطٍّ دائر.
+ * لكلّ مسارٍ مدّته وتأخيره (--t و--d في art.blade.php) فلا تسري معاً.
+ */
+@keyframes current { from { stroke-dashoffset: 1.48; } to { stroke-dashoffset: 0; } }
+.art .current path {
+    stroke-dasharray: .08 1.4;
+    stroke-dashoffset: 1.48;
+    animation: current var(--t, 3s) linear infinite;
+    animation-delay: var(--d, 0s);
+}
+.art .current-core { stroke: #fff; }
+.art .current-glow { stroke: color-mix(in oklab, var(--accent) 45%, #fff); opacity: .9; }
+
+/* ── الشاشات المتوسّطة: النموذج أعرض قليلاً ── */
+@media (max-width: 1100px) and (min-width: 761px) {
+    .form-side { width: 50%; padding: 96px 40px 32px; }
+    .wahaj { right: 40px; }
+    .art { width: 62%; }
 }
 
-.submit:active { transform: translateY(0); }
-.submit:focus-visible, .forgot:focus-visible, .remember input:focus-visible { outline: 2px solid #ffb8ae; outline-offset: 3px; }
-
-.foot { text-align: center; color: #737d96; font-size: 11px; margin: 18px 0 0; }
-.foot span { color: #d2d7e2; }
-
-@media (max-width: 520px) {
-    main { width: min(100% - 28px, 420px); }
-    .brand { margin-bottom: 20px; }
-    .brand-mark { width: 54px; height: 54px; border-radius: 16px; }
-    .brand h1 { font-size: 28px; }
-    .card { padding: 25px 21px 23px; border-radius: 21px; }
-    .card-head { margin-bottom: 20px; }
+/* ── الهاتف: الرسم فوق، والنموذج زجاجٌ عليه، والصفحة تمرّ ── */
+@media (max-width: 760px) {
+    body { display: block; padding: 0; }
+    .bokeh { display: none; }
+    .sheet { width: 100%; height: auto; min-height: 100svh; border-radius: 0; box-shadow: none; padding: 34vh 16px 24px; }
+    .art { width: 100%; height: 45vh; inset-block: 0 auto;
+        -webkit-mask-image: linear-gradient(#000 78%, transparent); mask-image: linear-gradient(#000 78%, transparent); }
+    .art .floor { display: none; }
+    .form-side {
+        position: relative; inset: auto; width: auto;
+        padding: 22px 22px 18px;
+        background: rgba(255, 255, 255, .78);
+        -webkit-backdrop-filter: blur(18px) saturate(150%);
+        backdrop-filter: blur(18px) saturate(150%);
+        border: 1px solid rgba(255, 255, 255, .7);
+        border-radius: 30px;
+        box-shadow: 0 30px 60px -24px rgba(15, 23, 42, .45);
+    }
+    .wahaj { position: static; margin-bottom: 14px; }
+    .wahaj-logo { width: 42px; height: 42px; }
+    .head h1 { font-size: 24px; }
+    .head p { margin-bottom: 16px; font-size: 13px; }
+    .field { margin-bottom: 12px; }
+    .input { height: 50px; background: rgba(255, 255, 255, .9); }
+    .options { margin-bottom: 18px; }
+    .submit { height: 52px; }
+    .secure { margin-top: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+    .art .current { display: none; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
 }

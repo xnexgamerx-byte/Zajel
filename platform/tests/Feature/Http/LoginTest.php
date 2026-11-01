@@ -64,7 +64,11 @@ class LoginTest extends TestCase
             ->assertSee('نظام إدارة الشحنات')
             // عنوان النظام وحده كما في التصميم: لا شعار الشركة ولا اسمها
             ->assertDontSee('الزاجل')
-            ->assertDontSee('brand-mark', false);
+            ->assertDontSee('brand-mark', false)
+            // وشعار «وهج العراق» صاحب النواة يمين فوق، والرسم بتياره، وزرّ إظهار كلمة المرور (docs/plan/105)
+            ->assertSee('aria-label="وهج العراق"', false)
+            ->assertSee('class="current"', false)
+            ->assertSee('data-password-toggle="password"', false);
     }
 
     public function test_a_chosen_username_logs_in_however_its_letters_are_cased(): void
@@ -153,7 +157,8 @@ class LoginTest extends TestCase
             'is_active'  => true,
         ]));
 
-        $this->get('/admin/login')->assertOk()->assertSee('name="username"', false);
+        $this->get('/admin/login')->assertOk()->assertSee('name="username"', false)
+            ->assertSee('إدارة المنصّة')->assertSee('aria-label="وهج العراق"', false);
 
         $this->post('/admin/login', [
             'username' => $this->arabicDigits($admin->phone), 'password' => 'password',
