@@ -374,6 +374,62 @@ class AggregatorSettingsTest extends TestCase
         $this->actingAs($this->owner)->post($this->url('/areas/import'), ['file' => $bad])->assertSessionHasErrors('areas');
     }
 
+    public function test_an_area_can_be_linked_to_a_region_of_another_of_their_cities(): void
+    {
+        $this->setFeature($this->company, Feature::Aggregator);
+        $this->save();
+
+        $ids = Tenancy::runFor($this->company, function () {
+            $sal = Governorate::where('code', 'SAL')->firstOrFail();
+            AggregatorLink::query()->sole()->forceFill(['catalog' => [
+                'cities' => ['15' => 'صلاح الدين', '9' => 'كركوك'],
+                'regions' => ['15' => ['30' => 'تكريت', '31' => 'سامراء'], '9' => ['4413' => 'طوز خورماتو', '4443' => 'امرلي']],
+            ]])->save();
+            AggregatorPlace::create(['kind' => 'governorate', 'local_id' => $sal->id, 'remote_id' => '15']);
+            $tikrit = $this->area('تكريت', $sal);
+            AggregatorPlace::create(['kind' => 'city', 'local_id' => $tikrit, 'remote_id' => '30', 'method' => 'manual']);
+
+            return ['sal' => $sal->id, 'tuz' => $this->area('طوزخورماتو', $sal), 'tikrit' => $tikrit, 'samarra' => $this->area('سامراء', $sal)];
+        });
+        $page = $this->url('/areas/'.$ids['sal']);
+
+        // مناطق مدينةٍ أخرى عندهم في صفحة المحافظة، ويُنبَّه أنّها ليست مدينتها
+        $this->actingAs($this->owner)->get($page.'?show=all&their_city=9')->assertOk()
+            ->assertSee('طوز خورماتو')->assertSee('لا مدينة صلاح الدين', false);
+
+        // تُربط منها بمدينتها، وما ليس من مناطقها لا يُقبل
+        $this->actingAs($this->owner)->put($this->url('/areas'), [
+            'their_city' => '9', 'city' => [$ids['tuz'] => '4413', $ids['samarra'] => '31', $ids['tikrit'] => 'keep'],
+        ])->assertSessionHasNoErrors();
+        $places = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->get()->keyBy('local_id'));
+        $this->assertSame(['4413', '9', 'طوز خورماتو'], [$places[$ids['tuz']]->remote_id, $places[$ids['tuz']]->remote_city_id, $places[$ids['tuz']]->remote_name]);
+        $this->assertFalse(isset($places[$ids['samarra']]));
+        $this->assertSame('30', $places[$ids['tikrit']]->remote_id);
+
+        // في صفحة مدينتها: مكتوبٌ أين رُبطت، وحفظ الصفحة لا يفكّها
+        $this->actingAs($this->owner)->get($page.'?show=all&q='.urlencode('طوزخورماتو'))->assertOk()
+            ->assertSee('مربوطة بـ «طوز خورماتو» في كركوك', false)->assertSee('— كما هي —');
+        $this->actingAs($this->owner)->put($this->url('/areas'), ['city' => [$ids['tuz'] => 'keep', $ids['samarra'] => '31']])->assertSessionHasNoErrors();
+        $places = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->get()->keyBy('local_id'));
+        $this->assertSame(['4413', '9'], [$places[$ids['tuz']]->remote_id, $places[$ids['tuz']]->remote_city_id]);
+        $this->assertSame(['31', null], [$places[$ids['samarra']]->remote_id, $places[$ids['samarra']]->remote_city_id]);
+
+        // وإعادتها لمدينة محافظتها تمحو المدينة الأخرى
+        $this->actingAs($this->owner)->put($this->url('/areas'), ['city' => [$ids['tuz'] => '30']]);
+        $this->assertNull(Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->where('local_id', $ids['tuz'])->value('remote_city_id')));
+
+        // وبالملف: {"city": مدينتهم, "region": منطقتهم}، ومنطقةٌ ليست من تلك المدينة تُرفض
+        Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->where('local_id', $ids['tuz'])->delete());
+        $file = UploadedFile::fake()->createWithContent('links.json', json_encode(['areas' => [
+            $ids['tuz'] => ['city' => '9', 'region' => '4413'],
+            $ids['samarra'] => ['city' => '9', 'region' => '31'],
+        ]]));
+        $this->actingAs($this->owner)->post($this->url('/areas/import'), ['file' => $file])
+            ->assertSessionHas('success', fn ($m) => str_contains($m, '0 محافظة و1 منطقة') && str_contains($m, '1 لم تُقبل'));
+        $tuz = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->where('local_id', $ids['tuz'])->first());
+        $this->assertSame(['4413', '9'], [$tuz->remote_id, $tuz->remote_city_id]);
+    }
+
     public function test_the_areas_pages_stay_light_with_every_governorate_and_thousands_of_areas(): void
     {
         $this->setFeature($this->company, Feature::Aggregator);

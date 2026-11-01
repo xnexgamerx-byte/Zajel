@@ -157,12 +157,17 @@ class AggregatorOutbox
         }
         $alt = Phone::normalise($shipment->recipient_phone_alt);
 
-        $city = self::place('governorate', (int) $shipment->governorate_id);
+        $area = $shipment->city_id
+            ? AggregatorPlace::query()->where('kind', 'city')->where('local_id', (int) $shipment->city_id)->first()
+            : null;
+
+        // منطقةٌ عندهم في مدينةٍ غير مدينة محافظتها: تُرسل بمدينتها هي
+        $city = $area?->remote_city_id ?: self::place('governorate', (int) $shipment->governorate_id);
         if ($city === null) {
             throw new AggregatorException('محافظة «'.($shipment->governorate?->name_ar ?? '—').'» غير مربوطة بمدينةٍ عندهم.');
         }
 
-        $region = $shipment->city_id ? self::place('city', (int) $shipment->city_id) : null;
+        $region = $area?->remote_id;
         if ($region === null) {
             throw new AggregatorException('منطقة «'.($shipment->city?->name_ar ?? 'بلا منطقة').'» غير مربوطة بمنطقةٍ عندهم.');
         }

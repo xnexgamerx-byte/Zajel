@@ -215,6 +215,23 @@ class AggregatorTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    public function test_an_area_that_is_in_another_of_their_cities_is_sent_with_that_city(): void
+    {
+        // «العشار» عندنا في البصرة، وعندهم (افتراضاً) منطقةٌ في مدينةٍ أخرى رقمها 9
+        Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')
+            ->update(['remote_id' => '4413', 'remote_city_id' => '9']));
+
+        $payload = Tenancy::runFor($this->company, fn () => AggregatorOutbox::payload($this->ship(), $this->link));
+
+        $this->assertSame([9, 4413], [$payload['city_id'], $payload['region_id']]);
+
+        // بلا مدينةٍ أخرى: مدينة المحافظة كما كانت
+        Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')
+            ->update(['remote_id' => '77', 'remote_city_id' => null]));
+        $payload = Tenancy::runFor($this->company, fn () => AggregatorOutbox::payload($this->ship(), $this->link));
+        $this->assertSame([5, 77], [$payload['city_id'], $payload['region_id']]);
+    }
+
     public function test_an_unmapped_area_fails_with_its_reason_and_is_retried_until_mapped(): void
     {
         $this->fakeApi();

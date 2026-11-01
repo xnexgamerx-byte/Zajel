@@ -235,8 +235,27 @@ class AggregatorController extends Controller
     {
         $link = $this->link();
         $remoteCity = AggregatorPlace::query()->where('kind', 'governorate')->where('local_id', $governorate->id)->value('remote_id');
-        $regions = $remoteCity ? ($link->catalog['regions'][$remoteCity] ?? []) : [];
-        $mapped = AggregatorPlace::query()->where('kind', 'city')->pluck('remote_id', 'local_id');
+        $theirCities = $link->catalog['cities'] ?? [];
+
+        // مدينةٌ أخرى عندهم: لمنطقةٍ هي عندهم في محافظةٍ غير محافظتها عندنا
+        $shown = $remoteCity;
+        $other = (string) $request->query('their_city', '');
+        if ($remoteCity && $other !== '' && $other !== (string) $remoteCity && isset($theirCities[$other])) {
+            $shown = $other;
+        }
+        $regionsError = null;
+        if ($shown && ! isset($link->catalog['regions'][$shown])) {
+            try {
+                $catalog = $link->catalog;
+                $catalog['regions'][$shown] = AggregatorClient::for($link)->regions((string) $shown);
+                $link->forceFill(['catalog' => $catalog])->save();
+            } catch (AggregatorException $e) {
+                $regionsError = $e->getMessage();
+            }
+        }
+        $regions = $shown ? ($link->catalog['regions'][$shown] ?? []) : [];
+        $places = AggregatorPlace::query()->where('kind', 'city')->get(['local_id', 'remote_id', 'remote_city_id', 'remote_name'])->keyBy('local_id');
+        $mapped = $places->map->remote_id;
         // ما رُبط بأول الاسم يُعلَّم ليُراجَع، ويُعرض وحده إن طُلب
         $prefixed = AggregatorPlace::query()->where('kind', 'city')->where('method', 'prefix')->pluck('local_id')->flip();
 
@@ -258,9 +277,13 @@ class AggregatorController extends Controller
         return view('tenant.aggregator.areas-governorate', [
             'governorate' => $governorate,
             'remoteCity' => $remoteCity,
-            'remoteCityName' => $remoteCity ? ($link->catalog['cities'][$remoteCity] ?? $remoteCity) : null,
+            'remoteCityName' => $remoteCity ? ($theirCities[$remoteCity] ?? $remoteCity) : null,
+            'theirCities' => $theirCities,
+            'shown' => $shown,
+            'regionsError' => $regionsError,
             'regions' => $regions,
             'mapped' => $mapped,
+            'places' => $places,
             'prefixed' => $prefixed,
             'rows' => $rows,
             'show' => $show,
@@ -274,6 +297,7 @@ class AggregatorController extends Controller
         $data = $request->validate([
             'governorate' => ['array'], 'governorate.*' => ['nullable', 'string', 'max:20'],
             'city' => ['array'], 'city.*' => ['nullable', 'string', 'max:20'],
+            'their_city' => ['nullable', 'string', 'max:20'],
         ]);
 
         $link = $this->link();
@@ -284,9 +308,18 @@ class AggregatorController extends Controller
         // ما ليس من محافظات الشركة ومناطقها لا يُربط ولو أُرسل رقمه
         $known = ['governorate' => Governorate::query()->pluck('id')->flip(), 'city' => City::query()->pluck('id')->flip()];
 
+        // صفحةٌ تعرض مناطق مدينةٍ أخرى عندهم: ما يُربط فيها يُحفظ بمدينته، وما يُربط بمدينة محافظته بلا مدينة
+        $theirCity = filled($data['their_city'] ?? null) && isset($names['governorate'][$data['their_city']]) ? (string) $data['their_city'] : null;
+        $governorateCity = AggregatorPlace::query()->where('kind', 'governorate')->pluck('remote_id', 'local_id');
+        $areaGovernorate = City::query()->pluck('governorate_id', 'id');
+        if ($theirCity !== null) {
+            $names['city'] = ($link->catalog['regions'][$theirCity] ?? []) + $names['city'];
+        }
+
         foreach (['governorate', 'city'] as $kind) {
             foreach ($data[$kind] ?? [] as $local => $remote) {
-                if (! isset($known[$kind][(int) $local])) {
+                // «كما هي»: مربوطةٌ في مدينةٍ غير المعروضة، فلا يمسّها حفظ الصفحة
+                if (! isset($known[$kind][(int) $local]) || $remote === 'keep') {
                     continue;
                 }
 
@@ -296,9 +329,20 @@ class AggregatorController extends Controller
                     continue;
                 }
 
+                $other = null;
+                if ($kind === 'city' && $theirCity !== null
+                    && $theirCity !== (string) ($governorateCity[$areaGovernorate[(int) $local] ?? 0] ?? '')) {
+                    // من مدينةٍ أخرى: يُقبل ما هو من مناطقها وحدها
+                    if (! isset($link->catalog['regions'][$theirCity][(string) $remote])) {
+                        continue;
+                    }
+                    $other = $theirCity;
+                }
+
                 AggregatorPlace::query()->updateOrCreate(
                     ['kind' => $kind, 'local_id' => (int) $local],
-                    ['remote_id' => (string) $remote, 'remote_name' => $names[$kind][(string) $remote] ?? null, 'method' => 'manual'],
+                    ['remote_id' => (string) $remote, 'remote_name' => $names[$kind][(string) $remote] ?? null, 'method' => 'manual']
+                        + ($kind === 'city' ? ['remote_city_id' => $other] : []),
                 );
             }
         }
@@ -489,12 +533,14 @@ class AggregatorController extends Controller
         $link = $this->link();
         $catalog = $link->catalog ?? [];
         $governorates = AggregatorPlace::query()->where('kind', 'governorate')->pluck('remote_id', 'local_id');
-        $places = AggregatorPlace::query()->where('kind', 'city')->get(['local_id', 'remote_id', 'method'])->keyBy('local_id');
+        $places = AggregatorPlace::query()->where('kind', 'city')->get(['local_id', 'remote_id', 'remote_city_id', 'method'])->keyBy('local_id');
         $areas = City::query()->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar'])->groupBy('governorate_id');
 
         $data = [
             'format' => 'aggregator-areas/1',
             'their_cities' => $catalog['cities'] ?? [],
+            // مناطق كل مدنهم المجلوبة: لمنطقةٍ هي عندهم في مدينةٍ غير مدينة محافظتها
+            'their_regions_by_city' => $catalog['regions'] ?? [],
             'governorates' => Governorate::query()->orderBy('id')->get(['id', 'name_ar'])->map(function ($g) use ($governorates, $catalog, $places, $areas) {
                 $remote = $governorates[$g->id] ?? null;
 
@@ -507,6 +553,8 @@ class AggregatorController extends Controller
                         'id' => $city->id,
                         'name' => $city->name_ar,
                         'their_region_id' => $places[$city->id]->remote_id ?? null,
+                        // في مدينةٍ أخرى عندهم، وإلّا فارغ
+                        'their_city_id' => $places[$city->id]->remote_city_id ?? null,
                         'method' => $places[$city->id]->method ?? null,
                     ])->values(),
                 ];
@@ -521,7 +569,8 @@ class AggregatorController extends Controller
     }
 
     /**
-     * يرفع ربطاً رُوجع خارج النظام: {"governorates": {محافظتنا: مدينتهم}, "areas": {منطقتنا: منطقتهم}}.
+     * يرفع ربطاً رُوجع خارج النظام: {"governorates": {محافظتنا: مدينتهم}, "areas": {منطقتنا: منطقتهم}}،
+     * والمنطقة التي هي عندهم في مدينةٍ أخرى: {منطقتنا: {"city": مدينتهم, "region": منطقتهم}}.
      * لا يُقبل إلّا ما هو من محافظات الشركة ومناطقها، ومنطقتهم من مناطق مدينة محافظتها المجلوبة.
      * ما ربطه موظّفٌ بيده لا يُغيَّر، وما رُفع يُعلَّم «file».
      */
@@ -567,9 +616,13 @@ class AggregatorController extends Controller
         $manual = AggregatorPlace::query()->where('kind', 'city')->where('method', 'manual')->pluck('remote_id', 'local_id');
 
         foreach ((array) ($data['areas'] ?? []) as $local => $remote) {
-            $remote = (string) $remote;
+            // «منطقتهم»، أو {"city": مدينتهم, "region": منطقتهم} لمنطقةٍ في مدينةٍ غير مدينة محافظتها
             $governorate = $ourAreas[(int) $local] ?? null;
-            $options = $governorate && isset($governorates[$governorate]) ? ($regions[$governorates[$governorate]] ?? []) : [];
+            $own = $governorate && isset($governorates[$governorate]) ? (string) $governorates[$governorate] : null;
+            $city = is_array($remote) ? (string) ($remote['city'] ?? '') : $own;
+            $remote = is_array($remote) ? (string) ($remote['region'] ?? '') : (string) $remote;
+            $options = $governorate && $city !== null && $city !== '' ? ($regions[$city] ?? []) : [];
+            $other = $city !== $own ? $city : null;
 
             if (! isset($options[$remote])) {
                 $counts['rejected']++;
@@ -584,7 +637,7 @@ class AggregatorController extends Controller
 
             AggregatorPlace::query()->updateOrCreate(
                 ['kind' => 'city', 'local_id' => (int) $local],
-                ['remote_id' => $remote, 'remote_name' => $options[$remote], 'method' => 'file'],
+                ['remote_id' => $remote, 'remote_city_id' => $other, 'remote_name' => $options[$remote], 'method' => 'file'],
             );
             $counts['areas']++;
         }
@@ -621,6 +674,7 @@ class AggregatorController extends Controller
             $ours = City::query()->get(['id', 'governorate_id', 'name_ar'])->groupBy('governorate_id');
             $names = Governorate::query()->pluck('name_ar', 'id');
 
+            $fetched = [];
             $report = ['gone_cities' => [], 'gone_regions' => [], 'shared' => [], 'unmapped' => 0, 'ok' => 0, 'governorates_left' => $names->count() - $governorates->count()];
 
             foreach ($governorates as $place) {
@@ -630,15 +684,26 @@ class AggregatorController extends Controller
                     continue;
                 }
 
-                $catalog['regions'][$place->remote_id] = $regions = $client->regions((string) $place->remote_id);
+                $catalog['regions'][$place->remote_id] = $regions = $fetched[(string) $place->remote_id] ??= $client->regions((string) $place->remote_id);
                 $used = [];
 
                 foreach ($ours[$place->local_id] ?? [] as $city) {
                     $mapped = $cities[$city->id] ?? null;
 
+                    // في مدينةٍ أخرى عندهم: تُفحص على مناطق تلك المدينة
+                    $options = $regions;
+                    if ($mapped?->remote_city_id) {
+                        $other = (string) $mapped->remote_city_id;
+                        if (! isset($fetched[$other])) {
+                            $fetched[$other] = isset($catalog['cities'][$other]) ? $client->regions($other) : [];
+                            $catalog['regions'][$other] = $fetched[$other];
+                        }
+                        $options = $fetched[$other];
+                    }
+
                     if ($mapped === null) {
                         $report['unmapped']++;
-                    } elseif (! isset($regions[$mapped->remote_id])) {
+                    } elseif (! isset($options[$mapped->remote_id])) {
                         $report['gone_regions'][] = ($names[$place->local_id] ?? '').' — '.$city->name_ar;
                     } else {
                         $report['ok']++;
