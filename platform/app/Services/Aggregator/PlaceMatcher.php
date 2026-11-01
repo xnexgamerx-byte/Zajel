@@ -47,4 +47,59 @@ class PlaceMatcher
             default => [null, 'ambiguous'],
         };
     }
+
+    /**
+     * أسماء مناطقهم مطويّةً بأرقامها: يُبنى مرّةً لكل مدينةٍ لا لكل منطقةٍ عندنا.
+     *
+     * @param  array<string, string>  $options  رقمهم ← اسمهم
+     * @return array<string, list<string>>
+     */
+    public static function index(array $options): array
+    {
+        $index = [];
+
+        foreach ($options as $id => $name) {
+            $index[self::normalise($name)][] = (string) $id;
+        }
+
+        return $index;
+    }
+
+    /**
+     * أطول بدايةٍ من اسمنا تطابق منطقةً واحدةً عندهم: «دجيل الحاتمية» هي «دجيل»، و«مدينة الصدر حي طارق»
+     * هي «مدينة الصدر» لا «مدينة». لا يُخمَّن إلّا بكلمةٍ كاملة من أول الاسم، وبمنطقةٍ واحدة بعينها:
+     * بدايةٌ تطابق اسمين عندهم، أو اسمٌ كاملٌ يحتمل أكثر من منطقة، يُترك للموظّف.
+     *
+     * الحال matched إن طابق الاسم كاملاً، وprefix إن طابقت بدايته، وإلّا ambiguous أو none.
+     *
+     * @param  array<string, list<string>>  $index  من index()
+     * @return array{0: ?string, 1: 'matched'|'prefix'|'ambiguous'|'none'}
+     */
+    public static function lookupPrefix(string $name, array $index): array
+    {
+        $full = self::normalise($name);
+        $words = array_values(array_filter(explode(' ', $full), fn ($w) => $w !== ''));
+
+        // الاسم كاملاً أوّلاً: ما تحتمله منطقتان لا يُقصَّر إلى بدايةٍ فيُربط بالتخمين
+        $exact = $index[$full] ?? [];
+        if (count($exact) > 1) {
+            return [null, 'ambiguous'];
+        }
+        if (count($exact) === 1) {
+            return [$exact[0], 'matched'];
+        }
+
+        for ($length = count($words) - 1; $length >= 1; $length--) {
+            $ids = $index[implode(' ', array_slice($words, 0, $length))] ?? [];
+
+            if (count($ids) > 1) {
+                return [null, 'ambiguous'];
+            }
+            if (count($ids) === 1) {
+                return [$ids[0], 'prefix'];
+            }
+        }
+
+        return [null, 'none'];
+    }
 }

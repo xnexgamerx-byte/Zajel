@@ -21,7 +21,8 @@
 @else
     <form method="GET" class="mb-4 flex flex-wrap items-center gap-2">
         <select name="show" class="field-input w-44 py-1.5" aria-label="ما يُعرض">
-            <option value="unmapped" @selected(! $all)>غير المربوطة</option>
+            <option value="unmapped" @selected($show === 'unmapped')>غير المربوطة</option>
+            <option value="prefix" @selected($show === 'prefix')>بأول الاسم — للمراجعة</option>
             <option value="all" @selected($all)>كل المناطق</option>
         </select>
         <input name="q" value="{{ $search }}" class="field-input w-56 py-1.5" placeholder="ابحث باسم المنطقة…" aria-label="بحث">
@@ -30,7 +31,7 @@
 
     @if ($rows->isEmpty())
         <div class="card p-5 text-sm text-ink-500">
-            {{ $all || $search !== '' ? 'لا منطقة بهذا الاسم.' : 'كل مناطق '.$governorate->name_ar.' مربوطة.' }}
+            {{ $search !== '' || $all ? 'لا منطقة بهذا الاسم.' : ($show === 'prefix' ? 'لا منطقة مربوطة بأول الاسم.' : 'كل مناطق '.$governorate->name_ar.' مربوطة.') }}
         </div>
     @else
         <form method="POST" action="{{ route('aggregator.areas.update') }}" class="card p-5">
@@ -39,7 +40,12 @@
             <div class="grid grid-cols-1 gap-x-6 gap-y-1.5 md:grid-cols-2">
                 @foreach ($rows as $city)
                     <label class="flex items-center justify-between gap-3 border-b border-ink-100 py-1 text-sm">
-                        <span>{{ $city->name_ar }}</span>
+                        <span>
+                            {{ $city->name_ar }}
+                            @if (isset($prefixed[$city->id]))
+                                <span class="chip chip-warn ms-1" title="رُبطت بأول اسمها: احفظها لتُثبَّت، أو غيّرها">بأول الاسم</span>
+                            @endif
+                        </span>
                         <select name="city[{{ $city->id }}]" class="field-input w-56 py-1">
                             <option value="">—</option>
                             @foreach ($regions as $id => $name)

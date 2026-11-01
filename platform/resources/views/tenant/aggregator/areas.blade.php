@@ -21,11 +21,29 @@
             @csrf
             <button type="submit" class="btn-ghost" @disabled(! $theirCities)><x-icon name="bolt" class="size-5"/> اربط بالاسم</button>
         </form>
+        <form method="POST" action="{{ route('aggregator.areas.prefix') }}">
+            @csrf
+            <button type="submit" class="btn-ghost" @disabled(! $theirCities)
+                    title="ما بقي بلا ربط يُربط بأول اسمه إن وُجد عندهم: «دجيل الحاتمية» ← «دجيل». يُعلَّم لتراجعه."><x-icon name="pin" class="size-5"/> اربط بأول الاسم</button>
+        </form>
     </div>
 </div>
 
 @if ($errors->has('areas'))
     <div class="alert alert-bad mb-5">{{ $errors->first('areas') }}</div>
+@endif
+
+{{-- ما ربطه «اربط بأول الاسم» الآن: يُراجَع، وكلّه معلَّم في صفحة محافظته --}}
+@if ($prefixed = session('aggregator_prefix'))
+    <section class="card mb-5 p-5">
+        <details open>
+            <summary class="cursor-pointer text-sm font-semibold">ما رُبط بأول الاسم ({{ count($prefixed) }}) — راجعه</summary>
+            <ul class="mt-2 list-disc ps-5 text-sm text-ink-700">
+                @foreach ($prefixed as $line)<li>{{ $line }}</li>@endforeach
+            </ul>
+        </details>
+        <p class="field-hint mt-2">ما لا يصحّ منها غيّره من صفحة محافظته («بأول الاسم — للمراجعة»).</p>
+    </section>
 @endif
 
 {{-- نتيجة «افحص الربط»: ما رُبط على قوائمهم الحيّة، وما سيُرفض عند الإرسال --}}

@@ -249,6 +249,72 @@ class AggregatorSettingsTest extends TestCase
         $this->actingAs($this->owner)->get($this->url('/areas'))->assertOk();
     }
 
+    public function test_what_is_left_is_linked_by_the_longest_start_of_its_name_and_marked_for_review(): void
+    {
+        $this->setFeature($this->company, Feature::Aggregator);
+        $this->save();
+
+        $ids = Tenancy::runFor($this->company, function () {
+            $sal = Governorate::where('code', 'SAL')->firstOrFail();
+            $baghdad = $this->baghdad();
+            $make = fn ($name, $governorate) => City::create(['governorate_id' => $governorate->id, 'company_id' => Tenancy::id(), 'name_ar' => $name, 'is_active' => true])->id;
+
+            AggregatorLink::query()->sole()->forceFill(['catalog' => [
+                'cities' => ['1' => 'بغداد', '9' => 'صلاح الدين'],
+                'regions' => [
+                    '9' => ['30' => 'دجيل', '31' => 'بلد', '32' => 'بلد', '33' => 'سامراء', '34' => 'تكريت'],
+                    '1' => ['40' => 'مدينة', '41' => 'مدينة الصدر', '42' => 'الكرادة'],
+                ],
+            ]])->save();
+            AggregatorPlace::create(['kind' => 'governorate', 'local_id' => $sal->id, 'remote_id' => '9']);
+            AggregatorPlace::create(['kind' => 'governorate', 'local_id' => $baghdad->id, 'remote_id' => '1']);
+
+            // ربطه أحدٌ بيده: لا يُمسّ ولو كان لاسمه بدايةٌ عندهم
+            $tikrit = $this->area('تكريت', $sal);
+            AggregatorPlace::create(['kind' => 'city', 'local_id' => $tikrit, 'remote_id' => '33', 'method' => 'manual']);
+
+            return [
+                'hatimiya' => $make('دجيل الحاتمية', $sal),
+                'akwakh' => $make('دجيل اكواخ الحمزه', $sal),
+                'tariq' => $make('مدينة الصدر حي طارق', $baghdad),
+                'balad' => $make('بلد الشرقية', $sal),
+                'far' => $make('قرية لا يعرفونها', $sal),
+                'tikrit' => $tikrit,
+                'sal' => $sal,
+            ];
+        });
+
+        $this->actingAs($this->owner)->post($this->url('/areas/prefix'))->assertSessionHasNoErrors()
+            ->assertSessionHas('success', fn ($m) => str_contains($m, 'تحتمل أكثر من منطقةٍ') && str_contains($m, 'لا بداية لها'))
+            ->assertSessionHas('aggregator_prefix', fn ($lines) => in_array('صلاح الدين — دجيل الحاتمية ← دجيل', $lines, true));
+
+        $places = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->get()->keyBy('local_id'));
+
+        // «دجيل …» كلّها «دجيل»، و«مدينة الصدر حي طارق» هي «مدينة الصدر» لا «مدينة»
+        $this->assertSame(['30', 'prefix'], [$places[$ids['hatimiya']]->remote_id, $places[$ids['hatimiya']]->method]);
+        $this->assertSame('30', $places[$ids['akwakh']]->remote_id);
+        $this->assertSame(['41', 'مدينة الصدر'], [$places[$ids['tariq']]->remote_id, $places[$ids['tariq']]->remote_name]);
+
+        // «بلد» عندهم منطقتان: لا تخمين. وما لا بداية له عندهم يبقى. وما رُبط باليد كما هو
+        $this->assertFalse(isset($places[$ids['balad']]));
+        $this->assertFalse(isset($places[$ids['far']]));
+        $this->assertSame(['33', 'manual'], [$places[$ids['tikrit']]->remote_id, $places[$ids['tikrit']]->method]);
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => AuditLog::where('action', 'aggregator_areas_prefix')->exists()));
+
+        // للمراجعة: تُعرض وحدها معلَّمةً، والحفظ باليد يثبّتها فيزول العلم
+        $this->actingAs($this->owner)->get($this->url('/areas/'.$ids['sal']->id.'?show=prefix&q='.urlencode('دجيل')))->assertOk()
+            ->assertSee('دجيل الحاتمية')->assertSee('بأول الاسم')->assertDontSee('بلد الشرقية');
+        // «الدجيل» اسمها كاملاً عندهم: رُبطت بالاسم لا بأول الاسم
+        $this->assertSame('name', Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->where('local_id', $this->area('الدجيل', $ids['sal']))->value('method')));
+        $this->actingAs($this->owner)->put($this->url('/areas'), ['city' => [$ids['hatimiya'] => '30']])->assertSessionHasNoErrors();
+        $this->assertSame('manual', Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->where('local_id', $ids['hatimiya'])->value('method')));
+
+        // الضغط ثانيةً لا يغيّر ما رُبط
+        $before = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->count());
+        $this->actingAs($this->owner)->post($this->url('/areas/prefix'))->assertSessionHas('success', fn ($m) => str_contains($m, 'رُبط بأول الاسم 0'));
+        $this->assertSame($before, Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->count()));
+    }
+
     public function test_the_areas_pages_stay_light_with_every_governorate_and_thousands_of_areas(): void
     {
         $this->setFeature($this->company, Feature::Aggregator);

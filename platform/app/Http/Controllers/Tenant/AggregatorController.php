@@ -236,12 +236,16 @@ class AggregatorController extends Controller
         $remoteCity = AggregatorPlace::query()->where('kind', 'governorate')->where('local_id', $governorate->id)->value('remote_id');
         $regions = $remoteCity ? ($link->catalog['regions'][$remoteCity] ?? []) : [];
         $mapped = AggregatorPlace::query()->where('kind', 'city')->pluck('remote_id', 'local_id');
+        // ما رُبط بأول الاسم يُعلَّم ليُراجَع، ويُعرض وحده إن طُلب
+        $prefixed = AggregatorPlace::query()->where('kind', 'city')->where('method', 'prefix')->pluck('local_id')->flip();
 
-        $all = $request->query('show') === 'all';
+        $show = in_array($request->query('show'), ['all', 'prefix'], true) ? $request->query('show') : 'unmapped';
+        $all = $show === 'all';
         $search = trim((string) $request->query('q', ''));
 
         $cities = City::query()->where('governorate_id', $governorate->id)->orderBy('name_ar')->get(['id', 'name_ar'])
-            ->when(! $all, fn ($c) => $c->filter(fn ($city) => ! isset($mapped[$city->id])))
+            ->when($show === 'unmapped', fn ($c) => $c->filter(fn ($city) => ! isset($mapped[$city->id])))
+            ->when($show === 'prefix', fn ($c) => $c->filter(fn ($city) => isset($prefixed[$city->id])))
             ->when($search !== '', fn ($c) => $c->filter(fn ($city) => str_contains(Arabic::looseFold($city->name_ar), Arabic::looseFold($search))))
             ->values();
 
@@ -256,7 +260,9 @@ class AggregatorController extends Controller
             'remoteCityName' => $remoteCity ? ($link->catalog['cities'][$remoteCity] ?? $remoteCity) : null,
             'regions' => $regions,
             'mapped' => $mapped,
+            'prefixed' => $prefixed,
             'rows' => $rows,
+            'show' => $show,
             'all' => $all,
             'search' => $search,
         ]);
@@ -291,7 +297,7 @@ class AggregatorController extends Controller
 
                 AggregatorPlace::query()->updateOrCreate(
                     ['kind' => $kind, 'local_id' => (int) $local],
-                    ['remote_id' => (string) $remote, 'remote_name' => $names[$kind][(string) $remote] ?? null],
+                    ['remote_id' => (string) $remote, 'remote_name' => $names[$kind][(string) $remote] ?? null, 'method' => 'manual'],
                 );
             }
         }
@@ -363,7 +369,7 @@ class AggregatorController extends Controller
                         continue;
                     }
 
-                    AggregatorPlace::query()->create(['kind' => 'city', 'local_id' => $city->id, 'remote_id' => $remote, 'remote_name' => $regions[$remote]]);
+                    AggregatorPlace::query()->create(['kind' => 'city', 'local_id' => $city->id, 'remote_id' => $remote, 'remote_name' => $regions[$remote], 'method' => 'name']);
                     $added++;
                 }
             }
@@ -386,6 +392,91 @@ class AggregatorController extends Controller
         }
 
         return back()->with('success', $report);
+    }
+
+    /**
+     * ما بقي بلا ربطٍ يُربط بأطول بدايةٍ من اسمه تطابق منطقةً واحدةً عندهم: «دجيل الحاتمية» ← «دجيل»،
+     * «مدينة الصدر حي طارق» ← «مدينة الصدر». ما ربطه أحدٌ لا يُمسّ، وما لا بداية له عندهم أو تحتمل بدايته
+     * أكثر من منطقة يُترك للموظّف. وكلّ ما رُبط هكذا يُعلَّم «بأول الاسم» ليُراجَع، ويُذكر في الرسالة.
+     */
+    public function prefixAreas(): RedirectResponse
+    {
+        $this->longRequest();
+
+        $link = $this->link();
+        $governorates = AggregatorPlace::query()->where('kind', 'governorate')->pluck('remote_id', 'local_id');
+
+        if ($governorates->isEmpty()) {
+            return back()->withErrors(['areas' => 'اربط المحافظات بمدنهم أوّلاً.']);
+        }
+
+        $catalog = $link->catalog;
+        $client = AggregatorClient::for($link);
+        $mapped = AggregatorPlace::query()->where('kind', 'city')->pluck('remote_id', 'local_id');
+        $names = Governorate::query()->pluck('name_ar', 'id');
+        $added = 0;
+        $exact = 0;
+        $left = ['ambiguous' => 0, 'none' => 0];
+        $done = [];
+
+        try {
+            foreach ($governorates as $governorateId => $remoteCity) {
+                if (! isset($catalog['regions'][$remoteCity])) {
+                    $catalog['regions'][$remoteCity] = $client->regions((string) $remoteCity);
+                    $link->forceFill(['catalog' => $catalog])->save();
+                }
+                $regions = $catalog['regions'][$remoteCity];
+                $index = PlaceMatcher::index($regions);
+
+                foreach (City::query()->where('governorate_id', $governorateId)->get(['id', 'name_ar']) as $city) {
+                    if (isset($mapped[$city->id])) {
+                        continue;
+                    }
+
+                    [$remote, $state] = PlaceMatcher::lookupPrefix($city->name_ar, $index);
+
+                    if ($remote === null) {
+                        $left[$state]++;
+
+                        continue;
+                    }
+
+                    // الاسم كاملاً ربطٌ بالاسم لا يحتاج مراجعة؛ البداية وحدها تُعلَّم وتُذكر
+                    AggregatorPlace::query()->create([
+                        'kind' => 'city', 'local_id' => $city->id, 'remote_id' => $remote,
+                        'remote_name' => $regions[$remote], 'method' => $state === 'prefix' ? 'prefix' : 'name',
+                    ]);
+                    if ($state === 'prefix') {
+                        $added++;
+                        $done[] = ($names[$governorateId] ?? '').' — '.$city->name_ar.' ← '.$regions[$remote];
+                    } else {
+                        $exact++;
+                    }
+                }
+            }
+        } catch (AggregatorException $e) {
+            return back()->withErrors(['areas' => "رُبط ما أمكن، ثم تعذّر: {$e->getMessage()} — اضغط ثانيةً لتكمل."]);
+        }
+
+        if ($added || $exact) {
+            $this->audit('aggregator_areas_prefix', ['count' => $added, 'exact' => $exact]);
+        }
+
+        $report = "رُبط بأول الاسم {$added}، وكلّها معلَّمة «بأول الاسم» لتراجعها.";
+        if ($exact) {
+            $report .= " ورُبط {$exact} باسمه كاملاً.";
+        }
+        if ($left['ambiguous']) {
+            $report .= " {$left['ambiguous']} منطقةً بدايتها تحتمل أكثر من منطقةٍ عندهم.";
+        }
+        if ($left['none']) {
+            $report .= " {$left['none']} منطقةً لا بداية لها عندهم.";
+        }
+        if ($left['ambiguous'] || $left['none']) {
+            $report .= ' هذه تُربط بيدك.';
+        }
+
+        return back()->with('success', $report)->with('aggregator_prefix', array_slice($done, 0, 500));
     }
 
     /**

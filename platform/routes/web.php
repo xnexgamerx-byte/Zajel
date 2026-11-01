@@ -15,8 +15,8 @@ use App\Http\Controllers\OrderListeningController;
 use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
 use App\Http\Controllers\Platform\CompanySystemController;
-use App\Http\Controllers\Platform\DataPurgeController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
+use App\Http\Controllers\Platform\DataPurgeController;
 use App\Http\Controllers\Platform\FeatureController;
 use App\Http\Controllers\Platform\ImpersonationController;
 use App\Http\Controllers\Platform\InvoiceController;
@@ -484,6 +484,7 @@ Route::middleware('tenant')->group(function () {
                 Route::put('/areas', [AggregatorController::class, 'saveAreas'])->name('areas.update');
                 Route::post('/areas/auto', [AggregatorController::class, 'autoAreas'])->middleware('throttle:5,1')->name('areas.auto');
                 Route::post('/areas/verify', [AggregatorController::class, 'verifyAreas'])->middleware('throttle:5,1')->name('areas.verify');
+                Route::post('/areas/prefix', [AggregatorController::class, 'prefixAreas'])->middleware('throttle:5,1')->name('areas.prefix');
                 Route::get('/log', [AggregatorController::class, 'log'])->name('log');
                 Route::post('/jobs/{job}/retry', [AggregatorController::class, 'retry'])->whereNumber('job')->name('jobs.retry');
             });
