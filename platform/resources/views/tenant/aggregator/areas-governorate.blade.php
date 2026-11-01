@@ -20,7 +20,7 @@
     {{-- منطقةٌ هي عندهم في محافظةٍ أخرى («طوزخورماتو» في كركوك عندهم): تُعرض مناطق تلك المدينة وتُربط منها --}}
     <form method="GET" class="card mb-4 flex flex-wrap items-center gap-2 p-4">
         <label for="their_city" class="text-sm font-semibold">مناطق مدينة عندهم:</label>
-        <select id="their_city" name="their_city" class="field-input w-56 py-1.5" onchange="this.form.submit()">
+        <select id="their_city" name="their_city" class="field-input w-56 py-1.5" data-submit-on-change>
             @foreach ($theirCities as $id => $name)
                 <option value="{{ $id }}" @selected((string) $shown === (string) $id)>{{ $name }}{{ (string) $id === (string) $remoteCity ? ' (مدينتها)' : '' }}</option>
             @endforeach
