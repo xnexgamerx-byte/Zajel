@@ -174,6 +174,14 @@
         ما يُفعل بالشحنة عندنا حين تصل حالةٌ منهم. «واصل» يأتي أيضاً بعلامة التسليم أيّاً كانت الحالة، وتغيّر السعر
         يذهب تذكرةً للكول سنتر ولا يغيّر المبلغ.
     </p>
+    <details class="mt-3 rounded-lg px-3 py-2 ring-1 ring-ink-200">
+        <summary class="cursor-pointer text-sm font-semibold">ماذا يفعل كلّ خيار؟</summary>
+        <dl class="mt-2 space-y-2 text-sm">
+            @foreach (\App\Models\AggregatorLink::ACTIONS as $key => $label)
+                <div><dt class="font-bold">{{ $label }}</dt><dd class="text-ink-700">{{ \App\Models\AggregatorLink::ACTION_HINTS[$key] }}</dd></div>
+            @endforeach
+        </dl>
+    </details>
     @if ($statuses)
         <div class="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
             @foreach ($statuses as $id => $text)

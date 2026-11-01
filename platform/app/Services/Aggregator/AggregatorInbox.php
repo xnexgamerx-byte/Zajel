@@ -149,6 +149,7 @@ class AggregatorInbox
             return match ($action) {
                 'none' => ['recorded', null],
                 'delivered' => $this->delivered($shipment, $courier, $price, $note),
+                'price_change' => $this->priceChange($shipment, $courier, $price, $note),
                 'out_for_delivery' => $shipment->status === ShipmentStatus::InTransit
                     ? $this->move($shipment, $courier, ShipmentStatus::OutForDelivery, $note)
                     : $this->track($shipment, $courier, $note),
@@ -183,6 +184,23 @@ class AggregatorInbox
         }
 
         return $this->move($shipment, $courier, ShipmentStatus::Delivered, $note);
+    }
+
+    /**
+     * حالةٌ ربطتها الشركة بـ «تغيّر السعر»: إن جاءت بسعرٍ غير سعر الوصل فتذكرةٌ للكول سنتر، وإلّا سطر تتبّع.
+     * والمبلغ لا يتغيّر هنا أبداً.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    private function priceChange(Shipment $shipment, Courier $courier, ?int $price, string $note): array
+    {
+        $this->toOutForDelivery($shipment, $courier, $note);
+
+        if ($price === null || $price === (int) $shipment->cod_amount) {
+            return $this->track($shipment, $courier, $note.' — السعر كما هو');
+        }
+
+        return $this->priceTicket($shipment, $courier, $price, $note, finalize: false);
     }
 
     /** @return array{0: string, 1: ?string} */

@@ -313,6 +313,31 @@ class AggregatorTest extends TestCase
         $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($second)->status);
     }
 
+    public function test_a_status_mapped_to_price_change_opens_a_ticket_only_when_the_price_differs(): void
+    {
+        $this->fakeApi();
+        Tenancy::runFor($this->company, fn () => $this->link->forceFill(['status_map' => ['9' => 'price_change']])->save());
+        $first = $this->ship();
+        $second = $this->ship();
+        $this->artisan('aggregator:sync');
+
+        // بسعرٍ آخر: تذكرة «السعر تغيّر» للكول سنتر، والمبلغ بحاله، والشحنة خرجت «قيد التوصيل» أوّلاً
+        $this->hook($this->order($this->fresh($first), ['status_id' => '9', 'status' => 'تعديل السعر', 'price' => '35000', 'old_price' => '40000']))->assertOk();
+        $ticket = Tenancy::runFor($this->company, fn () => ShipmentTicket::where('shipment_id', $first->id)->sole());
+        $this->assertSame(['price', 35_000, false], [$ticket->kind, (int) $ticket->requested_amount, (bool) $ticket->finalize]);
+        $this->assertSame(40_000, (int) $this->fresh($first)->cod_amount);
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($first)->status);
+
+        // بسعر الوصل نفسه: لا تذكرة، سطر تتبّع فقط
+        $this->hook($this->order($this->fresh($second), ['status_id' => '9', 'status' => 'تعديل السعر', 'price' => '40000']))->assertOk();
+        $this->assertSame(0, Tenancy::runFor($this->company, fn () => ShipmentTicket::where('shipment_id', $second->id)->count()));
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => $second->events()->where('event_type', 'tracking')->where('note', 'like', '%السعر كما هو%')->exists()));
+
+        // وتذكرةٌ مفتوحة لا تتكرّر بتحديثٍ ثانٍ بسعرٍ آخر: يصير سطر تتبّع
+        $this->hook($this->order($this->fresh($first), ['status_id' => '9', 'status' => 'تعديل السعر', 'price' => '33000', 'old_price' => '40000']))->assertOk();
+        $this->assertSame(1, Tenancy::runFor($this->company, fn () => ShipmentTicket::where('shipment_id', $first->id)->count()));
+    }
+
     public function test_a_return_goes_to_processing_and_receiving_it_is_reported_to_them(): void
     {
         $this->fakeApi();
