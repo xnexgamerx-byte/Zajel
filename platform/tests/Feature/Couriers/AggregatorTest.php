@@ -516,6 +516,110 @@ class AggregatorTest extends TestCase
         $this->assertContains('tracking', ShipmentEvent::MERCHANT_EVENTS);
     }
 
+    public function test_delivering_and_taking_back_an_exchange_becomes_a_partial_delivery_with_the_old_piece_returning(): void
+    {
+        $this->fakeApi();
+        $this->map(['30' => 'exchange_delivered']);
+        $shipment = $this->ship(null, ['type' => 'exchange']);
+        $this->artisan('aggregator:sync');
+        $shipment = $this->fresh($shipment);
+        $this->hook($this->order($shipment, ['status_id' => '3']))->assertOk();
+
+        // سلّموا الجديد واستلموا القديم: «واصل جزئي»، والمبلغ على الوسيط، والرسالة بحالتها الفعلية
+        $this->hook($this->order($shipment, ['status_id' => '30', 'status' => 'تم التسليم واستلام الاسترجاع']))->assertOk();
+        $done = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::PartiallyDelivered, $done->status);
+        $this->assertSame(40_000, (int) $done->collected_amount);
+        $this->assertSame(40_000, (int) Tenancy::runFor($this->company, fn () => $this->agent->refresh()->cash_in_hand));
+        $this->assertSame('applied', $this->lastResult());
+        $this->assertSame('واصل جزئي', Tenancy::runFor($this->company, fn () => AggregatorEvent::latest('id')->first()->message));
+
+        // القديمة تعود مع الراجع: نستلمها بالمسح فتصير راجعة، ويُبلَّغون باستلامها
+        Tenancy::runFor($this->company, fn () => app(ReceiveReturns::class)->handle([$shipment->id], $this->staff));
+        $back = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::Returning, $back->status);
+        $this->assertNotNull($back->return_received_at);
+        $this->assertSame(['create', 'receive_return'], $this->jobs()->pluck('action')->all());
+    }
+
+    public function test_an_exchange_status_on_an_ordinary_shipment_changes_nothing_and_waits_for_a_person(): void
+    {
+        $this->fakeApi();
+        $this->map(['30' => 'exchange_delivered']);
+        $shipment = $this->outWithThem();
+
+        $this->hook($this->order($shipment, ['status_id' => '30', 'status' => 'تم التسليم واستلام الاسترجاع', 'updated_at' => '2026-11-01 13:00:00']))->assertOk();
+
+        $same = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::OutForDelivery, $same->status);
+        $this->assertNull($same->delivered_at);
+        $this->assertNotSame('exchange', $same->type);
+        $this->assertSame('waiting', $this->lastResult());
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => $shipment->events()->where('event_type', 'tracking')->where('note', 'like', '%استبدال%')->exists()));
+
+        // وعلامة التسليم العادية على شحنة استبدال تصير «واصل جزئي» بقاعدة الاستبدال نفسها
+        $exchange = $this->ship(null, ['type' => 'exchange']);
+        $this->artisan('aggregator:sync');
+        $this->hook($this->order($this->fresh($exchange), ['status_id' => '3']))->assertOk();
+        $this->hook($this->order($this->fresh($exchange), ['status_id' => '4', 'status' => 'تم التسليم', 'deliver_done' => 1, 'updated_at' => '2026-11-01 14:00:00']))->assertOk();
+        $this->assertSame(ShipmentStatus::PartiallyDelivered, $this->fresh($exchange)->status);
+    }
+
+    public function test_their_system_can_move_status_but_never_touch_money_address_or_deletion(): void
+    {
+        $this->fakeApi();
+        $shipment = $this->ship();
+        $theirs = $this->ship($this->courier('مندوب عادي'));
+        $this->artisan('aggregator:sync');
+        $shipment = $this->fresh($shipment);
+
+        $protected = ['cod_amount', 'delivery_fee', 'return_fee', 'extra_fee', 'cod_fee', 'discount', 'total_fees', 'merchant_due', 'courier_commission',
+            'recipient_name', 'recipient_phone', 'recipient_phone_alt', 'address', 'landmark', 'governorate_id', 'city_id', 'description', 'notes',
+            'merchant_id', 'delivery_courier_id', 'pieces_count', 'weight_grams', 'deleted_at', 'cancelled_at'];
+        $before = collect($protected)->mapWithKeys(fn ($k) => [$k => $shipment->getRawOriginal($k)])->all();
+        $otherStatus = $this->fresh($theirs)->status;
+        $other = collect($protected)->mapWithKeys(fn ($k) => [$k => $this->fresh($theirs)->getRawOriginal($k)])->all();
+
+        // كل ما يمكن أن يُرسَل: سعرٌ وأجرةٌ وعنوانٌ واسمٌ وحذفٌ وإلغاء، وحقولٌ لا نعرفها
+        $hostile = $this->order($shipment, [
+            'status_id' => '3', 'price' => '1', 'delivery_price' => '1', 'cod_amount' => 1, 'delivery_fee' => 1,
+            'client_name' => 'مخترق', 'client_mobile' => '+9647000000000', 'client_mobile2' => '+9647000000001',
+            'location' => 'مكان آخر', 'city_id' => '1', 'region_id' => '2', 'city_name' => 'غير', 'region_name' => 'غير',
+            'type_name' => 'x', 'items_number' => '99', 'merchant_notes' => 'x', 'package_size' => 'x',
+            'deleted' => 1, 'is_deleted' => 1, 'deleted_at' => '2026-11-01 00:00:00', 'cancelled' => 1, 'status' => 'محذوف', 'delete' => true,
+        ]);
+        $this->hook($hostile)->assertOk();
+
+        // الحالة تتغيّر بقاعدة المندوب، وكل حقلٍ حسّاس كما كان
+        $after = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::OutForDelivery, $after->status);
+        foreach ($protected as $key) {
+            $this->assertSame($before[$key], $after->getRawOriginal($key), $key);
+        }
+
+        // تغيّر السعر الحقيقي (سعرٌ قديم) لا يغيّر المبلغ: تذكرةٌ فقط
+        $this->hook($this->order($this->fresh($shipment), ['status_id' => '3', 'price' => '5000', 'old_price' => '40000', 'updated_at' => '2026-11-01 15:00:00']))->assertOk();
+        $this->assertSame(40_000, (int) $this->fresh($shipment)->cod_amount);
+        $this->assertNull($this->fresh($shipment)->deleted_at);
+
+        // شحنةٌ ليست عند الوسيط لا يبلغها ولو عرف رقمها
+        $this->hook($this->order($this->fresh($theirs), ['status_id' => '3', 'updated_at' => '2026-11-01 16:00:00']))->assertOk();
+        $this->assertSame('unmatched', $this->lastResult());
+        $untouched = $this->fresh($theirs);
+        $this->assertSame($otherStatus, $untouched->status);
+        foreach ($protected as $key) {
+            $this->assertSame($other[$key], $untouched->getRawOriginal($key), $key);
+        }
+
+        // وليس للمسار غير POST: لا حذف ولا تعديل ولا قراءة
+        $url = 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain').'/api/v1/aggregator/webhook';
+        $key = ['X-Hook-Key' => self::HOOK];
+        $this->getJson($url, $key)->assertStatus(405);
+        foreach (['delete', 'put', 'patch'] as $verb) {
+            $this->{$verb.'Json'}($url, [], $key)->assertStatus(405);
+        }
+    }
+
     public function test_nothing_happens_without_the_feature_and_no_company_reaches_another(): void
     {
         $this->fakeApi();

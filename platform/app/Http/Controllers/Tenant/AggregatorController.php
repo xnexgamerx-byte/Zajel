@@ -306,7 +306,7 @@ class AggregatorController extends Controller
      */
     public function autoAreas(): RedirectResponse
     {
-        @set_time_limit(300);
+        $this->longRequest();
 
         $link = $this->link();
         $theirCities = $link->catalog['cities'] ?? [];
@@ -394,7 +394,7 @@ class AggregatorController extends Controller
      */
     public function verifyAreas(): RedirectResponse
     {
-        @set_time_limit(300);
+        $this->longRequest();
 
         $link = $this->link();
         $client = AggregatorClient::for($link);
@@ -462,6 +462,17 @@ class AggregatorController extends Controller
         AggregatorOutbox::retry($job);
 
         return back()->with('success', 'يُعاد إرساله خلال دقيقة.');
+    }
+
+    /**
+     * جلب مناطق ١٨ مدينةٍ من نظامهم يطول على مهلة الطلب العادية (٣٠ ثانية). وفي الاختبارات لا يُمَسّ الحدّ:
+     * set_time_limit يبدأ عدّاً جديداً للعملية كلّها فتموت مجموعةٌ طويلةٌ في وسطها.
+     */
+    private function longRequest(): void
+    {
+        if (! app()->runningUnitTests()) {
+            @set_time_limit(300);
+        }
     }
 
     private function link(): AggregatorLink

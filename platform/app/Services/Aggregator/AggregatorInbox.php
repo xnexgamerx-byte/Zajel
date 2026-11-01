@@ -149,6 +149,7 @@ class AggregatorInbox
             return match ($action) {
                 'none' => ['recorded', null],
                 'delivered' => $this->delivered($shipment, $courier, $price, $note),
+                'exchange_delivered' => $this->exchangeDelivered($shipment, $courier, $price, $note),
                 'price_change' => $this->priceChange($shipment, $courier, $price, $note),
                 'out_for_delivery' => $shipment->status === ShipmentStatus::InTransit
                     ? $this->move($shipment, $courier, ShipmentStatus::OutForDelivery, $note)
@@ -166,6 +167,28 @@ class AggregatorInbox
         } catch (ValidationException $e) {
             return ['error', collect($e->errors())->flatten()->implode(' ')];
         }
+    }
+
+    /**
+     * سلّموا الجديد واستلموا القديم (استبدال). تسجَّل واصلاً كأي تسليم، وقاعدة الاستبدال في
+     * ChangeShipmentStatus تجعلها «واصل جزئي» والقديم راجعٌ لتاجره. ولا تصحّ إلّا لشحنةٍ نوعها استبدال:
+     * شحنةٌ عاديّة لا يُغيَّر نوعها بقولهم — يُكتب ما قالوه وتبقى كما هي لتقرّر.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    private function exchangeDelivered(Shipment $shipment, Courier $courier, ?int $price, string $note): array
+    {
+        if ($shipment->wasDelivered()) {
+            return ['recorded', 'مسلَّمة من قبل.'];
+        }
+
+        if ($shipment->type !== 'exchange') {
+            $this->track($shipment, $courier, 'قالوا: سُلّمت واستُلم القديم (استبدال) — '.$note);
+
+            return ['waiting', 'حالتهم تقول استبدالاً، والشحنة عندنا ليست استبدالاً: لم تُسجَّل. قرّر فيها بيدك.'];
+        }
+
+        return $this->delivered($shipment, $courier, $price, $note);
     }
 
     /** @return array{0: string, 1: ?string} */
@@ -347,7 +370,8 @@ class AggregatorInbox
 
         $shipment->refresh();
 
-        return ['applied', $to->label()];
+        // الحالة التي صارت إليها فعلاً: الاستبدال يُطلَب «واصل» ويصير «واصل جزئي»
+        return ['applied', $shipment->status->label()];
     }
 
     /** @return array{0: string, 1: ?string} */
