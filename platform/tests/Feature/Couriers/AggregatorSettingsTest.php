@@ -430,6 +430,46 @@ class AggregatorSettingsTest extends TestCase
         $this->assertSame(['4413', '9'], [$tuz->remote_id, $tuz->remote_city_id]);
     }
 
+    public function test_their_regions_with_no_area_of_ours_are_added_with_their_name_and_existing_ones_are_reused(): void
+    {
+        $this->setFeature($this->company, Feature::Aggregator);
+        $this->save();
+
+        $ids = Tenancy::runFor($this->company, function () {
+            $basra = Governorate::where('code', 'BSR')->firstOrFail();
+            AggregatorLink::query()->sole()->forceFill(['catalog' => [
+                'cities' => ['5' => 'البصرة'],
+                'regions' => ['5' => ['81' => 'المعقل', '82' => 'حي جديد الكبير', '83' => 'حي جديد الكبير', '84' => 'غير موجودة']],
+            ]])->save();
+            AggregatorPlace::create(['kind' => 'governorate', 'local_id' => $basra->id, 'remote_id' => '5']);
+
+            return ['basra' => $basra->id, 'ours' => $this->area('المعقل', $basra)];
+        });
+
+        $file = UploadedFile::fake()->createWithContent('new.json', json_encode(['new' => [
+            ['governorate' => $ids['basra'], 'city' => '5', 'region' => '81'],   // عندنا باسمها: تُربط بها ولا تُكرَّر
+            ['governorate' => $ids['basra'], 'city' => '5', 'region' => '82'],   // ليست عندنا: تُضاف باسمها عندهم
+            ['governorate' => $ids['basra'], 'city' => '5', 'region' => '83'],   // الاسم نفسه: لا تُضاف مرّتين
+            ['governorate' => $ids['basra'], 'city' => '5', 'region' => '99'],   // ليست من مناطقهم: تُرفض
+            ['governorate' => 999999, 'city' => '5', 'region' => '84'],          // ليست من محافظاتنا: تُرفض
+        ]]));
+
+        $this->actingAs($this->owner)->post($this->url('/areas/import'), ['file' => $file])->assertSessionHasNoErrors()
+            ->assertSessionHas('success', fn ($m) => str_contains($m, 'أُضيفت 1 منطقةً جديدةً') && str_contains($m, '2 لم تُقبل'));
+
+        Tenancy::runFor($this->company, function () use ($ids) {
+            $this->assertSame(1, City::query()->where('name_ar', 'حي جديد الكبير')->count());
+            $added = City::query()->where('name_ar', 'حي جديد الكبير')->firstOrFail();
+            $this->assertSame($this->company->id, $added->company_id);
+
+            $linked = AggregatorPlace::query()->where('kind', 'city')->where('local_id', $added->id)->firstOrFail();
+            $this->assertSame(['82', 'file'], [$linked->remote_id, $linked->method]);
+
+            $this->assertSame(['81', 'file'], [AggregatorPlace::query()->where('kind', 'city')->where('local_id', $ids['ours'])->value('remote_id'),
+                AggregatorPlace::query()->where('kind', 'city')->where('local_id', $ids['ours'])->value('method')]);
+        });
+    }
+
     public function test_the_areas_pages_stay_light_with_every_governorate_and_thousands_of_areas(): void
     {
         $this->setFeature($this->company, Feature::Aggregator);

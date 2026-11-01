@@ -579,8 +579,8 @@ class AggregatorController extends Controller
         $request->validate(['file' => ['required', 'file', 'max:5120']]);
 
         $data = json_decode((string) file_get_contents($request->file('file')->getRealPath()), true);
-        if (! is_array($data) || (! is_array($data['areas'] ?? null) && ! is_array($data['governorates'] ?? null))) {
-            return back()->withErrors(['areas' => 'الملف ليس ملف ربطٍ صالحاً: يُنتظر فيه «areas» أو «governorates».']);
+        if (! is_array($data) || (! is_array($data['areas'] ?? null) && ! is_array($data['governorates'] ?? null) && ! is_array($data['new'] ?? null))) {
+            return back()->withErrors(['areas' => 'الملف ليس ملف ربطٍ صالحاً: يُنتظر فيه «areas» أو «governorates» أو «new».']);
         }
 
         $link = $this->link();
@@ -642,9 +642,65 @@ class AggregatorController extends Controller
             $counts['areas']++;
         }
 
+        // مناطق عندهم لا مقابل لها عندنا: تُضاف لنا باسمها عندهم، كما تضيفها الشركة لنفسها من «منطقة ناقصة».
+        // ما يطابق منطقةً موجودةً عندنا بكتابةٍ أخرى يُربط بها ولا يُكرَّر، وما ليس من مدنهم أو مناطقها يُرفض.
+        $companyId = $request->user()->company_id;
+        $offered = Governorate::offered()->pluck('id')->flip();
+        $handled = [];
+        foreach ((array) ($data['new'] ?? []) as $entry) {
+            $governorateId = (int) ($entry['governorate'] ?? 0);
+            $city = (string) ($entry['city'] ?? '');
+            $region = (string) ($entry['region'] ?? '');
+            $remoteOwn = $governorates[$governorateId] ?? null;
+
+            if (! isset($offered[$governorateId]) || $remoteOwn === null || ! isset($regions[$city][$region])) {
+                $counts['rejected']++;
+
+                continue;
+            }
+
+            $name = trim(preg_replace('/\s+/u', ' ', (string) $regions[$city][$region]));
+            $same = City::query()->where('governorate_id', $governorateId)->get(['id', 'company_id', 'name_ar', 'is_active'])
+                ->filter(fn (City $candidate) => Arabic::looseFold($candidate->name_ar) === Arabic::looseFold($name))
+                ->sortByDesc('is_active')
+                ->first();
+
+            if ($same?->is_active) {
+                $cityId = $same->id;
+            } elseif ($same && $same->company_id === $companyId) {
+                $same->update(['is_active' => true]);
+                $cityId = $same->id;
+            } else {
+                $cityId = City::query()->create(['governorate_id' => $governorateId, 'company_id' => $companyId, 'name_ar' => $name, 'is_active' => true])->id;
+                $counts['created'] = ($counts['created'] ?? 0) + 1;
+            }
+
+            // الاسم نفسه مرّتين في الملف (مكرّر عندهم): أوّل رقمٍ منه فقط
+            if (isset($handled[$cityId])) {
+                continue;
+            }
+            $handled[$cityId] = true;
+
+            $current = AggregatorPlace::query()->where('kind', 'city')->where('local_id', $cityId)->first();
+            if ($current && $current->method === 'manual' && ((string) $current->remote_id !== $region || (string) $current->remote_city_id !== ($city !== (string) $remoteOwn ? $city : ''))) {
+                $counts['manual']++;
+
+                continue;
+            }
+
+            AggregatorPlace::query()->updateOrCreate(
+                ['kind' => 'city', 'local_id' => $cityId],
+                ['remote_id' => $region, 'remote_city_id' => $city !== (string) $remoteOwn ? $city : null, 'remote_name' => $name, 'method' => 'file'],
+            );
+            $counts['areas']++;
+        }
+
         $this->audit('aggregator_areas_import', $counts);
 
         $report = "رُفع الربط: {$counts['governorates']} محافظة و{$counts['areas']} منطقة.";
+        if (! empty($counts['created'])) {
+            $report .= " أُضيفت {$counts['created']} منطقةً جديدةً لنا باسمها عندهم.";
+        }
         if ($counts['manual']) {
             $report .= " {$counts['manual']} ربطها موظّفٌ بيده بغير ما في الملف فبقيت كما هي.";
         }
