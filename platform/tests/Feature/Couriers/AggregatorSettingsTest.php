@@ -409,6 +409,8 @@ class AggregatorSettingsTest extends TestCase
         // في صفحة مدينتها: مكتوبٌ أين رُبطت، وحفظ الصفحة لا يفكّها
         $this->actingAs($this->owner)->get($page.'?show=all&q='.urlencode('طوزخورماتو'))->assertOk()
             ->assertSee('مربوطة بـ «طوز خورماتو» في كركوك', false)->assertSee('— كما هي —');
+        // قوائم المناطق فيها حقل بحثٍ يُصفّيها في المتصفح
+        $this->actingAs($this->owner)->get($page.'?show=all')->assertOk()->assertSee('data-select-search', false)->assertSee('data-searchable', false);
         $this->actingAs($this->owner)->put($this->url('/areas'), ['city' => [$ids['tuz'] => 'keep', $ids['samarra'] => '31']])->assertSessionHasNoErrors();
         $places = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->get()->keyBy('local_id'));
         $this->assertSame(['4413', '9'], [$places[$ids['tuz']]->remote_id, $places[$ids['tuz']]->remote_city_id]);

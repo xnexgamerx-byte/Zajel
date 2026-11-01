@@ -91,6 +91,36 @@ document.addEventListener('invalid', (event) => {
     if (field instanceof Element) field.closest('details:not([open])')?.setAttribute('open', '');
 }, true);
 
+/*
+ * بحثٌ في قوائم الاختيار: حقلٌ فيه data-select-search يُصفّي خيارات كل قائمةٍ في نموذجه عليها data-searchable
+ * بما يكتبه الموظّف، والمختار يبقى. الخيارات الأصلية تُحفظ عند أوّل بحث، ويُقارن بعد تطبيع العربية
+ * (الهمزات والتاء المربوطة والألف المقصورة والتشكيل).
+ */
+const foldArabic = (text) => text.normalize('NFKD')
+    .replace(/[\u064B-\u065F\u0640]/g, '')
+    .replace(/[إأآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .toLowerCase()
+    .trim();
+
+document.addEventListener('input', (event) => {
+    const search = event.target;
+    if (!(search instanceof HTMLInputElement) || search.dataset.selectSearch === undefined) return;
+
+    const query = foldArabic(search.value);
+
+    for (const select of search.form?.querySelectorAll('select[data-searchable]') ?? []) {
+        select.originalOptions ??= Array.from(select.options, (option) => option.cloneNode(true));
+        const kept = select.value;
+
+        select.replaceChildren(...select.originalOptions
+            .filter((option) => option.value === '' || option.value === kept || foldArabic(option.textContent).includes(query))
+            .map((option) => option.cloneNode(true)));
+        select.value = kept;
+    }
+});
+
 /** لونٌ يُعاين قبل الحفظ: data-css-var="--company" */
 document.addEventListener('input', (event) => {
     const field = event.target;

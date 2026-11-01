@@ -61,6 +61,8 @@
             @csrf
             @method('PUT')
             @if ((string) $shown !== (string) $remoteCity)<input type="hidden" name="their_city" value="{{ $shown }}">@endif
+            {{-- بحثٌ يُصفّي قوائم المناطق في هذه الصفحة وحدها، وما كتبته لا يُحفظ --}}
+            <input type="search" data-select-search class="field-input mb-4 w-72 py-1.5" placeholder="ابحث في أسماء مناطقهم…" aria-label="بحث في قوائم المناطق">
             <div class="grid grid-cols-1 gap-x-6 gap-y-1.5 md:grid-cols-2">
                 @foreach ($rows as $city)
                     @php
@@ -81,7 +83,7 @@
                                 <span class="chip chip-warn ms-1" title="رُبطت بأول اسمها: احفظها لتُثبَّت، أو غيّرها">بأول الاسم</span>
                             @endif
                         </span>
-                        <select name="city[{{ $city->id }}]" class="field-input w-56 py-1">
+                        <select name="city[{{ $city->id }}]" class="field-input w-56 py-1" data-searchable>
                             @if ($place && ! $here)
                                 {{-- مربوطةٌ في مدينةٍ أخرى: الحفظ لا يفكّها ما لم تُختر لها منطقةٌ هنا --}}
                                 <option value="keep" selected>— كما هي —</option>
