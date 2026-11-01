@@ -24,6 +24,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * «ربط الشركة الوسيطة» (docs/plan/104): حساب الشركة في نظامهم وتاجرها، والمندوب الوسيط عندنا،
@@ -477,6 +478,128 @@ class AggregatorController extends Controller
         }
 
         return back()->with('success', $report)->with('aggregator_prefix', array_slice($done, 0, 500));
+    }
+
+    /**
+     * ملف الربط كلّه للمراجعة خارج النظام: مدنهم ومناطق ما جُلب منها، ومحافظاتنا ومناطقنا بربطها الحاليّ.
+     * لا أسرار فيه ولا يتّصل بنظامهم: ما لم تُجلب مناطقه بعدُ يُجلب بـ«اربط بالاسم» أوّلاً.
+     */
+    public function exportAreas(): StreamedResponse
+    {
+        $link = $this->link();
+        $catalog = $link->catalog ?? [];
+        $governorates = AggregatorPlace::query()->where('kind', 'governorate')->pluck('remote_id', 'local_id');
+        $places = AggregatorPlace::query()->where('kind', 'city')->get(['local_id', 'remote_id', 'method'])->keyBy('local_id');
+        $areas = City::query()->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar'])->groupBy('governorate_id');
+
+        $data = [
+            'format' => 'aggregator-areas/1',
+            'their_cities' => $catalog['cities'] ?? [],
+            'governorates' => Governorate::query()->orderBy('id')->get(['id', 'name_ar'])->map(function ($g) use ($governorates, $catalog, $places, $areas) {
+                $remote = $governorates[$g->id] ?? null;
+
+                return [
+                    'id' => $g->id,
+                    'name' => $g->name_ar,
+                    'their_city_id' => $remote,
+                    'their_regions' => $remote ? ($catalog['regions'][$remote] ?? null) : null,
+                    'areas' => ($areas[$g->id] ?? collect())->map(fn ($city) => [
+                        'id' => $city->id,
+                        'name' => $city->name_ar,
+                        'their_region_id' => $places[$city->id]->remote_id ?? null,
+                        'method' => $places[$city->id]->method ?? null,
+                    ])->values(),
+                ];
+            })->values(),
+        ];
+
+        return response()->streamDownload(
+            fn () => print (json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)),
+            'aggregator-areas-'.now()->format('Y-m-d').'.json',
+            ['Content-Type' => 'application/json; charset=utf-8'],
+        );
+    }
+
+    /**
+     * يرفع ربطاً رُوجع خارج النظام: {"governorates": {محافظتنا: مدينتهم}, "areas": {منطقتنا: منطقتهم}}.
+     * لا يُقبل إلّا ما هو من محافظات الشركة ومناطقها، ومنطقتهم من مناطق مدينة محافظتها المجلوبة.
+     * ما ربطه موظّفٌ بيده لا يُغيَّر، وما رُفع يُعلَّم «file».
+     */
+    public function importAreas(Request $request): RedirectResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'max:5120']]);
+
+        $data = json_decode((string) file_get_contents($request->file('file')->getRealPath()), true);
+        if (! is_array($data) || (! is_array($data['areas'] ?? null) && ! is_array($data['governorates'] ?? null))) {
+            return back()->withErrors(['areas' => 'الملف ليس ملف ربطٍ صالحاً: يُنتظر فيه «areas» أو «governorates».']);
+        }
+
+        $link = $this->link();
+        $theirCities = $link->catalog['cities'] ?? [];
+        $regions = $link->catalog['regions'] ?? [];
+        $counts = ['governorates' => 0, 'areas' => 0, 'manual' => 0, 'rejected' => 0];
+
+        $ourGovernorates = Governorate::query()->pluck('id')->flip();
+        $existing = AggregatorPlace::query()->get()->groupBy('kind')->map->keyBy('local_id');
+
+        foreach ((array) ($data['governorates'] ?? []) as $local => $remote) {
+            $remote = (string) $remote;
+            if (! isset($ourGovernorates[(int) $local]) || ! isset($theirCities[$remote])) {
+                $counts['rejected']++;
+
+                continue;
+            }
+            if (($existing['governorate'][(int) $local]->method ?? null) === 'manual' && $existing['governorate'][(int) $local]->remote_id !== $remote) {
+                $counts['manual']++;
+
+                continue;
+            }
+
+            AggregatorPlace::query()->updateOrCreate(
+                ['kind' => 'governorate', 'local_id' => (int) $local],
+                ['remote_id' => $remote, 'remote_name' => $theirCities[$remote], 'method' => 'file'],
+            );
+            $counts['governorates']++;
+        }
+
+        $governorates = AggregatorPlace::query()->where('kind', 'governorate')->pluck('remote_id', 'local_id');
+        $ourAreas = City::query()->pluck('governorate_id', 'id');
+        $manual = AggregatorPlace::query()->where('kind', 'city')->where('method', 'manual')->pluck('remote_id', 'local_id');
+
+        foreach ((array) ($data['areas'] ?? []) as $local => $remote) {
+            $remote = (string) $remote;
+            $governorate = $ourAreas[(int) $local] ?? null;
+            $options = $governorate && isset($governorates[$governorate]) ? ($regions[$governorates[$governorate]] ?? []) : [];
+
+            if (! isset($options[$remote])) {
+                $counts['rejected']++;
+
+                continue;
+            }
+            if (isset($manual[(int) $local]) && (string) $manual[(int) $local] !== $remote) {
+                $counts['manual']++;
+
+                continue;
+            }
+
+            AggregatorPlace::query()->updateOrCreate(
+                ['kind' => 'city', 'local_id' => (int) $local],
+                ['remote_id' => $remote, 'remote_name' => $options[$remote], 'method' => 'file'],
+            );
+            $counts['areas']++;
+        }
+
+        $this->audit('aggregator_areas_import', $counts);
+
+        $report = "رُفع الربط: {$counts['governorates']} محافظة و{$counts['areas']} منطقة.";
+        if ($counts['manual']) {
+            $report .= " {$counts['manual']} ربطها موظّفٌ بيده بغير ما في الملف فبقيت كما هي.";
+        }
+        if ($counts['rejected']) {
+            $report .= " {$counts['rejected']} لم تُقبل: ليست من مناطقنا، أو منطقتهم ليست من مدينة محافظتها.";
+        }
+
+        return back()->with('success', $report);
     }
 
     /**

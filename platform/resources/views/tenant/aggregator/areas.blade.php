@@ -73,6 +73,23 @@
     </section>
 @endif
 
+{{-- مراجعة الربط كلّه خارج النظام: يُنزَّل ملفٌ بمناطقنا ومناطقهم، ويُرفع ملفٌ بالربط بعد مراجعته --}}
+@if ($theirCities)
+    <section class="card mb-5 flex flex-wrap items-center gap-3 p-4">
+        <div class="min-w-64 flex-1">
+            <b>ربطٌ بملف</b>
+            <p class="field-hint">نزّل الملف (مناطقنا ومناطقهم وربطها الآن) لمراجعته، ثم ارفع ملف الربط بعد المراجعة.
+                ما ربطه موظّفٌ بيده لا يغيّره الملف.</p>
+        </div>
+        <a href="{{ route('aggregator.areas.export') }}" class="btn-ghost"><x-icon name="download" class="size-5"/> نزّل ملف الربط</a>
+        <form method="POST" action="{{ route('aggregator.areas.import') }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+            @csrf
+            <input type="file" name="file" accept=".json,application/json" required class="field-input w-56 py-1" aria-label="ملف الربط">
+            <button type="submit" class="btn-ghost"><x-icon name="upload" class="size-5"/> ارفع ملف الربط</button>
+        </form>
+    </section>
+@endif
+
 @if (! $theirCities)
     <div class="alert alert-warn">اتّصل بنظامهم أوّلاً من صفحة الربط لتُجلب مدنهم.</div>
 @else

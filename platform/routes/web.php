@@ -485,6 +485,8 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/areas/auto', [AggregatorController::class, 'autoAreas'])->middleware('throttle:5,1')->name('areas.auto');
                 Route::post('/areas/verify', [AggregatorController::class, 'verifyAreas'])->middleware('throttle:5,1')->name('areas.verify');
                 Route::post('/areas/prefix', [AggregatorController::class, 'prefixAreas'])->middleware('throttle:5,1')->name('areas.prefix');
+                Route::get('/areas/export', [AggregatorController::class, 'exportAreas'])->name('areas.export');
+                Route::post('/areas/import', [AggregatorController::class, 'importAreas'])->middleware('throttle:10,1')->name('areas.import');
                 Route::get('/log', [AggregatorController::class, 'log'])->name('log');
                 Route::post('/jobs/{job}/retry', [AggregatorController::class, 'retry'])->whereNumber('job')->name('jobs.retry');
             });

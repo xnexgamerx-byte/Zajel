@@ -16,6 +16,7 @@ use App\Models\Governorate;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
@@ -313,6 +314,64 @@ class AggregatorSettingsTest extends TestCase
         $before = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->count());
         $this->actingAs($this->owner)->post($this->url('/areas/prefix'))->assertSessionHas('success', fn ($m) => str_contains($m, 'رُبط بأول الاسم 0'));
         $this->assertSame($before, Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->count()));
+    }
+
+    public function test_the_links_go_out_in_a_file_and_a_reviewed_file_comes_back(): void
+    {
+        $this->setFeature($this->company, Feature::Aggregator);
+        $this->save();
+
+        $ids = Tenancy::runFor($this->company, function () {
+            $baghdad = $this->baghdad();
+            $basra = Governorate::where('code', 'BSR')->firstOrFail();
+            AggregatorLink::query()->sole()->forceFill(['catalog' => [
+                'cities' => ['1' => 'بغداد', '5' => 'البصرة'],
+                'regions' => ['1' => ['40' => 'ابو غريب', '41' => 'الكرادة', '42' => 'المنصور'], '5' => ['77' => 'العشار']],
+            ]])->save();
+            AggregatorPlace::create(['kind' => 'governorate', 'local_id' => $baghdad->id, 'remote_id' => '1']);
+            $make = fn ($name) => City::create(['governorate_id' => $baghdad->id, 'company_id' => Tenancy::id(), 'name_ar' => $name, 'is_active' => true])->id;
+            [$ghraib, $karada, $mansour] = [$make('أبو غريب'), $make('كرادة مريم'), $make('المنصور الداوودي')];
+            // ربطها موظّفٌ بيده: لا يغيّرها الملف
+            AggregatorPlace::create(['kind' => 'city', 'local_id' => $mansour, 'remote_id' => '42', 'method' => 'manual']);
+
+            return ['ghraib' => $ghraib, 'karada' => $karada, 'mansour' => $mansour,
+                'ashar' => $this->area('العشار', $basra), 'baghdad' => $baghdad->id, 'basra' => $basra->id];
+        });
+
+        // الملف: مدنهم ومناطقهم ومناطقنا بربطها، بلا أسرار
+        $export = $this->actingAs($this->owner)->get($this->url('/areas/export'))->assertOk();
+        $data = json_decode($export->streamedContent(), true);
+        $baghdad = collect($data['governorates'])->firstWhere('id', $ids['baghdad']);
+        $this->assertSame('1', (string) $baghdad['their_city_id']);
+        $this->assertSame('ابو غريب', $baghdad['their_regions']['40']);
+        $this->assertSame(['42', 'manual'], [(string) collect($baghdad['areas'])->firstWhere('id', $ids['mansour'])['their_region_id'], 'manual']);
+        $this->assertStringNotContainsString('pass-123', $export->streamedContent());
+
+        $file = UploadedFile::fake()->createWithContent('links.json', json_encode([
+            'governorates' => [$ids['basra'] => '5', '999999' => '5'],
+            'areas' => [
+                $ids['ghraib'] => '40',
+                $ids['karada'] => '77',    // منطقةٌ من مدينةٍ أخرى: تُرفض
+                $ids['mansour'] => '41',   // ربطها موظّف: تبقى
+                $ids['ashar'] => '77',     // محافظتها رُبطت في الملف نفسه
+                '999999' => '40',          // ليست من مناطقنا
+            ],
+        ]));
+
+        $this->actingAs($this->owner)->post($this->url('/areas/import'), ['file' => $file])->assertSessionHasNoErrors()
+            ->assertSessionHas('success', fn ($m) => str_contains($m, '1 محافظة و2 منطقة') && str_contains($m, '1 ربطها موظّفٌ') && str_contains($m, '3 لم تُقبل'));
+
+        $places = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->get()->groupBy('kind')->map->keyBy('local_id'));
+        $this->assertSame(['40', 'file'], [$places['city'][$ids['ghraib']]->remote_id, $places['city'][$ids['ghraib']]->method]);
+        $this->assertSame('77', $places['city'][$ids['ashar']]->remote_id);
+        $this->assertSame('42', $places['city'][$ids['mansour']]->remote_id);
+        $this->assertFalse(isset($places['city'][$ids['karada']]));
+        $this->assertSame('5', $places['governorate'][$ids['basra']]->remote_id);
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => AuditLog::where('action', 'aggregator_areas_import')->exists()));
+
+        // ملفٌ ليس ملف ربط يُرفض بسببه
+        $bad = UploadedFile::fake()->createWithContent('x.json', 'not json');
+        $this->actingAs($this->owner)->post($this->url('/areas/import'), ['file' => $bad])->assertSessionHasErrors('areas');
     }
 
     public function test_the_areas_pages_stay_light_with_every_governorate_and_thousands_of_areas(): void

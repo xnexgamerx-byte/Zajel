@@ -159,6 +159,15 @@
     - في صفحة المحافظة تصفيةٌ «بأول الاسم — للمراجعة» وعلامةٌ «بأول الاسم» بجانب كلّ صفٍّ منها.
     - حفظ الصفحة باليد يثبّتها (`method = manual`) فتزول العلامة. وما طابق اسمه كاملاً يُعلَّم `name` بلا مراجعة.
     - يُسجَّل في سجلّ التدقيق (`aggregator_areas_prefix`).
+  - **ربطٌ بملف** (`aggregator.areas.export` و`aggregator.areas.import`): لمراجعة الربط كلّه خارج النظام،
+    حين لا تكفي المطابقة بالاسم.
+    - «نزّل ملف الربط»: JSON بمدنهم ومناطق ما جُلب منها، ومحافظاتنا ومناطقنا بربطها الآن وطريقته. لا أسرار فيه،
+      ولا يتّصل بنظامهم.
+    - «ارفع ملف الربط»: `{"governorates": {محافظتنا: مدينتهم}, "areas": {منطقتنا: منطقتهم}}`.
+    - لا يُقبل إلّا ما هو من محافظات الشركة ومناطقها، ومنطقتهم من مناطق مدينة محافظتها (ولو رُبطت المحافظة في
+      الملف نفسه). ما يُرفض يُعدّ في الرسالة.
+    - ما ربطه موظّفٌ بيده بغير ما في الملف يبقى. وما رُفع يُعلَّم `method = file`، ويُسجَّل
+      (`aggregator_areas_import`).
   - **«افحص الربط»:** يقارن ما رُبط بقوائمهم الحيّة ولا يغيّر شيئاً. يعدّ:
     - المناطق السليمة؛
     - المناطق بلا ربط، وهذه لا تُرسل شحناتها؛
@@ -177,7 +186,7 @@
   - `aggregator_jobs`؛
   - `aggregator_events`؛
   - `shipments.aggregator_order_id`؛
-  - `aggregator_places.method` (`2026_01_03_010200_aggregator_places_method.php`): `manual` أو `name` أو `prefix`.
+  - `aggregator_places.method` (`2026_01_03_010200_aggregator_places_method.php`): `manual` أو `name` أو `prefix` أو `file`.
 - **النماذج:** `AggregatorLink` (`ACTIONS`، `DEFAULT_MAP`، `actionFor`، `companyOrderId`، `localNumber`،
   `readyToSend`، `webhookAccepts`)، و`AggregatorPlace`، و`AggregatorJob`، و`AggregatorEvent`.
 - **الخدمات** (`app/Services/Aggregator`):
@@ -192,7 +201,7 @@
 - **في الكود الموجود:**
   - `ShipmentTickets::open` يقبل `null` موظّفاً، فتُفتح التذكرة باسم مندوب الوسيط.
   - `Arabic::attempts` جديدة.
-  - تسميات سجلّ التدقيق: `aggregator_changed` و`aggregator_hook_reset` و`aggregator_areas_prefix`.
+  - تسميات سجلّ التدقيق: `aggregator_changed` و`aggregator_hook_reset` و`aggregator_areas_prefix` و`aggregator_areas_import`.
 
 ## ما بقي خارج هذا
 
@@ -241,4 +250,6 @@
     - «بلد الشرقية» وعندهم «بلد» مرّتين لا تُربط، وما لا بداية له يبقى، وما رُبط باليد كما هو؛
     - ما طابق كاملاً يُعلَّم بالاسم، والمعلَّم يُعرض وحده للمراجعة، وحفظه باليد يزيل علامته؛
     - الضغط ثانيةً لا يغيّر شيئاً.
+  - **بملف:** الملف المنزَّل فيه مناطقهم وربطنا بلا أسرار، والمرفوع يربط ما يصحّ ويرفض منطقةً من مدينةٍ أخرى أو
+    ليست من مناطقنا، ولا يغيّر ما ربطه موظّف، وملفٌ ليس ملف ربطٍ يُرفض.
   - السجلّ يعرض الفاشل وسببه ويعيده.
