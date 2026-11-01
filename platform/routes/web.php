@@ -480,6 +480,7 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/hook', [AggregatorController::class, 'hook'])->name('hook');
                 Route::put('/statuses', [AggregatorController::class, 'statuses'])->name('statuses');
                 Route::get('/areas', [AggregatorController::class, 'areas'])->name('areas');
+                Route::get('/areas/{governorate}', [AggregatorController::class, 'governorateAreas'])->whereNumber('governorate')->name('areas.show');
                 Route::put('/areas', [AggregatorController::class, 'saveAreas'])->name('areas.update');
                 Route::post('/areas/auto', [AggregatorController::class, 'autoAreas'])->middleware('throttle:5,1')->name('areas.auto');
                 Route::post('/areas/verify', [AggregatorController::class, 'verifyAreas'])->middleware('throttle:5,1')->name('areas.verify');

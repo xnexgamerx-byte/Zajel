@@ -9,6 +9,7 @@ use App\Models\AggregatorJob;
 use App\Models\AggregatorLink;
 use App\Models\AggregatorPlace;
 use App\Models\AuditLog;
+use App\Models\City;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Governorate;
@@ -178,7 +179,10 @@ class AggregatorSettingsTest extends TestCase
         $this->assertSame('78', $places[$ashar]);
         $this->assertFalse(isset($places[$jumhuriya]));
 
-        $this->actingAs($this->owner)->get($this->url('/areas'))->assertOk()->assertSee('البصرة')->assertSee('حي الجمهورية');
+        // الصفحة العامّة بالمحافظات وعدّادها، ومناطق المحافظة في صفحتها
+        $this->actingAs($this->owner)->get($this->url('/areas'))->assertOk()->assertSee('البصرة');
+        $this->actingAs($this->owner)->get($this->url('/areas/'.$basra->id.'?show=all&q='.urlencode('العشار')))->assertOk()
+            ->assertSee('حي الجمهورية')->assertSee('العشار');
     }
 
     public function test_an_ambiguous_or_missing_name_is_left_for_a_person_not_guessed(): void
@@ -243,6 +247,44 @@ class AggregatorSettingsTest extends TestCase
         // لا يُغيّر الفحص شيئاً
         $this->assertSame('999', Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('local_id', $ashar)->where('kind', 'city')->value('remote_id')));
         $this->actingAs($this->owner)->get($this->url('/areas'))->assertOk();
+    }
+
+    public function test_the_areas_pages_stay_light_with_every_governorate_and_thousands_of_areas(): void
+    {
+        $this->setFeature($this->company, Feature::Aggregator);
+
+        // كل المحافظات مربوطة، ولكلٍّ مناطقها كاملةً عندهم — كما بعد «اربط بالاسم»: كانت الصفحة الواحدة تُبنى بملايين الخيارات فتنهار
+        Tenancy::runFor($this->company, function () {
+            $cities = $regions = [];
+            foreach (Governorate::all() as $governorate) {
+                $cities[(string) $governorate->id] = $governorate->name_ar;
+                AggregatorPlace::create(['kind' => 'governorate', 'local_id' => $governorate->id, 'remote_id' => (string) $governorate->id]);
+                $regions[(string) $governorate->id] = City::where('governorate_id', $governorate->id)->pluck('name_ar', 'id')
+                    ->mapWithKeys(fn ($name, $id) => ['r'.$id => $name])->all();
+            }
+            AggregatorLink::query()->firstOrCreate([], ['base_url' => self::BASE])->forceFill(['catalog' => ['cities' => $cities, 'regions' => $regions]])->save();
+        });
+
+        $index = $this->actingAs($this->owner)->get($this->url('/areas'))->assertOk();
+        $this->assertLessThan(500_000, strlen($index->getContent()));
+
+        // أكبر محافظة: صفحةٌ بـ ١٥ صفّاً، لا بكل مناطقها
+        $biggest = Tenancy::runFor($this->company, fn () => City::query()->selectRaw('governorate_id, count(*) as n')
+            ->groupBy('governorate_id')->orderByDesc('n')->first());
+        $page = $this->actingAs($this->owner)->get($this->url('/areas/'.$biggest->governorate_id))->assertOk();
+        $this->assertLessThan(2_000_000, strlen($page->getContent()));
+        $this->assertSame(15, substr_count($page->getContent(), 'name="city['));
+
+        // البحث والصفحة الثانية
+        $this->actingAs($this->owner)->get($this->url('/areas/'.$biggest->governorate_id.'?page=2'))->assertOk();
+        $first = Tenancy::runFor($this->company, fn () => City::where('governorate_id', $biggest->governorate_id)->orderBy('name_ar')->value('name_ar'));
+        $this->actingAs($this->owner)->get($this->url('/areas/'.$biggest->governorate_id.'?q='.urlencode($first)))->assertOk()->assertSee($first);
+
+        // محافظةٌ غير مربوطة: تُطلب مدينتها أوّلاً، وما ليس من مناطق الشركة لا يُربط ولو أُرسل رقمه
+        Tenancy::runFor($this->company, fn () => AggregatorPlace::where('kind', 'governorate')->where('local_id', $biggest->governorate_id)->delete());
+        $this->actingAs($this->owner)->get($this->url('/areas/'.$biggest->governorate_id))->assertOk()->assertSee('اربط المحافظة بمدينتها');
+        $this->actingAs($this->owner)->put($this->url('/areas'), ['city' => [9_999_999 => 'r1']])->assertSessionHasNoErrors();
+        $this->assertFalse(Tenancy::runFor($this->company, fn () => AggregatorPlace::where('kind', 'city')->where('local_id', 9_999_999)->exists()));
     }
 
     public function test_the_log_shows_what_failed_and_retries_it(): void

@@ -16,9 +16,11 @@ use App\Services\Aggregator\AggregatorClient;
 use App\Services\Aggregator\AggregatorException;
 use App\Services\Aggregator\AggregatorOutbox;
 use App\Services\Aggregator\PlaceMatcher;
+use App\Support\Arabic;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -29,6 +31,9 @@ use Illuminate\View\View;
  */
 class AggregatorController extends Controller
 {
+    /** صفّ مناطق المحافظة الواحدة: في كلّ صفٍّ قائمةٌ بمناطق مدينتها عندهم، وفي بغداد مئاتٌ منها */
+    private const AREAS_PER_PAGE = 15;
+
     public function edit(TenantContext $tenant): View
     {
         $link = $this->link();
@@ -202,18 +207,58 @@ class AggregatorController extends Controller
         return back()->with('success', 'حُفظ ربط الحالات.');
     }
 
+    /** المحافظات ومدنهم، وكم من مناطق كلٍّ منها رُبط. مناطقها نفسها في صفحتها: آلاف الخيارات لا تُبنى في صفحة */
     public function areas(): View
     {
         $link = $this->link();
-        $places = AggregatorPlace::query()->get()->groupBy('kind')->map->pluck('remote_id', 'local_id');
+        $mapped = AggregatorPlace::query()->where('kind', 'governorate')->pluck('remote_id', 'local_id');
+        $cityIds = City::query()->get(['id', 'governorate_id'])->groupBy('governorate_id');
+        $done = AggregatorPlace::query()->where('kind', 'city')->pluck('remote_id', 'local_id');
 
         return view('tenant.aggregator.areas', [
             'link' => $link,
-            'governorates' => Governorate::query()->orderBy('id')->get(['id', 'name_ar']),
-            'cities' => City::query()->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar'])->groupBy('governorate_id'),
+            'governorates' => Governorate::query()->orderBy('id')->get(['id', 'name_ar'])->map(function ($g) use ($cityIds, $done) {
+                $ids = ($cityIds[$g->id] ?? collect())->pluck('id');
+                $g->total = $ids->count();
+                $g->mapped = $ids->filter(fn ($id) => isset($done[$id]))->count();
+
+                return $g;
+            }),
             'theirCities' => $link->catalog['cities'] ?? [],
-            'regions' => $link->catalog['regions'] ?? [],
-            'mapped' => $places,
+            'mapped' => $mapped,
+        ]);
+    }
+
+    /** مناطق محافظةٍ بمناطق مدينتها عندهم: صفحاتٌ وبحثٌ، وغير المربوطة أوّلاً */
+    public function governorateAreas(Request $request, Governorate $governorate): View
+    {
+        $link = $this->link();
+        $remoteCity = AggregatorPlace::query()->where('kind', 'governorate')->where('local_id', $governorate->id)->value('remote_id');
+        $regions = $remoteCity ? ($link->catalog['regions'][$remoteCity] ?? []) : [];
+        $mapped = AggregatorPlace::query()->where('kind', 'city')->pluck('remote_id', 'local_id');
+
+        $all = $request->query('show') === 'all';
+        $search = trim((string) $request->query('q', ''));
+
+        $cities = City::query()->where('governorate_id', $governorate->id)->orderBy('name_ar')->get(['id', 'name_ar'])
+            ->when(! $all, fn ($c) => $c->filter(fn ($city) => ! isset($mapped[$city->id])))
+            ->when($search !== '', fn ($c) => $c->filter(fn ($city) => str_contains(Arabic::looseFold($city->name_ar), Arabic::looseFold($search))))
+            ->values();
+
+        $page = max(1, (int) $request->query('page', 1));
+        $rows = new LengthAwarePaginator($cities->forPage($page, self::AREAS_PER_PAGE)->values(), $cities->count(), self::AREAS_PER_PAGE, $page, [
+            'path' => $request->url(), 'query' => $request->query(),
+        ]);
+
+        return view('tenant.aggregator.areas-governorate', [
+            'governorate' => $governorate,
+            'remoteCity' => $remoteCity,
+            'remoteCityName' => $remoteCity ? ($link->catalog['cities'][$remoteCity] ?? $remoteCity) : null,
+            'regions' => $regions,
+            'mapped' => $mapped,
+            'rows' => $rows,
+            'all' => $all,
+            'search' => $search,
         ]);
     }
 
@@ -225,10 +270,19 @@ class AggregatorController extends Controller
         ]);
 
         $link = $this->link();
-        $names = ['governorate' => $link->catalog['cities'] ?? [], 'city' => collect($link->catalog['regions'] ?? [])->flatMap(fn ($r) => $r)->all()];
+        // أسماء مناطقهم بأرقامها: الاتحاد يحفظ الأرقام مفاتيح، وكلّ مدينةٍ لها قائمتها
+        $regions = array_reduce(array_values($link->catalog['regions'] ?? []), fn (array $carry, $list) => $carry + (array) $list, []);
+        $names = ['governorate' => $link->catalog['cities'] ?? [], 'city' => $regions];
+
+        // ما ليس من محافظات الشركة ومناطقها لا يُربط ولو أُرسل رقمه
+        $known = ['governorate' => Governorate::query()->pluck('id')->flip(), 'city' => City::query()->pluck('id')->flip()];
 
         foreach (['governorate', 'city'] as $kind) {
             foreach ($data[$kind] ?? [] as $local => $remote) {
+                if (! isset($known[$kind][(int) $local])) {
+                    continue;
+                }
+
                 if (blank($remote)) {
                     AggregatorPlace::query()->where('kind', $kind)->where('local_id', (int) $local)->delete();
 
@@ -418,10 +472,11 @@ class AggregatorController extends Controller
     /** مناطق مندوبٍ وسيط لم تُربط بعد: محافظاتٌ مربوطة وفيها مناطق بلا منطقةٍ عندهم */
     private function unmappedCount(): int
     {
-        $governorates = AggregatorPlace::query()->where('kind', 'governorate')->pluck('local_id');
+        $governorates = AggregatorPlace::query()->where('kind', 'governorate')->pluck('local_id')->flip();
+        $done = AggregatorPlace::query()->where('kind', 'city')->pluck('local_id')->flip();
 
-        return City::query()->whereIn('governorate_id', $governorates)
-            ->whereNotIn('id', AggregatorPlace::query()->where('kind', 'city')->pluck('local_id'))->count();
+        return City::query()->get(['id', 'governorate_id'])
+            ->filter(fn ($city) => isset($governorates[$city->governorate_id]) && ! isset($done[$city->id]))->count();
     }
 
     private function audit(string $action, array $values): void

@@ -67,7 +67,7 @@ class StaffNavigationTest extends TestCase
         // الأرصدة الافتتاحية: تبويبٌ في دفتر القيود
         'finance.opening',
         // ربط المناطق وسجلّ الربط: زرّان في رأس «ربط الشركة الوسيطة» (docs/plan/104)
-        'aggregator.areas', 'aggregator.log',
+        'aggregator.areas', 'aggregator.areas.show', 'aggregator.log',
     ];
 
     private Company $company;
