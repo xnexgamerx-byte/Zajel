@@ -16,6 +16,7 @@ class AggregatorEvent extends Model
     public const RESULTS = [
         'applied' => 'طُبّق',
         'recorded' => 'سُجّل',
+        'waiting' => 'ينتظر إجراءً منّا',
         'unmatched' => 'لا شحنة له',
         'error' => 'تعذّر',
     ];

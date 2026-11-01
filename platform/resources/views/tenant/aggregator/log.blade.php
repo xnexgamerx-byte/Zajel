@@ -69,7 +69,7 @@
                             <td>{{ $event->status_text }} @if ($event->deliver_done)<span class="chip chip-ok">سُلّمت</span>@endif
                                 @if ($event->old_price !== null && $event->old_price !== -1)<span class="text-xs text-warn-700">السعر: <span class="num">{{ number_format($event->old_price) }}</span> ← <span class="num">{{ number_format($event->price) }}</span></span>@endif</td>
                             <td>
-                                <span class="chip {{ ['applied' => 'chip-ok', 'recorded' => 'chip-mute', 'unmatched' => 'chip-warn', 'error' => 'chip-bad'][$event->result] ?? 'chip-mute' }}">{{ \App\Models\AggregatorEvent::RESULTS[$event->result] ?? $event->result }}</span>
+                                <span class="chip {{ ['applied' => 'chip-ok', 'recorded' => 'chip-mute', 'waiting' => 'chip-warn', 'unmatched' => 'chip-warn', 'error' => 'chip-bad'][$event->result] ?? 'chip-mute' }}">{{ \App\Models\AggregatorEvent::RESULTS[$event->result] ?? $event->result }}</span>
                                 <span class="text-xs text-ink-500">{{ $event->message }}</span>
                             </td>
                         </tr>

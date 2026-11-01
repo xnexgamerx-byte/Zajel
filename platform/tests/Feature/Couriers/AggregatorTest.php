@@ -18,6 +18,7 @@ use App\Models\Courier;
 use App\Models\FailureReason;
 use App\Models\Governorate;
 use App\Models\Shipment;
+use App\Models\ShipmentEvent;
 use App\Models\ShipmentTicket;
 use App\Models\User;
 use App\Services\Aggregator\AggregatorOutbox;
@@ -373,6 +374,146 @@ class AggregatorTest extends TestCase
         Http::assertSent(fn (HttpRequest $r) => str_contains($r->url(), '/aggre/receive-returned-order')
             && $this->field($r, 'merchant-token') === 'merchant-tok' && $this->field($r, 'order-id') === $shipment->aggregator_order_id);
         $this->assertSame(['done', 'done'], $this->jobs()->pluck('status')->all());
+    }
+
+    /** شحنةٌ عند الوسيط أُنشئت عندهم وخرجت مع مندوبهم «قيد التوصيل» */
+    private function outWithThem(): Shipment
+    {
+        $shipment = $this->ship();
+        $this->artisan('aggregator:sync');
+        $shipment = $this->fresh($shipment);
+        $this->hook($this->order($shipment, ['status_id' => '3', 'updated_at' => '2026-11-01 08:00:00']))->assertOk();
+
+        return $this->fresh($shipment);
+    }
+
+    private function map(array $map): void
+    {
+        Tenancy::runFor($this->company, fn () => $this->link->forceFill(['status_map' => $map])->save());
+    }
+
+    private function lastResult(): string
+    {
+        return Tenancy::runFor($this->company, fn () => AggregatorEvent::latest('id')->first()->result);
+    }
+
+    public function test_every_option_explains_itself_on_the_screen(): void
+    {
+        $this->assertSame(array_keys(AggregatorLink::ACTIONS), array_keys(AggregatorLink::ACTION_HINTS));
+    }
+
+    public function test_a_confirmed_return_goes_through_failed_then_returning_and_stays_with_them_until_scanned(): void
+    {
+        $this->fakeApi();
+        $this->map(['23' => 'return_confirmed', '24' => 'return_with_courier']);
+        $shipment = $this->outWithThem();
+
+        $this->hook($this->order($shipment, ['status_id' => '23', 'issue_notes' => 'الزبون رفض']))->assertOk();
+        $back = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::Returning, $back->status);
+        $this->assertSame('راجع مؤكد', $back->statusLabel());
+        $this->assertNotNull($back->return_confirmed_at);
+        $this->assertNull($back->return_received_at);
+        $this->assertSame($this->reason($this->company)->id, $back->last_failure_reason_id);
+        $this->assertSame(1, (int) $back->attempts_count);
+
+        // «راجع عند المندوب» بعدها: راجعةٌ من قبل، فسطر تتبّع لا انتقال
+        $this->hook($this->order($shipment, ['status_id' => '24', 'status' => 'راجع عند المندوب']))->assertOk();
+        $this->assertSame(ShipmentStatus::Returning, $this->fresh($shipment)->status);
+
+        // «راجع عند المندوب» من «بالطريق» مباشرةً: المسار نفسه حتى «راجع مؤكد»
+        $other = $this->ship();
+        $this->artisan('aggregator:sync');
+        $this->hook($this->order($this->fresh($other), ['status_id' => '24', 'status' => 'راجع عند المندوب']))->assertOk();
+        $this->assertSame('راجع مؤكد', $this->fresh($other)->statusLabel());
+
+        // بلا سبب «لم يُسلَّم» مختار: لا تُرجَع بالتخمين، وتظهر خطأً في السجلّ
+        Tenancy::runFor($this->company, fn () => $this->link->forceFill(['failure_reason_id' => null])->save());
+        $third = $this->outWithThem();
+        $this->hook($this->order($third, ['status_id' => '23']))->assertOk();
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($third)->status);
+        $this->assertSame('error', $this->lastResult());
+    }
+
+    public function test_a_redelivery_sends_a_failed_shipment_back_to_them_as_redelivery(): void
+    {
+        $this->fakeApi();
+        $this->map(['44' => 'redelivery']);
+        $shipment = $this->outWithThem();
+
+        // «إعادة توصيل» على شحنةٍ قيد التوصيل لا تعني شيئاً: سطر تتبّع
+        $this->hook($this->order($shipment, ['status_id' => '44', 'status' => 'للفرز لإعادة الإرسال', 'updated_at' => '2026-11-01 09:00:00']))->assertOk();
+        $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
+
+        // لم يُسلَّم (٢٣)، ثم أعادوها للتوصيل (٤٤): تعود إليهم «بالطريق» وعليها علامة إعادة التوصيل
+        $this->hook($this->order($shipment, ['status_id' => '23']))->assertOk();
+        $this->assertSame(ShipmentStatus::FailedAttempt, $this->fresh($shipment)->status);
+        $this->hook($this->order($shipment, ['status_id' => '44', 'status' => 'للفرز لإعادة الإرسال', 'updated_at' => '2026-11-01 10:00:00']))->assertOk();
+        $again = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::InTransit, $again->status);
+        $this->assertNotNull($again->redelivery_at);
+        $this->assertSame((int) $this->agent->id, (int) $again->delivery_courier_id);
+
+        // خرجت مع مندوبهم ثانيةً: «إعادة توصيل»، ولا طلب جديد عندهم
+        $this->hook($this->order($shipment, ['status_id' => '3', 'updated_at' => '2026-11-01 11:00:00']))->assertOk();
+        $this->assertSame('إعادة توصيل', $this->fresh($shipment)->statusLabel());
+        $this->assertSame(['create'], $this->jobs()->pluck('action')->all());
+    }
+
+    public function test_returned_to_us_waits_for_our_scan_and_is_not_reported_back_to_them(): void
+    {
+        $this->fakeApi();
+        $shipment = $this->outWithThem();
+
+        // حالتهم ١٥ «راجع للتاجر» (افتراضاً «راجع بالمخزن»): تصير راجعة، ولا تُحسب في مخزننا قبل المسح
+        $this->hook($this->order($shipment, ['status_id' => '15', 'status' => 'راجع للتاجر']))->assertOk();
+        $back = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::Returning, $back->status);
+        $this->assertNull($back->return_received_at);
+        $this->assertSame('waiting', $this->lastResult());
+
+        // مسحناها: استُلمت، ولا يُعاد إبلاغهم وقد قالوه هم
+        Tenancy::runFor($this->company, fn () => app(ReceiveReturns::class)->handle([$shipment->id], $this->staff));
+        $this->assertNotNull($this->fresh($shipment)->return_received_at);
+        $this->assertSame(['create'], $this->jobs()->pluck('action')->all());
+
+        // وإن أعادوا القول بعد المسح: سُجّل فقط
+        $this->hook($this->order($shipment, ['status_id' => '15', 'status' => 'راجع للتاجر', 'updated_at' => '2026-11-01 12:00:00']))->assertOk();
+        $this->assertSame('recorded', $this->lastResult());
+    }
+
+    public function test_returned_to_merchant_needs_our_scan_first_then_closes_the_return(): void
+    {
+        $this->fakeApi();
+        $this->map(['15' => 'returned_to_merchant']);
+        $shipment = $this->outWithThem();
+
+        // لم نستلمها بالمسح: لا تصل تاجرها، تصير راجعةً وتنتظر
+        $this->hook($this->order($shipment, ['status_id' => '15', 'status' => 'راجع للتاجر']))->assertOk();
+        $this->assertSame(ShipmentStatus::Returning, $this->fresh($shipment)->status);
+        $this->assertSame('waiting', $this->lastResult());
+
+        // مسحناها ثم قالوها: «راجع للتاجر»
+        Tenancy::runFor($this->company, fn () => app(ReceiveReturns::class)->handle([$shipment->id], $this->staff));
+        $this->hook($this->order($shipment, ['status_id' => '15', 'status' => 'راجع للتاجر', 'updated_at' => '2026-11-01 12:00:00']))->assertOk();
+        $this->assertSame(ShipmentStatus::Returned, $this->fresh($shipment)->status);
+        $this->assertSame('applied', $this->lastResult());
+    }
+
+    public function test_in_their_warehouse_is_a_line_for_the_merchant_not_our_shelf(): void
+    {
+        $this->fakeApi();
+        $this->map(['13' => 'at_hub']);
+        $shipment = $this->ship();
+        $this->artisan('aggregator:sync');
+
+        $this->hook($this->order($this->fresh($shipment), ['status_id' => '13', 'status' => 'في مخزن بغداد']))->assertOk();
+
+        // حالتها عندنا كما هي: «بالطريق» إلى الوسيط، لا «بالمخزن» على رفوفنا
+        $this->assertSame(ShipmentStatus::InTransit, $this->fresh($shipment)->status);
+        $line = Tenancy::runFor($this->company, fn () => $shipment->events()->where('event_type', 'tracking')->latest('id')->first());
+        $this->assertStringContainsString('بالمخزن عند شريك التوصيل', $line->note);
+        $this->assertContains('tracking', ShipmentEvent::MERCHANT_EVENTS);
     }
 
     public function test_nothing_happens_without_the_feature_and_no_company_reaches_another(): void

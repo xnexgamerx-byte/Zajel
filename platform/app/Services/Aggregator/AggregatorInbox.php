@@ -154,6 +154,12 @@ class AggregatorInbox
                     ? $this->move($shipment, $courier, ShipmentStatus::OutForDelivery, $note)
                     : $this->track($shipment, $courier, $note),
                 'failed_attempt' => $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $link->failure_reason_id, $note),
+                'return_confirmed', 'return_with_courier' => $this->toReturn($link, $shipment, $courier, $note),
+                'redelivery' => $this->redeliver($shipment, $courier, $note),
+                'return_received' => $this->returnedToUs($link, $shipment, $courier, $note),
+                'returned_to_merchant' => $this->toMerchant($link, $shipment, $courier, $note),
+                // في مخزنهم لا مخزننا: «بالمخزن» عندنا لا يكون إلّا بالمسح، فلا تظهر على رفوفنا
+                'at_hub' => $this->track($shipment, $courier, 'بالمخزن عند شريك التوصيل — '.$note),
                 'postponed' => $this->outcome($shipment, $courier, ShipmentStatus::Postponed, $link->postpone_reason_id, $note),
                 default => $this->track($shipment, $courier, $note),
             };
@@ -203,6 +209,100 @@ class AggregatorInbox
         return $this->priceTicket($shipment, $courier, $price, $note, finalize: false);
     }
 
+    /**
+     * راجعٌ مؤكّد عند المندوب الوسيط (راجع مؤكد، راجع عند المندوب): يمرّ بما يمرّ به أيّ طرد — قيد
+     * التوصيل، ثم «لم يُسلَّم» بالسبب المختار، ثم راجع — فيبقى المال والعمولة على قواعدهما. ومكانه عند
+     * الوسيط حتى نستلمه بالمسح.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    private function toReturn(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note): array
+    {
+        if ($shipment->status === ShipmentStatus::Returning) {
+            return $this->track($shipment, $courier, $note);
+        }
+
+        $this->toOutForDelivery($shipment, $courier, $note);
+
+        if ($shipment->status === ShipmentStatus::OutForDelivery) {
+            [$result, $message] = $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $link->failure_reason_id, $note);
+
+            if ($result === 'error') {
+                return [$result, $message];
+            }
+        }
+
+        if (! in_array($shipment->status, [ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed], true)) {
+            return $this->track($shipment, $courier, $note);
+        }
+
+        $this->move($shipment, $courier, ShipmentStatus::Returning, $note);
+
+        return ['applied', 'راجع مؤكد — عند المندوب الوسيط حتى يُستلم بالمسح.'];
+    }
+
+    /**
+     * يعيدون توصيلها: ما كان «لم يُسلَّم» أو «مؤجّل» عندنا يعود للوسيط «إعادة توصيل» كما يعيده قرار
+     * المعالجة (ProcessFailedAttempt) — «بالطريق» إليه، ثم قيد التوصيل حين يخرجها. وغيره سطر تتبّع.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    private function redeliver(Shipment $shipment, Courier $courier, string $note): array
+    {
+        if (! in_array($shipment->status, [ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed], true)) {
+            return $this->track($shipment, $courier, $note);
+        }
+
+        $this->move($shipment, $courier, ShipmentStatus::OutForDelivery, $note, extra: ['redelivery' => true]);
+
+        return ['applied', 'إعادة توصيل — عادت للوسيط.'];
+    }
+
+    /**
+     * يقولون سلّموها لنا راجعة. لا تُحسب في مخزننا بقولهم: تصير راجعةً إن لم تكن، وتنتظر المسح من
+     * «استلام الراجع» — فهو وحده ما يثبت أنّها على رفوفنا.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    private function returnedToUs(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note): array
+    {
+        if ($shipment->status === ShipmentStatus::Returning && $shipment->return_received_at !== null) {
+            return ['recorded', 'استُلمت بالمسح من قبل.'];
+        }
+
+        // تصير راجعةً أوّلاً إن لم تكن؛ وما لا يصير راجعاً (سُلّم مثلاً) يبقى بما قاله toReturn
+        if ($shipment->status !== ShipmentStatus::Returning) {
+            $result = $this->toReturn($link, $shipment, $courier, $note);
+
+            if ($shipment->status !== ShipmentStatus::Returning) {
+                return $result;
+            }
+        }
+
+        $this->track($shipment, $courier, 'سلّمها شريك التوصيل راجعة — '.$note);
+
+        return ['waiting', 'يقولون سلّموها لنا راجعة: استلمها بالمسح من «استلام الراجع».'];
+    }
+
+    /**
+     * «راجع عند التاجر»: لا تصل تاجرها قبل أن نستلمها بالمسح (قاعدة ChangeShipmentStatus نفسها).
+     * فإن استُلمت تصير «راجع للتاجر»، وإلّا تنتظر المسح كما في returnedToUs.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    private function toMerchant(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note): array
+    {
+        if ($shipment->status === ShipmentStatus::Returned) {
+            return ['recorded', 'راجعةٌ لتاجرها من قبل.'];
+        }
+
+        if ($shipment->status === ShipmentStatus::Returning && $shipment->return_received_at !== null) {
+            return $this->move($shipment, $courier, ShipmentStatus::Returned, $note);
+        }
+
+        return $this->returnedToUs($link, $shipment, $courier, $note);
+    }
+
     /** @return array{0: string, 1: ?string} */
     private function outcome(Shipment $shipment, Courier $courier, ShipmentStatus $to, ?int $reasonId, string $note): array
     {
@@ -235,7 +335,7 @@ class AggregatorInbox
     }
 
     /** @return array{0: string, 1: ?string} */
-    private function move(Shipment $shipment, Courier $courier, ShipmentStatus $to, string $note, ?int $reasonId = null): array
+    private function move(Shipment $shipment, Courier $courier, ShipmentStatus $to, string $note, ?int $reasonId = null, array $extra = []): array
     {
         $this->change->handle($shipment, $to, null, array_filter([
             'actor_type' => 'courier',
@@ -243,7 +343,7 @@ class AggregatorInbox
             'courier_id' => $courier->id,
             'failure_reason_id' => $reasonId,
             'note' => $note,
-        ], fn ($v) => $v !== null));
+        ] + $extra, fn ($v) => $v !== null));
 
         $shipment->refresh();
 

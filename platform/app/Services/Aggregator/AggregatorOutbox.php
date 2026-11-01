@@ -4,6 +4,7 @@ namespace App\Services\Aggregator;
 
 use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
+use App\Models\AggregatorEvent;
 use App\Models\AggregatorJob;
 use App\Models\AggregatorLink;
 use App\Models\AggregatorPlace;
@@ -47,9 +48,21 @@ class AggregatorOutbox
     /** بعد استلام راجعها من المندوب الوسيط (ReceiveReturns) */
     public static function afterReturnReceived(Shipment $shipment): void
     {
-        if (filled($shipment->aggregator_order_id) && self::linkFor($shipment) !== null) {
-            self::enqueue($shipment, 'receive_return');
+        $link = filled($shipment->aggregator_order_id) ? self::linkFor($shipment) : null;
+
+        // قالوا هم إنّهم سلّموها لنا (حالتهم «راجع للتاجر» مثلاً): هي عندهم كذلك، فلا يُعاد إبلاغهم
+        if ($link === null || self::theySaidReturned($link, $shipment)) {
+            return;
         }
+
+        self::enqueue($shipment, 'receive_return');
+    }
+
+    private static function theySaidReturned(AggregatorLink $link, Shipment $shipment): bool
+    {
+        return AggregatorEvent::query()->withoutGlobalScopes()->where('shipment_id', $shipment->id)
+            ->pluck('status_id')
+            ->contains(fn ($id) => in_array($link->actionFor($id), AggregatorLink::RETURNED_TO_US, true));
     }
 
     /** ربط شركة الشحنة إن كانت الميزة مفتوحةً لها ومندوبها هو الوسيط المربوط */
