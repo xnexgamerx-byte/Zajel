@@ -21,14 +21,30 @@ class PlaceMatcher
      */
     public static function best(string $name, array $options): ?string
     {
+        return self::lookup($name, $options)[0];
+    }
+
+    /**
+     * رقمهم إن وُجد اسمٌ واحدٌ بعينه، وحال المطابقة: matched، أو ambiguous (يشبه أكثر من اسمٍ عندهم)،
+     * أو none (لا يشبه شيئاً). الغامض والمفقود لا يُربطان بالتخمين: يختارهما الموظّف.
+     *
+     * @param  array<string, string>  $options  رقمهم ← اسمهم
+     * @return array{0: ?string, 1: 'matched'|'ambiguous'|'none'}
+     */
+    public static function lookup(string $name, array $options): array
+    {
         $wanted = self::normalise($name);
 
         if ($wanted === '') {
-            return null;
+            return [null, 'none'];
         }
 
         $same = array_keys(array_filter($options, fn ($option) => self::normalise($option) === $wanted));
 
-        return count($same) === 1 ? (string) $same[0] : null;
+        return match (count($same)) {
+            0 => [null, 'none'],
+            1 => [(string) $same[0], 'matched'],
+            default => [null, 'ambiguous'],
+        };
     }
 }

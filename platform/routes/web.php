@@ -482,6 +482,7 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/areas', [AggregatorController::class, 'areas'])->name('areas');
                 Route::put('/areas', [AggregatorController::class, 'saveAreas'])->name('areas.update');
                 Route::post('/areas/auto', [AggregatorController::class, 'autoAreas'])->middleware('throttle:5,1')->name('areas.auto');
+                Route::post('/areas/verify', [AggregatorController::class, 'verifyAreas'])->middleware('throttle:5,1')->name('areas.verify');
                 Route::get('/log', [AggregatorController::class, 'log'])->name('log');
                 Route::post('/jobs/{job}/retry', [AggregatorController::class, 'retry'])->whereNumber('job')->name('jobs.retry');
             });

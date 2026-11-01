@@ -247,10 +247,13 @@ class AggregatorController extends Controller
 
     /**
      * يربط بالاسم ما لم يُربط: المحافظات بمدنهم، ثم يجلب مناطق كل مدينةٍ مربوطة ويربط مناطقنا بها.
-     * ما يحتمل أكثر من اسمٍ يُترك للموظّف.
+     * ما يحتمل أكثر من اسمٍ، أو لا يوجد عندهم، لا يُربط بالتخمين: يُذكر في الرسالة ويُترك للموظّف.
+     * ما يُجلب يُحفظ مع كل مدينة، فانقطاعٌ في الطريق لا يُضيع ما جُلب وإعادة الضغط تكمل منه.
      */
     public function autoAreas(): RedirectResponse
     {
+        @set_time_limit(300);
+
         $link = $this->link();
         $theirCities = $link->catalog['cities'] ?? [];
 
@@ -260,13 +263,25 @@ class AggregatorController extends Controller
 
         $mapped = AggregatorPlace::query()->where('kind', 'governorate')->pluck('remote_id', 'local_id');
         $added = 0;
+        $left = ['ambiguous' => 0, 'none' => 0];
+        $unmatchedGovernorates = [];
 
         foreach (Governorate::query()->get(['id', 'name_ar']) as $governorate) {
-            if (! isset($mapped[$governorate->id]) && ($remote = PlaceMatcher::best($governorate->name_ar, $theirCities))) {
-                AggregatorPlace::query()->create(['kind' => 'governorate', 'local_id' => $governorate->id, 'remote_id' => $remote, 'remote_name' => $theirCities[$remote]]);
-                $mapped[$governorate->id] = $remote;
-                $added++;
+            if (isset($mapped[$governorate->id])) {
+                continue;
             }
+
+            [$remote, $state] = PlaceMatcher::lookup($governorate->name_ar, $theirCities);
+
+            if ($remote === null) {
+                $unmatchedGovernorates[] = $governorate->name_ar;
+
+                continue;
+            }
+
+            AggregatorPlace::query()->create(['kind' => 'governorate', 'local_id' => $governorate->id, 'remote_id' => $remote, 'remote_name' => $theirCities[$remote]]);
+            $mapped[$governorate->id] = $remote;
+            $added++;
         }
 
         $catalog = $link->catalog;
@@ -275,24 +290,107 @@ class AggregatorController extends Controller
 
         try {
             foreach ($mapped as $governorateId => $remoteCity) {
-                $regions = $catalog['regions'][$remoteCity] ??= $client->regions((string) $remoteCity);
+                if (! isset($catalog['regions'][$remoteCity])) {
+                    $catalog['regions'][$remoteCity] = $client->regions((string) $remoteCity);
+                    $link->forceFill(['catalog' => $catalog])->save();
+                }
+                $regions = $catalog['regions'][$remoteCity];
 
                 foreach (City::query()->where('governorate_id', $governorateId)->get(['id', 'name_ar']) as $city) {
-                    if (! isset($cityMapped[$city->id]) && ($remote = PlaceMatcher::best($city->name_ar, $regions))) {
-                        AggregatorPlace::query()->create(['kind' => 'city', 'local_id' => $city->id, 'remote_id' => $remote, 'remote_name' => $regions[$remote]]);
-                        $added++;
+                    if (isset($cityMapped[$city->id])) {
+                        continue;
+                    }
+
+                    [$remote, $state] = PlaceMatcher::lookup($city->name_ar, $regions);
+
+                    if ($remote === null) {
+                        $left[$state]++;
+
+                        continue;
+                    }
+
+                    AggregatorPlace::query()->create(['kind' => 'city', 'local_id' => $city->id, 'remote_id' => $remote, 'remote_name' => $regions[$remote]]);
+                    $added++;
+                }
+            }
+        } catch (AggregatorException $e) {
+            return back()->withErrors(['areas' => "جُلب ما أمكن وحُفظ، ثم تعذّر: {$e->getMessage()} — اضغط «اربط بالاسم» ثانيةً لتكمل من حيث وقفت."]);
+        }
+
+        $report = "رُبط بالاسم {$added}.";
+        if ($left['ambiguous']) {
+            $report .= " {$left['ambiguous']} منطقةً اسمها يشبه أكثر من منطقةٍ عندهم فلم تُربط بالتخمين.";
+        }
+        if ($left['none']) {
+            $report .= " {$left['none']} منطقةً لا اسم مثلها عندهم.";
+        }
+        if ($unmatchedGovernorates) {
+            $report .= ' محافظاتٌ لم تجد مدينةً بنفس اسمها: '.implode('، ', $unmatchedGovernorates).' — اختر مدينتها بيدك.';
+        }
+        if ($left['ambiguous'] || $left['none'] || $unmatchedGovernorates) {
+            $report .= ' ما بقي اختره بيدك.';
+        }
+
+        return back()->with('success', $report);
+    }
+
+    /**
+     * يفحص ما رُبط على قوائمهم الحيّة: مدينةٌ أو منطقةٌ لم تعد عندهم، وأكثر من منطقةٍ عندنا على منطقةٍ واحدة
+     * عندهم (قد يكون مقصوداً)، وما بقي بلا ربط — وهذا ما يُرفض عند الإرسال. لا يغيّر شيئاً.
+     */
+    public function verifyAreas(): RedirectResponse
+    {
+        @set_time_limit(300);
+
+        $link = $this->link();
+        $client = AggregatorClient::for($link);
+        $catalog = $link->catalog ?? [];
+
+        try {
+            $catalog['cities'] = $client->cities();
+            $governorates = AggregatorPlace::query()->where('kind', 'governorate')->get();
+            $cities = AggregatorPlace::query()->where('kind', 'city')->get()->keyBy('local_id');
+            $ours = City::query()->get(['id', 'governorate_id', 'name_ar'])->groupBy('governorate_id');
+            $names = Governorate::query()->pluck('name_ar', 'id');
+
+            $report = ['gone_cities' => [], 'gone_regions' => [], 'shared' => [], 'unmapped' => 0, 'ok' => 0, 'governorates_left' => $names->count() - $governorates->count()];
+
+            foreach ($governorates as $place) {
+                if (! isset($catalog['cities'][$place->remote_id])) {
+                    $report['gone_cities'][] = $names[$place->local_id] ?? $place->local_id;
+
+                    continue;
+                }
+
+                $catalog['regions'][$place->remote_id] = $regions = $client->regions((string) $place->remote_id);
+                $used = [];
+
+                foreach ($ours[$place->local_id] ?? [] as $city) {
+                    $mapped = $cities[$city->id] ?? null;
+
+                    if ($mapped === null) {
+                        $report['unmapped']++;
+                    } elseif (! isset($regions[$mapped->remote_id])) {
+                        $report['gone_regions'][] = ($names[$place->local_id] ?? '').' — '.$city->name_ar;
+                    } else {
+                        $report['ok']++;
+                        $used[$mapped->remote_id][] = $city->name_ar;
+                    }
+                }
+
+                foreach ($used as $remote => $list) {
+                    if (count($list) > 1) {
+                        $report['shared'][] = ($regions[$remote] ?? $remote).' ← '.implode('، ', $list);
                     }
                 }
             }
         } catch (AggregatorException $e) {
-            $link->forceFill(['catalog' => $catalog])->save();
-
-            return back()->withErrors(['areas' => 'جُلب بعض المناطق ثم تعذّر: '.$e->getMessage()]);
+            return back()->withErrors(['areas' => 'تعذّر الفحص: '.$e->getMessage()]);
         }
 
         $link->forceFill(['catalog' => $catalog])->save();
 
-        return back()->with('success', "رُبط بالاسم {$added}، وما بقي اختره بيدك.");
+        return back()->with('aggregator_check', $report);
     }
 
     public function log(Request $request): View

@@ -181,6 +181,70 @@ class AggregatorSettingsTest extends TestCase
         $this->actingAs($this->owner)->get($this->url('/areas'))->assertOk()->assertSee('البصرة')->assertSee('حي الجمهورية');
     }
 
+    public function test_an_ambiguous_or_missing_name_is_left_for_a_person_not_guessed(): void
+    {
+        $this->setFeature($this->company, Feature::Aggregator);
+        // عندهم منطقتان بالاسم نفسه تقريباً: «العشار» و«عشار» — لا تُربط عشارنا بإحداهما بالتخمين.
+        // تُسجَّل قبل العامّة: أوّل محاكاةٍ تطابق الطلب هي التي تُجيب
+        Http::fake([self::BASE.'/merchant/regions*' => Http::response(['status' => true, 'data' => [
+            ['id' => '77', 'region_name' => 'العشار'], ['id' => '80', 'region_name' => 'عشار'], ['id' => '78', 'region_name' => 'الجمهورية'],
+        ]])]);
+        $this->fakeApi();
+        $this->save();
+        $this->actingAs($this->owner)->post($this->url('/connect'));
+
+        $this->actingAs($this->owner)->post($this->url('/areas/auto'))->assertSessionHasNoErrors()
+            ->assertSessionHas('success', fn ($m) => str_contains($m, 'يشبه أكثر من منطقةٍ') && str_contains($m, 'لا اسم مثلها'));
+
+        [$ashar, $jumhuriya] = Tenancy::runFor($this->company, function () {
+            $basra = Governorate::where('code', 'BSR')->firstOrFail();
+
+            return [$this->area('العشار', $basra), $this->area('الجمهورية', $basra)];
+        });
+        $cities = Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('kind', 'city')->pluck('remote_id', 'local_id'));
+        $this->assertFalse(isset($cities[$ashar]));
+        $this->assertSame('78', $cities[$jumhuriya]);
+
+        // ما جُلب يبقى محفوظاً: لا يُجلب ثانيةً عند الإعادة
+        $before = Http::recorded()->count();
+        $this->actingAs($this->owner)->post($this->url('/areas/auto'));
+        $this->assertSame($before, Http::recorded()->count());
+    }
+
+    public function test_verifying_finds_what_is_unmapped_and_what_their_lists_no_longer_have(): void
+    {
+        $this->setFeature($this->company, Feature::Aggregator);
+        $this->fakeApi();
+        $this->save();
+        $this->actingAs($this->owner)->post($this->url('/connect'));
+        $this->actingAs($this->owner)->post($this->url('/areas/auto'));
+
+        // رُبطت منطقةٌ بما لم يعد عندهم، وأخرى بمنطقةٍ تشاركها غيرها
+        [$ashar, $jumhuriya] = Tenancy::runFor($this->company, function () {
+            $basra = Governorate::where('code', 'BSR')->firstOrFail();
+
+            return [$this->area('العشار', $basra), $this->area('الجمهورية', $basra)];
+        });
+        Tenancy::runFor($this->company, function () use ($ashar) {
+            AggregatorPlace::query()->where('kind', 'city')->where('local_id', $ashar)->update(['remote_id' => '999']);
+            AggregatorPlace::create(['kind' => 'city', 'local_id' => $this->area('المعقل', Governorate::where('code', 'BSR')->firstOrFail()), 'remote_id' => '78']);
+        });
+
+        $this->actingAs($this->owner)->post($this->url('/areas/verify'))->assertSessionHasNoErrors();
+        $check = session('aggregator_check');
+
+        $this->assertSame([], $check['gone_cities']);
+        $this->assertSame(['البصرة — العشار'], $check['gone_regions']);
+        $this->assertSame(['حي الجمهورية ← الجمهورية، المعقل'], $check['shared']);
+        $this->assertGreaterThan(0, $check['unmapped']);
+        // بغداد والبصرة رُبطتا بالاسم، وبقيت ست عشرة
+        $this->assertSame(16, $check['governorates_left']);
+
+        // لا يُغيّر الفحص شيئاً
+        $this->assertSame('999', Tenancy::runFor($this->company, fn () => AggregatorPlace::query()->where('local_id', $ashar)->where('kind', 'city')->value('remote_id')));
+        $this->actingAs($this->owner)->get($this->url('/areas'))->assertOk();
+    }
+
     public function test_the_log_shows_what_failed_and_retries_it(): void
     {
         $this->setFeature($this->company, Feature::Aggregator);
