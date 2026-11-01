@@ -35,8 +35,8 @@
 <nav id="main-nav" aria-label="أقسام المنصّة" class="rail" data-drawer>
     <div class="rail-head">
         <a href="{{ route('admin.dashboard') }}" class="rail-brand" title="وهج العراق">
-            {{-- شعار «وهج العراق» صاحب النواة (docs/plan/105) --}}
-            <x-wahaj-logo class="size-11 shrink-0"/>
+            {{-- شعار «وهج العراق» صاحب النواة بلون ثيم اللوحة (docs/plan/105) --}}
+            <x-wahaj-logo class="size-11 shrink-0 text-primary-600"/>
             <span class="min-w-0 lg:hidden">
                 <span class="block truncate font-heading text-base leading-tight font-extrabold text-aeblack-950">وهج العراق</span>
                 <span class="block text-xs text-ink-500">إدارة المنصّة</span>
@@ -93,7 +93,7 @@
             <x-icon name="menu" class="size-6"/>
         </button>
         <a href="{{ route('admin.dashboard') }}" class="flex min-w-0 items-center gap-3">
-            <x-wahaj-logo class="size-10 shrink-0 lg:hidden"/>
+            <x-wahaj-logo class="size-10 shrink-0 text-primary-600 lg:hidden"/>
             <span class="min-w-0">
                 <span class="block font-heading text-lg leading-tight font-extrabold text-aeblack-950">وهج العراق</span>
                 <span class="block text-xs text-ink-500">إدارة المنصّة</span>

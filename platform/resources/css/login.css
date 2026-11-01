@@ -81,8 +81,13 @@ body {
 
 /* شعار «وهج العراق» يمين فوق */
 .wahaj { position: absolute; top: 36px; right: 64px; display: flex; align-items: center; gap: 12px; }
-.wahaj-logo { width: 50px; height: 50px; flex: none; filter: drop-shadow(0 8px 16px rgba(17, 19, 93, .28)); }
-.wahaj b { display: block; font-size: 16px; font-weight: 700; color: #11135d; }
+/* الدائرة بلون التصميم، والشكل الأبيض كما هو */
+.wahaj-logo {
+    --wahaj-logo: var(--accent);
+    width: 50px; height: 50px; flex: none;
+    filter: drop-shadow(0 8px 16px color-mix(in oklab, var(--accent) 35%, transparent));
+}
+.wahaj b { display: block; font-size: 16px; font-weight: 700; color: var(--ink); }
 .wahaj small { color: var(--muted); font-size: 12.5px; }
 
 .head h1 { margin: 0 0 6px; font-size: 32px; font-weight: 700; letter-spacing: -.3px; }
