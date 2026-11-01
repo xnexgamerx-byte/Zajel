@@ -470,6 +470,31 @@ class AggregatorSettingsTest extends TestCase
         });
     }
 
+    public function test_the_export_is_refused_as_an_upload_and_odd_values_do_not_crash_the_import(): void
+    {
+        $this->setFeature($this->company, Feature::Aggregator);
+        $this->save();
+        $this->actingAs($this->owner)->post($this->url('/connect'));
+
+        // ملف التصدير: قائمة محافظاتٍ بتفاصيلها، لا يُقبل ولا يُطيح الرفع
+        $export = UploadedFile::fake()->createWithContent('export.json', json_encode([
+            'format' => 'aggregator-areas/1',
+            'governorates' => [['id' => 1, 'name' => 'بغداد', 'areas' => []]],
+        ]));
+        $this->actingAs($this->owner)->post($this->url('/areas/import'), ['file' => $export])
+            ->assertSessionHasErrors('areas');
+
+        // قيمٌ غير نصّية في الملف تُرفض ولا تطيح الرفع
+        $odd = UploadedFile::fake()->createWithContent('odd.json', json_encode([
+            'governorates' => ['1' => ['x' => 1]],
+            'areas' => ['2' => ['city' => ['a'], 'region' => '1'], '3' => ['x']],
+            'new' => ['bad', ['governorate' => ['x'], 'city' => '1', 'region' => '2']],
+        ]));
+        $this->actingAs($this->owner)->post($this->url('/areas/import'), ['file' => $odd])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', fn ($m) => str_contains($m, '5 لم تُقبل'));
+    }
+
     public function test_the_areas_pages_stay_light_with_every_governorate_and_thousands_of_areas(): void
     {
         $this->setFeature($this->company, Feature::Aggregator);

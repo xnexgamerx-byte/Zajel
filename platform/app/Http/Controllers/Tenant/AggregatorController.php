@@ -583,6 +583,11 @@ class AggregatorController extends Controller
             return back()->withErrors(['areas' => 'الملف ليس ملف ربطٍ صالحاً: يُنتظر فيه «areas» أو «governorates» أو «new».']);
         }
 
+        // ملف التصدير («نزّل ملف الربط») ليس ملف ربطٍ: فيه قائمة محافظاتٍ بتفاصيلها، ورفعه يُربك الرفع
+        if (is_array($data['governorates'] ?? null) && array_is_list($data['governorates'])) {
+            return back()->withErrors(['areas' => 'هذا ملف التصدير الحالي، وليس ملف ربطٍ مراجَعاً. ارفع الملف الذي فيه «areas» أو «new» (مثل ربط-المناطق-الجديدة.json).']);
+        }
+
         $link = $this->link();
         $theirCities = $link->catalog['cities'] ?? [];
         $regions = $link->catalog['regions'] ?? [];
@@ -592,6 +597,11 @@ class AggregatorController extends Controller
         $existing = AggregatorPlace::query()->get()->groupBy('kind')->map->keyBy('local_id');
 
         foreach ((array) ($data['governorates'] ?? []) as $local => $remote) {
+            if (! is_scalar($remote)) {
+                $counts['rejected']++;
+
+                continue;
+            }
             $remote = (string) $remote;
             if (! isset($ourGovernorates[(int) $local]) || ! isset($theirCities[$remote])) {
                 $counts['rejected']++;
@@ -619,6 +629,11 @@ class AggregatorController extends Controller
             // «منطقتهم»، أو {"city": مدينتهم, "region": منطقتهم} لمنطقةٍ في مدينةٍ غير مدينة محافظتها
             $governorate = $ourAreas[(int) $local] ?? null;
             $own = $governorate && isset($governorates[$governorate]) ? (string) $governorates[$governorate] : null;
+            if (is_array($remote) ? ! is_scalar($remote['city'] ?? null) || ! is_scalar($remote['region'] ?? null) : ! is_scalar($remote)) {
+                $counts['rejected']++;
+
+                continue;
+            }
             $city = is_array($remote) ? (string) ($remote['city'] ?? '') : $own;
             $remote = is_array($remote) ? (string) ($remote['region'] ?? '') : (string) $remote;
             $options = $governorate && $city !== null && $city !== '' ? ($regions[$city] ?? []) : [];
@@ -648,6 +663,11 @@ class AggregatorController extends Controller
         $offered = Governorate::offered()->pluck('id')->flip();
         $handled = [];
         foreach ((array) ($data['new'] ?? []) as $entry) {
+            if (! is_array($entry) || ! is_scalar($entry['governorate'] ?? null) || ! is_scalar($entry['city'] ?? null) || ! is_scalar($entry['region'] ?? null)) {
+                $counts['rejected']++;
+
+                continue;
+            }
             $governorateId = (int) ($entry['governorate'] ?? 0);
             $city = (string) ($entry['city'] ?? '');
             $region = (string) ($entry['region'] ?? '');
