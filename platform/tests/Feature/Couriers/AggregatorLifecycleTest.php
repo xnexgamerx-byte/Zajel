@@ -261,6 +261,38 @@ class AggregatorLifecycleTest extends TestCase
         $this->assertSame('مؤجل', $this->reasonName($third));
     }
 
+    public function test_the_merchant_sees_their_status_as_the_reason_in_processing_and_can_decide(): void
+    {
+        $this->fakeApi();
+        $this->map(['34' => 'failed_attempt']);
+
+        $shipment = $this->outWithThem();
+        $this->hook($this->order($shipment, ['status_id' => '34', 'status' => 'طلب مكرر']))->assertOk();
+        $this->assertSame(ShipmentStatus::FailedAttempt, $this->fresh($shipment)->status);
+
+        // تاجرٌ فُتحت له المعالجة: يراها في «للمعالجة» بسببها «طلب مكرر»، ويقرّر فيها بنفسه
+        $merchant = Tenancy::runFor($this->company, function () use ($shipment) {
+            $merchant = $shipment->merchant;
+            $merchant->forceFill(['can_process' => true])->save();
+
+            return $merchant;
+        });
+        $owner = Tenancy::runFor($this->company, fn () => User::create(['name' => 'تاجر', 'phone' => '07790000034',
+            'password' => 'password', 'role' => UserRole::Merchant, 'merchant_id' => $merchant->id, 'is_active' => true]));
+
+        $this->actingAs($owner)->get($this->tenantUrl('/portal/processing'))->assertOk()
+            ->assertSee($shipment->number)->assertSee('طلب مكرر');
+
+        $this->post($this->tenantUrl('/portal/processing/'.$shipment->id), ['action' => 'redeliver'])
+            ->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        // تعود للوسيط «إعادة توصيل» كما لو قرّرها الكول سنتر، ولا طلب جديد عندهم
+        $after = $this->fresh($shipment);
+        $this->assertSame(ShipmentStatus::InTransit, $after->status);
+        $this->assertNotNull($after->redelivery_at);
+        $this->assertSame(['create'], $this->jobs()->pluck('action')->all());
+    }
+
     public function test_an_update_that_finds_no_shipment_says_exactly_why_and_replays_once_fixed(): void
     {
         $this->fakeApi();
