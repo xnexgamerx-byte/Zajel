@@ -8,11 +8,13 @@ use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Api\Merchant\LabelController;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\ShipmentLabelController;
 use App\Http\Requests\PortalShipmentRequest;
 use App\Models\City;
 use App\Models\Conversation;
 use App\Models\Governorate;
 use App\Models\Shipment;
+use App\Models\ShipmentEvent;
 use App\Models\WaybillBook;
 use App\Support\FeatureGate;
 use Illuminate\Http\RedirectResponse;
@@ -41,7 +43,7 @@ class ShipmentController extends Controller
 
         $shipments = Shipment::query()
             ->with(['governorate:id,name_ar', 'city:id,name_ar',
-                    ...($archive ? ['returnBatch:id,number', 'lastFailureReason:id,name_ar'] : [])])
+                ...($archive ? ['returnBatch:id,number', 'lastFailureReason:id,name_ar'] : [])])
             ->where('merchant_id', $merchant->id)
             ->search($request->query('q'))
             ->when($archive,
@@ -62,10 +64,10 @@ class ShipmentController extends Controller
 
         return view('portal.shipments.index', [
             'shipments' => $shipments,
-            'statuses'  => ShipmentStatus::cases(),
-            'archive'   => $archive,
-            'archived'  => Shipment::where('merchant_id', $merchant->id)->where('status', $returned)->count(),
-            'printer'   => LabelController::counts($merchant->id),
+            'statuses' => ShipmentStatus::cases(),
+            'archive' => $archive,
+            'archived' => Shipment::where('merchant_id', $merchant->id)->where('status', $returned)->count(),
+            'printer' => LabelController::counts($merchant->id),
         ]);
     }
 
@@ -78,15 +80,16 @@ class ShipmentController extends Controller
         $printed = $request->query('state') === 'printed';
 
         return view('portal.shipments.printer', [
-            'printed'   => $printed,
-            'printer'   => LabelController::counts($merchantId),
-            'archived'  => Shipment::where('merchant_id', $merchantId)->where('status', ShipmentStatus::Returned->value)->count(),
+            'printed' => $printed,
+            'printer' => LabelController::counts($merchantId),
+            'archived' => Shipment::where('merchant_id', $merchantId)->where('status', ShipmentStatus::Returned->value)->count(),
             'shipments' => LabelController::entered($merchantId)
                 ->with(['governorate:id,name_ar', 'city:id,name_ar'])
                 ->when($printed, fn ($q) => $q->whereNotNull('printed_at')->orderByDesc('printed_at'), fn ($q) => $q->whereNull('printed_at'))
                 ->search($request->query('q'))
                 ->latest('id')
-                ->paginate(config('zajel.per_page'))
+                // دفعة الطباعة كاملةً في صفحةٍ واحدة (حتى ٣٠٠)، لا ٢٥ في الصفحة فيُطبع ٢٥ فقط
+                ->paginate(ShipmentLabelController::MAX)
                 ->withQueryString(),
         ]);
     }
@@ -97,10 +100,10 @@ class ShipmentController extends Controller
 
         return view('portal.shipments.create', [
             // المحفوظة للتوّ: رقمها وطباعة وصلها، والنموذج تحتها فارغٌ للتالية
-            'created'      => Shipment::where('merchant_id', $merchant->id)->find($request->session()->get('created')),
-            'merchant'     => $merchant,
+            'created' => Shipment::where('merchant_id', $merchant->id)->find($request->session()->get('created')),
+            'merchant' => $merchant,
             'governorates' => Governorate::offered()->get(['id', 'name_ar']),
-            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+            'cities' => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
         ]);
     }
 
@@ -164,11 +167,11 @@ class ShipmentController extends Controller
 
         $shipment->load([
             'governorate', 'city', 'lastFailureReason',
-            'events' => fn ($q) => $q->whereIn('event_type', \App\Models\ShipmentEvent::MERCHANT_EVENTS)->orderBy('id'),
+            'events' => fn ($q) => $q->whereIn('event_type', ShipmentEvent::MERCHANT_EVENTS)->orderBy('id'),
         ]);
 
         return view('portal.shipments.show', [
-            'shipment'      => $shipment,
+            'shipment' => $shipment,
             'conversations' => Conversation::where('merchant_id', $merchant->id)->where('shipment_id', $shipment->id)
                 ->orderByDesc('last_message_at')->get(['id', 'subject', 'status', 'last_message_at', 'merchant_unread']),
         ]);

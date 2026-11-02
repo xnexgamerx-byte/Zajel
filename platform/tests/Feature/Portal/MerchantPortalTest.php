@@ -50,38 +50,38 @@ class MerchantPortalTest extends TestCase
     private function merchantUser(Merchant $merchant): User
     {
         return Tenancy::runFor($this->company, fn () => User::create([
-            'name'        => 'تاجر '.$merchant->code,
-            'phone'       => '0779'.str_pad((string) $merchant->id, 7, '0', STR_PAD_LEFT),
-            'password'    => 'password',
-            'role'        => UserRole::Merchant,
+            'name' => 'تاجر '.$merchant->code,
+            'phone' => '0779'.str_pad((string) $merchant->id, 7, '0', STR_PAD_LEFT),
+            'password' => 'password',
+            'role' => UserRole::Merchant,
             'merchant_id' => $merchant->id,
-            'is_active'   => true,
+            'is_active' => true,
         ]));
     }
 
     private function shipmentFor(Merchant $merchant, string $recipient = 'زبون'): Shipment
     {
         return Tenancy::runFor($this->company, fn () => app(CreateShipment::class)->handle([
-            'merchant_id'     => $merchant->id,
-            'recipient_name'  => $recipient,
+            'merchant_id' => $merchant->id,
+            'recipient_name' => $recipient,
             'recipient_phone' => '07801234567',
-            'governorate_id'  => $this->baghdad()->id,
-            'address'         => 'بغداد',
-            'landmark'        => 'قرب الجامع',
-            'cod_amount'      => 50_000,
+            'governorate_id' => $this->baghdad()->id,
+            'address' => 'بغداد',
+            'landmark' => 'قرب الجامع',
+            'cod_amount' => 50_000,
         ], $this->staff));
     }
 
     private function payload(array $overrides = []): array
     {
         return array_merge([
-            'recipient_name'  => 'زينب كاظم',
+            'recipient_name' => 'زينب كاظم',
             'recipient_phone' => '07712345678',
-            'governorate_id'  => $this->baghdad()->id,
-            'city_id'         => $this->area('المنصور'),
-            'landmark'        => 'قرب سوق المنصور',
-            'pieces_count'    => 1,
-            'cod_amount'      => 60_000,
+            'governorate_id' => $this->baghdad()->id,
+            'city_id' => $this->area('المنصور'),
+            'landmark' => 'قرب سوق المنصور',
+            'pieces_count' => 1,
+            'cod_amount' => 60_000,
         ], $overrides);
     }
 
@@ -131,6 +131,19 @@ class MerchantPortalTest extends TestCase
             ->assertOk()
             ->assertSee('زبون ألفا')
             ->assertDontSee('زبون بيتا');
+    }
+
+    public function test_the_printer_lists_a_whole_batch_so_more_than_a_page_prints_at_once(): void
+    {
+        // أكثر من صفحةٍ عادية (٢٥): كلّها في «الطابعة» محدّدةً، وتُطبع معاً
+        $ids = collect(range(1, 30))->map(fn ($i) => $this->shipmentFor($this->alpha, 'زبون '.$i)->id);
+
+        $page = $this->actingAs($this->alphaUser)->get($this->host().'/portal/shipments?tab=print')->assertOk()->getContent();
+        $this->assertSame(30, substr_count($page, 'name="ids[]"'));
+
+        $this->get($this->host().'/portal/shipments/labels?'.http_build_query(['ids' => $ids->all(), 'size' => 'a6']))
+            ->assertOk()->assertSee('زبون 1')->assertSee('زبون 30');
+        $this->assertSame(0, Tenancy::runFor($this->company, fn () => Shipment::whereIn('id', $ids)->whereNull('printed_at')->count()));
     }
 
     public function test_a_merchant_cannot_open_another_merchants_shipment(): void
@@ -240,7 +253,7 @@ class MerchantPortalTest extends TestCase
             ->post($this->host().'/portal/shipments', $this->payload(['recipient_name' => '', 'landmark' => '']))
             ->assertSessionHasErrors([
                 'recipient_name' => 'اكتب اسم المستلم: الشركة تُلزِم به.',
-                'landmark'       => 'اكتب أقرب نقطة دالّة: الشركة تُلزِم به.',
+                'landmark' => 'اكتب أقرب نقطة دالّة: الشركة تُلزِم به.',
             ]);
     }
 
