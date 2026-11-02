@@ -28,6 +28,64 @@
     @if ($failing)<a href="{{ route('aggregator.log') }}" class="chip chip-bad">{{ $failing }} لم يُرسل</a>@endif
 </div>
 
+{{--
+  هل تُقرأ تحديثاتهم؟ (docs/plan/107): آخر ما وصل، وآخر ما رُفض ولماذا، وما جرى لتحديثات الأسبوع. يُعرف منها
+  أين الخلل: مفتاحٌ لا يطابق، أو شحناتٌ ليست مع مندوب الربط، أو مجدوِلٌ لا يعمل.
+--}}
+@php
+    $week = $health['week'];
+    $rejectedLast = $link->hook_rejected_at && (! $link->hook_last_at || $link->hook_rejected_at->gt($link->hook_last_at));
+@endphp
+<section class="card mb-5 p-5" aria-labelledby="health-title">
+    <h2 id="health-title" class="card-title">استلام تحديثاتهم</h2>
+    <dl class="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+            <dt class="text-ink-500">آخر تحديثٍ وصل</dt>
+            <dd class="font-semibold {{ $link->hook_last_at ? '' : 'text-warn-700' }}">
+                {{ $link->hook_last_at ? $link->hook_last_at->diffForHumans() : 'لم يصل أيّ تحديثٍ بعد' }}
+            </dd>
+        </div>
+        <div>
+            <dt class="text-ink-500">آخر طلبٍ رُفض</dt>
+            <dd class="font-semibold {{ $rejectedLast ? 'text-bad-700' : '' }}">
+                @if ($link->hook_rejected_at)
+                    {{ $link->hook_rejected_at->diffForHumans() }} — {{ $link->hook_rejected_reason }}
+                @else
+                    لا شيء
+                @endif
+            </dd>
+        </div>
+        <div>
+            <dt class="text-ink-500">مع المندوب الوسيط الآن</dt>
+            <dd class="font-semibold"><span class="num">{{ $health['active'] }}</span> شحنة
+                @if ($health['unsent'])<span class="block text-xs text-warn-700"><span class="num">{{ $health['unsent'] }}</span> منها بلا رقمٍ عندهم بعد</span>@endif
+            </dd>
+        </div>
+        <div>
+            <dt class="text-ink-500">تحديثات آخر ٧ أيام</dt>
+            <dd class="flex flex-wrap gap-1">
+                @foreach (\App\Models\AggregatorEvent::RESULTS as $key => $label)
+                    @if (($week[$key] ?? 0) > 0)
+                        <a href="{{ route('aggregator.log', ['result' => $key]) }}" class="chip {{ ['applied' => 'chip-ok', 'waiting' => 'chip-warn', 'unmatched' => 'chip-warn', 'error' => 'chip-bad', 'pending' => 'chip-info'][$key] ?? 'chip-mute' }}">{{ $label }} <span class="num">{{ $week[$key] }}</span></a>
+                    @endif
+                @endforeach
+                @if (! array_sum($week))<span class="text-ink-500">لا شيء</span>@endif
+            </dd>
+        </div>
+    </dl>
+    @if (! $link->webhook_token_hash)
+        <p class="alert alert-warn mt-3 text-sm"><span>لا مفتاح بعد: كلّ تحديثٍ منهم يُرفض. ولّد المفتاح من بطاقة الـ Webhook وأعطهم إيّاه بصيغته.</span></p>
+    @elseif ($rejectedLast)
+        <p class="alert alert-warn mt-3 text-sm"><span>آخر ما أرسلوه رُفض: {{ $link->hook_rejected_reason }}. تأكّد أنّ ما عندهم هو المفتاح الحاليّ (ينتهي بـ <code dir="ltr">…{{ $link->webhook_token_last4 }}</code>) في الترويسة «{{ $link->webhook_header }}»، بالصيغة التي ظهرت حين وُلّد.</span></p>
+    @endif
+    @if ($week['unmatched'] ?? 0)
+        <p class="alert alert-warn mt-3 text-sm"><span>تحديثاتٌ لم تُعرف شحنتها: في السجلّ سبب كلٍّ منها (الشحنة مع مندوبٍ غير مندوب الربط، أو رقمٌ لا نعرفه). أصلِحه ثم «أعد التطبيق».</span></p>
+    @endif
+    @if ($health['stuck'])
+        <p class="alert alert-warn mt-3 text-sm"><span><span class="num">{{ $health['stuck'] }}</span> تحديثاً ينتظر التطبيق أكثر من دقيقتين: المجدوِل لا يعمل على الخادم؟</span></p>
+    @endif
+</section>
+
 <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <form method="POST" action="{{ route('aggregator.update') }}" class="card space-y-5 p-5 lg:col-span-2">
         @csrf
@@ -84,25 +142,6 @@
                 <label class="field-label" for="webhook_header">اسم ترويسة المفتاح</label>
                 <input id="webhook_header" name="webhook_header" dir="ltr" class="field-input" required value="{{ old('webhook_header', $link->webhook_header) }}">
                 @error('webhook_header') <p class="field-error">{{ $message }}</p> @enderror
-            </div>
-            <div>
-                <label class="field-label" for="failure_reason_id">سبب «لم يُسلَّم» لحالاتهم</label>
-                <select id="failure_reason_id" name="failure_reason_id" class="field-input">
-                    <option value="">—</option>
-                    @foreach ($reasons as $r)
-                        <option value="{{ $r->id }}" @selected(old('failure_reason_id', $link->failure_reason_id) == $r->id)>{{ $r->name_ar }}</option>
-                    @endforeach
-                </select>
-                <p class="field-hint">لحالةٍ لم يُختر لها سببٌ في «ربط الحالات». وإن تُرك فارغاً سُجّلت بأوّل سببٍ متاح ونُبّهت في السجلّ.</p>
-            </div>
-            <div>
-                <label class="field-label" for="postpone_reason_id">سبب «مؤجّل» لحالاتهم</label>
-                <select id="postpone_reason_id" name="postpone_reason_id" class="field-input">
-                    <option value="">—</option>
-                    @foreach ($reasons->where('allows_reschedule', true) as $r)
-                        <option value="{{ $r->id }}" @selected(old('postpone_reason_id', $link->postpone_reason_id) == $r->id)>{{ $r->name_ar }}</option>
-                    @endforeach
-                </select>
             </div>
         </div>
 
@@ -173,7 +212,8 @@
     <h2 class="card-title">ربط حالاتهم بحالاتنا</h2>
     <p class="card-hint">
         ما يُفعل بالشحنة عندنا حين تصل حالةٌ منهم. «واصل» يأتي أيضاً بعلامة التسليم أيّاً كانت الحالة، وتغيّر السعر
-        يذهب تذكرةً للكول سنتر ولا يغيّر المبلغ.
+        يذهب تذكرةً للكول سنتر ولا يغيّر المبلغ. سبب «لم يُسلَّم» و«مؤجّل» و«راجع» هو نصّ حالتهم نفسه، وما كتبه مندوبهم
+        يصل ملاحظةً للكول سنتر.
     </p>
     <details class="mt-3 rounded-lg px-3 py-2 ring-1 ring-ink-200">
         <summary class="cursor-pointer text-sm font-semibold">ماذا يفعل كلّ خيار؟</summary>
@@ -184,35 +224,18 @@
         </dl>
     </details>
     @if ($statuses)
-        {{-- السبب لكلّ حالةٍ بعينها (docs/plan/106): لما يُسجَّل «لم يُسلَّم» أو «مؤجّل» أو «راجع» — «إلغاء الطلب» ← ألغى الزبون --}}
-        <div class="mt-4 overflow-x-auto">
-            <table class="w-full text-sm [&_td]:px-2 [&_th]:px-2">
-                <thead><tr class="text-xs text-ink-500">
-                    <th class="py-2 text-start">حالتهم</th><th class="text-start">ما يُفعل عندنا</th><th class="text-start">السبب (لِلم يُسلَّم والمؤجّل والراجع)</th>
-                </tr></thead>
-                <tbody class="divide-y divide-ink-100">
-                    @foreach ($statuses as $id => $text)
-                        <tr>
-                            <td class="py-1.5"><span class="num text-ink-500">{{ $id }}</span> · {{ $text }}</td>
-                            <td>
-                                <select name="map[{{ $id }}]" class="field-input w-52 py-1.5" aria-label="ما يُفعل بحالة {{ $text }}">
-                                    @foreach (\App\Models\AggregatorLink::ACTIONS as $key => $label)
-                                        <option value="{{ $key }}" @selected($link->actionFor((string) $id) === $key)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                            </td>
-                            <td>
-                                <select name="reasons[{{ $id }}]" class="field-input w-56 py-1.5" aria-label="سبب حالة {{ $text }}">
-                                    <option value="">— سبب الربط العامّ —</option>
-                                    @foreach ($reasons as $r)
-                                        <option value="{{ $r->id }}" @selected((int) ($link->status_reasons[(string) $id] ?? 0) === $r->id)>{{ $r->name_ar }}</option>
-                                    @endforeach
-                                </select>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+        {{-- لا سبب يُختار (docs/plan/107): سبب «لم يُسلَّم» و«مؤجّل» و«راجع» نصّ حالتهم، وما كتبه مندوبهم ملاحظةٌ للكول سنتر --}}
+        <div class="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
+            @foreach ($statuses as $id => $text)
+                <label class="flex items-center justify-between gap-3 border-b border-ink-100 py-1.5 text-sm">
+                    <span><span class="num text-ink-500">{{ $id }}</span> · {{ $text }}</span>
+                    <select name="map[{{ $id }}]" class="field-input w-52 py-1.5">
+                        @foreach (\App\Models\AggregatorLink::ACTIONS as $key => $label)
+                            <option value="{{ $key }}" @selected($link->actionFor((string) $id) === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            @endforeach
         </div>
         <button type="submit" class="btn-primary mt-4">احفظ ربط الحالات</button>
     @else

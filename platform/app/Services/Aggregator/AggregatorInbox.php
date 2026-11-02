@@ -9,10 +9,11 @@ use App\Enums\ShipmentStatus;
 use App\Models\AggregatorEvent;
 use App\Models\AggregatorLink;
 use App\Models\Courier;
-use App\Models\FailureReason;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\ShipmentTicket;
+use App\Support\StaffNote;
+use Closure;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,7 @@ use Throwable;
  * - «واصل» بعلامة deliver_done أو بالحالة المربوطة به. وإن سُلِّمت بغير مبلغ الوصل فلا تُسجَّل واصلةً
  *   بمبلغٍ آخر: تُفتح تذكرة «سلّمها بسعرٍ آخر» للكول سنتر، وموافقته تسجّلها (docs/plan/80).
  * - تغيّر السعر وهي مع مندوبهم (الحالة ٣ و old_price ليس -1): تذكرة «السعر تغيّر» للكول سنتر.
- * - قيد التوصيل، ولم يُسلَّم، ومؤجّل: بربط الحالات الذي تختاره الشركة، وبأسبابها.
+ * - قيد التوصيل، ولم يُسلَّم، ومؤجّل: بربط الحالات الذي تختاره الشركة، وسببها نصّ حالتهم (docs/plan/107).
  * - ما سواها سطر تتبّع بنصّهم يراه التاجر في مسار شحنته، أو يُسجَّل فقط.
  *
  * لا يتغيّر المبلغ ولا العنوان، ولا يُرجَع شيءٌ من هنا: الإرجاع قرار الكول سنتر كما مع كل مندوب.
@@ -157,7 +158,7 @@ class AggregatorInbox
                 $shipment = $this->match($link, $payload, $event->remote_order_id);
 
                 [$result, $message] = $shipment === null
-                    ? ['unmatched', 'لا شحنة عندنا مع الوسيط بهذا الرقم.']
+                    ? ['unmatched', $this->whyUnmatched($link, $payload, $event->remote_order_id)]
                     : $this->apply($link, $shipment, $payload, $event->remote_order_id, $event->status_id,
                         (bool) $event->deliver_done, $event->price, $event->old_price);
 
@@ -195,6 +196,36 @@ class AggregatorInbox
         return $shipment;
     }
 
+    /**
+     * لماذا لم تُعرف شحنته — ليُصلَح من الشاشة ثم «أعد التطبيق» (docs/plan/107): الشحنة عندنا مع مندوبٍ غير
+     * مندوب الربط (فلا تُحرَّك بقولهم)، أو لا شحنة بالرقمين أصلاً، أو رقمنا عندهم بغير بادئتنا.
+     */
+    private function whyUnmatched(AggregatorLink $link, array $payload, ?string $remoteId): string
+    {
+        $ours = self::text($payload['company_order_id'] ?? null);
+        $number = $ours !== null ? $link->localNumber($ours) : null;
+
+        $shipment = Shipment::query()
+            ->where(fn ($q) => $q->when($remoteId !== null, fn ($q) => $q->orWhere('aggregator_order_id', $remoteId))
+                ->when($number !== null, fn ($q) => $q->orWhere('number', $number)))
+            ->when($remoteId === null && $number === null, fn ($q) => $q->whereRaw('1 = 0'))
+            ->with('deliveryCourier:id,name')->first();
+
+        if ($shipment !== null) {
+            $with = $shipment->deliveryCourier?->name;
+
+            return 'الشحنة '.$shipment->number.' عندنا '.($with !== null ? 'مع «'.$with.'»' : 'بلا مندوب')
+                .' لا مع مندوب الربط «'.$link->courier?->name.'»: لا تُحرَّك بقولهم. أسندها لمندوب الربط'
+                .' (أو اختره في الإعدادات) ثم «أعد التطبيق».';
+        }
+
+        $prefix = (string) $link->order_prefix;
+
+        return 'لا شحنة عندنا برقمهم '.($remoteId ?? '—').' ولا برقمنا '.($ours ?? '—')
+            .($ours !== null && $prefix !== '' && ! str_starts_with($ours, $prefix) ? ' (رقمنا عندهم بلا بادئتنا '.$prefix.')' : '')
+            .'.';
+    }
+
     /** @return array{0: string, 1: ?string} */
     private function apply(
         AggregatorLink $link,
@@ -209,6 +240,9 @@ class AggregatorInbox
         $courier = $link->courier;
         $action = $deliverDone ? 'delivered' : $link->actionFor($statusId);
         $note = $this->note($payload, $statusId);
+        // سبب «لم يُسلَّم» و«مؤجّل» و«راجع»: نصّ حالتهم نفسه، بلا خياراتٍ تُختار (docs/plan/107)
+        $reason = fn () => $link->partnerReason($statusId, $payload['status'] ?? null);
+        $issue = self::issue($payload);
 
         try {
             // تغيّر السعر وهي مع مندوبهم: لا يتغيّر المبلغ إلّا بموافقة الكول سنتر
@@ -228,14 +262,14 @@ class AggregatorInbox
                 'out_for_delivery' => $shipment->status === ShipmentStatus::InTransit
                     ? $this->move($shipment, $courier, ShipmentStatus::OutForDelivery, $note)
                     : $this->track($shipment, $courier, $note),
-                'failed_attempt' => $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $link->reasonFor($statusId, false), $note),
-                'return_confirmed', 'return_with_courier' => $this->toReturn($link, $shipment, $courier, $note, $statusId),
+                'failed_attempt' => $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $reason, $note, $issue),
+                'return_confirmed', 'return_with_courier' => $this->toReturn($shipment, $courier, $note, $reason, $issue),
                 'redelivery' => $this->redeliver($shipment, $courier, $note),
-                'return_received' => $this->returnedToUs($link, $shipment, $courier, $note, $statusId),
-                'returned_to_merchant' => $this->toMerchant($link, $shipment, $courier, $note, $statusId),
+                'return_received' => $this->returnedToUs($shipment, $courier, $note, $reason, $issue),
+                'returned_to_merchant' => $this->toMerchant($shipment, $courier, $note, $reason, $issue),
                 // في مخزنهم لا مخزننا: «بالمخزن» عندنا لا يكون إلّا بالمسح، فلا تظهر على رفوفنا
                 'at_hub' => $this->track($shipment, $courier, 'بالمخزن عند شريك التوصيل — '.$note),
-                'postponed' => $this->outcome($shipment, $courier, ShipmentStatus::Postponed, $link->reasonFor($statusId, true), $note),
+                'postponed' => $this->outcome($shipment, $courier, ShipmentStatus::Postponed, $reason, $note, $issue),
                 default => $this->track($shipment, $courier, $note),
             };
         } catch (ValidationException $e) {
@@ -315,24 +349,20 @@ class AggregatorInbox
      *
      * @return array{0: string, 1: ?string}
      */
-    private function toReturn(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note, ?string $statusId = null): array
+    private function toReturn(Shipment $shipment, Courier $courier, string $note, Closure $reason, ?string $issue): array
     {
         if ($shipment->status === ShipmentStatus::Returning) {
             return $this->track($shipment, $courier, $note);
         }
 
         $this->toOutForDelivery($shipment, $courier, $note);
-        $fallback = '';
 
         if ($shipment->status === ShipmentStatus::OutForDelivery) {
-            $reason = $link->reasonFor($statusId, false);
-            [$result, $message] = $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $reason, $note);
+            [$result, $message] = $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $reason, $note, $issue);
 
             if ($result === 'error') {
                 return [$result, $message];
             }
-
-            $fallback = $this->fallbackNote($reason, $shipment->company_id);
         }
 
         if (! in_array($shipment->status, [ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed], true)) {
@@ -341,7 +371,7 @@ class AggregatorInbox
 
         $this->move($shipment, $courier, ShipmentStatus::Returning, $note);
 
-        return ['applied', 'راجع مؤكد — عند المندوب الوسيط حتى يُستلم بالمسح.'.$fallback];
+        return ['applied', 'راجع مؤكد — عند المندوب الوسيط حتى يُستلم بالمسح.'];
     }
 
     /**
@@ -367,7 +397,7 @@ class AggregatorInbox
      *
      * @return array{0: string, 1: ?string}
      */
-    private function returnedToUs(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note, ?string $statusId = null): array
+    private function returnedToUs(Shipment $shipment, Courier $courier, string $note, Closure $reason, ?string $issue): array
     {
         if ($shipment->status === ShipmentStatus::Returning && $shipment->return_received_at !== null) {
             return ['recorded', 'استُلمت بالمسح من قبل.'];
@@ -375,7 +405,7 @@ class AggregatorInbox
 
         // تصير راجعةً أوّلاً إن لم تكن؛ وما لا يصير راجعاً (سُلّم مثلاً) يبقى بما قاله toReturn
         if ($shipment->status !== ShipmentStatus::Returning) {
-            $result = $this->toReturn($link, $shipment, $courier, $note, $statusId);
+            $result = $this->toReturn($shipment, $courier, $note, $reason, $issue);
 
             if ($shipment->status !== ShipmentStatus::Returning) {
                 return $result;
@@ -393,7 +423,7 @@ class AggregatorInbox
      *
      * @return array{0: string, 1: ?string}
      */
-    private function toMerchant(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note, ?string $statusId = null): array
+    private function toMerchant(Shipment $shipment, Courier $courier, string $note, Closure $reason, ?string $issue): array
     {
         if ($shipment->status === ShipmentStatus::Returned) {
             return ['recorded', 'راجعةٌ لتاجرها من قبل.'];
@@ -403,53 +433,51 @@ class AggregatorInbox
             return $this->move($shipment, $courier, ShipmentStatus::Returned, $note);
         }
 
-        return $this->returnedToUs($link, $shipment, $courier, $note, $statusId);
+        return $this->returnedToUs($shipment, $courier, $note, $reason, $issue);
     }
 
     /**
-     * «لم يُسلَّم» أو «مؤجّل» بسبب حالتهم (AggregatorLink::reasonFor): المختار لها، أو سبب الربط، أو الاحتياطيّ —
-     * ويُكتب في السجلّ أنّه احتياطيّ ليُختار سببها. لا يبقى طردٌ «قيد التوصيل» لأنّ سبباً لم يُختر.
+     * «لم يُسلَّم» أو «مؤجّل» كما قالوا، وسببه نصّ حالتهم (AggregatorLink::partnerReason) — فلا يبقى طردٌ
+     * «قيد التوصيل» لأنّ سبباً لم يُختر. وما كتبه مندوبهم يصير ملاحظةً للكول سنتر على الشحنة.
      *
-     * @param  array{0: ?int, 1: bool}  $reason
+     * @param  Closure(): int  $reason
      * @return array{0: string, 1: ?string}
      */
-    private function outcome(Shipment $shipment, Courier $courier, ShipmentStatus $to, array $reason, string $note): array
+    private function outcome(Shipment $shipment, Courier $courier, ShipmentStatus $to, Closure $reason, string $note, ?string $issue): array
     {
-        [$reasonId] = $reason;
-
-        if ($reasonId === null) {
-            $this->track($shipment, $courier, $note);
-
-            return ['error', 'لا سبب «'.$to->label().'» مفعّلاً للشركة: أضف سبباً من الإعدادات ثم أعد التطبيق.'];
-        }
-
         $this->toOutForDelivery($shipment, $courier, $note);
 
         if ($shipment->status !== ShipmentStatus::OutForDelivery) {
             return $this->track($shipment, $courier, $note);
         }
 
+        $reasonId = $reason();
         $errors = CourierOutcomeRules::errors($shipment, $to, ['failure_reason_id' => $reasonId, 'note' => $note], null);
         if ($errors) {
             throw ValidationException::withMessages($errors);
         }
 
-        [$result, $message] = $this->move($shipment, $courier, $to, $note, $reasonId);
+        $result = $this->move($shipment, $courier, $to, $note, $reasonId);
+        $this->staffNote($shipment, $courier, $issue);
 
-        return [$result, $message.$this->fallbackNote($reason, $shipment->company_id)];
+        return $result;
     }
 
-    /** يُكتب في السجلّ أنّ السبب احتياطيّ، ليُختار سبب حالتهم في ربط الحالات */
-    private function fallbackNote(array $reason, int $companyId): string
+    /**
+     * ما كتبه مندوبهم («الزبون رفض») ملاحظةٌ للموظّفين على الشحنة (StaffNote، docs/plan/83): تراها الكول سنتر في
+     * المعالجة واللوحة دون أن تفتح المسار. وسطر الحالة نفسه يحملها في مسار الشحنة.
+     */
+    private function staffNote(Shipment $shipment, Courier $courier, ?string $issue): void
     {
-        [$reasonId, $fallback] = $reason;
-
-        if (! $fallback || $reasonId === null) {
-            return '';
+        if ($issue === null) {
+            return;
         }
 
-        return ' — بالسبب الاحتياطيّ «'.FailureReason::availableFor($companyId)->whereKey($reasonId)->value('name_ar')
-            .'»: اختر سبب هذه الحالة في ربط الحالات.';
+        $shipment->forceFill([
+            'staff_note' => mb_substr($courier->name.': '.$issue, 0, StaffNote::MAX),
+            'staff_note_by' => mb_substr(self::actor($courier), 0, 120),
+            'staff_note_at' => now(),
+        ])->saveQuietly();
     }
 
     /** وصلتهم «بالطريق» وخرجت مع مندوبهم: تمرّ بـ «قيد التوصيل» أوّلاً كما يمرّ أيّ طرد */
@@ -518,12 +546,19 @@ class AggregatorInbox
             $parts[] = self::RETURN_STAGES[(string) $payload['send_to_store']];
         }
 
-        $issue = trim((string) ($payload['issue_notes'] ?? ''));
-        if (! in_array($issue, self::EMPTY_NOTES, true)) {
+        if (($issue = self::issue($payload)) !== null) {
             $parts[] = $issue;
         }
 
         return implode(' — ', $parts);
+    }
+
+    /** ملاحظة مندوبهم إن كتب شيئاً */
+    private static function issue(array $payload): ?string
+    {
+        $issue = is_scalar($payload['issue_notes'] ?? null) ? trim((string) $payload['issue_notes']) : '';
+
+        return in_array($issue, self::EMPTY_NOTES, true) ? null : mb_substr($issue, 0, 200);
     }
 
     private static function actor(Courier $courier): string

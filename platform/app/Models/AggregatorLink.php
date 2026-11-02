@@ -86,9 +86,10 @@ class AggregatorLink extends Model
             'aggre_token' => 'encrypted',
             'merchant_token' => 'encrypted',
             'aggre_token_at' => 'datetime',
+            'hook_last_at' => 'datetime',
+            'hook_rejected_at' => 'datetime',
             'catalog' => 'array',
             'status_map' => 'array',
-            'status_reasons' => 'array',
             'sends_orders' => 'boolean',
         ];
     }
@@ -107,27 +108,28 @@ class AggregatorLink extends Model
     }
 
     /**
-     * سبب «لم يُسلَّم» أو «مؤجّل» لحالتهم (docs/plan/106): ما اختير لهذه الحالة بعينها، وإلّا سبب الربط العامّ،
-     * وإلّا أوّل سببٍ متاحٍ للشركة (للمؤجّل ما يسمح بموعد) — فلا تبقى شحنةٌ «قيد التوصيل» لأنّ سبباً لم يُختر.
-     *
-     * @return array{0: ?int, 1: bool} السبب، وهل هو الاحتياطيّ لا المختار
+     * سبب «لم يُسلَّم» أو «مؤجّل» أو «راجع» لحالتهم (docs/plan/107): سببٌ اسمه نصّ حالتهم كما كتبوه («الغاء الطلب»)،
+     * يُنشأ أوّل ما تصل الحالة ويُحدَّث اسمه إن غيّروه. بلا خياراتٍ تُختار: يراه الكول سنتر والمندوب والتاجر سبباً،
+     * ولا يظهر في قوائم الأسباب (FailureReason::availableFor بلا partner).
      */
-    public function reasonFor(?string $statusId, bool $postpone): array
+    public function partnerReason(?string $statusId, ?string $statusText): int
     {
-        $available = fn () => FailureReason::query()->availableFor($this->company_id);
+        $name = mb_substr(trim((string) $statusText), 0, 160) ?: 'حسب شريك التوصيل';
+        $code = 'agg_'.($statusId !== null ? mb_substr($statusId, 0, 30) : 'x');
 
-        foreach ([$statusId !== null ? ($this->status_reasons[$statusId] ?? null) : null,
-            $postpone ? $this->postpone_reason_id : $this->failure_reason_id] as $chosen) {
-            if ($chosen && $available()->whereKey($chosen)->exists()) {
-                return [(int) $chosen, false];
-            }
+        $reason = FailureReason::query()->firstOrCreate(
+            ['company_id' => $this->company_id, 'code' => $code],
+            ['name_ar' => $name, 'category' => 'customer', 'requires_note' => false, 'requires_photo' => false,
+                'counts_as_attempt' => true, 'allows_reschedule' => true, 'is_active' => true, 'from_partner' => true,
+                'sort_order' => 900],
+        );
+
+        // غيّروا نصّ حالتهم، أو أُطفئ السبب: يعود كما يقولون الآن
+        if ($reason->name_ar !== $name || ! $reason->is_active || ! $reason->from_partner) {
+            $reason->forceFill(['name_ar' => $name, 'is_active' => true, 'from_partner' => true])->save();
         }
 
-        $fallback = $available()->where('requires_photo', false)
-            ->when($postpone, fn ($q) => $q->orderByDesc('allows_reschedule'))->value('id')
-            ?? $available()->value('id');
-
-        return [$fallback === null ? null : (int) $fallback, true];
+        return (int) $reason->id;
     }
 
     /** رقم الطلب في نظامهم: البادئة المسجّلة عندهم ثم رقم الوصل عندنا */

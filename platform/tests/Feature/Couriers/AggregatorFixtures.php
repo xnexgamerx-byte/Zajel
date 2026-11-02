@@ -72,16 +72,16 @@ trait AggregatorFixtures
                 'username' => 'acct', 'password' => 'pass-123',
                 'merchant_id' => '55', 'merchant_name' => $company->name, 'merchant_token' => 'merchant-tok',
                 'order_prefix' => 'ZJL_', 'package_size_id' => '1',
-                'failure_reason_id' => $this->reason($company)->id,
                 'webhook_header' => 'X-Hook-Key', 'webhook_token_hash' => hash('sha256', $hook), 'webhook_token_last4' => substr($hook, -4),
                 'sends_orders' => true,
             ]);
         });
     }
 
-    private function reason(Company $company): FailureReason
+    /** سبب الشحنة كما يراه الكول سنتر والتاجر: نصّ حالتهم (docs/plan/107) */
+    private function reasonName(Shipment $shipment): ?string
     {
-        return FailureReason::availableFor($company->id)->where('requires_note', false)->firstOrFail();
+        return Tenancy::runFor($this->company, fn () => FailureReason::query()->whereKey($shipment->refresh()->last_failure_reason_id)->value('name_ar'));
     }
 
     /** شحنةٌ للعشار في البصرة سُلِّمت لمندوب (الوسيط افتراضاً): «بالطريق» إليه */

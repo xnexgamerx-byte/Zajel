@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AggregatorEvent;
 use App\Models\AggregatorJob;
@@ -10,15 +11,14 @@ use App\Models\AggregatorPlace;
 use App\Models\AuditLog;
 use App\Models\City;
 use App\Models\Courier;
-use App\Models\FailureReason;
 use App\Models\Governorate;
+use App\Models\Shipment;
 use App\Services\Aggregator\AggregatorClient;
 use App\Services\Aggregator\AggregatorException;
 use App\Services\Aggregator\AggregatorInbox;
 use App\Services\Aggregator\AggregatorOutbox;
 use App\Services\Aggregator\PlaceMatcher;
 use App\Support\Arabic;
-use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -36,14 +36,14 @@ class AggregatorController extends Controller
     /** صفّ مناطق المحافظة الواحدة: في كلّ صفٍّ قائمةٌ بمناطق مدينتها عندهم، وفي بغداد مئاتٌ منها */
     private const AREAS_PER_PAGE = 15;
 
-    public function edit(TenantContext $tenant): View
+    public function edit(): View
     {
         $link = $this->link();
 
         return view('tenant.aggregator.edit', [
             'link' => $link,
             'couriers' => Courier::query()->where('is_intermediary', true)->orderBy('name')->get(['id', 'name']),
-            'reasons' => FailureReason::availableFor($tenant->id())->get(['id', 'name_ar', 'allows_reschedule']),
+            'health' => $this->health($link),
             'statuses' => $link->catalog['statuses'] ?? [],
             'sizes' => $link->catalog['package_sizes'] ?? [],
             'merchants' => $link->catalog['merchants'] ?? [],
@@ -64,8 +64,6 @@ class AggregatorController extends Controller
             'courier_id' => ['nullable', Rule::exists('couriers', 'id')->where('company_id', $link->company_id)->where('is_intermediary', true)],
             'order_prefix' => ['nullable', 'string', 'max:30', 'regex:/^[A-Z_]*$/', 'regex:/[A-Z].*[A-Z].*[A-Z]/'],
             'package_size_id' => ['nullable', 'string', 'max:20'],
-            'failure_reason_id' => ['nullable', 'integer', Rule::exists('failure_reasons', 'id')],
-            'postpone_reason_id' => ['nullable', 'integer', Rule::exists('failure_reasons', 'id')],
             'webhook_header' => ['required', 'string', 'max:60', 'regex:/^[A-Za-z0-9-]+$/'],
             'sends_orders' => ['nullable', 'boolean'],
         ], [
@@ -85,8 +83,6 @@ class AggregatorController extends Controller
             'courier_id' => $data['courier_id'] ?? null,
             'order_prefix' => $data['order_prefix'] ?: null,
             'package_size_id' => $data['package_size_id'] ?: null,
-            'failure_reason_id' => $data['failure_reason_id'] ?? null,
-            'postpone_reason_id' => $data['postpone_reason_id'] ?? null,
             'webhook_header' => $data['webhook_header'],
             'sends_orders' => $request->boolean('sends_orders'),
         ]);
@@ -198,20 +194,35 @@ class AggregatorController extends Controller
     public function statuses(Request $request): RedirectResponse
     {
         $link = $this->link();
-        $reasonIds = FailureReason::availableFor($link->company_id)->pluck('id')->all();
-        $data = $request->validate([
+        $map = $request->validate([
             'map' => ['array'],
             'map.*' => [Rule::in(array_keys(AggregatorLink::ACTIONS))],
-            // سبب كلّ حالةٍ بعينها لِما يُسجَّل «لم يُسلَّم» أو «مؤجّل» أو «راجع» (docs/plan/106)
-            'reasons' => ['array'],
-            'reasons.*' => ['nullable', 'integer', Rule::in($reasonIds)],
-        ]);
+        ])['map'] ?? [];
 
-        $link->status_map = collect($data['map'] ?? [])->mapWithKeys(fn ($action, $id) => [(string) $id => $action])->all();
-        $link->status_reasons = collect($data['reasons'] ?? [])->filter()->mapWithKeys(fn ($reason, $id) => [(string) $id => (int) $reason])->all();
+        $link->status_map = collect($map)->mapWithKeys(fn ($action, $id) => [(string) $id => $action])->all();
         $link->save();
 
-        return back()->with('success', 'حُفظ ربط الحالات وأسبابها.');
+        return back()->with('success', 'حُفظ ربط الحالات.');
+    }
+
+    /**
+     * هل تُقرأ تحديثاتهم؟ (docs/plan/107): آخر ما وصل، وآخر ما رُفض ولماذا، وما جرى لتحديثات الأسبوع، وما ينتظر
+     * التطبيق أكثر من دقيقتين (المجدوِل لا يعمل)، وشحنات المندوب الوسيط التي لا رقم لها عندهم.
+     *
+     * @return array<string, mixed>
+     */
+    private function health(AggregatorLink $link): array
+    {
+        $active = fn () => Shipment::query()->where('delivery_courier_id', $link->courier_id)
+            ->whereIn('status', [ShipmentStatus::InTransit->value, ShipmentStatus::OutForDelivery->value]);
+
+        return [
+            'week' => AggregatorEvent::query()->where('created_at', '>=', now()->subDays(7))
+                ->selectRaw('result, count(*) as n')->groupBy('result')->pluck('n', 'result')->map(fn ($n) => (int) $n)->all(),
+            'stuck' => AggregatorEvent::query()->where('result', 'pending')->where('created_at', '<', now()->subMinutes(2))->count(),
+            'active' => $link->courier_id ? $active()->count() : 0,
+            'unsent' => $link->courier_id ? $active()->whereNull('aggregator_order_id')->count() : 0,
+        ];
     }
 
     /** المحافظات ومدنهم، وكم من مناطق كلٍّ منها رُبط. مناطقها نفسها في صفحتها: آلاف الخيارات لا تُبنى في صفحة */

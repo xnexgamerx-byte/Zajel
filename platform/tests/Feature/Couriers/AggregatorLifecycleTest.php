@@ -225,85 +225,68 @@ class AggregatorLifecycleTest extends TestCase
         return $shipment;
     }
 
-    public function test_cancelling_at_their_side_moves_it_to_processing_with_the_reason_chosen_for_that_status(): void
-    {
-        $this->fakeApi();
-        $this->map(['40' => 'failed_attempt']);
-        $refused = Tenancy::runFor($this->company, fn () => FailureReason::availableFor($this->company->id)
-            ->where('requires_photo', false)->orderByDesc('sort_order')->firstOrFail());
-        Tenancy::runFor($this->company, fn () => $this->link->forceFill(['status_reasons' => ['40' => $refused->id]])->save());
-
-        $shipment = $this->outWithThem();
-        $this->hook($this->order($shipment, ['status_id' => '40', 'status' => 'الغاء الطلب']))->assertOk();
-
-        $after = $this->fresh($shipment);
-        $this->assertSame(ShipmentStatus::FailedAttempt, $after->status);
-        $this->assertSame((int) $refused->id, (int) $after->last_failure_reason_id);
-        $this->assertSame('applied', $this->lastEvent()->result);
-        $this->assertStringNotContainsString('الاحتياطيّ', (string) $this->lastEvent()->message);
-    }
-
-    public function test_cancelling_with_no_reason_chosen_anywhere_still_reaches_processing_with_the_fallback(): void
+    public function test_cancelling_at_their_side_reaches_processing_with_their_status_as_the_reason(): void
     {
         $this->fakeApi();
         $this->map(['40' => 'failed_attempt', '41' => 'postponed']);
-        Tenancy::runFor($this->company, fn () => $this->link->forceFill(['failure_reason_id' => null, 'postpone_reason_id' => null])->save());
 
-        // «الغاء الطلب» بلا سببٍ مختار: كانت تبقى «قيد التوصيل»؛ الآن «لم يُسلَّم» للمعالجة بالسبب الاحتياطيّ
+        // «الغاء الطلب» ومندوبهم كتب سببه: «لم يُسلَّم» للمعالجة، سببه نصّ حالتهم، وما كتبه ملاحظةٌ للكول سنتر
         $shipment = $this->outWithThem();
-        $this->hook($this->order($shipment, ['status_id' => '40', 'status' => 'الغاء الطلب']))->assertOk();
+        $this->hook($this->order($shipment, ['status_id' => '40', 'status' => 'الغاء الطلب', 'issue_notes' => 'الزبون ما يرد']))->assertOk();
 
         $after = $this->fresh($shipment);
         $this->assertSame(ShipmentStatus::FailedAttempt, $after->status);
-        $this->assertNotNull($after->last_failure_reason_id);
+        $this->assertSame('الغاء الطلب', $this->reasonName($after));
+        $this->assertSame('وسيط الجنوب: الزبون ما يرد', $after->staff_note);
         $this->assertSame('applied', $this->lastEvent()->result);
-        $this->assertStringContainsString('الاحتياطيّ', (string) $this->lastEvent()->message);
+        $this->assertTrue(Tenancy::runFor($this->company, fn () => Announcement::query()->where('merchant_id', $after->merchant_id)
+            ->where('body', 'like', '%الغاء الطلب%')->exists()), 'التاجر يقرأ السبب بكلامهم');
 
-        // والمؤجّل كذلك، بسببٍ يسمح بموعد إن وُجد
+        // لا يظهر في قوائم الأسباب التي يختار منها أحد، ويُقبل حين يُسجَّل
+        $names = fn (bool $partner) => Tenancy::runFor($this->company, fn () => FailureReason::availableFor($this->company->id, $partner)->pluck('name_ar')->all());
+        $this->assertNotContains('الغاء الطلب', $names(false));
+        $this->assertContains('الغاء الطلب', $names(true));
+
+        // شحنةٌ ثانية بالحالة نفسها: السبب نفسه لا نسخةٌ منه، وإن غيّروا نصّها تغيّر اسمه
         $other = $this->outWithThem();
-        $this->hook($this->order($other, ['status_id' => '41', 'status' => 'مؤجل']))->assertOk();
-        $this->assertSame(ShipmentStatus::Postponed, $this->fresh($other)->status);
-        $this->assertSame('applied', $this->lastEvent()->result);
+        $this->hook($this->order($other, ['status_id' => '40', 'status' => 'الغاء الطلب من الزبون']))->assertOk();
+        $this->assertSame((int) $after->last_failure_reason_id, (int) $this->fresh($other)->last_failure_reason_id);
+        $this->assertSame('الغاء الطلب من الزبون', $this->reasonName($other));
+        $this->assertNull($this->fresh($other)->staff_note, 'لم يكتب مندوبهم شيئاً');
+
+        // المؤجّل كذلك
+        $third = $this->outWithThem();
+        $this->hook($this->order($third, ['status_id' => '41', 'status' => 'مؤجل']))->assertOk();
+        $this->assertSame(ShipmentStatus::Postponed, $this->fresh($third)->status);
+        $this->assertSame('مؤجل', $this->reasonName($third));
     }
 
-    public function test_a_reason_that_was_switched_off_is_not_used_and_the_next_one_is(): void
+    public function test_an_update_that_finds_no_shipment_says_exactly_why_and_replays_once_fixed(): void
     {
         $this->fakeApi();
-        $this->map(['40' => 'failed_attempt']);
-        $off = Tenancy::runFor($this->company, fn () => FailureReason::create([
-            'company_id' => $this->company->id, 'code' => 'off_reason', 'name_ar' => 'سببٌ أُطفئ',
-            'category' => 'customer', 'is_active' => false,
-        ]));
-        Tenancy::runFor($this->company, fn () => $this->link->forceFill(['status_reasons' => ['40' => $off->id]])->save());
 
-        $shipment = $this->outWithThem();
-        $this->hook($this->order($shipment, ['status_id' => '40']))->assertOk();
-
-        $after = $this->fresh($shipment);
-        $this->assertSame(ShipmentStatus::FailedAttempt, $after->status);
-        $this->assertSame($this->reason($this->company)->id, (int) $after->last_failure_reason_id, 'سبب الربط العامّ');
-    }
-
-    public function test_no_reason_at_all_is_the_only_error_and_replaying_after_adding_one_fixes_it(): void
-    {
-        $this->fakeApi();
-        $shipment = $this->outWithThem();
-
-        // لا سبب مفعّلاً للشركة أصلاً: هذا وحده خطأ، وتبقى قيد التوصيل
-        DB::table('failure_reasons')->update(['is_active' => false]);
-        $this->hook($this->order($shipment, ['status_id' => '23']))->assertOk();
+        // الشحنة عندنا مع مندوبٍ عاديّ لا مع مندوب الربط: لا تُحرَّك، ويقول السجلّ ذلك باسميهما
+        $shipment = $this->ship($this->courier('مندوب عادي'));
+        $this->hook($this->order($shipment, ['status_id' => '4', 'deliver_done' => 1]))->assertOk();
         $event = $this->lastEvent();
-        $this->assertSame('error', $event->result);
-        $this->assertStringContainsString('أضف سبباً', (string) $event->message);
+        $this->assertSame('unmatched', $event->result);
+        $this->assertStringContainsString('مع «مندوب عادي»', (string) $event->message);
+        $this->assertStringContainsString('مندوب الربط «وسيط الجنوب»', (string) $event->message);
         $this->assertSame(ShipmentStatus::OutForDelivery, $this->fresh($shipment)->status);
 
-        // أُضيف سبب، و«أعد التطبيق» من السجلّ: تصير «لم يُسلَّم»
-        DB::table('failure_reasons')->update(['is_active' => true]);
-        $this->actingAs($this->staff)->post($this->tenantUrl('/aggregator/events/'.$event->id.'/replay'))
-            ->assertRedirect()->assertSessionHas('success');
+        // رقمٌ لا نعرفه، ورقمٌ بلا بادئتنا
+        $this->hook(['id' => '777', 'company_order_id' => 'ZJL_999999', 'status_id' => '3', 'status' => 'مع المندوب'])->assertOk();
+        $this->assertStringContainsString('لا شحنة عندنا برقمهم 777 ولا برقمنا ZJL_999999', (string) $this->lastEvent()->message);
+        $this->hook(['id' => '778', 'company_order_id' => 'ABC_5', 'status_id' => '3', 'status' => 'مع المندوب'])->assertOk();
+        $this->assertStringContainsString('بلا بادئتنا ZJL_', (string) $this->lastEvent()->message);
 
-        $this->assertSame(ShipmentStatus::FailedAttempt, $this->fresh($shipment)->status);
-        $this->assertSame('applied', $this->lastEvent()->result);
+        // أُسندت لمندوب الربط، ثم «أعد التطبيق»: تُسجَّل واصلة
+        Tenancy::runFor($this->company, fn () => $shipment->refresh()->forceFill(['delivery_courier_id' => $this->agent->id])->save());
+        $this->actingAs($this->staff)->post($this->tenantUrl('/aggregator/events/'.$event->id.'/replay'))
+            ->assertSessionHasNoErrors()->assertSessionHas('success');
+
+        $this->assertSame(ShipmentStatus::Delivered, $this->fresh($shipment)->status);
+        $this->assertSame('applied', Tenancy::runFor($this->company, fn () => $event->refresh()->result));
         $this->assertTrue(Tenancy::runFor($this->company, fn () => AuditLog::query()
             ->where('action', 'aggregator_event_replayed')->exists()));
     }
@@ -317,18 +300,64 @@ class AggregatorLifecycleTest extends TestCase
         $this->actingAs($this->staff)->post($this->tenantUrl('/aggregator/events/'.$applied->id.'/replay'))
             ->assertSessionHasErrors('event');
 
-        DB::table('failure_reasons')->update(['is_active' => false]);
-        $this->hook($this->order($shipment, ['status_id' => '23']))->assertOk();
-        $failed = $this->lastEvent();
-        DB::table('failure_reasons')->update(['is_active' => true]);
+        // «واصل» بعد «لم يُسلَّم» ينتظر إجراءً منّا
+        $this->hook($this->order($shipment, ['status_id' => '23', 'updated_at' => '2026-11-01 10:00:00']))->assertOk();
+        $this->hook($this->order($shipment, ['status_id' => '4', 'deliver_done' => 1, 'updated_at' => '2026-11-01 11:00:00']))->assertOk();
+        $waiting = $this->lastEvent();
+        $this->assertSame('waiting', $waiting->result);
 
-        // وصلهم بعده «واصل»: الأحدث هو ما عليه الطرد، فلا يُعاد القديم
-        $this->hook($this->order($shipment, ['status_id' => '4', 'deliver_done' => 1, 'updated_at' => '2026-11-01 13:00:00']))->assertOk();
-        $this->assertSame(ShipmentStatus::Delivered, $this->fresh($shipment)->status);
+        // وصل بعده تحديثٌ أحدث: الأحدث هو ما عليه الطرد، فلا يُعاد القديم
+        $this->hook($this->order($shipment, ['status_id' => '2', 'updated_at' => '2026-11-01 12:00:00']))->assertOk();
+        $this->post($this->tenantUrl('/aggregator/events/'.$waiting->id.'/replay'))->assertSessionHasErrors('event');
+        $this->assertSame(ShipmentStatus::FailedAttempt, $this->fresh($shipment)->status);
+        $this->assertSame('waiting', Tenancy::runFor($this->company, fn () => $waiting->refresh()->result));
+    }
 
-        $this->post($this->tenantUrl('/aggregator/events/'.$failed->id.'/replay'))->assertSessionHasErrors('event');
-        $this->assertSame(ShipmentStatus::Delivered, $this->fresh($shipment)->status);
-        $this->assertSame('error', Tenancy::runFor($this->company, fn () => $failed->refresh()->result));
+    public function test_requests_we_refuse_are_recorded_with_the_reason_and_shown_on_the_screen(): void
+    {
+        $this->fakeApi();
+        $shipment = $this->outWithThem();
+        $link = fn () => Tenancy::runFor($this->company, fn () => $this->link->refresh());
+        $this->assertNotNull($link()->hook_last_at);
+        $this->travel(1)->minutes();
+
+        // مفتاحٌ آخر، وبلا ترويسة: يُرفض ويُكتب لماذا
+        $this->hook($this->order($shipment), 'old-key')->assertStatus(401);
+        $this->assertStringContainsString('لا يطابق', (string) $link()->hook_rejected_reason);
+
+        $host = 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain');
+        $this->postJson($host.'/api/v1/aggregator/webhook', $this->order($shipment))->assertStatus(401);
+        $this->assertStringContainsString('لا ترويسة «X-Hook-Key»', (string) $link()->hook_rejected_reason);
+
+        $this->actingAs($this->staff)->get($this->tenantUrl('/aggregator'))->assertOk()
+            ->assertSee('استلام تحديثاتهم')->assertSee('آخر ما أرسلوه رُفض')->assertSee('لا ترويسة «X-Hook-Key»');
+
+        // ثم وصل تحديثٌ سليم: لا تنبيه، والرفض يبقى للعلم
+        $this->travel(1)->minutes();
+        $this->hook($this->order($shipment, ['status_id' => '2', 'updated_at' => '2026-11-01 09:30:00']))->assertOk();
+        $this->get($this->tenantUrl('/aggregator'))->assertOk()->assertDontSee('آخر ما أرسلوه رُفض');
+
+        // ولم يُولَّد مفتاحٌ بعد
+        Tenancy::runFor($this->company, fn () => $this->link->forceFill(['webhook_token_hash' => null])->save());
+        $this->hook($this->order($shipment))->assertStatus(401);
+        $this->assertStringContainsString('لم يُولَّد مفتاح', (string) $link()->hook_rejected_reason);
+        $this->get($this->tenantUrl('/aggregator'))->assertSee('لا مفتاح بعد: كلّ تحديثٍ منهم يُرفض');
+    }
+
+    public function test_an_update_sent_as_form_fields_or_as_json_text_is_read_like_json(): void
+    {
+        $this->fakeApi();
+        $host = 'http://'.$this->company->slug.'.'.config('zajel.tenant_domain').'/api/v1/aggregator/webhook';
+
+        // حقول نموذج
+        $first = $this->outWithThem();
+        $this->post($host, $this->order($first, ['status_id' => '4', 'deliver_done' => 1]), ['X-Hook-Key' => self::HOOK])->assertOk();
+        $this->assertSame(ShipmentStatus::Delivered, $this->fresh($first)->status);
+
+        // JSON نصّاً في حقل data
+        $second = $this->outWithThem();
+        $this->post($host, ['data' => json_encode($this->order($second, ['status_id' => '4', 'deliver_done' => 1]))], ['X-Hook-Key' => self::HOOK])->assertOk();
+        $this->assertSame(ShipmentStatus::Delivered, $this->fresh($second)->status);
     }
 
     public function test_their_hook_is_answered_first_and_applied_after_the_reply_or_by_the_scheduler(): void
@@ -438,34 +467,28 @@ class AggregatorLifecycleTest extends TestCase
         $this->assertSame([[1, ShipmentStatus::Delivered->value]], $seen, 'أُرسل مرّةً بعد حفظ الحالة');
     }
 
-    public function test_the_screens_save_a_reason_per_status_and_the_log_offers_replay_with_their_time(): void
+    public function test_the_screens_have_no_reason_options_and_the_log_offers_replay_with_their_time(): void
     {
         $this->fakeApi();
         Tenancy::runFor($this->company, fn () => $this->link->forceFill(['catalog' => ['statuses' => ['40' => 'الغاء الطلب', '3' => 'مع المندوب']]])->save());
-        $reason = $this->reason($this->company);
 
-        // سببٌ لحالة «الغاء الطلب»، و«سبب الربط العامّ» لغيرها لا يُحفظ
+        // ربط الحالات وحده، بلا سببٍ يُختار
         $this->actingAs($this->staff)->put($this->tenantUrl('/aggregator/statuses'), [
             'map' => ['40' => 'failed_attempt', '3' => 'out_for_delivery'],
-            'reasons' => ['40' => $reason->id, '3' => ''],
         ])->assertSessionHasNoErrors();
-        $link = Tenancy::runFor($this->company, fn () => $this->link->refresh());
-        $this->assertSame(['40' => $reason->id], $link->status_reasons);
-        $this->assertSame([$reason->id, false], $link->reasonFor('40', false));
+        $this->assertSame('failed_attempt', Tenancy::runFor($this->company, fn () => $this->link->refresh())->actionFor('40'));
 
-        // سببُ شركةٍ أخرى لا يُقبل
-        $other = $this->makeCompany('other', 'أخرى');
-        $foreign = FailureReason::create(['company_id' => $other->id, 'code' => 'theirs', 'name_ar' => 'سببهم', 'category' => 'customer']);
-        $this->put($this->tenantUrl('/aggregator/statuses'), ['map' => ['40' => 'failed_attempt'], 'reasons' => ['40' => $foreign->id]])
-            ->assertSessionHasErrors('reasons.40');
+        $this->get($this->tenantUrl('/aggregator'))->assertOk()
+            ->assertSee('name="map[40]"', false)
+            ->assertDontSee('name="reasons[', false)
+            ->assertDontSee('name="failure_reason_id"', false)
+            ->assertDontSee('name="postpone_reason_id"', false)
+            ->assertSee('نصّ حالتهم نفسه');
 
-        $this->get($this->tenantUrl('/aggregator'))->assertOk()->assertSee('name="reasons[40]"', false)->assertSee('سبب الربط العامّ');
-
-        // في السجلّ: وقت وصوله ووقته عندهم، و«أعد التطبيق» لما تعذّر
+        // في السجلّ: وقت وصوله ووقته عندهم، و«أعد التطبيق» لما ينتظر إجراءً
         $shipment = $this->outWithThem();
-        DB::table('failure_reasons')->update(['is_active' => false]);
-        $this->hook($this->order($shipment, ['status_id' => '23', 'updated_at' => '2026-11-01 08:07:09']))->assertOk();
-        DB::table('failure_reasons')->update(['is_active' => true]);
+        $this->hook($this->order($shipment, ['status_id' => '23', 'updated_at' => '2026-11-01 08:05:00']))->assertOk();
+        $this->hook($this->order($shipment, ['status_id' => '4', 'deliver_done' => 1, 'updated_at' => '2026-11-01 08:07:09']))->assertOk();
 
         $this->get($this->tenantUrl('/aggregator/log'))->assertOk()
             ->assertSee('08:07:09')

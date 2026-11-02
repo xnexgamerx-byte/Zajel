@@ -29,7 +29,8 @@ class CourierOutcomeRules
 
         if (in_array($to, [ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed], true)) {
             $reason = isset($data['failure_reason_id'])
-                ? FailureReason::availableFor($shipment->company_id)
+                // ومنها سبب الشركة الوسيطة بنصّ حالتهم (docs/plan/107)
+                ? FailureReason::availableFor($shipment->company_id, partner: true)
                     ->whereKey($data['failure_reason_id'])->first()
                 : null;
 

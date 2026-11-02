@@ -11,6 +11,7 @@ use App\Support\Tenancy\Tenancy;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -25,19 +26,33 @@ class AggregatorWebhookController extends Controller
 
     public function __invoke(Request $request, AggregatorInbox $inbox, TenantContext $tenant): JsonResponse
     {
-        $link = FeatureGate::enabled(Feature::Aggregator) ? AggregatorLink::query()->first() : null;
+        $link = AggregatorLink::query()->first();
 
-        if ($link === null || $link->courier_id === null) {
+        if ($link === null || ! FeatureGate::enabled(Feature::Aggregator) || $link->courier_id === null) {
+            $this->rejected($link, 'الميزة مغلقة أو لا مندوب وسيط مختار', 404);
+
             return $this->reply(false, 'not found', 404);
         }
 
-        if (! $link->webhookAccepts($request->header($link->webhook_header))) {
+        if ($link->webhook_token_hash === null) {
+            $this->rejected($link, 'لم يُولَّد مفتاح الـ Webhook بعد', 401);
+
             return $this->reply(false, 'unauthorized', 401);
         }
 
-        $payload = $request->json()->all();
+        if (! $link->webhookAccepts($request->header($link->webhook_header))) {
+            $this->rejected($link, $request->hasHeader($link->webhook_header)
+                ? 'المفتاح في الترويسة «'.$link->webhook_header.'» لا يطابق'
+                : 'لا ترويسة «'.$link->webhook_header.'» في الطلب', 401);
 
-        if (! is_array($payload) || $payload === []) {
+            return $this->reply(false, 'unauthorized', 401);
+        }
+
+        $payload = self::payload($request);
+
+        if ($payload === []) {
+            $this->rejected($link, 'طلبٌ بلا بيانات', 422);
+
             return $this->reply(false, 'empty body', 422);
         }
 
@@ -47,6 +62,8 @@ class AggregatorWebhookController extends Controller
                 $accepted = true;
             }
         }
+
+        $link->forceFill(['hook_last_at' => now()])->saveQuietly();
 
         // يُطبَّق بعد الردّ (docs/plan/106): تغيير الحالة وإشعارات الهواتف لا تؤخّر ردّنا عن مهلتهم،
         // وما لم يُطبَّق هنا يطبّقه المجدوِل خلال دقيقة
@@ -61,6 +78,40 @@ class AggregatorWebhookController extends Controller
         }
 
         return $this->reply(true, 'ok');
+    }
+
+    /**
+     * ما أرسلوه: JSON كما في وثائقهم، وإلّا حقول نموذج، أو JSON نصّاً في حقلٍ واحد (data). لا يُرفض تحديثٌ
+     * لأنّ صيغته غير ما توقّعنا (docs/plan/107).
+     */
+    private static function payload(Request $request): array
+    {
+        $payload = $request->isJson() ? $request->json()->all() : [];
+
+        if ($payload === [] && ($raw = trim((string) $request->getContent())) !== '' && in_array($raw[0], ['{', '['], true)) {
+            $payload = json_decode($raw, true) ?: [];
+        }
+
+        if ($payload === []) {
+            $payload = $request->request->all();
+        }
+
+        if (count($payload) === 1 && is_string($data = $payload['data'] ?? null)) {
+            $payload = json_decode($data, true) ?: $payload;
+        }
+
+        return is_array($payload) ? $payload : [];
+    }
+
+    /**
+     * طلبٌ منهم رُفض: يُكتب على الربط متى ولماذا (شاشة الربط تعرضه)، وفي سجلّ الخادم — فيُعرف لماذا لا تُقرأ
+     * تحديثاتهم دون تخمين (docs/plan/107). لا يُكتب المفتاح ولا ما أرسلوه.
+     */
+    private function rejected(?AggregatorLink $link, string $reason, int $status): void
+    {
+        Log::warning('Aggregator webhook rejected', ['company_id' => $link?->company_id, 'status' => $status, 'reason' => $reason]);
+
+        $link?->forceFill(['hook_rejected_at' => now(), 'hook_rejected_reason' => mb_substr($reason, 0, 120)])->saveQuietly();
     }
 
     /** بصيغة ردودهم نفسها */

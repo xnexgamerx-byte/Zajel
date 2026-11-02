@@ -226,7 +226,8 @@ class AggregatorTest extends TestCase
         $this->hook($this->order($shipment, ['status_id' => '23', 'status' => 'راجع الى مخزن الرواجع', 'issue_notes' => 'الزبون رفض']))->assertOk();
         $failed = $this->fresh($shipment);
         $this->assertSame(ShipmentStatus::FailedAttempt, $failed->status);
-        $this->assertSame($this->reason($this->company)->id, $failed->last_failure_reason_id);
+        $this->assertSame('راجع الى مخزن الرواجع', $this->reasonName($failed), 'السبب نصّ حالتهم (docs/plan/107)');
+        $this->assertSame('وسيط الجنوب: الزبون رفض', $failed->staff_note, 'ما كتبه مندوبهم ملاحظةٌ للكول سنتر');
 
         $this->hook($this->order($shipment, ['status_id' => '23', 'status' => 'راجع الى مخزن الرواجع', 'issue_notes' => 'الزبون رفض', 'send_to_store' => 2]))->assertOk();
         $this->assertTrue(Tenancy::runFor($this->company, fn () => $shipment->events()->where('event_type', 'tracking')
@@ -268,7 +269,8 @@ class AggregatorTest extends TestCase
         $this->assertSame('راجع مؤكد', $back->statusLabel());
         $this->assertNotNull($back->return_confirmed_at);
         $this->assertNull($back->return_received_at);
-        $this->assertSame($this->reason($this->company)->id, $back->last_failure_reason_id);
+        $this->assertSame('تم استلام الطلب من قبل المندوب', $this->reasonName($back));
+        $this->assertSame('وسيط الجنوب: الزبون رفض', $back->staff_note);
         $this->assertSame(1, (int) $back->attempts_count);
 
         // «راجع عند المندوب» بعدها: راجعةٌ من قبل، فسطر تتبّع لا انتقال
@@ -280,16 +282,6 @@ class AggregatorTest extends TestCase
         $this->artisan('aggregator:sync');
         $this->hook($this->order($this->fresh($other), ['status_id' => '24', 'status' => 'راجع عند المندوب']))->assertOk();
         $this->assertSame('راجع مؤكد', $this->fresh($other)->statusLabel());
-
-        // بلا سبب «لم يُسلَّم» مختار: لا تبقى «قيد التوصيل» (docs/plan/106) — تُرجَع بالسبب الاحتياطيّ،
-        // ويقول السجلّ ذلك ليُختار سبب حالتهم
-        Tenancy::runFor($this->company, fn () => $this->link->forceFill(['failure_reason_id' => null])->save());
-        $third = $this->outWithThem();
-        $this->hook($this->order($third, ['status_id' => '23']))->assertOk();
-        $this->assertSame('راجع مؤكد', $this->fresh($third)->statusLabel());
-        $this->assertSame('applied', $this->lastResult());
-        $this->assertStringContainsString('الاحتياطيّ', (string) Tenancy::runFor($this->company,
-            fn () => AggregatorEvent::latest('id')->first()->message));
     }
 
     public function test_a_redelivery_sends_a_failed_shipment_back_to_them_as_redelivery(): void
