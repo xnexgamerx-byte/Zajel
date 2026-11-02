@@ -84,6 +84,30 @@
         </button>
     </form>
 
+    <div class="space-y-5">
+    {{-- تاجرٌ واحدٌ وكلّ ما له (docs/plan/108): تاجرٌ تجريبيّ مثلاً، دون أن يُمسّ غيره --}}
+    <form method="GET" action="{{ route('admin.purge.merchant') }}" class="card space-y-4 p-5">
+        <h2 class="card-title">حذف تاجرٍ واحدٍ وكلّ ما له</h2>
+        <p class="card-hint">شحناته وطلباته ورسائله وحركات حسابه وحسابات دخوله. ترى الأعداد قبل أن تؤكّد.</p>
+        <div>
+            <label class="field-label" for="m-company">الشركة</label>
+            <select id="m-company" name="company" class="field-input" required>
+                <option value="">اختر شركة…</option>
+                @foreach ($companies as $c)
+                    <option value="{{ $c->id }}" @selected($chosen == $c->id)>{{ $c->name }} ({{ $c->slug }})</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label class="field-label" for="m-merchant">رمز التاجر أو اسمه كما هو</label>
+            <input id="m-merchant" name="merchant" class="field-input" required value="{{ old('merchant') }}" placeholder="M0005 أو test">
+            @error('merchant') <p class="field-error">{{ $message }}</p> @enderror
+        </div>
+        <button type="submit" class="btn-danger w-full justify-center" @disabled(! $canPurge)>
+            <x-icon name="eye" class="size-5"/> اعرض ما سيُحذف
+        </button>
+    </form>
+
     <section class="card p-5">
         <h2 class="card-title">قبل أن تحذف</h2>
         <ul class="mt-3 list-disc space-y-2 ps-5 text-sm text-ink-700">
@@ -94,5 +118,6 @@
             <li>الحذف يُكتب في سجلّ تدقيق الشركة: من حذف، ومتى، وماذا.</li>
         </ul>
     </section>
+    </div>
 </div>
 @endsection

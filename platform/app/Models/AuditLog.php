@@ -63,6 +63,7 @@ class AuditLog extends Model
         'theme_changed' => 'تغيّر مظهر النظام',
         'design_changed' => 'تغيّر تصميم النظام',
         'data_purged' => 'حُذفت بيانات من المنصّة',
+        'merchant_purged' => 'حُذف تاجرٌ وكلّ ما له من المنصّة',
         'aggregator_changed' => 'تغيّر ربط الشركة الوسيطة',
         'aggregator_areas_prefix' => 'رُبطت مناطق الوسيط بأول الاسم',
         'aggregator_areas_import' => 'رُفع ملف ربط مناطق الوسيط',

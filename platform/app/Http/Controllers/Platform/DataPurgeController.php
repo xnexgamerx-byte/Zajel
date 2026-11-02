@@ -10,6 +10,7 @@ use App\Services\Platform\CompanyDataPurge;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -87,6 +88,93 @@ class DataPurgeController extends Controller
 
         return redirect()->route('admin.purge.index', ['company' => $company->id])
             ->with('purged', ['company' => $company->name, 'period' => self::period($from, $to), 'counts' => $counts]);
+    }
+
+    /** تاجرٌ واحدٌ وكلّ ما له (docs/plan/108): ما سيُحذف، وما يمنع حذفه إن وُجد */
+    public function merchantPreview(Request $request): View
+    {
+        abort_unless($this->canPurge($request), 403);
+        [$company, $merchant] = $this->chosenMerchant($request);
+        $purge = new CompanyDataPurge($company);
+
+        return view('platform.purge.merchant', [
+            'company' => $company,
+            'merchant' => $merchant,
+            'rows' => $purge->merchantPreview($merchant->id),
+            'blockers' => $purge->merchantBlockers($merchant->id),
+        ]);
+    }
+
+    public function destroyMerchant(Request $request): RedirectResponse
+    {
+        abort_unless($this->canPurge($request), 403);
+        [$company, $merchant] = $this->chosenMerchant($request);
+
+        $request->validate([
+            'confirm_code' => ['required', 'string'],
+            'password' => ['required', 'string'],
+            'understood' => ['accepted'],
+        ], ['understood.accepted' => 'أكّد أنّ الحذف لا يُسترجع.'], ['confirm_code' => 'رمز التاجر', 'password' => 'كلمة المرور']);
+
+        if (trim((string) $request->input('confirm_code')) !== (string) $merchant->code) {
+            throw ValidationException::withMessages(['confirm_code' => "اكتب «{$merchant->code}» كما هو حتى يُحذف."]);
+        }
+
+        if (! Hash::check((string) $request->input('password'), (string) $request->user()->password)) {
+            throw ValidationException::withMessages(['password' => 'كلمة المرور غير صحيحة.']);
+        }
+
+        $purge = new CompanyDataPurge($company);
+        if ($blockers = $purge->merchantBlockers($merchant->id)) {
+            throw ValidationException::withMessages(['merchant' => 'لا يُحذف وحده: له '.implode('، ', $blockers).'.']);
+        }
+
+        $counts = $purge->purgeMerchant($merchant->id);
+
+        AuditLog::create([
+            'company_id' => $company->id,
+            'user_id' => $request->user()->id,
+            'user_name' => $request->user()->name,
+            'action' => 'merchant_purged',
+            'auditable_type' => Company::class,
+            'auditable_id' => $company->id,
+            'old_values' => ['merchant_id' => $merchant->id, 'code' => $merchant->code, 'name' => $merchant->business_name],
+            'new_values' => ['counts' => $counts],
+            'ip' => $request->ip(),
+        ]);
+
+        return redirect()->route('admin.purge.index', ['company' => $company->id])
+            ->with('purged', ['company' => $company->name, 'period' => 'التاجر '.$merchant->business_name.' ('.$merchant->code.')', 'counts' => $counts]);
+    }
+
+    /**
+     * الشركة والتاجر برمزه أو اسمه كما هو. اسمٌ لأكثر من تاجر لا يُخمَّن: يُطلب الرمز.
+     *
+     * @return array{0: Company, 1: object{id: int, code: string, business_name: string}}
+     */
+    private function chosenMerchant(Request $request): array
+    {
+        $data = $request->validate([
+            'company' => ['required', 'integer', Rule::exists('companies', 'id')],
+            'merchant' => ['required', 'string', 'max:160'],
+        ], [], ['company' => 'الشركة', 'merchant' => 'التاجر']);
+
+        $company = Company::findOrFail($data['company']);
+        $term = trim($data['merchant']);
+
+        $matches = DB::table('merchants')->where('company_id', $company->id)
+            ->where(fn ($q) => $q->where('code', $term)->orWhereRaw('lower(business_name) = ?', [mb_strtolower($term)]))
+            ->get(['id', 'code', 'business_name']);
+
+        if ($matches->isEmpty()) {
+            throw ValidationException::withMessages(['merchant' => "لا تاجر برمز أو اسم «{$term}» في {$company->name}."]);
+        }
+
+        if ($matches->count() > 1) {
+            throw ValidationException::withMessages(['merchant' => 'أكثر من تاجرٍ بهذا الاسم: '.$matches->pluck('code')->implode('، ').'. اكتب رمز من تريد.']);
+        }
+
+        return [$company, $matches->first()];
     }
 
     public static function period(?CarbonImmutable $from, ?CarbonImmutable $to): string

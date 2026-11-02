@@ -932,6 +932,9 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
         Route::get('/purge', [DataPurgeController::class, 'index'])->name('purge.index');
         Route::get('/purge/preview', [DataPurgeController::class, 'preview'])->name('purge.preview');
         Route::post('/purge', [DataPurgeController::class, 'destroy'])->name('purge.run');
+        // تاجرٌ واحد وكلّ ما له (docs/plan/108)
+        Route::get('/purge/merchant', [DataPurgeController::class, 'merchantPreview'])->name('purge.merchant');
+        Route::post('/purge/merchant', [DataPurgeController::class, 'destroyMerchant'])->name('purge.merchant.run');
 
         Route::get('/plans', [PlanController::class, 'index'])->name('plans.index');
         Route::get('/plans/create', [PlanController::class, 'create'])->name('plans.create');

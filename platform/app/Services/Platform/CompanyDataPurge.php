@@ -42,7 +42,7 @@ final class CompanyDataPurge
         'conversation_messages' => 'رسالة تاجر', 'courier_messages' => 'رسالة مندوب', 'staff_messages' => 'رسالة موظّف', 'announcements' => 'إعلان',
         'transactions' => 'حركة حساب', 'cash_movements' => 'حركة صندوق', 'courier_settlements' => 'كشف مندوب', 'merchant_settlements' => 'كشف تاجر',
         'collection_batches' => 'وجبة تحصيل', 'merchant_advances' => 'سلفة', 'expenses' => 'مصروف', 'journal_entries' => 'قيد',
-        'merchants' => 'تاجر', 'couriers' => 'مندوب', 'staff' => 'موظّف',
+        'merchants' => 'تاجر', 'couriers' => 'مندوب', 'staff' => 'موظّف', 'conversations' => 'محادثة',
         'kept_merchants' => 'تاجر بقي لشحناته أو ماله', 'kept_couriers' => 'مندوب بقي لكشوفه أو ماله',
     ];
 
@@ -137,6 +137,162 @@ final class CompanyDataPurge
         }
 
         return array_filter($this->counts);
+    }
+
+    // ── تاجرٌ واحد (docs/plan/108) ──────────────────────────────────────────
+
+    /**
+     * ما يمنع حذف التاجر وحده: مالٌ اختلط بمال غيره، فحذفه يغيّر كشفاً أو حساباً حقيقياً. يُحذف حينها مع
+     * «الحسابات والمال» للشركة، أو تُلغى كشوفه أوّلاً.
+     *
+     * @return list<string>
+     */
+    public function merchantBlockers(int $merchantId): array
+    {
+        $shipments = $this->merchantShipments($merchantId);
+        $inCourierSettlements = 0;
+        foreach ($shipments->chunk(self::CHUNK) as $chunk) {
+            $inCourierSettlements += DB::table('courier_settlement_shipments')->whereIn('shipment_id', $chunk->values())->count();
+        }
+
+        $blockers = array_filter([
+            $this->table('merchant_settlements')->where('merchant_id', $merchantId)->count() => 'كشف تاجر',
+            $inCourierSettlements => 'من شحناته في كشوف مناديب (مع شحنات تجّارٍ آخرين)',
+            $this->table('merchant_advances')->where('merchant_id', $merchantId)->count() => 'سلفة',
+            $this->table('merchant_deposits')->where('merchant_id', $merchantId)->count() => 'حركة أمانة',
+            $this->table('prepaid_receipts')->where('merchant_id', $merchantId)->count() => 'وصل أجورٍ مقدّمة',
+            $this->mixedJournalEntries($merchantId) => 'قيد في الدفتر يجمعه بغيره',
+        ], fn ($label, $n) => $n > 0, ARRAY_FILTER_USE_BOTH);
+
+        return array_map(fn ($n, $label) => number_format($n).' '.$label, array_keys($blockers), $blockers);
+    }
+
+    /** @return list<array{0: string, 1: int}> ما سيُحذف للتاجر */
+    public function merchantPreview(int $merchantId): array
+    {
+        $shipments = $this->merchantShipments($merchantId);
+
+        return [
+            ['شحنة', $shipments->count()],
+            ['طلب استلام', $this->table('pickup_requests')->where('merchant_id', $merchantId)->count()],
+            ['طلب تاجر', $this->table('merchant_requests')->where('merchant_id', $merchantId)->count()],
+            ['دفعة راجع', $this->table('return_batches')->where('merchant_id', $merchantId)->count()],
+            ['رسالة', $this->table('conversation_messages')->whereIn('conversation_id', $this->table('conversations')->where('merchant_id', $merchantId)->select('id'))->count()],
+            ['حركة حساب', $this->merchantTransactions($merchantId)->count()],
+            ['قيد', $this->merchantJournalEntries($merchantId)->count()],
+            ['حساب دخول', $this->table('users')->where('merchant_id', $merchantId)->count()],
+        ];
+    }
+
+    /**
+     * يحذف التاجر وكلّ ما له في معاملةٍ واحدة: شحناته وأحداثها وتذاكرها، وطلباته ودفعات راجعه، ومحادثاته
+     * وإعلاناته، وحركات حسابه وحركات شحناته وقيودها، وحسابات دخوله ودفاتر وصولاته. ثم تُعاد الأرصدة ويُعاد
+     * تسلسل الدفتر. لا يُحذف شيءٌ إن منعه مانع (merchantBlockers). حصص المناديب عن استلام شحناته تبقى:
+     * استحقّوها بالذهاب، وقد تكون صُرفت.
+     *
+     * @return array<string, int>
+     */
+    public function purgeMerchant(int $merchantId): array
+    {
+        if ($this->merchantBlockers($merchantId) !== []) {
+            throw new \RuntimeException('Merchant money is mixed with others; purge refused.');
+        }
+
+        @set_time_limit(0);
+
+        DB::transaction(function () use ($merchantId) {
+            $shipments = $this->merchantShipments($merchantId);
+
+            // الطلبات
+            $pickups = $this->table('pickup_requests')->where('merchant_id', $merchantId)->pluck('id');
+            $this->nullIn('pickup_shares', 'pickup_request_id', $pickups);
+            $this->nullIn('shipments', 'pickup_request_id', $pickups);
+            $this->count('pickup_requests', $this->deleteIn('pickup_requests', 'id', $pickups));
+            $this->count('merchant_requests', $this->table('merchant_requests')->where('merchant_id', $merchantId)->delete());
+            $batches = $this->table('return_batches')->where('merchant_id', $merchantId)->pluck('id');
+            $this->nullIn('shipments', 'return_batch_id', $batches);
+            $this->count('return_batches', $this->deleteIn('return_batches', 'id', $batches));
+
+            // الرسائل والإعلانات
+            $conversations = $this->table('conversations')->where('merchant_id', $merchantId)->pluck('id');
+            $this->files = [...$this->files, ...$this->table('conversation_messages')->whereIn('conversation_id', $conversations)
+                ->whereNotNull('attachment_path')->pluck('attachment_path')->all()];
+            $this->count('conversation_messages', $this->deleteIn('conversation_messages', 'conversation_id', $conversations));
+            $this->deleteIn('conversations', 'id', $conversations);
+            $announcements = $this->table('announcements')->where('merchant_id', $merchantId)->pluck('id');
+            $this->deleteIn('announcement_reads', 'announcement_id', $announcements);
+            $this->count('announcements', $this->deleteIn('announcements', 'id', $announcements));
+
+            // المال: حركات حسابه وحركات شحناته، وقيودها كاملةً (لا يجمعها قيدٌ بغيره — merchantBlockers)
+            $entries = $this->merchantJournalEntries($merchantId)->pluck('id');
+            $this->count('transactions', $this->merchantTransactions($merchantId)->delete());
+            $this->nullIn('financial_periods', 'closing_entry_id', $entries);
+            $this->deleteIn('journal_lines', 'journal_entry_id', $entries);
+            $this->count('journal_entries', $this->deleteIn('journal_entries', 'id', $entries));
+
+            // الشحنات وما يتبعها
+            foreach (['shipment_events', 'shipment_tickets', 'shipment_follow_ups', 'bag_shipments', 'aggregator_jobs', 'aggregator_events'] as $table) {
+                $this->deleteIn($table, 'shipment_id', $shipments);
+            }
+            foreach (['staff_messages', 'courier_messages', 'conversations'] as $table) {
+                $this->nullIn($table, 'shipment_id', $shipments);
+            }
+            $this->nullIn('shipments', 'duplicate_of_id', $shipments);
+            $this->nullIn('shipments', 'replacement_for_id', $shipments);
+            $this->count('shipments', $this->deleteIn('shipments', 'id', $shipments));
+
+            // التاجر نفسه
+            $this->files = [...$this->files, ...$this->table('merchants')->where('id', $merchantId)->pluck('logo_path')->all()];
+            $this->deleteUsers($this->table('users')->where('merchant_id', $merchantId)->pluck('id'));
+            $this->deleteIn('waybill_books', 'merchant_id', collect([$merchantId]));
+            $this->count('merchants', $this->table('merchants')->where('id', $merchantId)->delete());
+
+            $this->rebuildBalances();
+            $this->rechainJournal();
+        });
+
+        foreach (array_unique(array_filter($this->files)) as $path) {
+            Storage::disk('local')->delete($path);
+        }
+
+        return array_filter($this->counts);
+    }
+
+    private function merchantShipments(int $merchantId): Collection
+    {
+        return $this->shipmentsOf($merchantId)->pluck('id');
+    }
+
+    /** معرّفات شحناته استعلاماً فرعياً: لا قائمةً تطول بعدد شحناته */
+    private function shipmentsOf(int $merchantId): Builder
+    {
+        return $this->table('shipments')->where('merchant_id', $merchantId)->select('id');
+    }
+
+    private function merchantTransactions(int $merchantId): Builder
+    {
+        return $this->table('transactions')->where(fn ($q) => $q
+            ->where(fn ($q) => $q->where('account_type', 'merchant')->where('account_id', $merchantId))
+            ->orWhereIn('shipment_id', $this->shipmentsOf($merchantId)));
+    }
+
+    /** قيودٌ في سطرٍ منها شحنةٌ له أو حسابه */
+    private function merchantJournalEntries(int $merchantId): Builder
+    {
+        return $this->table('journal_entries')->whereIn('id', $this->table('journal_lines')
+            ->where(fn ($q) => $q->where('merchant_id', $merchantId)->orWhereIn('shipment_id', $this->shipmentsOf($merchantId)))
+            ->select('journal_entry_id'));
+    }
+
+    /** من قيوده ما فيه سطرٌ لشحنةٍ أو تاجرٍ غيره: لا يُحذف القيد كلّه ولا يُبتر */
+    private function mixedJournalEntries(int $merchantId): int
+    {
+        return $this->merchantJournalEntries($merchantId)
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('journal_lines as o')->whereColumn('o.journal_entry_id', 'journal_entries.id')
+                ->where(fn ($q) => $q
+                    ->where(fn ($q) => $q->whereNotNull('o.merchant_id')->where('o.merchant_id', '!=', $merchantId))
+                    ->orWhere(fn ($q) => $q->whereNotNull('o.shipment_id')->whereNotIn('o.shipment_id', $this->shipmentsOf($merchantId)))))
+            ->count();
     }
 
     // ── الأجزاء ────────────────────────────────────────────────────────────
