@@ -88,6 +88,7 @@ class AggregatorLink extends Model
             'aggre_token_at' => 'datetime',
             'catalog' => 'array',
             'status_map' => 'array',
+            'status_reasons' => 'array',
             'sends_orders' => 'boolean',
         ];
     }
@@ -103,6 +104,30 @@ class AggregatorLink extends Model
         $map = ($this->status_map ?? []) + self::DEFAULT_MAP;
 
         return $map[(string) $statusId] ?? 'track';
+    }
+
+    /**
+     * سبب «لم يُسلَّم» أو «مؤجّل» لحالتهم (docs/plan/106): ما اختير لهذه الحالة بعينها، وإلّا سبب الربط العامّ،
+     * وإلّا أوّل سببٍ متاحٍ للشركة (للمؤجّل ما يسمح بموعد) — فلا تبقى شحنةٌ «قيد التوصيل» لأنّ سبباً لم يُختر.
+     *
+     * @return array{0: ?int, 1: bool} السبب، وهل هو الاحتياطيّ لا المختار
+     */
+    public function reasonFor(?string $statusId, bool $postpone): array
+    {
+        $available = fn () => FailureReason::query()->availableFor($this->company_id);
+
+        foreach ([$statusId !== null ? ($this->status_reasons[$statusId] ?? null) : null,
+            $postpone ? $this->postpone_reason_id : $this->failure_reason_id] as $chosen) {
+            if ($chosen && $available()->whereKey($chosen)->exists()) {
+                return [(int) $chosen, false];
+            }
+        }
+
+        $fallback = $available()->where('requires_photo', false)
+            ->when($postpone, fn ($q) => $q->orderByDesc('allows_reschedule'))->value('id')
+            ?? $available()->value('id');
+
+        return [$fallback === null ? null : (int) $fallback, true];
     }
 
     /** رقم الطلب في نظامهم: البادئة المسجّلة عندهم ثم رقم الوصل عندنا */

@@ -93,6 +93,7 @@
                         <option value="{{ $r->id }}" @selected(old('failure_reason_id', $link->failure_reason_id) == $r->id)>{{ $r->name_ar }}</option>
                     @endforeach
                 </select>
+                <p class="field-hint">لحالةٍ لم يُختر لها سببٌ في «ربط الحالات». وإن تُرك فارغاً سُجّلت بأوّل سببٍ متاح ونُبّهت في السجلّ.</p>
             </div>
             <div>
                 <label class="field-label" for="postpone_reason_id">سبب «مؤجّل» لحالاتهم</label>
@@ -183,17 +184,35 @@
         </dl>
     </details>
     @if ($statuses)
-        <div class="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2">
-            @foreach ($statuses as $id => $text)
-                <label class="flex items-center justify-between gap-3 border-b border-ink-100 py-1.5 text-sm">
-                    <span><span class="num text-ink-500">{{ $id }}</span> · {{ $text }}</span>
-                    <select name="map[{{ $id }}]" class="field-input w-48 py-1.5">
-                        @foreach (\App\Models\AggregatorLink::ACTIONS as $key => $label)
-                            <option value="{{ $key }}" @selected($link->actionFor((string) $id) === $key)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </label>
-            @endforeach
+        {{-- السبب لكلّ حالةٍ بعينها (docs/plan/106): لما يُسجَّل «لم يُسلَّم» أو «مؤجّل» أو «راجع» — «إلغاء الطلب» ← ألغى الزبون --}}
+        <div class="mt-4 overflow-x-auto">
+            <table class="w-full text-sm [&_td]:px-2 [&_th]:px-2">
+                <thead><tr class="text-xs text-ink-500">
+                    <th class="py-2 text-start">حالتهم</th><th class="text-start">ما يُفعل عندنا</th><th class="text-start">السبب (لِلم يُسلَّم والمؤجّل والراجع)</th>
+                </tr></thead>
+                <tbody class="divide-y divide-ink-100">
+                    @foreach ($statuses as $id => $text)
+                        <tr>
+                            <td class="py-1.5"><span class="num text-ink-500">{{ $id }}</span> · {{ $text }}</td>
+                            <td>
+                                <select name="map[{{ $id }}]" class="field-input w-52 py-1.5" aria-label="ما يُفعل بحالة {{ $text }}">
+                                    @foreach (\App\Models\AggregatorLink::ACTIONS as $key => $label)
+                                        <option value="{{ $key }}" @selected($link->actionFor((string) $id) === $key)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </td>
+                            <td>
+                                <select name="reasons[{{ $id }}]" class="field-input w-56 py-1.5" aria-label="سبب حالة {{ $text }}">
+                                    <option value="">— سبب الربط العامّ —</option>
+                                    @foreach ($reasons as $r)
+                                        <option value="{{ $r->id }}" @selected((int) ($link->status_reasons[(string) $id] ?? 0) === $r->id)>{{ $r->name_ar }}</option>
+                                    @endforeach
+                                </select>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
         <button type="submit" class="btn-primary mt-4">احفظ ربط الحالات</button>
     @else

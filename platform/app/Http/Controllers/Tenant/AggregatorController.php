@@ -14,6 +14,7 @@ use App\Models\FailureReason;
 use App\Models\Governorate;
 use App\Services\Aggregator\AggregatorClient;
 use App\Services\Aggregator\AggregatorException;
+use App\Services\Aggregator\AggregatorInbox;
 use App\Services\Aggregator\AggregatorOutbox;
 use App\Services\Aggregator\PlaceMatcher;
 use App\Support\Arabic;
@@ -197,15 +198,20 @@ class AggregatorController extends Controller
     public function statuses(Request $request): RedirectResponse
     {
         $link = $this->link();
-        $map = $request->validate([
+        $reasonIds = FailureReason::availableFor($link->company_id)->pluck('id')->all();
+        $data = $request->validate([
             'map' => ['array'],
             'map.*' => [Rule::in(array_keys(AggregatorLink::ACTIONS))],
-        ])['map'] ?? [];
+            // سبب كلّ حالةٍ بعينها لِما يُسجَّل «لم يُسلَّم» أو «مؤجّل» أو «راجع» (docs/plan/106)
+            'reasons' => ['array'],
+            'reasons.*' => ['nullable', 'integer', Rule::in($reasonIds)],
+        ]);
 
-        $link->status_map = collect($map)->mapWithKeys(fn ($action, $id) => [(string) $id => $action])->all();
+        $link->status_map = collect($data['map'] ?? [])->mapWithKeys(fn ($action, $id) => [(string) $id => $action])->all();
+        $link->status_reasons = collect($data['reasons'] ?? [])->filter()->mapWithKeys(fn ($reason, $id) => [(string) $id => (int) $reason])->all();
         $link->save();
 
-        return back()->with('success', 'حُفظ ربط الحالات.');
+        return back()->with('success', 'حُفظ ربط الحالات وأسبابها.');
     }
 
     /** المحافظات ومدنهم، وكم من مناطق كلٍّ منها رُبط. مناطقها نفسها في صفحتها: آلاف الخيارات لا تُبنى في صفحة */
@@ -817,6 +823,38 @@ class AggregatorController extends Controller
         AggregatorOutbox::retry($job);
 
         return back()->with('success', 'يُعاد إرساله خلال دقيقة.');
+    }
+
+    /**
+     * يعيد تطبيق تحديثٍ تعذّر أو ينتظر أو لم تُعرف شحنته (docs/plan/106): بعد اختيار سببٍ كان ناقصاً، أو ربط
+     * الشحنة. ولا يُعاد ما جاء بعده تحديثٌ أحدث لشحنته: الأحدث هو ما عليه الطرد عندهم الآن.
+     */
+    public function replay(AggregatorEvent $event, AggregatorInbox $inbox): RedirectResponse
+    {
+        if (! in_array($event->result, ['error', 'waiting', 'unmatched'], true)) {
+            return back()->withErrors(['event' => 'هذا التحديث طُبّق، فلا يُعاد.']);
+        }
+
+        $newer = $event->shipment_id !== null && AggregatorEvent::query()->where('shipment_id', $event->shipment_id)
+            ->where('id', '>', $event->id)->whereNotIn('result', ['unmatched'])->exists();
+
+        if ($newer) {
+            return back()->withErrors(['event' => 'وصل بعده تحديثٌ أحدث لهذه الشحنة، والأحدث هو ما عليه الآن عندهم.']);
+        }
+
+        // يعود «بانتظار التطبيق» ويُطبَّق بقفل الشركة وترتيبها، كما يُطبَّق ما يصل منهم
+        $event->forceFill(['result' => 'pending', 'message' => null])->save();
+        $inbox->processPending($this->link(), wait: 5, seconds: 20);
+        $event->refresh();
+
+        $this->audit('aggregator_event_replayed', ['event' => $event->id, 'result' => $event->result]);
+
+        if ($event->result === 'pending') {
+            return back()->with('success', 'سيُطبَّق خلال دقيقة.');
+        }
+
+        return back()->with('success', 'أُعيد تطبيقه: '.(AggregatorEvent::RESULTS[$event->result] ?? $event->result)
+            .($event->message ? ' — '.$event->message : '.'));
     }
 
     /**

@@ -9,10 +9,12 @@ use App\Enums\ShipmentStatus;
 use App\Models\AggregatorEvent;
 use App\Models\AggregatorLink;
 use App\Models\Courier;
+use App\Models\FailureReason;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\ShipmentTicket;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -47,8 +49,23 @@ class AggregatorInbox
         private readonly ShipmentTickets $tickets,
     ) {}
 
-    /** يحفظ التحديث ويطبّقه؛ null إن وصل من قبلُ بعينه */
+    /** يحفظ التحديث ويطبّقه في الحال؛ null إن وصل من قبلُ بعينه */
     public function receive(AggregatorLink $link, array $payload): ?AggregatorEvent
+    {
+        $event = $this->accept($link, $payload);
+
+        if ($event !== null) {
+            $this->process($link, $event);
+        }
+
+        return $event?->refresh();
+    }
+
+    /**
+     * يحفظ التحديث كما وصل «بانتظار التطبيق» ولا يطبّقه (docs/plan/106): الردّ عليهم لا ينتظر تغيير الحالة
+     * ولا إشعارات الهواتف، فلا تتجاوز مهلتهم (٣ ثوانٍ) فيعيدوه بعد دقائق. null إن وصل من قبلُ بعينه.
+     */
+    public function accept(AggregatorLink $link, array $payload): ?AggregatorEvent
     {
         $remoteId = self::text($payload['id'] ?? $payload['qr_id'] ?? null);
         $statusId = self::text($payload['status_id'] ?? null);
@@ -66,39 +83,96 @@ class AggregatorInbox
             return null;
         }
 
-        $row = [
-            'remote_order_id' => $remoteId,
-            'company_order_id' => self::text($payload['company_order_id'] ?? null),
-            'status_id' => $statusId,
-            'status_text' => mb_substr((string) ($payload['status'] ?? ''), 0, 150) ?: null,
-            'deliver_done' => $deliverDone,
-            'price' => $price,
-            'old_price' => $oldPrice,
-            'fingerprint' => $fingerprint,
-            'payload' => $payload,
-        ];
+        try {
+            return AggregatorEvent::create([
+                'remote_order_id' => $remoteId,
+                'company_order_id' => self::text($payload['company_order_id'] ?? null),
+                'status_id' => $statusId,
+                'status_text' => mb_substr((string) ($payload['status'] ?? ''), 0, 150) ?: null,
+                'deliver_done' => $deliverDone,
+                'price' => $price,
+                'old_price' => $oldPrice,
+                'fingerprint' => $fingerprint,
+                'payload' => $payload,
+                'result' => 'pending',
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return null; // وصل التحديث نفسه مرّتين في اللحظة نفسها
+        }
+    }
+
+    /**
+     * يطبّق ما ينتظر من تحديثات الشركة بترتيب وصولها، واحداً بعد واحد: بعد الردّ عليهم، ومن المجدوِل كل دقيقة
+     * لما لم يُطبَّق (انقطع الخادم بعد الردّ مثلاً). قفلٌ للشركة يمنع أن يُطبَّق تحديثان لها معاً بغير ترتيبهما،
+     * ومدّةٌ لا يتجاوزها، وما بقي يطبّقه المجدوِل بعدها.
+     */
+    public function processPending(AggregatorLink $link, int $wait = 0, int $seconds = 50): int
+    {
+        $lock = Cache::lock('aggregator-inbox:'.$link->company_id, $seconds + 60);
+
+        if (! ($wait > 0 ? rescue(fn () => $lock->block($wait), false, false) : $lock->get())) {
+            return 0; // يطبّقها من يحمل القفل الآن، وما فاته يطبّقه المجدوِل
+        }
 
         try {
-            return DB::transaction(function () use ($link, $payload, $remoteId, $statusId, $deliverDone, $price, $oldPrice, $row) {
-                $shipment = $this->match($link, $payload, $remoteId);
+            $deadline = microtime(true) + $seconds;
+            $done = 0;
+            $after = 0;
+
+            // دفعةً بعد دفعة حتى لا يبقى شيء: ما وصل وهذا يعمل يُطبَّق معه لا بعد دقيقة
+            do {
+                $batch = AggregatorEvent::query()->where('result', 'pending')->where('id', '>', $after)
+                    ->orderBy('id')->limit(50)->get();
+
+                foreach ($batch as $event) {
+                    if (microtime(true) >= $deadline) {
+                        return $done;
+                    }
+
+                    $after = $event->id;
+
+                    // طبّقه غيرُنا بعد أن قرأناه (انتهى قفلٌ طال عمله): لا يُطبَّق مرّتين
+                    if (AggregatorEvent::query()->whereKey($event->id)->value('result') !== 'pending') {
+                        continue;
+                    }
+
+                    $this->process($link, $event);
+                    $done++;
+                }
+            } while ($batch->isNotEmpty());
+
+            return $done;
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /** يطبّق تحديثاً محفوظاً على شحنته، ويكتب ما فُعل به */
+    public function process(AggregatorLink $link, AggregatorEvent $event): void
+    {
+        $payload = (array) $event->payload;
+
+        try {
+            DB::transaction(function () use ($link, $event, $payload) {
+                $shipment = $this->match($link, $payload, $event->remote_order_id);
 
                 [$result, $message] = $shipment === null
                     ? ['unmatched', 'لا شحنة عندنا مع الوسيط بهذا الرقم.']
-                    : $this->apply($link, $shipment, $payload, $remoteId, $statusId, $deliverDone, $price, $oldPrice);
+                    : $this->apply($link, $shipment, $payload, $event->remote_order_id, $event->status_id,
+                        (bool) $event->deliver_done, $event->price, $event->old_price);
 
-                return AggregatorEvent::create($row + [
+                $event->forceFill([
                     'shipment_id' => $shipment?->id,
                     'result' => $result,
                     'message' => $message === null ? null : mb_substr($message, 0, 500),
-                ]);
+                    'applied_at' => now(),
+                ])->save();
             });
-        } catch (UniqueConstraintViolationException) {
-            return null; // وصل التحديث نفسه مرّتين في اللحظة نفسها
         } catch (Throwable $e) {
-            // خطأٌ عندنا: يُحفظ التحديث ليُرى ويُعاد تطبيقه، ولا يُعاد إرساله منهم بلا فائدة
+            // خطأٌ عندنا: يبقى التحديث محفوظاً ليُرى ويُعاد تطبيقه من السجلّ
             report($e);
 
-            return AggregatorEvent::create($row + ['result' => 'error', 'message' => 'تعذّر تطبيقه عندنا.']);
+            $event->forceFill(['result' => 'error', 'message' => 'تعذّر تطبيقه عندنا.', 'applied_at' => now()])->save();
         }
     }
 
@@ -154,14 +228,14 @@ class AggregatorInbox
                 'out_for_delivery' => $shipment->status === ShipmentStatus::InTransit
                     ? $this->move($shipment, $courier, ShipmentStatus::OutForDelivery, $note)
                     : $this->track($shipment, $courier, $note),
-                'failed_attempt' => $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $link->failure_reason_id, $note),
-                'return_confirmed', 'return_with_courier' => $this->toReturn($link, $shipment, $courier, $note),
+                'failed_attempt' => $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $link->reasonFor($statusId, false), $note),
+                'return_confirmed', 'return_with_courier' => $this->toReturn($link, $shipment, $courier, $note, $statusId),
                 'redelivery' => $this->redeliver($shipment, $courier, $note),
-                'return_received' => $this->returnedToUs($link, $shipment, $courier, $note),
-                'returned_to_merchant' => $this->toMerchant($link, $shipment, $courier, $note),
+                'return_received' => $this->returnedToUs($link, $shipment, $courier, $note, $statusId),
+                'returned_to_merchant' => $this->toMerchant($link, $shipment, $courier, $note, $statusId),
                 // في مخزنهم لا مخزننا: «بالمخزن» عندنا لا يكون إلّا بالمسح، فلا تظهر على رفوفنا
                 'at_hub' => $this->track($shipment, $courier, 'بالمخزن عند شريك التوصيل — '.$note),
-                'postponed' => $this->outcome($shipment, $courier, ShipmentStatus::Postponed, $link->postpone_reason_id, $note),
+                'postponed' => $this->outcome($shipment, $courier, ShipmentStatus::Postponed, $link->reasonFor($statusId, true), $note),
                 default => $this->track($shipment, $courier, $note),
             };
         } catch (ValidationException $e) {
@@ -200,11 +274,13 @@ class AggregatorInbox
 
         $this->toOutForDelivery($shipment, $courier, $note);
 
-        // سلّموها وهي عندنا بعد محاولةٍ فاشلة أو راجعة: لا تُسجَّل بلا قرار، وتظهر في السجلّ ليُقرَّر فيها
+        // سلّموها وهي عندنا بعد محاولةٍ فاشلة أو راجعة: المال لا يتحرّك بقولهم بلا قرار. تنتظر المعالجة
+        // (إعادة التوصيل ثم «أعد التطبيق» من السجلّ فتُسجَّل واصلة)، ولا تُعدّ خطأً عندنا
         if ($shipment->status !== ShipmentStatus::OutForDelivery) {
             $this->track($shipment, $courier, $note);
 
-            return ['error', 'سلّموها وهي «'.$shipment->status->label().'» عندنا: قرّرها من المعالجة.'];
+            return ['waiting', 'سلّموها وهي «'.$shipment->status->label().'» عندنا: لم تُسجَّل واصلةً. قرّرها من المعالجة'
+                .' (إعادة توصيل) ثم «أعد التطبيق».'];
         }
 
         // سلّمها بغير مبلغ الوصل: تنتظر موافقة الكول سنتر، وموافقته تسجّلها واصلة
@@ -239,20 +315,24 @@ class AggregatorInbox
      *
      * @return array{0: string, 1: ?string}
      */
-    private function toReturn(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note): array
+    private function toReturn(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note, ?string $statusId = null): array
     {
         if ($shipment->status === ShipmentStatus::Returning) {
             return $this->track($shipment, $courier, $note);
         }
 
         $this->toOutForDelivery($shipment, $courier, $note);
+        $fallback = '';
 
         if ($shipment->status === ShipmentStatus::OutForDelivery) {
-            [$result, $message] = $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $link->failure_reason_id, $note);
+            $reason = $link->reasonFor($statusId, false);
+            [$result, $message] = $this->outcome($shipment, $courier, ShipmentStatus::FailedAttempt, $reason, $note);
 
             if ($result === 'error') {
                 return [$result, $message];
             }
+
+            $fallback = $this->fallbackNote($reason, $shipment->company_id);
         }
 
         if (! in_array($shipment->status, [ShipmentStatus::FailedAttempt, ShipmentStatus::Postponed], true)) {
@@ -261,7 +341,7 @@ class AggregatorInbox
 
         $this->move($shipment, $courier, ShipmentStatus::Returning, $note);
 
-        return ['applied', 'راجع مؤكد — عند المندوب الوسيط حتى يُستلم بالمسح.'];
+        return ['applied', 'راجع مؤكد — عند المندوب الوسيط حتى يُستلم بالمسح.'.$fallback];
     }
 
     /**
@@ -287,7 +367,7 @@ class AggregatorInbox
      *
      * @return array{0: string, 1: ?string}
      */
-    private function returnedToUs(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note): array
+    private function returnedToUs(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note, ?string $statusId = null): array
     {
         if ($shipment->status === ShipmentStatus::Returning && $shipment->return_received_at !== null) {
             return ['recorded', 'استُلمت بالمسح من قبل.'];
@@ -295,7 +375,7 @@ class AggregatorInbox
 
         // تصير راجعةً أوّلاً إن لم تكن؛ وما لا يصير راجعاً (سُلّم مثلاً) يبقى بما قاله toReturn
         if ($shipment->status !== ShipmentStatus::Returning) {
-            $result = $this->toReturn($link, $shipment, $courier, $note);
+            $result = $this->toReturn($link, $shipment, $courier, $note, $statusId);
 
             if ($shipment->status !== ShipmentStatus::Returning) {
                 return $result;
@@ -313,7 +393,7 @@ class AggregatorInbox
      *
      * @return array{0: string, 1: ?string}
      */
-    private function toMerchant(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note): array
+    private function toMerchant(AggregatorLink $link, Shipment $shipment, Courier $courier, string $note, ?string $statusId = null): array
     {
         if ($shipment->status === ShipmentStatus::Returned) {
             return ['recorded', 'راجعةٌ لتاجرها من قبل.'];
@@ -323,16 +403,24 @@ class AggregatorInbox
             return $this->move($shipment, $courier, ShipmentStatus::Returned, $note);
         }
 
-        return $this->returnedToUs($link, $shipment, $courier, $note);
+        return $this->returnedToUs($link, $shipment, $courier, $note, $statusId);
     }
 
-    /** @return array{0: string, 1: ?string} */
-    private function outcome(Shipment $shipment, Courier $courier, ShipmentStatus $to, ?int $reasonId, string $note): array
+    /**
+     * «لم يُسلَّم» أو «مؤجّل» بسبب حالتهم (AggregatorLink::reasonFor): المختار لها، أو سبب الربط، أو الاحتياطيّ —
+     * ويُكتب في السجلّ أنّه احتياطيّ ليُختار سببها. لا يبقى طردٌ «قيد التوصيل» لأنّ سبباً لم يُختر.
+     *
+     * @param  array{0: ?int, 1: bool}  $reason
+     * @return array{0: string, 1: ?string}
+     */
+    private function outcome(Shipment $shipment, Courier $courier, ShipmentStatus $to, array $reason, string $note): array
     {
+        [$reasonId] = $reason;
+
         if ($reasonId === null) {
             $this->track($shipment, $courier, $note);
 
-            return ['error', 'اختر في شاشة الربط سبب «'.$to->label().'» الذي يُسجَّل لحالاتهم.'];
+            return ['error', 'لا سبب «'.$to->label().'» مفعّلاً للشركة: أضف سبباً من الإعدادات ثم أعد التطبيق.'];
         }
 
         $this->toOutForDelivery($shipment, $courier, $note);
@@ -346,7 +434,22 @@ class AggregatorInbox
             throw ValidationException::withMessages($errors);
         }
 
-        return $this->move($shipment, $courier, $to, $note, $reasonId);
+        [$result, $message] = $this->move($shipment, $courier, $to, $note, $reasonId);
+
+        return [$result, $message.$this->fallbackNote($reason, $shipment->company_id)];
+    }
+
+    /** يُكتب في السجلّ أنّ السبب احتياطيّ، ليُختار سبب حالتهم في ربط الحالات */
+    private function fallbackNote(array $reason, int $companyId): string
+    {
+        [$reasonId, $fallback] = $reason;
+
+        if (! $fallback || $reasonId === null) {
+            return '';
+        }
+
+        return ' — بالسبب الاحتياطيّ «'.FailureReason::availableFor($companyId)->whereKey($reasonId)->value('name_ar')
+            .'»: اختر سبب هذه الحالة في ربط الحالات.';
     }
 
     /** وصلتهم «بالطريق» وخرجت مع مندوبهم: تمرّ بـ «قيد التوصيل» أوّلاً كما يمرّ أيّ طرد */

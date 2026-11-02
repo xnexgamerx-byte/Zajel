@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Support\Push\MerchantPush;
+use Illuminate\Support\Facades\DB;
 
 /**
  * إشعارٌ لتاجرٍ بعينه في جرس تطبيقه وبوابته (docs/plan/61، 81): «تغيّر مبلغ وصلك»، و«وصلت شحنتك»،
@@ -166,6 +167,7 @@ final class MerchantNotice
     {
         Announcement::create($attributes);
 
-        MerchantPush::notify((int) $attributes['merchant_id'], $attributes['title'], (string) $attributes['body'], $kind);
+        // الهواتف بعد حفظ الحالة لا في معاملتها (docs/plan/106): إرسالها يطول، ولا يُرسل عن شيءٍ لم يُحفظ
+        DB::afterCommit(fn () => MerchantPush::notify((int) $attributes['merchant_id'], $attributes['title'], (string) $attributes['body'], $kind));
     }
 }

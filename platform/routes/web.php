@@ -489,6 +489,7 @@ Route::middleware('tenant')->group(function () {
                 Route::post('/areas/import', [AggregatorController::class, 'importAreas'])->middleware('throttle:10,1')->name('areas.import');
                 Route::get('/log', [AggregatorController::class, 'log'])->name('log');
                 Route::post('/jobs/{job}/retry', [AggregatorController::class, 'retry'])->whereNumber('job')->name('jobs.retry');
+                Route::post('/events/{event}/replay', [AggregatorController::class, 'replay'])->whereNumber('event')->middleware('throttle:30,1')->name('events.replay');
             });
 
             // نصوص الإشعارات التي تصل الهواتف، بكلام الشركة (docs/plan/91)
