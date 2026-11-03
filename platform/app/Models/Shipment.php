@@ -317,7 +317,8 @@ class Shipment extends Model
         // رمز QR الوصل في خانة البحث: رابط التتبّع، ورقم الوصل منه
         $scan = ScanCode::read($term);
 
-        if ($scan->isLink()) {
+        // وباركود الوسيط ببادئته (ZAJ_000293): رقم الوصل منه (docs/plan/109)
+        if ($scan->isLink() || $scan->prefixed) {
             $term = $scan->code;
         }
 

@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Builder;
  * والماسح لوحةُ مفاتيح: إن كانت لغة الجهاز العربية كتب حروف الرابط بمواضعها في
  * اللوحة العربية («اففحس:ظظ…» بدل «https://…»). الأرقام لا تتغيّر — فالباركود يُقرأ
  * على اللغتين —، والرابط يُعاد إلى حروفه.
+ *
+ * وباركود شركةٍ مربوطةٍ بوسيط يحمل بادئتها قبل رقم الوصل (ZAJ_000293) ليقرأه نظامهم: يُقرأ رقم الوصل منه.
  */
 final class ScanCode
 {
@@ -44,6 +46,8 @@ final class ScanCode
     private function __construct(
         public readonly string $code,
         public readonly ?string $token,
+        /** قُرئ بعد بادئة الوسيط (ZAJ_…): الرقم بعدها هو رقم الوصل */
+        public readonly bool $prefixed = false,
     ) {}
 
     public static function read(?string $raw): self
@@ -58,7 +62,15 @@ final class ScanCode
             }
         }
 
-        return new self((string) preg_replace('/\s+/u', '', $text), null);
+        $code = (string) preg_replace('/\s+/u', '', $text);
+
+        // باركود الوصل لشركةٍ مربوطةٍ بوسيط يحمل بادئتها (ZAJ_000293، docs/plan/109): رقم الوصل بعدها.
+        // حروفٌ ثم «_» ثم الرقم؛ وعلى لوحة عربية تصير الحروف عربيةً ويبقى «_»، فيُقرأ على اللغتين
+        if (preg_match('/^\p{L}+_+([0-9A-Za-z\-]+)$/u', $code, $m)) {
+            return new self($m[1], null, prefixed: true);
+        }
+
+        return new self($code, null);
     }
 
     /** قُرئ من رمز QR (رابط التتبّع) لا من الباركود */

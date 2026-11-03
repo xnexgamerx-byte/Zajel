@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
+use App\Models\AggregatorLink;
 use App\Models\Merchant;
 use App\Models\Shipment;
+use App\Support\FeatureGate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -77,6 +80,29 @@ class ShipmentLabelController extends Controller
     }
 
     /**
+     * بادئة الشركة عند الوسيط (docs/plan/109): باركود الوصل يحملها قبل رقمه (ZAJ_000293)، فيقرأه نظامهم رقماً
+     * لطلبنا عندهم كما أُنشئ (AggregatorLink::companyOrderId)، ونقرؤه نحن رقم وصلٍ (ScanCode). بلا ربطٍ مفعّل: الرقم وحده.
+     */
+    public static function aggregatorPrefix(): ?string
+    {
+        if (! FeatureGate::enabled(Feature::Aggregator)) {
+            return null;
+        }
+
+        $prefix = trim((string) AggregatorLink::query()->value('order_prefix'));
+
+        return $prefix === '' ? null : $prefix;
+    }
+
+    /** ما يُطبع باركوداً: الوصل المطبوع مسبقاً برمزه كما هو، وغيره رقمه ببادئة الوسيط إن وُجدت */
+    public static function labelCode(Shipment $shipment, ?string $prefix): string
+    {
+        $preprinted = filled($shipment->barcode) && $shipment->barcode !== $shipment->number;
+
+        return $preprinted ? (string) $shipment->barcode : ($prefix ?? '').$shipment->number;
+    }
+
+    /**
      * «الطابعة» (docs/plan/79): ما فُتح للطباعة صار «مطبوعاً» — من التطبيق أو بوابة التاجر أو الموظّف.
      * أوّل طباعة وحدها تُسجَّل، وإعادة الطباعة لا تغيّرها. ولا يمسّ updated_at: الطباعة ليست تعديلاً.
      *
@@ -110,6 +136,7 @@ class ShipmentLabelController extends Controller
 
         return view('labels.print', [
             'shipments' => $shipments,
+            'prefix' => self::aggregatorPrefix(),
             'size' => array_key_exists((string) $request->query('size'), $sizes) ? (string) $request->query('size') : array_key_first($sizes),
             'sizes' => $sizes,
         ]);

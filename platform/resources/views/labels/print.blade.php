@@ -108,7 +108,7 @@
 
 <main class="sheet {{ $size === 'a4' ? 'sheet-a4' : 'sheet-roll' }} {{ $size === '80x120' ? 'compact' : '' }}">
     @foreach ($shipments as $shipment)
-        @php $code = $shipment->barcode ?: $shipment->number; @endphp
+        @php $code = \App\Http\Controllers\ShipmentLabelController::labelCode($shipment, $prefix ?? null); @endphp
         <article class="label">
             {{-- أعلى الوصل (docs/plan/94): شعار الشركة يميناً، ورمز التتبّع يساراً --}}
             <header class="head">
