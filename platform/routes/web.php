@@ -14,6 +14,7 @@ use App\Http\Controllers\InboxController;
 use App\Http\Controllers\OrderListeningController;
 use App\Http\Controllers\OrderReadingController;
 use App\Http\Controllers\Platform\CompanyController as PlatformCompanyController;
+use App\Http\Controllers\Platform\CompanyReportController;
 use App\Http\Controllers\Platform\CompanySystemController;
 use App\Http\Controllers\Platform\DashboardController as PlatformDashboardController;
 use App\Http\Controllers\Platform\DataPurgeController;
@@ -890,6 +891,8 @@ Route::prefix('admin')->name('admin.')->middleware('platform')->group(function (
         Route::get('/companies/create', [PlatformCompanyController::class, 'create'])->name('companies.create');
         Route::post('/companies', [PlatformCompanyController::class, 'store'])->name('companies.store');
         Route::get('/companies/{company}', [PlatformCompanyController::class, 'show'])->name('companies.show');
+        // تقرير الشركة لمدير المنصّة: ربحها وشحناتها وتقويمها، وما حُذف وما تغيّر سعره (docs/plan/111)
+        Route::get('/companies/{company}/report', CompanyReportController::class)->name('companies.report');
         Route::get('/companies/{company}/edit', [PlatformCompanyController::class, 'edit'])->name('companies.edit');
         Route::put('/companies/{company}', [PlatformCompanyController::class, 'update'])->name('companies.update');
         Route::post('/companies/{company}/suspend', [PlatformCompanyController::class, 'suspend'])->name('companies.suspend');

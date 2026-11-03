@@ -25,6 +25,9 @@
     </div>
 
     <div class="flex flex-wrap gap-2">
+        @if (auth()->user()?->role === \App\Enums\UserRole::PlatformAdmin)
+            <a href="{{ route('admin.companies.report', $company) }}" class="btn-primary"><x-icon name="chart" class="size-4"/> تقرير الشركة</a>
+        @endif
         <a href="{{ route('admin.companies.edit', $company) }}" class="btn-ghost">تعديل البيانات</a>
         <a href="{{ route('admin.companies.system', $company) }}" class="btn-ghost">
             <x-icon name="sliders" class="size-4"/>
