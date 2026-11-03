@@ -27,7 +27,11 @@
         'front' => [[360, 50, 9], [226, 562, 8], [420, 518, 9]],
     ];
 @endphp
-<svg viewBox="0 0 760 700" preserveAspectRatio="xMinYMin slice" focusable="false">
+{{--
+  ثلاث طبقات بالمقاس نفسه (docs/plan/110): الرسم الثابت بظلاله يُرسم مرّةً، والتيار وحده يتحرّك في طبقته بلا
+  مرشّحات، والورق فوقه ثابت. فلا يُعاد رسم الظلال في كلّ إطار، وتسلس الحركة على الهاتف.
+--}}
+<svg class="art-base" viewBox="0 0 760 700" preserveAspectRatio="xMinYMin slice" focusable="false">
     <defs>
         <linearGradient id="lg-sky" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" class="sky-a"/>
@@ -43,17 +47,6 @@
         <filter id="lg-lift" x="-20%" y="-20%" width="140%" height="150%">
             <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#01040d" flood-opacity=".6"/>
         </filter>
-        <filter id="lg-sheet" x="-30%" y="-10%" width="160%" height="130%">
-            <feDropShadow dx="-7" dy="8" stdDeviation="9" flood-color="#050a1a" flood-opacity=".42"/>
-        </filter>
-        <filter id="lg-sheet-soft" x="-30%" y="-10%" width="160%" height="130%">
-            <feDropShadow dx="-5" dy="6" stdDeviation="7" flood-color="#0b1224" flood-opacity=".22"/>
-        </filter>
-        <filter id="lg-bloom" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3.5"/>
-        </filter>
-        <path id="lg-edge" d="M670 -10 C 610 60, 705 120, 640 195 C 585 255, 525 235, 512 305 C 498 378, 608 388, 586 458 C 566 525, 460 522, 482 592 C 496 640, 578 660, 568 712 L 900 712 L 900 -10 Z"/>
-        <path id="lg-floor" d="M-10 528 C 60 500, 112 566, 178 562 C 246 558, 262 612, 330 622 C 400 632, 470 650, 560 712 L -10 712 Z"/>
     </defs>
 
     {{-- العمق --}}
@@ -100,14 +93,29 @@
     <g class="pad-hole">
         <circle cx="360" cy="50" r="3.5"/><circle cx="420" cy="518" r="3.5"/>
     </g>
+</svg>
 
-    {{-- التيار: نبضةٌ قصيرة تسري في كل مسار، بمدّةٍ وتأخيرٍ يخصّانه --}}
+{{-- التيار: نبضةٌ قصيرة تسري في كل مسار، بمدّةٍ وتأخيرٍ يخصّانه. التوهّج خطٌّ أعرض شفيف، لا تغبيش --}}
+<svg class="art-current" viewBox="0 0 760 700" preserveAspectRatio="xMinYMin slice" focusable="false">
     <g class="current" fill="none" stroke-linecap="round">
         @foreach ($traces as [$d, $layer, $t, $delay])
-            <path d="{{ $d }}" pathLength="1" class="current-glow" filter="url(#lg-bloom)" stroke-width="{{ $layer === 'front' ? 9 : 11 }}" style="--t: {{ $t }}s; --d: {{ $delay }}s"/>
-            <path d="{{ $d }}" pathLength="1" class="current-core" stroke-width="{{ $layer === 'front' ? 3 : 3.5 }}" style="--t: {{ $t }}s; --d: {{ $delay }}s"/>
+            <path d="{{ $d }}" pathLength="1" class="current-glow l-{{ $layer }}" stroke-width="{{ $layer === 'front' ? 9 : 11 }}" style="--t: {{ $t }}s; --d: {{ $delay }}s"/>
+            <path d="{{ $d }}" pathLength="1" class="current-core l-{{ $layer }}" stroke-width="{{ $layer === 'front' ? 3 : 3.5 }}" style="--t: {{ $t }}s; --d: {{ $delay }}s"/>
         @endforeach
     </g>
+</svg>
+
+<svg class="art-paper" viewBox="0 0 760 700" preserveAspectRatio="xMinYMin slice" focusable="false">
+    <defs>
+        <filter id="lg-sheet" x="-30%" y="-10%" width="160%" height="130%">
+            <feDropShadow dx="-7" dy="8" stdDeviation="9" flood-color="#050a1a" flood-opacity=".42"/>
+        </filter>
+        <filter id="lg-sheet-soft" x="-30%" y="-10%" width="160%" height="130%">
+            <feDropShadow dx="-5" dy="6" stdDeviation="7" flood-color="#0b1224" flood-opacity=".22"/>
+        </filter>
+        <path id="lg-edge" d="M670 -10 C 610 60, 705 120, 640 195 C 585 255, 525 235, 512 305 C 498 378, 608 388, 586 458 C 566 525, 460 522, 482 592 C 496 640, 578 660, 568 712 L 900 712 L 900 -10 Z"/>
+        <path id="lg-floor" d="M-10 528 C 60 500, 112 566, 178 562 C 246 558, 262 612, 330 622 C 400 632, 470 650, 560 712 L -10 712 Z"/>
+    </defs>
 
     {{-- طبقات الورق من الأسفل (تُخفى على الهاتف) --}}
     <g class="floor">
