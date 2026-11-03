@@ -4,6 +4,7 @@ namespace Tests\Feature\Couriers;
 
 use App\Enums\Feature;
 use App\Models\Shipment;
+use App\Support\QrCode;
 use App\Support\ScanCode;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,12 +31,16 @@ class AggregatorBarcodeTest extends TestCase
 
         $page = $this->labels($shipment->id);
         $this->assertStringContainsString('>ZJL_'.$shipment->number.'<', $page, 'تحت الباركود ما يحمله');
+        $this->assertStringContainsString('alt="ZJL_'.$shipment->number.'"', $page, 'ورمز QR يحمل الرمز نفسه');
+        $this->assertStringNotContainsString('alt="رمز التتبّع"', $page);
+        $this->assertStringContainsString(QrCode::dataUri('ZJL_'.$shipment->number), $page);
 
         // الميزة مغلقة: رقم الوصل وحده كما كان
         $this->setFeature($this->company, Feature::Aggregator, enabled: false);
         $page = $this->labels($shipment->id);
         $this->assertStringNotContainsString('ZJL_', $page);
         $this->assertStringContainsString('>'.$shipment->number.'<', $page);
+        $this->assertStringContainsString('alt="رمز التتبّع"', $page, 'رابط التتبّع كما كان');
     }
 
     public function test_our_scanners_read_the_prefixed_barcode_as_the_waybill_number(): void

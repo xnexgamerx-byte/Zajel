@@ -119,7 +119,9 @@
                         <span class="initial font-heading">{{ $company->initial() }}</span>
                     @endif
                 </div>
-                <img class="qr" src="{{ \App\Support\QrCode::dataUri(\App\Support\Tracking::url($shipment)) }}" alt="رمز التتبّع">
+                {{-- مع وسيطٍ مربوط (docs/plan/109) يحمل ما يحمله الباركود، فيقرؤه نظامهم وماسحاتنا؛ وإلّا رابط التتبّع --}}
+                <img class="qr" src="{{ \App\Support\QrCode::dataUri(($prefix ?? null) ? $code : \App\Support\Tracking::url($shipment)) }}"
+                     alt="{{ ($prefix ?? null) ? $code : 'رمز التتبّع' }}">
             </header>
 
             <hr>
