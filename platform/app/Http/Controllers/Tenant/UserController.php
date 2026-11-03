@@ -29,13 +29,13 @@ class UserController extends Controller
 {
     /** الأدوار التي تُدار من هذه الشاشة. */
     public const ROLES = [
-        UserRole::CompanyOwner->value    => 'صاحب الشركة',
-        UserRole::CompanyAdmin->value    => 'مدير',
-        UserRole::BranchOwner->value     => 'صاحب فرع',
-        UserRole::BranchManager->value   => 'مدير فرع',
-        UserRole::Operations->value      => 'عمليات',
+        UserRole::CompanyOwner->value => 'صاحب الشركة',
+        UserRole::CompanyAdmin->value => 'مدير',
+        UserRole::BranchOwner->value => 'صاحب فرع',
+        UserRole::BranchManager->value => 'مدير فرع',
+        UserRole::Operations->value => 'عمليات',
         UserRole::CustomerService->value => 'خدمة العملاء',
-        UserRole::Accountant->value      => 'محاسب',
+        UserRole::Accountant->value => 'محاسب',
     ];
 
     /**
@@ -131,7 +131,7 @@ class UserController extends Controller
         // مرتبته أو إيقافه قد يُخرج آخر من يدير الصلاحيات
         PermissionChange::apply(fn () => $user->update($data + [
             'is_active' => $request->boolean('is_active'),
-            'is_sales'  => $request->boolean('is_sales'),
+            'is_sales' => $request->boolean('is_sales'),
         ]), 'rank_id');
 
         $login->handle($user, $username, $password, $request->user());
@@ -156,29 +156,29 @@ class UserController extends Controller
         ]);
 
         $data = $request->validate([
-            'name'      => ['required', 'string', 'max:160'],
-            'username'  => ['nullable', 'string', 'regex:'.Username::PATTERN,
-                            Rule::unique('users', 'username')
-                                ->where('company_id', $request->user()->company_id)
-                                ->ignore($user?->id)],
-            'phone'     => ['required', 'string', 'regex:/^07[0-9]{9}$/',
-                            Rule::unique('users', 'phone')
-                                ->where('company_id', $request->user()->company_id)
-                                ->ignore($user?->id)],
-            'email'     => ['nullable', 'email', 'max:160'],
-            'role'      => ['required', Rule::in(array_keys($this->roles($request->user())))],
-            'rank_id'   => ['nullable', 'integer', Rule::exists('ranks', 'id')
-                                ->where('company_id', $request->user()->company_id)],
+            'name' => ['required', 'string', 'max:160'],
+            'username' => ['nullable', 'string', 'regex:'.Username::PATTERN,
+                Rule::unique('users', 'username')
+                    ->where('company_id', $request->user()->company_id)
+                    ->ignore($user?->id)],
+            'phone' => ['required', 'string', 'regex:/^07[0-9]{9}$/',
+                Rule::unique('users', 'phone')
+                    ->where('company_id', $request->user()->company_id)
+                    ->ignore($user?->id)],
+            'email' => ['nullable', 'email', 'max:160'],
+            'role' => ['required', Rule::in(array_keys($this->roles($request->user())))],
+            'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')
+                ->where('company_id', $request->user()->company_id)],
             // صاحب الفرع بلا فرعٍ يصير صاحب الشركة كلّها: فرعه شرطٌ لا اختيار
             'branch_id' => [Rule::requiredIf($request->input('role') === UserRole::BranchOwner->value),
-                            'nullable', 'integer', Rule::exists('branches', 'id')
-                                ->where('company_id', $request->user()->company_id)],
-            'password'  => [$user ? 'nullable' : 'required', 'string', 'min:6', 'max:72'],
+                'nullable', 'integer', Rule::exists('branches', 'id')
+                    ->where('company_id', $request->user()->company_id)],
+            'password' => [$user ? 'nullable' : 'required', 'string', 'min:6', 'max:72'],
             // محافظات الاختصاص: معالجة شحناتها وتذاكرها ومحادثاتها له وحده (docs/plan/30)
-            'governorates'   => ['nullable', 'array'],
+            'governorates' => ['nullable', 'array'],
             'governorates.*' => ['integer', Rule::exists('governorates', 'id')],
         ], [
-            'username.regex'  => Username::RULE_MESSAGE,
+            'username.regex' => Username::RULE_MESSAGE,
             'username.unique' => 'اسم المستخدم هذا لحسابٍ آخر في شركتك.',
             'branch_id.required' => 'اختر فرع صاحب الفرع.',
         ], [
@@ -207,9 +207,14 @@ class UserController extends Controller
     /** @return array<string, string> ما يُسنده هذا الموظّف من أدوار */
     protected function roles(User $actor): array
     {
-        return $actor->isBranchLimited()
-            ? array_intersect_key(self::ROLES, array_flip(self::BRANCH_ROLES))
-            : self::ROLES;
+        if ($actor->isBranchLimited()) {
+            return array_intersect_key(self::ROLES, array_flip(self::BRANCH_ROLES));
+        }
+
+        // صاحب الشركة وحده يُنشئ صاحب شركةٍ أو يفتح حسابه: مديرٌ يغيّر كلمة مرور صاحبه يملكه، أو يجعل نفسه صاحبها
+        return $actor->role === UserRole::CompanyOwner
+            ? self::ROLES
+            : array_diff_key(self::ROLES, [UserRole::CompanyOwner->value => true]);
     }
 
     /**
@@ -249,8 +254,8 @@ class UserController extends Controller
         $user = auth()->user();
 
         return [
-            'roles'    => $this->roles($user),
-            'ranks'    => Rank::orderBy('name')->get(['id', 'name']),
+            'roles' => $this->roles($user),
+            'ranks' => Rank::orderBy('name')->get(['id', 'name']),
             'branches' => Branch::where('is_active', true)
                 ->when($user->isBranchLimited(), fn ($q) => $q->whereKey($user->branch_id))
                 ->orderBy('name')->get(['id', 'name']),

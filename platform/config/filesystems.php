@@ -33,7 +33,8 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // لا روابط مؤقّتة لهذا القرص: ملفّاته تُعرض من متحكّماتٍ تفحص صاحبها، فلا مسار storage/{path} مفتوح
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

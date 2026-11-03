@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Merchant;
+use App\Models\PushDevice;
 use App\Models\User;
 use App\Support\Tenancy\Tenancy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -172,5 +173,61 @@ class ChangeLoginTest extends TestCase
         $this->assertTrue(Hash::check('second-pass', $agent->password));
         $this->assertSame(0, DB::table('sessions')->where('user_id', $agent->id)->count());
         $this->assertSame(1, Tenancy::runFor($this->company, fn () => AuditLog::where('action', 'login_changed')->count()));
+    }
+
+    public function test_a_new_password_also_signs_the_account_out_of_its_apps_and_phones(): void
+    {
+        $this->actingAs($this->owner)->post($this->host().'/couriers', $this->courierPayload([
+            'create_login' => 1, 'username' => 'abbas', 'password' => 'first-pass',
+        ]))->assertSessionHasNoErrors();
+        $courier = Tenancy::runFor($this->company, fn () => Courier::firstOrFail());
+        $account = $this->account('abbas');
+
+        // داخلٌ من تطبيقه، وهاتفه مسجّلٌ للإشعارات
+        $token = Tenancy::runFor($this->company, fn () => $account->createToken('courier', ['courier'])->plainTextToken);
+        Tenancy::runFor($this->company, fn () => PushDevice::create(['user_id' => $account->id, 'token' => 'fcm-abbas', 'platform' => 'android']));
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson($this->host().'/api/v1/me')->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->actingAs($this->owner)->put($this->host().'/couriers/'.$courier->id, $this->courierPayload([
+            'username' => 'abbas', 'password' => 'second-pass',
+        ]))->assertSessionHasNoErrors();
+
+        // رمز تطبيقه سُحب، وهاتفه لا تصله إشعاراته
+        $this->assertSame(0, DB::table('personal_access_tokens')->where('tokenable_id', $account->id)->count());
+        $this->assertSame(0, DB::table('push_devices')->where('user_id', $account->id)->count());
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson($this->host().'/api/v1/me')->assertUnauthorized();
+    }
+
+    public function test_only_the_company_owner_creates_or_opens_an_owner_account(): void
+    {
+        $admin = $this->makeUser($this->company, UserRole::CompanyAdmin);
+
+        // المدير لا يفتح حساب صاحب الشركة ولا يغيّر كلمة مروره، ولا يُنشئ صاحب شركة
+        $this->actingAs($admin)->get($this->host().'/users/'.$this->owner->id.'/edit')->assertNotFound();
+        $this->actingAs($admin)->put($this->host().'/users/'.$this->owner->id, [
+            'name' => 'مستخدم', 'phone' => $this->owner->phone, 'role' => UserRole::CompanyOwner->value,
+            'password' => 'taken-over', 'is_active' => 1,
+        ])->assertNotFound();
+        $this->assertFalse(Hash::check('taken-over', $this->owner->fresh()->password));
+
+        $this->actingAs($admin)->post($this->host().'/users', [
+            'name' => 'مالك ثانٍ', 'username' => 'owner2', 'phone' => '07701110009',
+            'role' => UserRole::CompanyOwner->value, 'password' => 'secret-12', 'is_active' => 1,
+        ])->assertSessionHasErrors('role');
+
+        // ولا يرفع نفسه صاحب شركة
+        $this->actingAs($admin)->put($this->host().'/users/'.$admin->id, [
+            'name' => 'مستخدم', 'phone' => $admin->phone, 'role' => UserRole::CompanyOwner->value, 'is_active' => 1,
+        ])->assertSessionHasErrors('role');
+        $this->assertSame(UserRole::CompanyAdmin, $admin->fresh()->role);
+
+        // وصاحب الشركة يفعل
+        $this->actingAs($this->owner)->post($this->host().'/users', [
+            'name' => 'مالك ثانٍ', 'username' => 'owner2', 'phone' => '07701110009',
+            'role' => UserRole::CompanyOwner->value, 'password' => 'secret-12', 'is_active' => 1,
+        ])->assertSessionHasNoErrors();
     }
 }

@@ -5,21 +5,21 @@ namespace App\Models;
 use App\Enums\UserRole;
 use App\Models\Concerns\BelongsToCompany;
 use App\Models\Concerns\SeenByBranch;
-use App\Support\Permissions\Ability;
-use App\Support\Username;
 use App\Models\Scopes\CompanyScope;
 use App\Models\Scopes\UserScope;
-use Illuminate\Database\Eloquent\Scope;
+use App\Support\Permissions\Ability;
+use App\Support\Username;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * مستخدم واحد للجميع: النواة والشركات والمندوبين والتجّار.
@@ -42,18 +42,18 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'permissions'  => 'array',
-            'home_layout'  => 'array',
+            'permissions' => 'array',
+            'home_layout' => 'array',
             // ما يصل هاتف التاجر من الإشعارات، وبصوتٍ أم بلا صوت (docs/plan/86)
             'notify_prefs' => 'array',
             // موظّف التاجر وما يفتحه، وفارغةٌ لصاحب المتجر (docs/plan/87)
             'merchant_permissions' => 'array',
             'email_verified_at' => 'datetime',
-            'last_login_at'     => 'datetime',
-            'password'          => 'hashed',
-            'is_active'         => 'boolean',
-            'is_sales'          => 'boolean',
-            'role'              => UserRole::class,
+            'last_login_at' => 'datetime',
+            'password' => 'hashed',
+            'is_active' => 'boolean',
+            'is_sales' => 'boolean',
+            'role' => UserRole::class,
         ];
     }
 
@@ -88,10 +88,21 @@ class User extends Authenticatable
      */
     public function endOtherSessions(): void
     {
+        $self = auth()->id() === $this->id;
+
         DB::table('sessions')->where('user_id', $this->id)
-            ->when(auth()->id() === $this->id && session()->isStarted(),
+            ->when($self && session()->isStarted(),
                 fn ($q) => $q->where('id', '!=', session()->getId()))
             ->delete();
+
+        // والتطبيقات: رموز دخوله تُسحب فيخرج من كلّ هاتف، إلّا الرمز الذي يغيّر به كلمة مروره الآن
+        $current = $self && method_exists(auth()->user(), 'currentAccessToken') ? auth()->user()->currentAccessToken() : null;
+        $this->tokens()->when($current && isset($current->id), fn ($q) => $q->whereKeyNot($current->id))->delete();
+
+        // وهواتفه لا تتلقّى إشعاراته بعدها، ما لم يغيّرها هو من هاتفه
+        if (! $self) {
+            PushDevice::withoutGlobalScopes()->where('user_id', $this->id)->delete();
+        }
 
         $this->forceFill(['remember_token' => Str::random(60)])->save();
     }
@@ -155,13 +166,13 @@ class User extends Authenticatable
         }
 
         $base = match (true) {
-            is_array($this->permissions)            => $this->permissions,
-            $this->role === UserRole::CompanyOwner  => Ability::all(),
+            is_array($this->permissions) => $this->permissions,
+            $this->role === UserRole::CompanyOwner => Ability::all(),
             // صاحب الفرع كل شيء في فرعه: لا مرتبة تقيّده، وما للشركة كلّها يُنزَع أدناه.
             // وما لصاحب الشركة وحده (تعديل أجور شحنةٍ انتهت) يُمنح له بعينه لا بدوره
-            $this->role === UserRole::BranchOwner   => array_diff(Ability::all(), Ability::OWNER_ONLY),
+            $this->role === UserRole::BranchOwner => array_diff(Ability::all(), Ability::OWNER_ONLY),
             $this->rank_id !== null && $this->rank !== null => $this->rank->abilities ?? [],
-            default                                 => Ability::defaultsFor($this->role),
+            default => Ability::defaultsFor($this->role),
         };
 
         $abilities = Ability::ordered([...$base, ...$this->grants->pluck('ability')]);
@@ -174,11 +185,11 @@ class User extends Authenticatable
     public function abilitySource(): string
     {
         return match (true) {
-            is_array($this->permissions)                    => 'تخصيصٌ قديم',
-            $this->role === UserRole::CompanyOwner          => 'صاحب الشركة: كل شيء',
-            $this->role === UserRole::BranchOwner           => 'صاحب الفرع: كل شيء في فرعه',
+            is_array($this->permissions) => 'تخصيصٌ قديم',
+            $this->role === UserRole::CompanyOwner => 'صاحب الشركة: كل شيء',
+            $this->role === UserRole::BranchOwner => 'صاحب الفرع: كل شيء في فرعه',
             $this->rank_id !== null && $this->rank !== null => $this->rank->name,
-            default                                         => 'افتراضي «'.$this->role->label().'»',
+            default => 'افتراضي «'.$this->role->label().'»',
         };
     }
 
