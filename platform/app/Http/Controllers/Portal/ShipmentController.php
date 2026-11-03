@@ -9,6 +9,7 @@ use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Api\Merchant\LabelController;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\ShipmentLabelController;
+use App\Http\Requests\MerchantShipmentUpdateRequest;
 use App\Http\Requests\PortalShipmentRequest;
 use App\Models\City;
 use App\Models\Conversation;
@@ -17,6 +18,7 @@ use App\Models\Shipment;
 use App\Models\ShipmentEvent;
 use App\Models\WaybillBook;
 use App\Support\FeatureGate;
+use App\Support\MerchantEdit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -172,8 +174,45 @@ class ShipmentController extends Controller
 
         return view('portal.shipments.show', [
             'shipment' => $shipment,
+            'edit' => MerchantEdit::describe($shipment->loadMissing('deliveryCourier:id,is_intermediary')),
             'conversations' => Conversation::where('merchant_id', $merchant->id)->where('shipment_id', $shipment->id)
                 ->orderByDesc('last_message_at')->get(['id', 'subject', 'status', 'last_message_at', 'merchant_unread']),
         ]);
+    }
+
+    /** «تعديل الشحنة» (docs/plan/113): كلّها قبل الاستلام، وبيانات الزبون بعده — بقواعد MerchantEdit */
+    public function edit(Request $request, Shipment $shipment): View|RedirectResponse
+    {
+        $merchant = $request->attributes->get('merchant');
+        abort_unless($shipment->merchant_id === $merchant->id, 404);
+        $shipment->loadMissing(['governorate:id,name_ar', 'city:id,name_ar', 'deliveryCourier:id,is_intermediary']);
+
+        if ($why = MerchantEdit::locked($shipment)) {
+            return redirect()->route('portal.shipments.show', $shipment)->withErrors(['shipment' => $why]);
+        }
+
+        return view('portal.shipments.edit', [
+            'shipment' => $shipment,
+            'merchant' => $merchant,
+            'full' => MerchantEdit::mode($shipment) === 'full',
+            'governorates' => Governorate::offered()->get(['id', 'name_ar'])
+                // وجهتها ولو أطفأتها الشركة بعد إنشائها: تبقى تُصحَّح بياناتها ما دامت لم تتغيّر
+                ->when(fn ($all) => ! $all->contains('id', $shipment->governorate_id) && $shipment->governorate,
+                    fn ($all) => $all->prepend($shipment->governorate)),
+            'cities' => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+        ]);
+    }
+
+    public function update(MerchantShipmentUpdateRequest $request, Shipment $shipment): RedirectResponse
+    {
+        $shipment->loadMissing('deliveryCourier:id,is_intermediary');
+
+        if ($why = MerchantEdit::locked($shipment)) {
+            return redirect()->route('portal.shipments.show', $shipment)->withErrors(['shipment' => $why]);
+        }
+
+        MerchantEdit::apply($shipment, $request->validated(), $request->user());
+
+        return redirect()->route('portal.shipments.show', $shipment)->with('success', 'حُفظ التعديل.');
     }
 }

@@ -321,6 +321,7 @@ class ShipmentDetail {
     this.lastStatus,
     this.lastAt,
     this.location,
+    this.edit,
   });
 
   factory ShipmentDetail.fromJson(Map<String, dynamic> j) {
@@ -340,8 +341,12 @@ class ShipmentDetail {
       lastStatus: (j['tracking'] as Map?)?['status'] as String?,
       lastAt: _at((j['tracking'] as Map?)?['at']),
       location: ShipmentLocation.fromJson((j['tracking'] as Map?)?['location'] as Map?),
+      edit: EditInfo.fromJson(j['edit'] as Map?),
     );
   }
+
+  /// «تعديل» (docs/plan/113): ما يُعدَّل منها الآن، أو لماذا لا — وnull حين لا تعديل لشركته أو لحسابه
+  final EditInfo? edit;
 
   /// على الخريطة (docs/plan/61): من هاتف المندوب، أو تقريبيٌّ بمحافظتها
   final ShipmentLocation? location;
@@ -400,6 +405,41 @@ class Session {
 // ------------------------------------------------------------------ طلب جديد (docs/plan/52)
 
 /// خيارٌ في النموذج: محافظة أو منطقة (id)، أو حجم ونوع (value)
+/// ما يُعدَّل من الشحنة الآن (docs/plan/113): full قبل الاستلام، contact بعده (بيانات الزبون وحدها)، وnull مقفلة
+class EditInfo {
+  const EditInfo({this.mode, this.fields = const [], this.locked});
+
+  static EditInfo? fromJson(Map? j) => j == null
+      ? null
+      : EditInfo(
+          mode: j['mode'] as String?,
+          fields: [for (final f in j['fields'] as List? ?? const []) '$f'],
+          locked: j['locked'] as String?,
+        );
+
+  final String? mode;
+  final List<String> fields;
+  final String? locked;
+
+  bool get full => mode == 'full';
+}
+
+/// قيم الشحنة كما هي الآن، تملأ نموذج التعديل: GET /merchant/shipments/{id}/edit
+class ShipmentEdit {
+  const ShipmentEdit({required this.edit, required this.values});
+
+  factory ShipmentEdit.fromJson(Map<String, dynamic> j) => ShipmentEdit(
+    edit: EditInfo.fromJson(j['edit'] as Map?) ?? const EditInfo(),
+    values: (j['values'] as Map).cast<String, dynamic>(),
+  );
+
+  final EditInfo edit;
+
+  /// recipient_name · recipient_phone · recipient_phone_alt · governorate_id · governorate · city_id · city · address ·
+  /// landmark · description · pieces_count · type · size · notes · cod_amount
+  final Map<String, dynamic> values;
+}
+
 class Choice {
   const Choice(this.key, this.label);
 

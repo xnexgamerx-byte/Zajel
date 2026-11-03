@@ -184,6 +184,20 @@ class Api {
     );
   }
 
+  // ---------------------------------------------------------------- تعديل الشحنة (docs/plan/113)
+
+  Future<ShipmentEdit> shipmentEdit(int id) async {
+    if (AppConfig.demo) return Demo.shipmentEdit(id);
+    return ShipmentEdit.fromJson(await _send(http.get(_uri('/merchant/shipments/$id/edit'), headers: _headers)));
+  }
+
+  /// يحفظ ما عدّله، ويعود نصّ النظام
+  Future<String> updateShipment(int id, Map<String, dynamic> data) async {
+    if (AppConfig.demo) return 'حُفظ التعديل.';
+    final body = await _send(http.put(_uri('/merchant/shipments/$id'), headers: _headers, body: jsonEncode(data)));
+    return body['message'] as String? ?? 'حُفظ التعديل.';
+  }
+
   // ---------------------------------------------------------------- للمعالجة والمالية (docs/plan/54)
 
   Future<ProcessingPage> processing({int page = 1}) async {

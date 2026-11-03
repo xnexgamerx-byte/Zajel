@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Courier\TaskController as CourierTaskController;
 use App\Http\Controllers\Api\Courier\WorkController as CourierWorkController;
 use App\Http\Controllers\Api\Merchant\CalendarController as MerchantCalendarController;
 use App\Http\Controllers\Api\Merchant\CreateShipmentController as MerchantCreateShipmentController;
+use App\Http\Controllers\Api\Merchant\EditShipmentController as MerchantEditShipmentController;
 use App\Http\Controllers\Api\Merchant\FinanceController as MerchantFinanceController;
 use App\Http\Controllers\Api\Merchant\HomeController as MerchantHomeController;
 use App\Http\Controllers\Api\Merchant\ImportController as MerchantImportController;
@@ -239,6 +240,12 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
                     Route::post('/import/confirm', [MerchantImportController::class, 'confirm'])->middleware('throttle:20,1')->name('import.confirm');
                 });
                 Route::post('/shipments', [MerchantCreateShipmentController::class, 'store'])->middleware('throttle:60,1')->name('shipments.store');
+                // تعديل شحنته (docs/plan/113): كلّها قبل الاستلام، وبيانات الزبون بعده
+                Route::middleware('feature:merchant_edit')->group(function () {
+                    Route::get('/shipments/{shipment}/edit', [MerchantEditShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.edit');
+                    Route::put('/shipments/{shipment}', [MerchantEditShipmentController::class, 'update'])->whereNumber('shipment')
+                        ->middleware('throttle:60,1')->name('shipments.update');
+                });
             });
             // «للمعالجة» (docs/plan/54)
             Route::middleware('merchant.can:processing')->group(function () {

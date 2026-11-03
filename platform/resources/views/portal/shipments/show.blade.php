@@ -16,6 +16,13 @@
         </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+        {{-- «تعديل» (docs/plan/113): ما دامت تُعدَّل، وإلّا سببه في التلميح --}}
+        @if ($edit && $edit['mode'])
+            <a href="{{ route('portal.shipments.edit', $shipment) }}" class="btn-primary">
+                <x-icon name="sliders" class="size-5"/>
+                تعديل
+            </a>
+        @endif
         {{-- «الطابعة» (docs/plan/79): متى طُبع وصلها أوّل مرّة --}}
         <a href="{{ route('portal.shipments.labels', ['ids' => [$shipment->id]]) }}" target="_blank" class="btn-ghost"
            @if ($shipment->printed_at) title="طُبع وصلها {{ $shipment->printed_at->format('Y-m-d H:i') }}" @endif>

@@ -834,6 +834,12 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/waybills/{book}/print', [PortalWaybillController::class, 'print'])->whereNumber('book')->name('waybills.print');
             });
             Route::get('/shipments/{shipment}', [PortalShipmentController::class, 'show'])->name('shipments.show');
+            // تعديل شحنته (docs/plan/113): كلّها قبل الاستلام، وبيانات الزبون بعده
+            Route::middleware('feature:merchant_edit')->group(function () {
+                Route::get('/shipments/{shipment}/edit', [PortalShipmentController::class, 'edit'])->whereNumber('shipment')->name('shipments.edit');
+                Route::put('/shipments/{shipment}', [PortalShipmentController::class, 'update'])->whereNumber('shipment')
+                    ->middleware('throttle:60,1')->name('shipments.update');
+            });
 
             Route::get('/statement', StatementController::class)->name('statement');
             Route::post('/settlements/{settlement}/confirm', [StatementController::class, 'confirm'])->whereNumber('settlement')->name('settlements.confirm');

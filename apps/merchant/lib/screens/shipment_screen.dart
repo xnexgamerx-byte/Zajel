@@ -12,6 +12,7 @@ import '../core/palette.dart';
 import '../widgets/whatsapp.dart';
 import '../widgets/bits.dart';
 import '../widgets/page.dart';
+import 'edit_screen.dart';
 import 'support_screen.dart';
 
 /// يفتح الشحنة فوق الشاشة الحالية — من «شحناتي» أو من آخر الشحنات في الرئيسية
@@ -251,6 +252,26 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
             ),
           ),
           if (d != null) StatusPill(brand: brand, row: d.row, height: 24, size: 10.5, width: 84),
+          // «تعديل» (docs/plan/113): ما دامت تُعدَّل — كلّها قبل الاستلام، وبيانات الزبون بعده
+          if (d?.edit?.mode != null) ...[
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'تعديل الشحنة',
+              child: Tap(
+                radius: 18,
+                onTap: () async {
+                  if (await openEdit(context, brand, d!.row.id, d.row.number)) _load();
+                },
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: cardShadow),
+                  child: Icon(Icons.edit_rounded, size: 18, color: brand.main),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

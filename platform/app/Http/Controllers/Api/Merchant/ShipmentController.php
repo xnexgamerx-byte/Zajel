@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Governorate;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
+use App\Support\MerchantEdit;
 use App\Support\MerchantPermissions;
 use App\Support\ShipmentLocation;
 use App\Support\Tracking;
@@ -133,6 +134,8 @@ class ShipmentController extends Controller
                 'attempts' => (int) $shipment->attempts_count,
             ] : null,
             'tracking_url' => Tracking::url($shipment),
+            // «تعديل» (docs/plan/113): لمن يُدخل الشحنات، وما يُعدَّل منها الآن أو لماذا لا
+            'edit' => MerchantPermissions::allows($request->user(), 'create') ? MerchantEdit::describe($shipment) : null,
             // تتبّعه الآن (docs/plan/59): من معه الطرد، وآخر ما جرى عليه ومتى
             'tracking' => [
                 'courier' => $open && ! $hidden ? $carrier?->merchantFacingName($merchant) : null,

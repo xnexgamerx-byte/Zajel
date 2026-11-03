@@ -567,8 +567,7 @@ class _CreateScreenState extends State<CreateScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) =>
-          _ChoiceSheet(brand: brand, title: title, options: options, current: current, search: search),
+      builder: (context) => ChoiceSheet(brand: brand, title: title, options: options, current: current, search: search),
     );
   }
 
@@ -914,8 +913,9 @@ class _CreateScreenState extends State<CreateScreen> {
 }
 
 /// قائمة المحافظات أو المناطق، ببحثٍ يطابق أيّ جزءٍ من الاسم
-class _ChoiceSheet extends StatefulWidget {
-  const _ChoiceSheet({
+class ChoiceSheet extends StatefulWidget {
+  const ChoiceSheet({
+    super.key,
     required this.brand,
     required this.title,
     required this.options,
@@ -930,10 +930,10 @@ class _ChoiceSheet extends StatefulWidget {
   final bool search;
 
   @override
-  State<_ChoiceSheet> createState() => _ChoiceSheetState();
+  State<ChoiceSheet> createState() => ChoiceSheetState();
 }
 
-class _ChoiceSheetState extends State<_ChoiceSheet> {
+class ChoiceSheetState extends State<ChoiceSheet> {
   String q = '';
 
   /// «الكراده» تجد «الكرادة»، و«اعظمية» تجد «الأعظمية»

@@ -273,6 +273,38 @@ class Demo {
         'due': row.amount - 5000,
         'owed': true,
       },
+      edit: _edit(row),
+    );
+  }
+
+  /// قبل الاستلام كلّها، وفي الطريق بيانات الزبون، والمحسومة مقفلة — كقواعد النظام (docs/plan/113)
+  static EditInfo _edit(RecentShipment row) => switch (row.tone) {
+    'green' || 'red' => const EditInfo(locked: 'لا تُعدَّل شحنةٌ بعد تسليمها أو إرجاعها أو إلغائها.'),
+    _ when row.status == 'جديد' => const EditInfo(mode: 'full'),
+    _ => const EditInfo(mode: 'contact'),
+  };
+
+  static ShipmentEdit shipmentEdit(int id) {
+    final row = _all.firstWhere((s) => s.id == id, orElse: () => _all.first);
+    return ShipmentEdit(
+      edit: _edit(row),
+      values: {
+        'recipient_name': row.name,
+        'recipient_phone': '07801234567',
+        'recipient_phone_alt': null,
+        'governorate_id': 1,
+        'governorate': 'بغداد',
+        'city_id': 100,
+        'city': row.area,
+        'address': null,
+        'landmark': 'قرب الجامع',
+        'description': 'ملابس',
+        'pieces_count': 1,
+        'type': 'delivery',
+        'size': 'normal',
+        'notes': null,
+        'cod_amount': row.amount,
+      },
     );
   }
 
