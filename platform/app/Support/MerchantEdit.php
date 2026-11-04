@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Actions\Shipments\DeleteShipment;
 use App\Actions\Shipments\UpdateShipment;
 use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
@@ -85,7 +86,18 @@ final class MerchantEdit
                 default => [],
             },
             'locked' => $mode === null ? self::locked($shipment) : null,
+            // «احذف الشحنة» في التعديل (docs/plan/117): ما دامت لم تصلنا — قواعد المسح نفسها
+            'deletable' => DeleteShipment::deletable($shipment),
         ];
+    }
+
+    /**
+     * يحذف التاجر شحنته (docs/plan/117): المسح نفسه الذي يمسح به الموظّف — ما دامت جديدةً أو بانتظار الاستلام أو
+     * أُلغيت، ولا كيس يحملها ولا كشف — فتذهب إلى «الشحنات الممسوحة» بمن مسحها ولماذا، وتُسترجع منها.
+     */
+    public static function delete(Shipment $shipment, ?string $reason, User $actor): void
+    {
+        app(DeleteShipment::class)->delete($shipment, 'حذفها التاجر'.(filled($reason) ? ' — '.trim($reason) : ''), $actor);
     }
 
     /**

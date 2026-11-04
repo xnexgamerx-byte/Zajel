@@ -245,6 +245,9 @@ Route::prefix('v1')->name('api.')->middleware(IdentifyTenant::class)->group(func
                     Route::get('/shipments/{shipment}/edit', [MerchantEditShipmentController::class, 'show'])->whereNumber('shipment')->name('shipments.edit');
                     Route::put('/shipments/{shipment}', [MerchantEditShipmentController::class, 'update'])->whereNumber('shipment')
                         ->middleware('throttle:60,1')->name('shipments.update');
+                    // وحذفها ما دامت لم تصلنا (docs/plan/117)
+                    Route::delete('/shipments/{shipment}', [MerchantEditShipmentController::class, 'destroy'])->whereNumber('shipment')
+                        ->middleware('throttle:30,1')->name('shipments.destroy');
                 });
             });
             // «للمعالجة» (docs/plan/54)

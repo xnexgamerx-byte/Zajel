@@ -7,14 +7,16 @@ import '../core/palette.dart';
 import '../widgets/bits.dart';
 import 'create_screen.dart';
 
-/// يفتح «تعديل الشحنة» فوق شاشتها، ويعود true إن حُفظ
-Future<bool> openEdit(BuildContext context, Brand brand, int id, String number) async {
-  final saved = await Navigator.of(context).push<bool>(
+/// ما انتهى إليه التعديل: حُفظ، أو حُذفت الشحنة (docs/plan/117)
+enum EditResult { saved, deleted }
+
+/// يفتح «تعديل الشحنة» فوق شاشتها، ويعود بما جرى — وnull إن رجع بلا شيء
+Future<EditResult?> openEdit(BuildContext context, Brand brand, int id, String number) {
+  return Navigator.of(context).push<EditResult>(
     MaterialPageRoute(
       builder: (_) => EditScreen(brand: brand, id: id, number: number),
     ),
   );
-  return saved ?? false;
 }
 
 /// «تعديل الشحنة» (docs/plan/113): نموذج «طلب جديد» بقيمها الآن. قبل أن يستلمها المندوب كلّ شيء — والأجرة من التسعيرة —
@@ -53,6 +55,7 @@ class _EditScreenState extends State<EditScreen> {
   String type = 'delivery';
 
   bool saving = false;
+  bool deleting = false;
   Map<String, String> errors = {};
   String? error;
 
@@ -149,7 +152,7 @@ class _EditScreenState extends State<EditScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(EditResult.saved);
     } on ApiError catch (e) {
       if (mounted) setState(() => (errors = e.fields, error = e.fields.isEmpty ? e.message : null));
     } finally {
@@ -179,7 +182,7 @@ class _EditScreenState extends State<EditScreen> {
         children: [
           Tap(
             radius: 18,
-            onTap: () => Navigator.of(context).pop(false),
+            onTap: () => Navigator.of(context).pop(),
             child: Container(
               width: 36,
               height: 36,
@@ -346,6 +349,7 @@ class _EditScreenState extends State<EditScreen> {
           ]),
           const SizedBox(height: 14),
           _saveButton(),
+          if (d.edit.deletable) ...[const SizedBox(height: 10), _deleteButton()],
         ],
       ),
     );
@@ -609,6 +613,63 @@ class _EditScreenState extends State<EditScreen> {
     );
   }
 
+  /// «احذف الشحنة» (docs/plan/117): يُسأل أوّلاً، ولسببٍ اختياريّ يراه المكتب
+  Future<void> _delete() async {
+    FocusScope.of(context).unfocus();
+    // السبب، أو null إن تراجع — الحوار يملك حقله فلا يُتلف وهو يُغلق
+    final why = await showDialog<String>(
+      context: context,
+      builder: (_) => _DeleteDialog(number: widget.number),
+    );
+    if (why == null || !mounted) return;
+    setState(() => (deleting = true, error = null));
+    try {
+      final message = await Api.instance.deleteShipment(widget.id, reason: why);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message, style: font(13, w6, Colors.white)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.of(context).pop(EditResult.deleted);
+    } on ApiError catch (e) {
+      if (mounted) setState(() => error = e.message);
+    } finally {
+      if (mounted) setState(() => deleting = false);
+    }
+  }
+
+  Widget _deleteButton() {
+    return Tap(
+      radius: 14,
+      onTap: saving || deleting ? null : _delete,
+      child: Container(
+        height: 48,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Palette.returnRed.withValues(alpha: .45)),
+        ),
+        child: deleting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: Palette.returnRed),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.delete_outline_rounded, color: Palette.returnRed, size: 20),
+                  const SizedBox(width: 6),
+                  Text('احذف الشحنة', style: font(14, w8, Palette.returnRed)),
+                ],
+              ),
+      ),
+    );
+  }
+
   Widget _saveButton() {
     return Tap(
       radius: 14,
@@ -636,6 +697,59 @@ class _EditScreenState extends State<EditScreen> {
                 ],
               ),
       ),
+    );
+  }
+}
+
+/// «حذف الشحنة؟» بسببٍ اختياريّ: يعود بالسبب (فارغاً إن لم يُكتب)، وnull إن تراجع
+class _DeleteDialog extends StatefulWidget {
+  const _DeleteDialog({required this.number});
+
+  final String number;
+
+  @override
+  State<_DeleteDialog> createState() => _DeleteDialogState();
+}
+
+class _DeleteDialogState extends State<_DeleteDialog> {
+  final reason = TextEditingController();
+
+  @override
+  void dispose() {
+    reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('حذف الشحنة #${widget.number}؟', style: font(16, w8, Palette.ink)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('لا تُستلم ولا تُوصل بعدها.', style: font(13, w5, Palette.slate, height: 1.5)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: reason,
+            maxLength: 255,
+            style: font(14, w6, Palette.ink),
+            decoration: InputDecoration(
+              hintText: 'السبب — اختياري، مثلاً: ألغى الزبون',
+              hintStyle: font(12.5, w5, Palette.muted),
+              isDense: true,
+              counterText: '',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('تراجع')),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(reason.text),
+          child: Text('احذف', style: font(14, w8, Palette.returnRed)),
+        ),
+      ],
     );
   }
 }

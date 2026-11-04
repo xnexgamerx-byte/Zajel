@@ -143,10 +143,13 @@ class _StatusScreenState extends State<StatusScreen> {
       if (scroll.position.pixels > scroll.position.maxScrollExtent - 300) _more();
     });
     _fetch(1);
+    // حُذفت شحنةٌ من تعديلها (docs/plan/117): لا تبقى في القائمة
+    shipmentsChanged.addListener(_reload);
   }
 
   @override
   void dispose() {
+    shipmentsChanged.removeListener(_reload);
     debounce?.cancel();
     search.dispose();
     scroll.dispose();

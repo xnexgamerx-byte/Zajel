@@ -15,6 +15,9 @@ import '../widgets/page.dart';
 import 'edit_screen.dart';
 import 'support_screen.dart';
 
+/// حُذفت شحنةٌ من تعديلها (docs/plan/117): تُعاد القوائم المفتوحة — الرئيسية و«شحناتي» والطابعة والحالات — فلا تبقى فيها
+final shipmentsChanged = ValueNotifier<int>(0);
+
 /// يفتح الشحنة فوق الشاشة الحالية — من «شحناتي» أو من آخر الشحنات في الرئيسية
 void openShipment(BuildContext context, Brand brand, int id) {
   Navigator.of(context).push(
@@ -260,7 +263,14 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
               child: Tap(
                 radius: 18,
                 onTap: () async {
-                  if (await openEdit(context, brand, d!.row.id, d.row.number)) _load();
+                  switch (await openEdit(context, brand, d!.row.id, d.row.number)) {
+                    case EditResult.saved:
+                      _load();
+                    case EditResult.deleted:
+                      shipmentsChanged.value++;
+                      if (context.mounted) Navigator.of(context).pop();
+                    case null:
+                  }
                 },
                 child: Container(
                   width: 36,

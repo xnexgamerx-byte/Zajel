@@ -214,4 +214,41 @@ class MerchantEditShipmentTest extends TestCase
         $this->assertSame(1, Tenancy::runFor($closed, fn () => CompanyFeature::where('feature', 'merchant_edit')->whereNull('ends_at')->count()));
         $this->assertFalse($this->makeCompany('saree', 'السريع')->hasFeature(Feature::MerchantEdit));
     }
+
+    /** «احذف الشحنة» من التعديل (docs/plan/117) */
+    public function test_the_merchant_deletes_a_shipment_that_has_not_reached_us_yet(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->token()];
+
+        // جديدة: يُحذف من التطبيق، وتذهب إلى الشحنات الممسوحة بسببه
+        $new = $this->shipment();
+        $this->getJson($this->host().'/api/v1/merchant/shipments/'.$new->id, $headers)->assertJsonPath('edit.deletable', true);
+        $this->deleteJson($this->host().'/api/v1/merchant/shipments/'.$new->id, ['reason' => 'ألغى الزبون'], $headers)
+            ->assertOk()->assertJsonPath('message', 'حُذفت الشحنة '.$new->number.'.');
+        $trashed = Tenancy::runFor($this->company, fn () => Shipment::onlyTrashed()->find($new->id));
+        $this->assertSame('حذفها التاجر — ألغى الزبون', $trashed->delete_reason);
+        $this->assertSame($this->user->id, (int) $trashed->deleted_by_user_id);
+
+        // استلمها المندوب: لا يُحذف
+        $picked = $this->move($this->shipment(), ShipmentStatus::PickedUp);
+        $this->getJson($this->host().'/api/v1/merchant/shipments/'.$picked->id, $headers)->assertJsonPath('edit.deletable', false);
+        $this->deleteJson($this->host().'/api/v1/merchant/shipments/'.$picked->id, [], $headers)->assertUnprocessable();
+        $this->assertNotNull(Tenancy::runFor($this->company, fn () => Shipment::find($picked->id)));
+
+        // وشحنة تاجرٍ آخر لا تُرى
+        $theirs = $this->shipment($this->makeMerchant($this->company, 'M0002'));
+        $this->deleteJson($this->host().'/api/v1/merchant/shipments/'.$theirs->id, [], $headers)->assertNotFound();
+
+        // ومن البوابة: زرّها في التعديل، ولا زرّ لما استلمه المندوب
+        $portal = $this->shipment();
+        $this->actingAs($this->user)->get($this->host().'/portal/shipments/'.$portal->id.'/edit')->assertSee('احذف الشحنة');
+        $this->delete($this->host().'/portal/shipments/'.$portal->id)->assertRedirect('/portal/shipments');
+        $this->assertNull(Tenancy::runFor($this->company, fn () => Shipment::find($portal->id)));
+        $this->get($this->host().'/portal/shipments/'.$picked->id.'/edit')->assertOk()->assertDontSee('احذف الشحنة');
+        $this->delete($this->host().'/portal/shipments/'.$theirs->id)->assertNotFound();
+
+        // ومطفأةً ميزة التعديل: لا حذف
+        $this->setFeature($this->company, Feature::MerchantEdit, false);
+        $this->delete($this->host().'/portal/shipments/'.$this->shipment()->id)->assertForbidden();
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Actions\Shipments\CreateShipment;
+use App\Actions\Shipments\DeleteShipment;
 use App\Actions\Waybills\CreateFromWaybill;
 use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
@@ -195,6 +196,7 @@ class ShipmentController extends Controller
             'shipment' => $shipment,
             'merchant' => $merchant,
             'full' => MerchantEdit::mode($shipment) === 'full',
+            'deletable' => DeleteShipment::deletable($shipment),
             'governorates' => Governorate::offered()->get(['id', 'name_ar'])
                 // وجهتها ولو أطفأتها الشركة بعد إنشائها: تبقى تُصحَّح بياناتها ما دامت لم تتغيّر
                 ->when(fn ($all) => ! $all->contains('id', $shipment->governorate_id) && $shipment->governorate,
@@ -214,5 +216,16 @@ class ShipmentController extends Controller
         MerchantEdit::apply($shipment, $request->validated(), $request->user());
 
         return redirect()->route('portal.shipments.show', $shipment)->with('success', 'حُفظ التعديل.');
+    }
+
+    /** «احذف الشحنة» من التعديل (docs/plan/117): إلى الشحنات الممسوحة، ما دامت لم تصلنا */
+    public function destroy(Request $request, Shipment $shipment): RedirectResponse
+    {
+        abort_unless($shipment->merchant_id === $request->attributes->get('merchant')->id, 404);
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
+
+        MerchantEdit::delete($shipment, $data['reason'] ?? null, $request->user());
+
+        return redirect()->route('portal.shipments.index')->with('success', "حُذفت الشحنة {$shipment->number}.");
     }
 }

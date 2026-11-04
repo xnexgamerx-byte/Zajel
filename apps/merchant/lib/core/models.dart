@@ -406,7 +406,7 @@ class Session {
 
 /// ما يُعدَّل من الشحنة الآن (docs/plan/113): full قبل الاستلام، contact بعده (بيانات الزبون وحدها)، وnull مقفلة
 class EditInfo {
-  const EditInfo({this.mode, this.fields = const [], this.locked});
+  const EditInfo({this.mode, this.fields = const [], this.locked, this.deletable = false});
 
   static EditInfo? fromJson(Map? j) => j == null
       ? null
@@ -414,11 +414,15 @@ class EditInfo {
           mode: j['mode'] as String?,
           fields: [for (final f in j['fields'] as List? ?? const []) '$f'],
           locked: j['locked'] as String?,
+          deletable: j['deletable'] as bool? ?? false,
         );
 
   final String? mode;
   final List<String> fields;
   final String? locked;
+
+  /// «احذف الشحنة» في التعديل (docs/plan/117): ما دامت لم تصل الشركة
+  final bool deletable;
 
   bool get full => mode == 'full';
 }

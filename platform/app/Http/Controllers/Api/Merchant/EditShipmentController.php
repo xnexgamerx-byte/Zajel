@@ -59,6 +59,17 @@ class EditShipmentController extends Controller
         ]);
     }
 
+    /** «احذف الشحنة» من التعديل (docs/plan/117): إلى الشحنات الممسوحة، ما دامت لم تصلنا */
+    public function destroy(Request $request, Shipment $shipment): JsonResponse
+    {
+        $this->own($request, $shipment);
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
+
+        MerchantEdit::delete($shipment, $data['reason'] ?? null, $request->user());
+
+        return response()->json(['message' => "حُذفت الشحنة {$shipment->number}."]);
+    }
+
     /** ربط المسار يفلتر بالشركة لا بالتاجر */
     private function own(Request $request, Shipment $shipment): void
     {

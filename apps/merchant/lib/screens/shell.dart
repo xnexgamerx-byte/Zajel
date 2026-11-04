@@ -21,6 +21,7 @@ import 'reader_sheets.dart';
 import 'requests_screen.dart';
 import 'returns_screen.dart';
 import 'scan_screen.dart';
+import 'shipment_screen.dart' show shipmentsChanged;
 import 'shipments_screen.dart';
 import 'staff_screen.dart';
 import 'status_screen.dart';
@@ -58,7 +59,11 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     Access.changed.addListener(_access);
+    shipmentsChanged.addListener(_changed);
   }
+
+  /// حُذفت شحنةٌ من تعديلها (docs/plan/117): تُعاد الرئيسية و«شحناتي»
+  void _changed() => refresh.value++;
 
   /// تغيّرت صلاحياته: صفحةٌ أُغلقت تعود إلى الرئيسية
   void _access() {
@@ -88,6 +93,7 @@ class _ShellState extends State<Shell> {
   @override
   void dispose() {
     Access.changed.removeListener(_access);
+    shipmentsChanged.removeListener(_changed);
     shipmentsFilter.dispose();
     searchNow.dispose();
     refresh.dispose();

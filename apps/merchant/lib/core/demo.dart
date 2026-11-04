@@ -280,7 +280,7 @@ class Demo {
   /// قبل الاستلام كلّها، وفي الطريق بيانات الزبون، والمحسومة مقفلة — كقواعد النظام (docs/plan/113)
   static EditInfo _edit(RecentShipment row) => switch (row.tone) {
     'green' || 'red' => const EditInfo(locked: 'لا تُعدَّل شحنةٌ بعد تسليمها أو إرجاعها أو إلغائها.'),
-    _ when row.status == 'جديد' => const EditInfo(mode: 'full'),
+    _ when row.status == 'جديد' => const EditInfo(mode: 'full', deletable: true),
     _ => const EditInfo(mode: 'contact'),
   };
 

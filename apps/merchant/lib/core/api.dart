@@ -202,6 +202,19 @@ class Api {
     return body['message'] as String? ?? 'حُفظ التعديل.';
   }
 
+  /// «احذف الشحنة» (docs/plan/117): إلى الشحنات الممسوحة عند الشركة، ما دامت لم تصلها — ويعود نصّ النظام
+  Future<String> deleteShipment(int id, {String? reason}) async {
+    if (AppConfig.demo) return 'حُذفت الشحنة.';
+    final body = await _send(
+      http.delete(
+        _uri('/merchant/shipments/$id'),
+        headers: _headers,
+        body: jsonEncode({if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim()}),
+      ),
+    );
+    return body['message'] as String? ?? 'حُذفت الشحنة.';
+  }
+
   // ---------------------------------------------------------------- للمعالجة والمالية (docs/plan/54)
 
   Future<ProcessingPage> processing({int page = 1}) async {

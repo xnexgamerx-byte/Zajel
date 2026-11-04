@@ -42,6 +42,14 @@ class _LabelsScreenState extends State<LabelsScreen> {
   void initState() {
     super.initState();
     _load();
+    // حُذفت شحنةٌ جديدة من تعديلها (docs/plan/117): لا تبقى في الطابعة
+    shipmentsChanged.addListener(_load);
+  }
+
+  @override
+  void dispose() {
+    shipmentsChanged.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {

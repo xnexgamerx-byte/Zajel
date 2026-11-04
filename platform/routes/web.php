@@ -839,6 +839,9 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/shipments/{shipment}/edit', [PortalShipmentController::class, 'edit'])->whereNumber('shipment')->name('shipments.edit');
                 Route::put('/shipments/{shipment}', [PortalShipmentController::class, 'update'])->whereNumber('shipment')
                     ->middleware('throttle:60,1')->name('shipments.update');
+                // وحذفها ما دامت لم تصلنا (docs/plan/117)
+                Route::delete('/shipments/{shipment}', [PortalShipmentController::class, 'destroy'])->whereNumber('shipment')
+                    ->middleware('throttle:30,1')->name('shipments.destroy');
             });
 
             Route::get('/statement', StatementController::class)->name('statement');

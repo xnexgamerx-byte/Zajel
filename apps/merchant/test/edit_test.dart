@@ -73,4 +73,69 @@ void main() {
     await _shipment(tester, 6);
     expect(find.byTooltip('تعديل الشحنة'), findsNothing);
   });
+
+  testWidgets('احذف الشحنة من التعديل: يُسأل أوّلاً، ثم تُغلق الشحنة وتُعاد القوائم', (tester) async {
+    tester.view.physicalSize = const Size(393 * 3, 849 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    var changed = 0;
+    void count() => changed++;
+    shipmentsChanged.addListener(count);
+    addTearDown(() => shipmentsChanged.removeListener(count));
+
+    // الشحنة تُفتح فوق قائمةٍ كما في التطبيق
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => openShipment(context, Brand.hex(null), 11),
+                  child: const Text('القائمة'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('القائمة'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('تعديل الشحنة'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    // تراجع: لا يُحذف شيء
+    await tester.tap(find.text('احذف الشحنة'));
+    await tester.pumpAndSettle();
+    expect(find.text('لا تُستلم ولا تُوصل بعدها.'), findsOneWidget);
+    await tester.tap(find.text('تراجع'));
+    await tester.pumpAndSettle();
+    expect(find.text('احذف الشحنة'), findsOneWidget);
+    expect(changed, 0);
+
+    // احذف: بسببه، ثم تُغلق الشحنة ويعود إلى القائمة
+    await tester.tap(find.text('احذف الشحنة'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'ألغى الزبون');
+    await tester.tap(find.text('احذف'));
+    await tester.pumpAndSettle();
+    expect(find.text('حُذفت الشحنة.'), findsOneWidget);
+    expect(find.text('القائمة'), findsOneWidget);
+    expect(find.text('تعديل الشحنة'), findsNothing);
+    expect(changed, 1);
+  });
+
+  testWidgets('في الطريق: لا زرّ حذف', (tester) async {
+    await _shipment(tester, 8);
+    await tester.tap(find.byTooltip('تعديل الشحنة'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).last, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.text('حفظ التعديل'), findsOneWidget);
+    expect(find.text('احذف الشحنة'), findsNothing);
+  });
 }
