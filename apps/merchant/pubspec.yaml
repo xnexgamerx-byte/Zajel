@@ -1,5 +1,5 @@
 name: merchant_app
-description: "تطبيق الشركة لتجّارها وموظّفي الكول سنتر — بعلامة كل شركة (docs/plan/48، 114)."
+description: "تطبيق الشركة لتجّارها ومناديبها وموظّفي الكول سنتر — بعلامة كل شركة (docs/plan/48، 114، 115)."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -12,11 +12,15 @@ dependencies:
   firebase_messaging: ^17.0.1
   flutter:
     sdk: flutter
+  # تنبيه مواعيد المؤجّلة في هاتف المندوب (docs/plan/75، 115)
+  flutter_local_notifications: ^22.3.2
   flutter_localizations:
     sdk: flutter
   flutter_map: ^8.3.2
   flutter_secure_storage: ^11.2.0
   font_awesome_flutter: ^11.0.0
+  # موقع المندوب والتطبيق أمامه وحده (docs/plan/66، 115)
+  geolocator: ^14.0.0
   http: ^1.6.0
   image_picker: ^1.2.4
   latlong2: ^0.10.1
@@ -26,6 +30,7 @@ dependencies:
   printing: ^5.15.1
   record: ^7.1.2
   speech_to_text: ^7.5.0
+  timezone: ^0.11.2
   url_launcher: ^6.3.3
 dev_dependencies:
   flutter_test:

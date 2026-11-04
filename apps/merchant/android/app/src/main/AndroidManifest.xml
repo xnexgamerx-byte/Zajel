@@ -7,11 +7,27 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- إشعارات الهاتف (docs/plan/82): أندرويد 13 وما بعده يسأل التاجر أوّل مرّة -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- قسم المندوب (docs/plan/115): «أشارك موقعي ما دام التطبيق مفتوحاً» — الموقع والتطبيق أمامه فقط، لا في الخلفية.
+         يُسأل المندوب وحده حين يُفتح قسمه، ولا يُسأل التاجر ولا موظّف الكول سنتر -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- تنبيه موعد المؤجّلة للمندوب في وقته ولو كان التطبيق مغلقاً، ويُعاد جدولته بعد إعادة تشغيل الهاتف (docs/plan/75) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- تنبيهات مواعيد المندوب المجدولة (flutter_local_notifications، docs/plan/75) -->
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <!-- أيقونة الإشعار ولونه في شريط الهاتف (docs/plan/82) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
@@ -74,6 +90,11 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="http"/>
+        </intent>
+        <!-- «افتح الخريطة» من شحنة المندوب بتطبيق الخرائط في الهاتف -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="geo"/>
         </intent>
         <!-- السماع على الهاتف نفسه (docs/plan/61): خدمة التعرّف على الكلام -->
         <intent>

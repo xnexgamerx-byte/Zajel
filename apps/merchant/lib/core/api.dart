@@ -27,7 +27,8 @@ class ApiError implements Exception {
 
 /// واجهة النظام (routes/api.php): الشركة من عنوانها، والدخول برمزٍ محفوظٍ في خزنة الجهاز (Account).
 ///
-/// وهي واجهة الحساب للتطبيق كلّه (docs/plan/114): الدخول والخروج والإشعارات من هنا، لقسم التاجر ولقسم الكول سنتر.
+/// وهي واجهة الحساب للتطبيق كلّه (docs/plan/114، 115): الدخول والخروج والإشعارات من هنا، لأقسام التاجر والكول سنتر
+/// والمندوب.
 class Api {
   Api._();
 
@@ -296,14 +297,15 @@ class Api {
     return body['message'] as String? ?? 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
   }
 
-  /// «جرّب إشعاراً الآن» في قسم الكول سنتر (docs/plan/93): إلى هواتف هذا الحساب، ويقول أين يقف الإرسال
+  /// «جرّب إشعاراً الآن» في قسمي الكول سنتر والمندوب (docs/plan/93): إلى هواتف هذا الحساب، ويقول أين يقف الإرسال
   Future<String> testDevicePush() async {
     if (AppConfig.demo) return 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
     final body = await _send(http.post(_uri('/devices/test'), headers: _headers));
     return body['message'] as String? ?? 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
   }
 
-  /// الهاتف برمز Firebase: إليه تصل إشعارات الحساب — «وصلت شحنتك» للتاجر، وتذاكر الكول سنتر ورسائله لموظّفيه
+  /// الهاتف برمز Firebase: إليه تصل إشعارات الحساب — «وصلت شحنتك» للتاجر، والشحنات المسندة للمندوب، وتذاكر الكول
+  /// سنتر ورسائله لموظّفيه
   Future<void> registerDevice(String token) async {
     await _send(http.post(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
   }

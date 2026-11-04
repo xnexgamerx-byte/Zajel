@@ -12,20 +12,28 @@ use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
- * دخول التطبيق الموحّد (docs/plan/114): يرسل أقسامه (التاجر والكول سنتر)، فيدخل كلّ حسابٍ قسمَ دوره ويعود اسمه
- * فيُفتح، ورمزه لا يفتح غير قسمه. والمندوب يُردّ إلى تطبيقه. والتطبيقات المنفصلة تدخل كما كانت.
+ * دخول التطبيق الموحّد (docs/plan/114، 115): يرسل أقسامه (التاجر والكول سنتر والمندوب)، فيدخل كلّ حسابٍ قسمَ دوره
+ * ويعود اسمه فيُفتح، ورمزه لا يفتح غير قسمه. ونسخة المرحلة الأولى (بلا قسم المندوب) تقول للمندوب أن يحدّثها.
+ * والتطبيقات المنفصلة تدخل كما كانت.
  */
 class UnifiedAppLoginTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const SECTIONS = ['merchant', 'callcenter'];
+    private const SECTIONS = ['merchant', 'callcenter', 'courier'];
+
+    /** نسخة التطبيق الموحّد من المرحلة الأولى (docs/plan/114) */
+    private const PHASE_ONE = ['merchant', 'callcenter'];
 
     private Company $company;
 
     private User $merchantUser;
 
     private User $sara;
+
+    private Courier $courier;
+
+    private User $courierUser;
 
     protected function setUp(): void
     {
@@ -39,6 +47,9 @@ class UnifiedAppLoginTest extends TestCase
                 'role' => UserRole::Merchant, 'merchant_id' => $merchant->id, 'is_active' => true]);
             $this->sara = User::create(['name' => 'سارة', 'phone' => '07701110011', 'password' => 'password',
                 'role' => UserRole::CustomerService, 'is_active' => true]);
+            $this->courier = Courier::create(['code' => 'C1', 'name' => 'أحمد', 'phone' => '07720000001', 'type' => 'delivery', 'status' => 'active']);
+            $this->courierUser = User::create(['name' => 'أحمد', 'phone' => '07720000001', 'password' => 'password',
+                'role' => UserRole::Courier, 'courier_id' => $this->courier->id, 'is_active' => true]);
         });
     }
 
@@ -69,6 +80,7 @@ class UnifiedAppLoginTest extends TestCase
         $this->getJson($this->api('/me'), $this->bearer($token))->assertOk()->assertJsonPath('app', 'merchant');
         $this->getJson($this->api('/merchant/home'), $this->bearer($token))->assertOk();
         $this->getJson($this->api('/callcenter/home'), $this->bearer($token))->assertForbidden();
+        $this->getJson($this->api('/courier/home'), $this->bearer($token))->assertForbidden();
     }
 
     public function test_call_centre_staff_open_the_call_centre_section(): void
@@ -79,6 +91,27 @@ class UnifiedAppLoginTest extends TestCase
         $this->getJson($this->api('/me'), $this->bearer($token))->assertOk()->assertJsonPath('app', 'callcenter');
         $this->getJson($this->api('/callcenter/home'), $this->bearer($token))->assertOk();
         $this->getJson($this->api('/merchant/home'), $this->bearer($token))->assertForbidden();
+        $this->getJson($this->api('/courier/home'), $this->bearer($token))->assertForbidden();
+    }
+
+    public function test_a_courier_opens_the_courier_section_and_a_suspended_or_partner_one_does_not(): void
+    {
+        $token = $this->login($this->courierUser)->assertOk()
+            ->assertJsonPath('app', 'courier')->assertJsonPath('user.role', 'courier')->json('token');
+
+        $this->getJson($this->api('/me'), $this->bearer($token))->assertOk()->assertJsonPath('app', 'courier');
+        $this->getJson($this->api('/courier/home'), $this->bearer($token))->assertOk();
+        $this->getJson($this->api('/merchant/home'), $this->bearer($token))->assertForbidden();
+        $this->getJson($this->api('/callcenter/home'), $this->bearer($token))->assertForbidden();
+
+        // مندوبٌ موقوف، أو شركةٌ وسيطة تعمل بمفتاح الربط: كما في تطبيق المندوب
+        Tenancy::runFor($this->company, fn () => $this->courier->forceFill(['status' => 'suspended'])->save());
+        $this->login($this->courierUser)->assertUnprocessable()
+            ->assertJsonPath('errors.username.0', 'حسابك موقوف أو غير مرتبط بمندوب. راجع الشركة.');
+        Tenancy::runFor($this->company, fn () => $this->courier->forceFill(['status' => 'active', 'is_intermediary' => true])->save());
+        $this->login($this->courierUser)->assertUnprocessable()
+            ->assertJsonPath('errors.username.0', 'حساب الشركة الوسيطة يعمل بمفتاح الربط، لا بتطبيق المندوب.');
+        $this->assertSame(1, $this->courierUser->tokens()->count());
     }
 
     public function test_who_has_no_section_here_is_told_where_to_go(): void
@@ -89,16 +122,14 @@ class UnifiedAppLoginTest extends TestCase
         $this->login($accountant)->assertUnprocessable()
             ->assertJsonPath('errors.username.0', 'حسابك لا يعالج التذاكر ولا الشحنات ولا المحادثات. اطلب الصلاحية من مدير الشركة.');
 
-        // المندوب: إلى تطبيقه
-        $courierUser = Tenancy::runFor($this->company, function () {
-            $courier = Courier::create(['code' => 'C1', 'name' => 'أحمد', 'phone' => '07720000001', 'type' => 'delivery', 'status' => 'active']);
+        // المندوب في نسخة المرحلة الأولى: يحدّثها، أو يدخل من تطبيقه
+        $this->login($this->courierUser, ['apps' => self::PHASE_ONE])->assertUnprocessable()
+            ->assertJsonPath('errors.username.0', 'حدّث التطبيق ليدخل منه المندوب، أو ادخل من تطبيق المندوب.');
+        $this->assertSame(0, $this->courierUser->tokens()->count());
 
-            return User::create(['name' => 'أحمد', 'phone' => '07720000001', 'password' => 'password',
-                'role' => UserRole::Courier, 'courier_id' => $courier->id, 'is_active' => true]);
-        });
-        $this->login($courierUser)->assertUnprocessable()
-            ->assertJsonPath('errors.username.0', 'حساب المندوب يدخل من تطبيق المندوب.');
-        $this->assertSame(0, $courierUser->tokens()->count());
+        // ونسخة المرحلة الأولى تبقى تُدخل التاجر وموظّفة الكول سنتر
+        $this->login($this->merchantUser, ['apps' => self::PHASE_ONE])->assertOk()->assertJsonPath('app', 'merchant');
+        $this->login($this->sara, ['apps' => self::PHASE_ONE])->assertOk()->assertJsonPath('app', 'callcenter');
 
         // كلمة مرورٍ خاطئة كما كانت
         $this->postJson($this->api('/login'), ['username' => $this->sara->username, 'password' => 'wrong', 'apps' => self::SECTIONS])
@@ -112,6 +143,7 @@ class UnifiedAppLoginTest extends TestCase
         $this->login($this->sara, ['app' => 'callcenter'])->assertOk()->assertJsonPath('app', 'callcenter');
         $this->login($this->sara, ['app' => 'merchant'])->assertUnprocessable()
             ->assertJsonPath('errors.username.0', 'هذا التطبيق للتجّار. ادخل من تطبيقك أو من الموقع.');
+        $this->login($this->courierUser, ['app' => 'courier'])->assertOk()->assertJsonPath('app', 'courier');
 
         // بلا قسم، أو بقسمٍ لا يُعرف
         $this->login($this->sara, [])->assertUnprocessable()->assertJsonValidationErrors(['app', 'apps']);

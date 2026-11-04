@@ -2,12 +2,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'config.dart';
 
-/// أقسام التطبيق الموحّد (docs/plan/114): كلّ حسابٍ يدخل قسم دوره، والنظام يقول أيّها عند الدخول.
+/// أقسام التطبيق الموحّد (docs/plan/114، 115): كلّ حسابٍ يدخل قسم دوره، والنظام يقول أيّها عند الدخول.
 enum Section {
   merchant,
-  callcenter;
+  callcenter,
+  courier;
 
-  /// ما يرسله النظام («merchant»، «callcenter»)، وnull لما لا يعرفه هذا التطبيق (المندوب في تطبيقه)
+  /// ما يرسله النظام («merchant»، «callcenter»، «courier»)، وnull لما لا يعرفه هذا التطبيق
   static Section? of(Object? value) => values.where((s) => s.name == value).firstOrNull;
 }
 
@@ -20,8 +21,8 @@ class SignIn {
   final Map<String, dynamic>? body;
 }
 
-/// الحساب الداخل على هذا الهاتف: رمزه وقسمه، في خزنة الجهاز المشفّرة — مرّةً للتطبيق كلّه، فواجهة التاجر وواجهة
-/// الكول سنتر تحملان الرمز نفسه.
+/// الحساب الداخل على هذا الهاتف: رمزه وقسمه، في خزنة الجهاز المشفّرة — مرّةً للتطبيق كلّه، فواجهات التاجر والكول
+/// سنتر والمندوب تحمل الرمز نفسه.
 class Account {
   Account._();
 
