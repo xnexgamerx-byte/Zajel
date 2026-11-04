@@ -21,7 +21,7 @@ Future<void> _open(WidgetTester tester, String tool) async {
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
 
-  await tester.pumpWidget(const MerchantApp(signedIn: true));
+  await tester.pumpWidget(const CompanyApp(signedIn: true));
   await tester.pumpAndSettle();
   // من «المزيد» في الشريط السفلي
   await tester.tap(find.text('المزيد'));

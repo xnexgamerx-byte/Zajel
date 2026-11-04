@@ -10,7 +10,6 @@ use App\Models\Merchant;
 use App\Models\User;
 use App\Support\MerchantPermissions;
 use App\Support\Username;
-use App\Support\Push\StaffPush;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -24,13 +23,16 @@ use Illuminate\Validation\ValidationException;
  *
  * الاستعلام عن المستخدم مفلترٌ بالشركة (CompanyScope) كالموقع: تطبيق الزاجل لا يدخل
  * بحساب البرق ولو تطابق الاسم.
+ *
+ * والتطبيق الموحّد (docs/plan/114) يرسل أقسامه في apps بدل app: يدخل الحساب القسمَ الذي لدوره منها، ويعود
+ * اسم القسم في الجواب (app) فيفتحه التطبيق. والتطبيقات المنفصلة ترسل app كما كانت.
  */
 class AuthController extends Controller
 {
     /** أيّ الأدوار يدخل كلّ تطبيق */
     public const APPS = [
         'merchant' => [UserRole::Merchant],
-        'courier'  => [UserRole::Courier],
+        'courier' => [UserRole::Courier],
         // تطبيق الكول سنتر (docs/plan/73): موظّفو الشركة ممّن يعالجون التذاكر أو الشحنات أو المحادثات
         'callcenter' => [
             UserRole::CompanyOwner, UserRole::CompanyAdmin, UserRole::BranchOwner, UserRole::BranchManager,
@@ -52,9 +54,13 @@ class AuthController extends Controller
         $data = $request->validate([
             'username' => ['required', 'string', 'max:64'],
             'password' => ['required', 'string', 'max:255'],
-            'app'      => ['required', 'in:'.implode(',', array_keys(self::APPS))],
-            'device'   => ['nullable', 'string', 'max:60'],
+            'app' => ['required_without:apps', 'nullable', 'string', 'in:'.implode(',', array_keys(self::APPS))],
+            // أقسام التطبيق الموحّد (docs/plan/114): ['merchant', 'callcenter']
+            'apps' => ['required_without:app', 'nullable', 'array', 'min:1', 'max:'.count(self::APPS)],
+            'apps.*' => ['string', 'distinct', 'in:'.implode(',', array_keys(self::APPS))],
+            'device' => ['nullable', 'string', 'max:60'],
         ], [], ['username' => 'اسم المستخدم', 'password' => 'كلمة المرور']);
+        $offered = filled($data['app'] ?? null) ? [$data['app']] : array_values($data['apps']);
 
         // مفتاح المحاولات على الصيغة الموحّدة كالموقع (LoginController)
         $username = Username::forLogin($data['username']);
@@ -78,15 +84,14 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['username' => 'هذا الحساب موقوف.']);
         }
 
-        if (! in_array($user->role, self::APPS[$data['app']], true)) {
-            throw ValidationException::withMessages(['username' => match ($data['app']) {
-                'merchant' => 'هذا التطبيق للتجّار. ادخل من تطبيقك أو من الموقع.',
-                'courier'  => 'هذا التطبيق للمندوبين. ادخل من تطبيقك أو من الموقع.',
-                default    => 'هذا التطبيق لموظّفي الكول سنتر. ادخل من تطبيقك أو من الموقع.',
-            }]);
+        // القسم الذي يدخله: أوّل ما يرسله التطبيق ممّا لدوره
+        $app = collect($offered)->first(fn (string $a) => in_array($user->role, self::APPS[$a], true));
+
+        if ($app === null) {
+            throw ValidationException::withMessages(['username' => self::wrongApp($offered, $user->role)]);
         }
 
-        if ($data['app'] === 'callcenter' && ! collect(self::CALL_CENTRE_ABILITIES)->contains(fn ($a) => $user->can($a))) {
+        if ($app === 'callcenter' && ! collect(self::CALL_CENTRE_ABILITIES)->contains(fn ($a) => $user->can($a))) {
             throw ValidationException::withMessages([
                 'username' => 'حسابك لا يعالج التذاكر ولا الشحنات ولا المحادثات. اطلب الصلاحية من مدير الشركة.',
             ]);
@@ -122,20 +127,47 @@ class AuthController extends Controller
         $user->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
 
         $token = $user->createToken(
-            $data['app'].':'.($data['device'] ?? 'app'),
-            [$data['app']],
+            $app.':'.($data['device'] ?? 'app'),
+            [$app],
             now()->addYear(),
         );
 
         return response()->json([
             'token' => $token->plainTextToken,
+            'app' => $app,
             ...$this->profile($user, $request->attributes->get('company')),
         ]);
     }
 
+    /** الحساب وقسمه: التطبيق الموحّد يفتح به القسم عند كلّ فتح (docs/plan/114) */
     public function me(Request $request): JsonResponse
     {
-        return response()->json($this->profile($request->user(), $request->attributes->get('company')));
+        $abilities = (array) ($request->user()->currentAccessToken()->abilities ?? []);
+
+        return response()->json([
+            'app' => collect(array_keys(self::APPS))->first(fn (string $a) => in_array($a, $abilities, true)),
+            ...$this->profile($request->user(), $request->attributes->get('company')),
+        ]);
+    }
+
+    /** لماذا لا يدخل هذا الحساب ما أرسله التطبيق، بكلام صاحبه */
+    private static function wrongApp(array $offered, UserRole $role): string
+    {
+        // تطبيقٌ منفصل: لمن هو
+        if (count($offered) === 1) {
+            return match ($offered[0]) {
+                'merchant' => 'هذا التطبيق للتجّار. ادخل من تطبيقك أو من الموقع.',
+                'courier' => 'هذا التطبيق للمندوبين. ادخل من تطبيقك أو من الموقع.',
+                default => 'هذا التطبيق لموظّفي الكول سنتر. ادخل من تطبيقك أو من الموقع.',
+            };
+        }
+
+        // التطبيق الموحّد: أين يدخل هذا الحساب إذن
+        return match (true) {
+            $role === UserRole::Courier => 'حساب المندوب يدخل من تطبيق المندوب.',
+            $role === UserRole::Merchant => 'حساب التاجر يدخل من تطبيق التجّار أو من الموقع.',
+            default => 'حسابك لا يدخل من هذا التطبيق. ادخل من موقع الشركة.',
+        };
     }
 
     /** الخروج يُبطل رمز هذا الجهاز وحده */
@@ -154,14 +186,14 @@ class AuthController extends Controller
 
         return [
             'user' => [
-                'id'   => $user->id,
+                'id' => $user->id,
                 'name' => $owner ? ($merchant->owner_name ?: $merchant->business_name) : $user->name,
                 'role' => $user->role->value,
             ],
             'merchant' => $merchant ? [
-                'id'          => $merchant->id,
-                'store'       => $merchant->business_name,
-                'owner'       => $merchant->owner_name,
+                'id' => $merchant->id,
+                'store' => $merchant->business_name,
+                'owner' => $merchant->owner_name,
                 'can_process' => (bool) $merchant->can_process,
                 // ما يفتحه هذا الحساب (docs/plan/87): صاحب المتجر كلّها ومعها owner
                 'permissions' => MerchantPermissions::of($user),
@@ -173,10 +205,10 @@ class AuthController extends Controller
     private function brand(Company $company): array
     {
         return [
-            'name'    => $company->name,
+            'name' => $company->name,
             'initial' => $company->initial(),
-            'color'   => $company->primary_color,
-            'logo'    => $company->logoUrl(),
+            'color' => $company->primary_color,
+            'logo' => $company->logoUrl(),
         ];
     }
 }

@@ -2,13 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../core/account.dart';
 import '../core/api.dart';
 import '../core/brand_cache.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
 
-/// الدخول باسم المستخدم وكلمة المرور كما في الموقع — بلون الشركة واسمها.
+/// الدخول باسم المستخدم وكلمة المرور كما في الموقع — بلون الشركة واسمها. وهو دخولٌ واحد للتطبيق كلّه (docs/plan/114):
+/// التاجر وموظّف الكول سنتر يكتبان حسابهما، والنظام يقول قسم الحساب فيُفتح — لا يختار أحدٌ قسمه، ولا يدخل غير قسمه.
 ///
 /// تصميم «الموجة» (docs/plan/88): نصفٌ علويّ بلون الشركة تنساب في أسفله موجتان وتلمع فيه نجومٌ خفيفة، وشعار
 /// الشركة في إطارٍ أبيض مربّع تنبض حوله حلقتان، واسمها واسم التطبيق تحته، ثم نموذج الدخول بطاقةً بيضاء تصعد.
@@ -17,7 +19,7 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.brand, required this.onSignedIn});
 
   final Brand brand;
-  final ValueChanged<Session> onSignedIn;
+  final ValueChanged<SignIn> onSignedIn;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -25,10 +27,10 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
   /// ما يميّز هذا التطبيق في الشاشة نفسها
-  static const _app = 'تطبيق التاجر';
-  static const _welcome = 'ادخل لمتابعة شحناتك وحسابك';
+  static const _app = 'التجّار والكول سنتر';
+  static const _welcome = 'ادخل بحسابك، ويفتح لك التطبيق قسمك';
   static const _userHint = 'اسم المستخدم أو رقم الهاتف';
-  static const _help = ['نسيت كلمة المرور؟ راجع شركة التوصيل لتعيينها.'];
+  static const _help = ['نسيت كلمة المرور؟ التاجر يراجع شركة التوصيل، والموظّف مدير الشركة.'];
 
   final username = TextEditingController();
   final password = TextEditingController();

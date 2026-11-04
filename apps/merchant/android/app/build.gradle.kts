@@ -59,7 +59,8 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["appLabel"] = dartDefines["APP_LABEL"]?.takeIf { it.isNotBlank() } ?: "التاجر"
+        // اسمه على الهاتف (APP_LABEL): اسم الشركة — التطبيق لتجّارها وموظّفيها معاً (docs/plan/114)
+        manifestPlaceholders["appLabel"] = dartDefines["APP_LABEL"]?.takeIf { it.isNotBlank() } ?: "شركة التوصيل"
     }
 
     signingConfigs {

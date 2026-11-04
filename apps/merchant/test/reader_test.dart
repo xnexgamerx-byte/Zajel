@@ -21,7 +21,7 @@ Future<void> _start(WidgetTester tester) async {
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
 
-  await tester.pumpWidget(const MerchantApp(signedIn: true));
+  await tester.pumpWidget(const CompanyApp(signedIn: true));
   await tester.pumpAndSettle();
 }
 

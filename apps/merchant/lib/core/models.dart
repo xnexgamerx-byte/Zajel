@@ -404,7 +404,6 @@ class Session {
 
 // ------------------------------------------------------------------ طلب جديد (docs/plan/52)
 
-/// خيارٌ في النموذج: محافظة أو منطقة (id)، أو حجم ونوع (value)
 /// ما يُعدَّل من الشحنة الآن (docs/plan/113): full قبل الاستلام، contact بعده (بيانات الزبون وحدها)، وnull مقفلة
 class EditInfo {
   const EditInfo({this.mode, this.fields = const [], this.locked});
@@ -440,6 +439,7 @@ class ShipmentEdit {
   final Map<String, dynamic> values;
 }
 
+/// خيارٌ في النموذج: محافظة أو منطقة (id)، أو حجم ونوع (value)
 class Choice {
   const Choice(this.key, this.label);
 

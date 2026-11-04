@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+import 'account.dart';
 import 'config.dart';
 import 'demo.dart';
 import 'models.dart';
@@ -25,16 +25,18 @@ class ApiError implements Exception {
   String toString() => message;
 }
 
-/// واجهة النظام (routes/api.php): الشركة من عنوانها، والدخول برمزٍ محفوظٍ في خزنة الجهاز.
+/// واجهة النظام (routes/api.php): الشركة من عنوانها، والدخول برمزٍ محفوظٍ في خزنة الجهاز (Account).
+///
+/// وهي واجهة الحساب للتطبيق كلّه (docs/plan/114): الدخول والخروج والإشعارات من هنا، لقسم التاجر ولقسم الكول سنتر.
 class Api {
   Api._();
 
   static final instance = Api._();
 
-  static const _storage = FlutterSecureStorage();
-  static const _tokenKey = 'token';
+  /// أقسام هذا التطبيق، يرسلها عند الدخول فيدخل الحساب قسم دوره منها
+  static final sections = [for (final s in Section.values) s.name];
 
-  String? _token;
+  String? get _token => Account.token;
 
   Uri _uri(String path) => Uri.parse('${AppConfig.apiUrl}/api/v1$path');
 
@@ -45,13 +47,9 @@ class Api {
   };
 
   /// داخلٌ برمزه: إليه يُسجَّل هاتف الإشعارات
-  bool get signedIn => _token != null;
+  bool get signedIn => Account.signedIn;
 
-  Future<bool> restore() async {
-    if (AppConfig.demo) return false;
-    _token = await _storage.read(key: _tokenKey);
-    return _token != null;
-  }
+  Future<bool> restore() => Account.restore();
 
   /// هوية الشركة لشاشة الدخول (docs/plan/88): بلا شبكةٍ أو في نسخة العرض تبقى الشاشة باسمها من الإعداد
   Future<CompanyBrand?> company() async {
@@ -64,23 +62,28 @@ class Api {
     }
   }
 
-  Future<Session> login(String username, String password) async {
-    if (AppConfig.demo) return Demo.session;
+  /// الدخول بأقسام التطبيق كلّها: النظام يختار قسم الحساب ويعيده، فيُحفظ مع الرمز (docs/plan/114)
+  Future<SignIn> login(String username, String password) async {
+    if (AppConfig.demo) return SignIn(Section.of(AppConfig.demoSection) ?? Section.merchant, null);
     final body = await _send(
       http.post(
         _uri('/login'),
         headers: _headers,
-        body: jsonEncode({'username': username, 'password': password, 'app': 'merchant', 'device': 'phone'}),
+        body: jsonEncode({'username': username, 'password': password, 'apps': sections, 'device': 'phone'}),
       ),
     );
-    _token = body['token'] as String;
-    await _storage.write(key: _tokenKey, value: _token);
-    return Session.fromJson(body);
+    // قسمٌ لا يعرفه التطبيق لا يأتي (النظام يردّ المندوب إلى تطبيقه)، فهو التاجر كما كان قبل الأقسام
+    final section = Section.of(body['app']) ?? Section.merchant;
+    await Account.save(body['token'] as String, section);
+    return SignIn(section, body);
   }
 
-  Future<Session> me() async {
-    if (AppConfig.demo) return Demo.session;
-    return Session.fromJson(await _send(http.get(_uri('/me'), headers: _headers)));
+  /// الحساب كما هو الآن وقسمه. نظامٌ لم يُحدَّث لا يقول القسم: يبقى المحفوظ
+  Future<SignIn> me() async {
+    final body = await _send(http.get(_uri('/me'), headers: _headers));
+    final section = Section.of(body['app']) ?? Account.section ?? Section.merchant;
+    await Account.adopt(section);
+    return SignIn(section, body);
   }
 
   Future<HomeData> home() async {
@@ -264,9 +267,8 @@ class Api {
         // بلا شبكة: يُنسى الرمز هنا، ويبقى ساري المدة على الخادم حتى يُبطله الخروج التالي
       }
     }
-    _token = null;
     _form = null;
-    await _storage.delete(key: _tokenKey);
+    await Account.clear();
   }
 
   // ---------------------------------------------------------------- إشعارات الهاتف (docs/plan/82، 86)
@@ -294,7 +296,14 @@ class Api {
     return body['message'] as String? ?? 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
   }
 
-  /// الهاتف برمز Firebase: إليه تصل «وصلت شحنتك» وقرار المعالجة
+  /// «جرّب إشعاراً الآن» في قسم الكول سنتر (docs/plan/93): إلى هواتف هذا الحساب، ويقول أين يقف الإرسال
+  Future<String> testDevicePush() async {
+    if (AppConfig.demo) return 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
+    final body = await _send(http.post(_uri('/devices/test'), headers: _headers));
+    return body['message'] as String? ?? 'أُرسل إشعارٌ تجريبيّ إلى هاتفك.';
+  }
+
+  /// الهاتف برمز Firebase: إليه تصل إشعارات الحساب — «وصلت شحنتك» للتاجر، وتذاكر الكول سنتر ورسائله لموظّفيه
   Future<void> registerDevice(String token) async {
     await _send(http.post(_uri('/devices'), headers: _headers, body: jsonEncode({'token': token})));
   }
@@ -601,8 +610,7 @@ class Api {
     }
 
     if (res.statusCode == 401) {
-      _token = null;
-      await _storage.delete(key: _tokenKey);
+      await Account.clear();
       throw ApiError(arabicMessage(body['message'], 401), unauthorised: true);
     }
 

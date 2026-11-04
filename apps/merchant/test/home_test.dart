@@ -26,7 +26,7 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
 
     for (final text in [
@@ -76,7 +76,7 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
 
     // الدعم الفني مكان الإعدادات (docs/plan/79)
@@ -112,7 +112,7 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('الإشعارات'));
     await tester.pumpAndSettle();
@@ -156,7 +156,7 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
 
     // بحث الرئيسية يفتح «شحناتي» والمؤشّر في خانة البحث
@@ -203,7 +203,7 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
 
     // «إنشاء شحنة» في الرئيسية ثم «أكتبها بنفسي» يفتح النموذج على محافظة التاجر
@@ -248,7 +248,7 @@ void main() {
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MerchantApp(signedIn: true));
+    await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
 
     // زرّ المسح الأحمر المرفوع في وسط الشريط السفلي يفتح الكاميرا

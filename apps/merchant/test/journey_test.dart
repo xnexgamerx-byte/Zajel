@@ -33,7 +33,7 @@ Future<void> _app(WidgetTester tester) async {
   tester.view.physicalSize = const Size(393 * 3, 849 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(const MerchantApp(signedIn: true));
+  await tester.pumpWidget(const CompanyApp(signedIn: true));
   await tester.pumpAndSettle();
 }
 
@@ -208,7 +208,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // بلا شعارٍ من النظام: حرف الشركة في الإطار (docs/plan/88)
-    for (final text in ['الزاجل', 'ز', 'تطبيق التاجر', 'أهلاً بعودتك', 'اسم المستخدم أو رقم الهاتف', 'كلمة المرور']) {
+    for (final text in [
+      'الزاجل',
+      'ز',
+      'التجّار والكول سنتر',
+      'أهلاً بعودتك',
+      'اسم المستخدم أو رقم الهاتف',
+      'كلمة المرور',
+    ]) {
       expect(find.text(text), findsOneWidget, reason: text);
     }
     await tester.tap(find.text('دخول'));
