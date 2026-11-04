@@ -15,6 +15,8 @@
                placeholder="امسح الباركود أو رمز QR، أو اكتب الرقم ثم Enter" data-scan-box-input>
         <button type="button" class="btn-primary" data-scan-box-add>أضِف</button>
     </div>
+    {{-- على الهاتف بلا قارئ: الكاميرا تمسح وصلاً بعد وصل (docs/plan/119) --}}
+    <x-camera-scan target="#scan-box-input" mode="press" press="[data-scan-box-add]" status="[data-scan-box-message]" class="mt-2 w-full sm:w-auto"/>
     <div class="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <p class="min-h-5 text-sm text-ink-500" role="status" aria-live="polite" data-scan-box-message>{{ $hint }}</p>
         @unless ($open)

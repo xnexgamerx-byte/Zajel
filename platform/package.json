@@ -9,6 +9,7 @@
     "devDependencies": {
         "@aegov/design-system": "^3.0.7",
         "@tailwindcss/vite": "^4.0.0",
+        "@zxing/library": "^0.21.3",
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",
         "leaflet": "^1.9.4",

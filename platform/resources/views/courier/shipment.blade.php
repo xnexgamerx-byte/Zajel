@@ -175,6 +175,8 @@
                 <label class="field-label" for="scan">امسح باركود الشحنة أو اكتب رقمها</label>
                 <input id="scan" name="scan" class="field-input text-center text-lg" dir="ltr" inputmode="numeric"
                        autocomplete="off" value="{{ old('scan') }}" placeholder="رقم الوصل" required>
+                {{-- بلا قارئ باركود: كاميرا الهاتف تقرأ الوصل وتكتبه هنا (docs/plan/119) --}}
+                <x-camera-scan target="#scan" class="mt-2 w-full" label="امسح الوصل بالكاميرا"/>
                 @error('scan') <p class="field-error">{{ $message }}</p> @enderror
             </div>
         @endif

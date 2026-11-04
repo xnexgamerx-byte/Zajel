@@ -14,6 +14,7 @@ import { initBulkBar, initDayPick } from './bulk-bar';
 import { initDailyChart } from './daily-chart';
 import { initOrderReader } from './order-reader';
 import { initCourierLocation } from './courier-location';
+import { initCameraScan } from './camera-scan';
 // السمات بدل المقابض المضمَّنة: data-confirm، data-print، data-dialog-open…
 import './behaviors';
 
@@ -33,6 +34,8 @@ initSearchableSelects();
 // «اقرأ الطلب من صورة أو رسالة» في نموذج الشحنة: بعد ربط المناطق، فالمحافظة تبني قائمتها
 for (const reader of document.querySelectorAll('[data-order-reader]')) initOrderReader(reader);
 initCourierLocation();
+// «امسح بالكاميرا» بجانب خانات المسح (docs/plan/119)
+initCameraScan();
 
 // «كل مراحل النقل» على الهاتف: المرحلة المختارة تُرى في صفّها المُمرَّر أفقياً.
 // يُمرَّر الصفّ وحده — scrollIntoView كان يُنزل الصفحة كلّها إليها

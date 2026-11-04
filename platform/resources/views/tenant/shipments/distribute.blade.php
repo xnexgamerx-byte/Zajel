@@ -52,6 +52,8 @@
                        placeholder="امسح أو اكتب ثم Enter" data-scan-input>
                 <button type="button" class="btn-primary" data-scan-add>أضِف</button>
             </div>
+            {{-- على الهاتف بلا قارئ: الكاميرا تمسح وصلاً بعد وصل (docs/plan/119) --}}
+            <x-camera-scan target="#scan-number" mode="press" press="[data-scan-add]" status="[data-scan-message]" class="mt-2 w-full sm:w-auto"/>
             <p class="mt-2 min-h-5 text-sm" role="status" aria-live="polite" data-scan-message></p>
         </section>
 

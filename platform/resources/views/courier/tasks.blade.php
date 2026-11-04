@@ -35,10 +35,14 @@
     </details>
 @endif
 
-<form method="GET" action="{{ route('courier.search') }}" class="mb-4 flex gap-2">
-    <input name="q" class="field-input flex-1 text-base" inputmode="numeric"
-           placeholder="رقم الوصل أو هاتف الزبون" required>
-    <button type="submit" class="btn-primary shrink-0 px-5">ابحث</button>
+<form method="GET" action="{{ route('courier.search') }}" class="mb-4">
+    <div class="flex gap-2">
+        <input id="courier-search" name="q" class="field-input flex-1 text-base" inputmode="numeric"
+               placeholder="رقم الوصل أو هاتف الزبون" required>
+        <button type="submit" class="btn-primary shrink-0 px-5">ابحث</button>
+    </div>
+    {{-- امسح الوصل بالكاميرا فتُفتح شحنته (docs/plan/119) --}}
+    <x-camera-scan target="#courier-search" mode="submit" class="mt-2 w-full" label="امسح وصلاً بالكاميرا"/>
 </form>
 
 @if ($returns->isNotEmpty())

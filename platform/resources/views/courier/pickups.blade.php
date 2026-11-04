@@ -48,6 +48,8 @@
                 <label class="field-label" for="codes-{{ $pickup->id }}">امسح باركود كلّ طرد، أو اكتب أرقامها — سطرٌ لكلّ شحنة</label>
                 <textarea id="codes-{{ $pickup->id }}" name="codes" rows="4" dir="ltr" required
                           class="field-input text-left text-lg" autocomplete="off">{{ old('codes') }}</textarea>
+                {{-- كاميرا الهاتف: سطرٌ لكلّ طردٍ تمسحه، وتبقى مفتوحةً حتى «تمّ» (docs/plan/119) --}}
+                <x-camera-scan target="#codes-{{ $pickup->id }}" mode="lines" class="w-full" label="امسح الطرود بالكاميرا"/>
                 @error('codes') <p class="field-error">{{ $message }}</p> @enderror
             @else
                 <label class="field-label" for="actual_count-{{ $pickup->id }}">العدد المستلم فعلاً</label>
