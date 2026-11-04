@@ -29,8 +29,8 @@ class PushDeviceController extends Controller
     }
 
     /**
-     * «جرّب إشعاراً الآن» في تطبيقي المندوب والكول سنتر (docs/plan/93): إلى هواتف هذا الحساب وحده، ويقول أين
-     * يقف الإرسال — كما في تطبيق التاجر (docs/plan/89).
+     * «جرّب إشعاراً الآن» في قسمي المندوب والكول سنتر من التطبيق (docs/plan/93، 120): إلى هواتف هذا الحساب وحده،
+     * ويقول أين يقف الإرسال — كما في قسم التاجر (docs/plan/89).
      */
     public function test(Request $request): JsonResponse
     {
