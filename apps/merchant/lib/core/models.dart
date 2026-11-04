@@ -404,7 +404,7 @@ class Session {
 
 // ------------------------------------------------------------------ طلب جديد (docs/plan/52)
 
-/// ما يُعدَّل من الشحنة الآن (docs/plan/113): full قبل الاستلام، contact بعده (بيانات الزبون وحدها)، وnull مقفلة
+/// ما يُعدَّل من الشحنة الآن (docs/plan/113): full قبل الاستلام، وnull بعده مقفلةً بسببها في locked (docs/plan/118)
 class EditInfo {
   const EditInfo({this.mode, this.fields = const [], this.locked, this.deletable = false});
 
@@ -423,8 +423,6 @@ class EditInfo {
 
   /// «احذف الشحنة» في التعديل (docs/plan/117): ما دامت لم تصل الشركة
   final bool deletable;
-
-  bool get full => mode == 'full';
 }
 
 /// قيم الشحنة كما هي الآن، تملأ نموذج التعديل: GET /merchant/shipments/{id}/edit

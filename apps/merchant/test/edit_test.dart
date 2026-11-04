@@ -33,7 +33,7 @@ Future<void> _shipment(WidgetTester tester, int id) async {
   await tester.pumpAndSettle();
 }
 
-/// تعديل التاجر لشحنته (docs/plan/113)
+/// تعديل التاجر لشحنته (docs/plan/113): قبل الاستلام وحده (docs/plan/118)
 void main() {
   setUpAll(_loadCairo);
 
@@ -58,15 +58,9 @@ void main() {
     expect(find.text('تعديل الشحنة'), findsNothing);
   });
 
-  testWidgets('في الطريق: بيانات الزبون وحدها، والوجهة والسعر للقراءة', (tester) async {
+  testWidgets('استلمها المندوب: لا زرّ تعديل ولا حذف', (tester) async {
     await _shipment(tester, 8);
-    await tester.tap(find.byTooltip('تعديل الشحنة'));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('استلمها المندوب'), findsOneWidget);
-    expect(find.text('المحافظة *', findRichText: true), findsNothing);
-    expect(find.text('السعر مع التوصيل *', findRichText: true), findsNothing);
-    expect(find.textContaining('تغييره من الكول سنتر'), findsOneWidget);
+    expect(find.byTooltip('تعديل الشحنة'), findsNothing);
   });
 
   testWidgets('المحسومة: لا زرّ تعديل', (tester) async {
@@ -127,15 +121,5 @@ void main() {
     expect(find.text('القائمة'), findsOneWidget);
     expect(find.text('تعديل الشحنة'), findsNothing);
     expect(changed, 1);
-  });
-
-  testWidgets('في الطريق: لا زرّ حذف', (tester) async {
-    await _shipment(tester, 8);
-    await tester.tap(find.byTooltip('تعديل الشحنة'));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(ListView).last, const Offset(0, -2000));
-    await tester.pumpAndSettle();
-    expect(find.text('حفظ التعديل'), findsOneWidget);
-    expect(find.text('احذف الشحنة'), findsNothing);
   });
 }

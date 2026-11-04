@@ -60,7 +60,6 @@ class _EditScreenState extends State<EditScreen> {
   String? error;
 
   Brand get brand => widget.brand;
-  bool get full => data?.edit.full ?? false;
 
   @override
   void initState() {
@@ -101,7 +100,7 @@ class _EditScreenState extends State<EditScreen> {
       final city = v['city_id'] == null ? null : Choice('${v['city_id']}', text('city'));
 
       setState(() => (form = f, data = d, governorate = gov, area = city));
-      if (d.edit.full && gov != null) await _loadAreas(gov, keep: city);
+      if (d.edit.mode != null && gov != null) await _loadAreas(gov, keep: city);
     } on ApiError catch (e) {
       if (mounted) setState(() => loadError = e.message);
     }
@@ -135,15 +134,13 @@ class _EditScreenState extends State<EditScreen> {
         if (address.text.trim().isNotEmpty || (data?.values['address'] != null)) 'address': orNull(address),
         'landmark': orNull(landmark),
         'notes': orNull(notes),
-        if (full) ...{
-          'governorate_id': governorate?.key,
-          'city_id': area?.key,
-          'cod_amount': cod.text.trim().isEmpty ? null : _cod,
-          'pieces_count': pieces,
-          'description': orNull(goods),
-          'size': size,
-          'type': type,
-        },
+        'governorate_id': governorate?.key,
+        'city_id': area?.key,
+        'cod_amount': cod.text.trim().isEmpty ? null : _cod,
+        'pieces_count': pieces,
+        'description': orNull(goods),
+        'size': size,
+        'type': type,
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -246,11 +243,7 @@ class _EditScreenState extends State<EditScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(14, 4, 14, 40),
         children: [
-          _hint(
-            full
-                ? 'لم يستلمها المندوب بعد: عدّل ما تشاء، والأجرة تُحسب من تسعيرتك.'
-                : 'استلمها المندوب: تُعدَّل بيانات الزبون وعنوانه وملاحظاته، ويصل المندوبَ ما تغيّر.',
-          ),
+          _hint('لم يستلمها المندوب بعد: عدّل ما تشاء، والأجرة تُحسب من تسعيرتك.'),
           const SizedBox(height: 10),
           if (error != null) ...[_alert(error!), const SizedBox(height: 10)],
           _section('الزبون', Icons.person_rounded, [
@@ -274,23 +267,16 @@ class _EditScreenState extends State<EditScreen> {
           ]),
           const SizedBox(height: 10),
           _section('العنوان', Icons.location_on_rounded, [
-            if (full) ...[
-              _picker('المحافظة', governorate?.label, 'governorate_id', () async {
-                final g = await _choose('المحافظة', f.governorates, governorate);
-                if (g != null && g.key != governorate?.key) await _loadAreas(g);
+            _picker('المحافظة', governorate?.label, 'governorate_id', () async {
+              final g = await _choose('المحافظة', f.governorates, governorate);
+              if (g != null && g.key != governorate?.key) await _loadAreas(g);
+            }),
+            if (areasLoading || areas.isNotEmpty)
+              _picker('المنطقة', areasLoading ? 'تُحمَّل المناطق…' : area?.label, 'city_id', () async {
+                if (areasLoading) return;
+                final a = await _choose('المنطقة', areas, area, search: true);
+                if (a != null) setState(() => (area = a, errors.remove('city_id')));
               }),
-              if (areasLoading || areas.isNotEmpty)
-                _picker('المنطقة', areasLoading ? 'تُحمَّل المناطق…' : area?.label, 'city_id', () async {
-                  if (areasLoading) return;
-                  final a = await _choose('المنطقة', areas, area, search: true);
-                  if (a != null) setState(() => (area = a, errors.remove('city_id')));
-                }),
-            ] else
-              _readOnly(
-                'الوجهة',
-                [v['governorate'], v['city']].whereType<String>().where((s) => s.isNotEmpty).join(' — '),
-                'الطرد في طريقه إليها: تغييرها من الكول سنتر.',
-              ),
             if (v['address'] != null && '${v['address']}'.isNotEmpty)
               _field('العنوان', address, 'text', required: _required('address'), key: 'address'),
             _field(
@@ -304,40 +290,33 @@ class _EditScreenState extends State<EditScreen> {
           ]),
           const SizedBox(height: 10),
           _section('الطلب', Icons.inventory_2_rounded, [
-            if (full) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _field(
-                      'السعر مع التوصيل',
-                      cod,
-                      'money',
-                      hint: 'ما يدفعه الزبون',
-                      required: true,
-                      key: 'cod_amount',
-                    ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _field(
+                    'السعر مع التوصيل',
+                    cod,
+                    'money',
+                    hint: 'ما يدفعه الزبون',
+                    required: true,
+                    key: 'cod_amount',
                   ),
-                  const SizedBox(width: 10),
-                  _pieces(),
-                ],
-              ),
-              _field(
-                'نوع البضاعة',
-                goods,
-                'text',
-                hint: 'مثلاً: ${f.goods}',
-                required: _required('description'),
-                key: 'description',
-              ),
-              _chips('حجم الطلب', f.sizes, size, (s) => setState(() => size = s)),
-              _chips('نوع الطلب', f.types, type, (t) => setState(() => type = t)),
-            ] else
-              _readOnly(
-                'السعر',
-                '${Thousands.group('${v['cod_amount'] ?? 0}')} د.ع · ${v['pieces_count'] ?? 1} قطعة',
-                'السعر على وصل المندوب: تغييره من الكول سنتر.',
-              ),
+                ),
+                const SizedBox(width: 10),
+                _pieces(),
+              ],
+            ),
+            _field(
+              'نوع البضاعة',
+              goods,
+              'text',
+              hint: 'مثلاً: ${f.goods}',
+              required: _required('description'),
+              key: 'description',
+            ),
+            _chips('حجم الطلب', f.sizes, size, (s) => setState(() => size = s)),
+            _chips('نوع الطلب', f.types, type, (t) => setState(() => type = t)),
             _field(
               'ملاحظات للمندوب',
               notes,
@@ -424,25 +403,6 @@ class _EditScreenState extends State<EditScreen> {
     color: const Color(0xFFFBF6F5),
     borderRadius: BorderRadius.circular(12),
     border: Border.all(color: bad ? Palette.returnRed : Palette.line),
-  );
-
-  Widget _readOnly(String label, String value, String note) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      _label(label),
-      Container(
-        padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
-        decoration: BoxDecoration(color: Palette.eye, borderRadius: BorderRadius.circular(12)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value, style: font(14, w7, Palette.ink)),
-            const SizedBox(height: 2),
-            Text(note, style: font(11, w5, Palette.slate, height: 1.4)),
-          ],
-        ),
-      ),
-    ],
   );
 
   Widget _field(

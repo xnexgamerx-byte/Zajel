@@ -8,7 +8,7 @@ use App\Support\MerchantEdit;
 
 /**
  * تعديل التاجر لشحنته (docs/plan/113): قواعد نموذج إنشائه نفسها، من البوابة والتطبيق — والهاتف يُوحَّد كما
- * في التطبيق. وبعد الاستلام حقول الزبون وحدها: ما سواها لا يُقبل ولو أُرسل.
+ * في التطبيق. وبعد الاستلام لا تعديل (docs/plan/118).
  */
 class MerchantShipmentUpdateRequest extends AppShipmentRequest
 {
@@ -30,8 +30,9 @@ class MerchantShipmentUpdateRequest extends AppShipmentRequest
 
         $shipment = $this->route('shipment');
 
-        if ($shipment instanceof Shipment && MerchantEdit::mode($shipment) !== 'full') {
-            $rules = array_intersect_key($rules, array_flip(MerchantEdit::CONTACT));
+        // مقفلةٌ بعد الاستلام (docs/plan/118): لا قواعد، فيقول المتحكّم لماذا لا تُعدَّل بدل أخطاء الحقول
+        if ($shipment instanceof Shipment && MerchantEdit::mode($shipment) === null) {
+            return [];
         }
 
         return $rules;

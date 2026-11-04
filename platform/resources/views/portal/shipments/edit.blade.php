@@ -3,8 +3,8 @@
 
 @section('content')
 {{--
-  تعديل التاجر لشحنته (docs/plan/113): نموذج إنشائها نفسه بقيمها. قبل الاستلام كلّه، وبعده بيانات الزبون وحدها —
-  والوجهة والسعر للقراءة، تغييرهما بعدها من الكول سنتر.
+  تعديل التاجر لشحنته (docs/plan/113): نموذج إنشائها نفسه بقيمها، ما دامت لم يستلمها المندوب — وبعد الاستلام لا تعديل
+  (docs/plan/118): تفتح هذه الصفحة لما يُعدَّل وحده.
 --}}
 @php
     $required = '<span class="text-primary-600" aria-hidden="true">*</span>';
@@ -16,11 +16,7 @@
     <div>
         <h1 class="page-title">تعديل الشحنة <span class="num" dir="ltr">{{ $shipment->number }}</span></h1>
         <p class="mt-1 text-sm text-ink-500">
-            @if ($full)
-                لم يستلمها المندوب بعد: عدّل ما تشاء، والأجرة تُحسب من تسعيرتك.
-            @else
-                استلمها المندوب: تُعدَّل بيانات الزبون وعنوانه وملاحظاته، ويصل المندوبَ ما تغيّر.
-            @endif
+            لم يستلمها المندوب بعد: عدّل ما تشاء، والأجرة تُحسب من تسعيرتك.
         </p>
     </div>
     <a href="{{ route('portal.shipments.show', $shipment) }}" class="btn-ghost">رجوع</a>
@@ -68,7 +64,6 @@
                     <h2 class="panel-head-title text-base">العنوان</h2>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    @if ($full)
                         <div>
                             <label class="field-label" for="governorate_id">المحافظة {!! $required !!}</label>
                             <select id="governorate_id" name="governorate_id" class="field-input" required>
@@ -85,13 +80,6 @@
                             </select>
                             @error('city_id') <p class="field-error">{{ $message }}</p> @enderror
                         </div>
-                    @else
-                        <div class="sm:col-span-2 rounded-xl bg-ink-50 px-4 py-3 text-sm">
-                            <span class="text-ink-500">الوجهة:</span>
-                            <span class="font-semibold">{{ $shipment->governorate?->name_ar }}{{ $shipment->city ? ' — '.$shipment->city->name_ar : '' }}</span>
-                            <span class="block text-xs text-ink-500">الطرد في طريقه إليها: تغييرها من الكول سنتر.</span>
-                        </div>
-                    @endif
                     @if (filled($shipment->address) || filled(old('address')))
                         <div class="sm:col-span-2">
                             <label class="field-label" for="address">العنوان</label>
@@ -115,7 +103,6 @@
                     <h2 class="panel-head-title text-base">الطلب</h2>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    @if ($full)
                         <div class="sm:col-span-2">
                             <label class="field-label" for="cod_amount">السعر مع التوصيل {!! $required !!}</label>
                             <div class="relative">
@@ -157,14 +144,6 @@
                             </select>
                             @error('type') <p class="field-error">{{ $message }}</p> @enderror
                         </div>
-                    @else
-                        <div class="sm:col-span-3 rounded-xl bg-ink-50 px-4 py-3 text-sm">
-                            <span class="text-ink-500">السعر:</span>
-                            <span class="num font-semibold">{{ number_format($shipment->cod_amount) }}</span> د.ع
-                            · <span class="num">{{ $shipment->pieces_count }}</span> قطعة
-                            <span class="block text-xs text-ink-500">السعر على وصل المندوب: تغييره من الكول سنتر.</span>
-                        </div>
-                    @endif
 
                     <div class="sm:col-span-3">
                         <label class="field-label" for="notes">الملاحظات</label>
@@ -204,11 +183,9 @@
     </form>
 @endif
 
-@if ($full)
     @php
         $citiesByGovernorate = $cities->groupBy('governorate_id')
             ->map(fn ($g) => $g->map(fn ($c) => ['id' => $c->id, 'name' => $c->name_ar])->values());
     @endphp
     <script type="application/json" id="cities-data">@json($citiesByGovernorate)</script>
-@endif
 @endsection

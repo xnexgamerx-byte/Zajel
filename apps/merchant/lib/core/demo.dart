@@ -281,7 +281,7 @@ class Demo {
   static EditInfo _edit(RecentShipment row) => switch (row.tone) {
     'green' || 'red' => const EditInfo(locked: 'لا تُعدَّل شحنةٌ بعد تسليمها أو إرجاعها أو إلغائها.'),
     _ when row.status == 'جديد' => const EditInfo(mode: 'full', deletable: true),
-    _ => const EditInfo(mode: 'contact'),
+    _ => const EditInfo(locked: 'استلمها المندوب: لا تُعدَّل بعد الاستلام. لتغيير شيءٍ فيها راسل الدعم.'),
   };
 
   static ShipmentEdit shipmentEdit(int id) {

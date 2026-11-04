@@ -10,7 +10,6 @@ use App\Enums\UserRole;
 use App\Models\Company;
 use App\Models\CompanyFeature;
 use App\Models\Courier;
-use App\Models\Governorate;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
@@ -20,8 +19,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * تعديل التاجر لشحنته (docs/plan/113): كلّها قبل الاستلام والأجرة من التسعيرة، وبيانات الزبون وحدها بعده،
- * ولا شيء بعد الحسم أو عند شريك التوصيل أو لشحنة غيره — من البوابة والتطبيق.
+ * تعديل التاجر لشحنته (docs/plan/113): كلّها قبل الاستلام والأجرة من التسعيرة، ولا شيء بعد الاستلام
+ * (docs/plan/118) ولا لشحنة غيره — من البوابة والتطبيق.
  */
 class MerchantEditShipmentTest extends TestCase
 {
@@ -131,36 +130,35 @@ class MerchantEditShipmentTest extends TestCase
         $this->assertSame($this->user->id, $event->actor_id);
     }
 
-    public function test_after_pickup_only_the_customer_details_change_and_the_courier_is_told(): void
+    public function test_after_pickup_nothing_changes_from_the_portal_or_the_app(): void
     {
-        $shipment = $this->move($this->shipment(), ShipmentStatus::PickedUp, ShipmentStatus::OutForDelivery);
+        $shipment = $this->move($this->shipment(), ShipmentStatus::PickedUp);
+        $locked = 'استلمها المندوب: لا تُعدَّل بعد الاستلام. لتغيير شيءٍ فيها راسل الدعم.';
 
-        $this->actingAs($this->user)->get($this->host().'/portal/shipments/'.$shipment->id.'/edit')->assertOk()
-            ->assertSee('استلمها المندوب')->assertDontSee('name="cod_amount"', false)->assertDontSee('name="governorate_id"', false);
-
-        // السعر والوجهة يُرسلان ولا يُقبلان
-        $basra = Governorate::where('name_ar', 'البصرة')->value('id');
-        $this->put($this->host().'/portal/shipments/'.$shipment->id, $this->form(['governorate_id' => $basra, 'city_id' => null, 'cod_amount' => 1]))
-            ->assertSessionHasNoErrors();
-
-        $fresh = Tenancy::runFor($this->company, fn () => $shipment->fresh());
-        $this->assertSame('07712345678', $fresh->recipient_phone);
-        $this->assertSame('اتصل قبل الوصول', $fresh->notes);
-        $this->assertSame(50_000, (int) $fresh->cod_amount);
-        $this->assertSame($this->baghdad()->id, (int) $fresh->governorate_id);
-
-        // والتطبيق: ما يُعدَّل الآن، ثم الحفظ
+        // التطبيق أوّلاً (Bearer قبل جلسة البوابة): لا وضع تعديل، والحفظ يُردّ بالسبب
         $headers = ['Authorization' => 'Bearer '.$this->token()];
         $this->getJson($this->host().'/api/v1/merchant/shipments/'.$shipment->id, $headers)->assertOk()
-            ->assertJsonPath('edit.mode', 'contact')->assertJsonPath('edit.locked', null);
-        $this->getJson($this->host().'/api/v1/merchant/shipments/'.$shipment->id.'/edit', $headers)->assertOk()
-            ->assertJsonPath('values.recipient_phone', '07712345678')->assertJsonPath('values.cod_amount', 50_000);
-        $this->putJson($this->host().'/api/v1/merchant/shipments/'.$shipment->id, ['recipient_phone' => '٠٧٧٠ ٠٠٠ ١١١١'], $headers)
-            ->assertOk()->assertJsonPath('message', 'حُفظ التعديل.');
-        $this->assertSame('07700001111', Tenancy::runFor($this->company, fn () => $shipment->fresh()->recipient_phone));
+            ->assertJsonPath('edit.mode', null)->assertJsonPath('edit.fields', [])->assertJsonPath('edit.locked', $locked)
+            ->assertJsonPath('edit.deletable', false);
+        $this->putJson($this->host().'/api/v1/merchant/shipments/'.$shipment->id, ['recipient_phone' => '07700001111'], $headers)
+            ->assertUnprocessable()->assertJsonPath('message', $locked);
+
+        // والبوابة: لا زرّ تعديل، والصفحة تعود بالسبب، والحفظ لا يغيّر شيئاً
+        $this->actingAs($this->user)->get($this->host().'/portal/shipments/'.$shipment->id)->assertOk()
+            ->assertDontSee('/portal/shipments/'.$shipment->id.'/edit', false);
+        $this->get($this->host().'/portal/shipments/'.$shipment->id.'/edit')
+            ->assertRedirect('/portal/shipments/'.$shipment->id)->assertSessionHasErrors('shipment');
+        $this->put($this->host().'/portal/shipments/'.$shipment->id, $this->form())
+            ->assertRedirect()->assertSessionHasErrors('shipment');
+
+        $fresh = Tenancy::runFor($this->company, fn () => $shipment->fresh());
+        $this->assertSame('07801234567', $fresh->recipient_phone);
+        $this->assertSame('زبون', $fresh->recipient_name);
+        $this->assertSame(50_000, (int) $fresh->cod_amount);
+        $this->assertNull($fresh->notes);
     }
 
-    public function test_a_settled_shipment_or_one_with_the_delivery_partner_is_locked(): void
+    public function test_a_settled_shipment_is_locked(): void
     {
         $delivered = $this->move($this->shipment(), ShipmentStatus::PickedUp, ShipmentStatus::OutForDelivery, ShipmentStatus::Delivered);
         $headers = ['Authorization' => 'Bearer '.$this->token()];
@@ -169,12 +167,6 @@ class MerchantEditShipmentTest extends TestCase
             ->assertJsonPath('edit.mode', null)->assertJsonPath('edit.locked', 'لا تُعدَّل شحنةٌ بعد تسليمها أو إرجاعها أو إلغائها.');
         $this->putJson($this->host().'/api/v1/merchant/shipments/'.$delivered->id, ['recipient_phone' => '07700001111'], $headers)
             ->assertUnprocessable();
-        // مع شريك التوصيل بعد الاستلام: بياناتها في نظامه
-        $partner = $this->move($this->shipment(), ShipmentStatus::PickedUp, ShipmentStatus::OutForDelivery);
-        Tenancy::runFor($this->company, fn () => Courier::where('code', 'C1')->update(['is_intermediary' => true]));
-        $this->putJson($this->host().'/api/v1/merchant/shipments/'.$partner->id, ['recipient_phone' => '07700001111'], $headers)
-            ->assertUnprocessable()->assertJsonPath('message', 'الشحنة عند شريك التوصيل: لتغيير بياناتها راسل الدعم.');
-        $this->assertSame('07801234567', Tenancy::runFor($this->company, fn () => $partner->fresh()->recipient_phone));
 
         $this->actingAs($this->user)->get($this->host().'/portal/shipments/'.$delivered->id.'/edit')
             ->assertRedirect('/portal/shipments/'.$delivered->id)->assertSessionHasErrors('shipment');
@@ -239,12 +231,14 @@ class MerchantEditShipmentTest extends TestCase
         $theirs = $this->shipment($this->makeMerchant($this->company, 'M0002'));
         $this->deleteJson($this->host().'/api/v1/merchant/shipments/'.$theirs->id, [], $headers)->assertNotFound();
 
-        // ومن البوابة: زرّها في التعديل، ولا زرّ لما استلمه المندوب
+        // ومن البوابة: زرّها في التعديل، وما استلمه المندوب لا يُفتح تعديله ولا يُحذف
         $portal = $this->shipment();
         $this->actingAs($this->user)->get($this->host().'/portal/shipments/'.$portal->id.'/edit')->assertSee('احذف الشحنة');
         $this->delete($this->host().'/portal/shipments/'.$portal->id)->assertRedirect('/portal/shipments');
         $this->assertNull(Tenancy::runFor($this->company, fn () => Shipment::find($portal->id)));
-        $this->get($this->host().'/portal/shipments/'.$picked->id.'/edit')->assertOk()->assertDontSee('احذف الشحنة');
+        $this->get($this->host().'/portal/shipments/'.$picked->id.'/edit')->assertRedirect('/portal/shipments/'.$picked->id);
+        $this->delete($this->host().'/portal/shipments/'.$picked->id)->assertSessionHasErrors();
+        $this->assertNotNull(Tenancy::runFor($this->company, fn () => Shipment::find($picked->id)));
         $this->delete($this->host().'/portal/shipments/'.$theirs->id)->assertNotFound();
 
         // ومطفأةً ميزة التعديل: لا حذف

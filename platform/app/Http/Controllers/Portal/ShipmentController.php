@@ -195,7 +195,6 @@ class ShipmentController extends Controller
         return view('portal.shipments.edit', [
             'shipment' => $shipment,
             'merchant' => $merchant,
-            'full' => MerchantEdit::mode($shipment) === 'full',
             'deletable' => DeleteShipment::deletable($shipment),
             'governorates' => Governorate::offered()->get(['id', 'name_ar'])
                 // وجهتها ولو أطفأتها الشركة بعد إنشائها: تبقى تُصحَّح بياناتها ما دامت لم تتغيّر
