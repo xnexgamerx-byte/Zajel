@@ -187,15 +187,15 @@
 
 @if ($deletable)
     {{-- «احذف الشحنة» (docs/plan/117): ما دامت لم تصلنا — تذهب إلى الشحنات الممسوحة عند الشركة وتُسترجع منها --}}
-    <form method="POST" action="{{ route('portal.shipments.destroy', $shipment) }}" class="mx-auto mt-4 max-w-3xl"
-          onsubmit="return confirm('حذف الشحنة {{ $shipment->number }}؟ لا تُستلم ولا تُوصل بعدها.')">
+    <form method="POST" action="{{ route('portal.shipments.destroy', $shipment) }}" class="mx-auto mt-4 max-w-3xl">
         @csrf
         @method('DELETE')
         <section class="card p-5 sm:px-7">
             <label class="field-label" for="reason">لماذا تحذفها؟</label>
             <input id="reason" name="reason" class="field-input" maxlength="255" placeholder="اختياري — مثلاً: ألغى الزبون الطلب">
             @error('reason') <p class="field-error">{{ $message }}</p> @enderror
-            <button type="submit" class="btn-ghost mt-3 w-full py-3 text-base text-bad-700 ring-1 ring-bad-200">
+            <button type="submit" class="btn-ghost mt-3 w-full py-3 text-base text-bad-700 ring-1 ring-bad-200"
+                    data-confirm="حذف الشحنة {{ $shipment->number }}؟ لا تُستلم ولا تُوصل بعدها.">
                 <x-icon name="trash" class="size-5"/>
                 احذف الشحنة
             </button>
