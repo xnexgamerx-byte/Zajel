@@ -4,6 +4,7 @@ namespace Tests\Feature\Platform;
 
 use App\Enums\Feature;
 use App\Support\FeatureGate;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -41,6 +42,16 @@ class FeatureCatalogTest extends TestCase
         }
 
         foreach (Feature::cases() as $feature) {
+            if (! $feature->guardsScreens()) {
+                // ميزة سلوك: تُقرأ في الكود نفسه، وإلّا فإغلاقها لا يغيّر شيئاً
+                $read = collect(File::allFiles(app_path()))
+                    ->reject(fn ($f) => str_ends_with($f->getPathname(), 'Enums/Feature.php'))
+                    ->contains(fn ($f) => str_contains($f->getContents(), 'Feature::'.$feature->name));
+                $this->assertTrue($read, "«{$feature->label()}» لا تُقرأ في الكود: إغلاقها لا يغيّر شيئاً.");
+
+                continue;
+            }
+
             $this->assertContains($feature, $guarded, "«{$feature->label()}» لا تحرس شاشة: إغلاقها لا يُغلق شيئاً.");
         }
     }

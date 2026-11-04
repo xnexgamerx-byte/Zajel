@@ -12,6 +12,8 @@ use App\Models\Hub;
 use App\Models\PriceList;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Support\Arabic;
+use App\Support\LoginAccounts;
 use App\Support\Phone;
 use App\Support\Username;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +28,7 @@ class BranchController extends Controller
     {
         return view('tenant.branches.index', [
             'branches' => Branch::with(['governorate:id,name_ar', 'priceList:id,name',
-                    'users' => fn ($q) => $q->where('role', UserRole::BranchOwner->value)->select('id', 'branch_id', 'username')])
+                'users' => fn ($q) => $q->where('role', UserRole::BranchOwner->value)->select('id', 'branch_id', 'username')])
                 ->withCount(['users' => fn ($q) => $q->whereNull('deleted_at')])
                 ->orderByDesc('is_main')
                 ->orderBy('name')
@@ -89,7 +91,7 @@ class BranchController extends Controller
 
         return redirect()->route('branches.index')->with('success', 'حُفظ الفرع.'
             .($owner ? " وأُضيف حساب صاحبه «{$owner->username}»." : '')
-            .($past ? ' وحُسبت عمولته على '.\App\Support\Arabic::shipments($past).' وصّلها مناديبه.' : ''));
+            .($past ? ' وحُسبت عمولته على '.Arabic::shipments($past).' وصّلها مناديبه.' : ''));
     }
 
     /**
@@ -108,27 +110,24 @@ class BranchController extends Controller
         $typed = Username::canonical($request->input('account_username'));
         $request->merge(['account_username' => $typed !== '' ? $typed : Phone::normalise($request->input('account_phone'))]);
 
-        $company = $request->user()->company_id;
-
         $data = $request->validate([
-            'account_name'     => ['nullable', 'string', 'max:160'],
-            'account_phone'    => ['required', 'string', 'regex:/^07[0-9]{9}$/',
-                                   Rule::unique('users', 'phone')->where('company_id', $company)],
+            'account_name' => ['nullable', 'string', 'max:160'],
+            // لا يتكرّر في الشركة، ويقال لمن هو (docs/plan/116)
+            'account_phone' => ['required', 'string', 'regex:/^07[0-9]{9}$/',
+                fn ($attribute, $value, $fail) => ($p = LoginAccounts::phoneProblem($value)) && $fail($p)],
             'account_username' => ['required', 'string', 'regex:'.Username::PATTERN,
-                                   Rule::unique('users', 'username')->where('company_id', $company)],
+                fn ($attribute, $value, $fail) => ($p = LoginAccounts::usernameProblem($value)) && $fail($p)],
             'account_password' => ['required', 'string', 'min:6', 'max:72'],
         ], [
-            'account_username.regex'  => Username::RULE_MESSAGE,
-            'account_username.unique' => 'اسم المستخدم هذا لحسابٍ آخر في شركتك.',
-            'account_phone.unique'    => 'لهذا الرقم حسابٌ في شركتك.',
+            'account_username.regex' => Username::RULE_MESSAGE,
         ], [
             'account_name' => 'اسم صاحب الفرع', 'account_phone' => 'هاتفه',
             'account_username' => 'اسم المستخدم', 'account_password' => 'كلمة المرور',
         ]);
 
         return [
-            'name'     => $data['account_name'] ?? null,
-            'phone'    => $data['account_phone'],
+            'name' => $data['account_name'] ?? null,
+            'phone' => $data['account_phone'],
             'username' => $data['account_username'],
             'password' => $data['account_password'],
         ];
@@ -136,12 +135,15 @@ class BranchController extends Controller
 
     protected function createOwner(Branch $branch, array $account): User
     {
+        // حسابٌ محذوفٌ بالرقم أو الاسم لا يحجزهما (docs/plan/116)
+        LoginAccounts::releaseDeleted($account['phone'], $account['username']);
+
         return User::create([
-            'name'      => $account['name'] ?: 'صاحب '.$branch->name,
-            'phone'     => $account['phone'],
-            'username'  => $account['username'],
-            'password'  => $account['password'],
-            'role'      => UserRole::BranchOwner,
+            'name' => $account['name'] ?: 'صاحب '.$branch->name,
+            'phone' => $account['phone'],
+            'username' => $account['username'],
+            'password' => $account['password'],
+            'role' => UserRole::BranchOwner,
             'branch_id' => $branch->id,
             'is_active' => true,
         ]);
@@ -161,22 +163,22 @@ class BranchController extends Controller
     protected function validated(Request $request, ?Branch $branch = null): array
     {
         return $request->validate([
-            'code'           => ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9_-]+$/',
-                                 Rule::unique('branches', 'code')
-                                     ->where('company_id', $request->user()->company_id)
-                                     ->ignore($branch?->id)],
-            'name'           => ['required', 'string', 'max:160'],
+            'code' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9_-]+$/',
+                Rule::unique('branches', 'code')
+                    ->where('company_id', $request->user()->company_id)
+                    ->ignore($branch?->id)],
+            'name' => ['required', 'string', 'max:160'],
             'governorate_id' => ['nullable', 'integer', Rule::exists('governorates', 'id')],
             // منطقةٌ موجودة يراها (لا رقمٌ يسقط به الحفظ على مفتاح القاعدة)
-            'city_id'        => ['nullable', 'integer', City::existsRule()],
-            'address'        => ['nullable', 'string', 'max:255'],
-            'phone'          => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
+            'city_id' => ['nullable', 'integer', City::existsRule()],
+            'address' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
             // تسعيرة الفرع يختارها الفرع الرئيسي وتسري على تجّاره؛ فارغةً: افتراضية الشركة
-            'price_list_id'  => ['nullable', 'integer', Rule::exists('price_lists', 'id')
-                                     ->where('company_id', $request->user()->company_id)],
+            'price_list_id' => ['nullable', 'integer', Rule::exists('price_lists', 'id')
+                ->where('company_id', $request->user()->company_id)],
             // عمولة الفرع عن كلّ طلبٍ يوصّله مناديبه (docs/plan/51)؛ فارغةً: لا عمولة
             'commission_per_delivery' => ['nullable', 'integer', 'min:0', 'max:1000000'],
-            'apply_from'     => ['nullable', 'date', 'before_or_equal:today'],
+            'apply_from' => ['nullable', 'date', 'before_or_equal:today'],
         ], [], ['apply_from' => 'تاريخ البداية', 'code' => 'الرمز', 'name' => 'الاسم', 'phone' => 'الهاتف', 'price_list_id' => 'تسعيرة الفرع',
             'commission_per_delivery' => 'عمولة الفرع']);
 
@@ -207,7 +209,7 @@ class BranchController extends Controller
             ->whereIn('delivery_courier_id', Courier::withTrashed()->where('branch_id', $branch->id)->select('id'))
             ->update([
                 'delivery_branch_id' => $branch->id,
-                'branch_commission'  => $branch->is_main ? 0 : (int) $branch->commission_per_delivery,
+                'branch_commission' => $branch->is_main ? 0 : (int) $branch->commission_per_delivery,
             ]);
     }
 
@@ -215,9 +217,9 @@ class BranchController extends Controller
     {
         return [
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
-            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
-            'priceLists'   => PriceList::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'name', 'is_default']),
-            'owners'       => collect(),
+            'cities' => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+            'priceLists' => PriceList::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get(['id', 'name', 'is_default']),
+            'owners' => collect(),
         ];
     }
 }

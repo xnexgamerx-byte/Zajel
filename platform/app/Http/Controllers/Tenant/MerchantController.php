@@ -9,17 +9,19 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\MerchantRequest;
 use App\Models\Branch;
 use App\Models\City;
+use App\Models\Courier;
 use App\Models\Governorate;
 use App\Models\Merchant;
 use App\Models\PriceList;
 use App\Models\Shipment;
 use App\Models\Transaction;
 use App\Models\User;
-use App\Support\Username;
 use App\Services\SequenceGenerator;
+use App\Support\LoginAccounts;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MerchantController extends Controller
@@ -49,9 +51,9 @@ class MerchantController extends Controller
 
         return view('tenant.merchants.index', [
             'merchants' => $merchants,
-            'pickupCouriers' => \App\Models\Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
+            'pickupCouriers' => Courier::picking()->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             'salesUsers' => User::where('is_sales', true)->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
-            'owed'      => (int) Merchant::query()->visibleTo($request->user())->where('balance', '>', 0)->sum('balance'),
+            'owed' => (int) Merchant::query()->visibleTo($request->user())->where('balance', '>', 0)->sum('balance'),
         ]);
     }
 
@@ -62,27 +64,28 @@ class MerchantController extends Controller
 
     public function store(MerchantRequest $request, SequenceGenerator $sequences): RedirectResponse
     {
-        $merchant = DB::transaction(function () use ($request, $sequences) {
+        [$merchant, $login] = DB::transaction(function () use ($request, $sequences) {
             $data = $request->validated();
 
             // create_login واسم المستخدم وكلمة المرور ليست أعمدةً للتاجر — تُستبعد قبل الحفظ
             $merchant = Merchant::create(
                 collect($data)->except(['create_login', 'username', 'password'])->all() + [
-                    'code'               => $sequences->next('merchant'),
+                    'code' => $sequences->next('merchant'),
                     'created_by_user_id' => $request->user()->id,
                 ]
             );
 
-            if ($request->boolean('create_login')) {
-                $this->createLogin($merchant, $request->validated('password'), $request->validated('username'));
-            }
+            $login = $request->boolean('create_login')
+                ? $this->createLogin($merchant, $request->validated('password'), $request->validated('username'))
+                : null;
 
-            return $merchant;
+            return [$merchant, $login];
         });
 
         return redirect()
             ->route('merchants.show', $merchant)
-            ->with('success', "أُضيف التاجر {$merchant->business_name} برمز {$merchant->code}.");
+            ->with('success', "أُضيف التاجر {$merchant->business_name} برمز {$merchant->code}."
+                .($login ? " ويدخل تطبيقه باسم المستخدم {$login->username}." : ''));
     }
 
     public function show(Merchant $merchant): View
@@ -97,12 +100,12 @@ class MerchantController extends Controller
             ->get();
 
         return view('tenant.merchants.show', [
-            'merchant'     => $merchant,
-            'byStatus'     => $byStatus,
-            'statuses'     => ShipmentStatus::cases(),
+            'merchant' => $merchant,
+            'byStatus' => $byStatus,
+            'statuses' => ShipmentStatus::cases(),
             'transactions' => Transaction::forAccount('merchant', $merchant->id)
                 ->latest('id')->limit(30)->get(),
-            'recent'       => Shipment::where('merchant_id', $merchant->id)
+            'recent' => Shipment::where('merchant_id', $merchant->id)
                 ->latest('id')->limit(10)->get(),
         ]);
     }
@@ -111,48 +114,59 @@ class MerchantController extends Controller
     {
         return view('tenant.merchants.form', $this->formData() + [
             'merchant' => $merchant,
-            'account'  => $merchant->loginAccount(),
+            'account' => $merchant->loginAccount(),
         ]);
     }
 
     public function update(MerchantRequest $request, Merchant $merchant, ChangeLogin $login): RedirectResponse
     {
         $data = $request->validated();
+        $oldPhone = $merchant->phone;
+        $note = '';
 
-        $merchant->update(collect($data)->except(['create_login', 'username', 'password'])->all());
+        DB::transaction(function () use ($merchant, $data, $oldPhone, $login, $request, &$note) {
+            $merchant->update(collect($data)->except(['create_login', 'username', 'password'])->all());
 
-        // حساب دخوله: يُغيَّر اسمه أو كلمة مروره، أو يُنشأ له إن لم يكن له حساب
-        if ($account = $merchant->loginAccount()) {
-            $login->handle($account, $data['username'] ?? null, $data['password'] ?? null, $request->user());
-        } elseif (! empty($data['create_login'])) {
-            $this->createLogin($merchant, $data['password'] ?? null, $data['username'] ?? null);
-        }
+            // حساب دخوله: يتبع رقمه الجديد (docs/plan/116)، ويُغيَّر اسمه أو كلمة مروره، أو يُنشأ له إن لم يكن له حساب
+            if ($account = $merchant->loginAccount()) {
+                if (LoginAccounts::followPhone($account, $oldPhone, $merchant->phone) && blank($data['username'] ?? null)) {
+                    $note = " ويدخل تطبيقه الآن برقمه الجديد {$account->username}.";
+                }
+                $login->handle($account, $data['username'] ?? null, $data['password'] ?? null, $request->user());
+            } elseif (! empty($data['create_login'])) {
+                $note = ' ويدخل تطبيقه باسم المستخدم '.$this->createLogin($merchant, $data['password'] ?? null, $data['username'] ?? null)->username.'.';
+            }
+        });
 
         return redirect()
             ->route('merchants.show', $merchant)
-            ->with('success', 'حُفظت بيانات التاجر.');
+            ->with('success', 'حُفظت بيانات التاجر.'.$note);
     }
 
-    /** حساب دخول للتاجر على تطبيقه — باسمٍ مختار، وإلّا بهاتفه المسجَّل. */
-    protected function createLogin(Merchant $merchant, ?string $password, ?string $username = null): void
+    /**
+     * حساب دخول للتاجر على تطبيقه — باسمٍ مختار، وإلّا برقمه، وإن كان رقمه اسماً لغيره (رقمٌ مشترك، docs/plan/116)
+     * فبرقمه ورمز متجره. النموذج تحقّق من الرقم والاسم؛ وهنا لا يُتخطّى بصمت: سبقه غيره في اللحظة نفسها فيقال.
+     */
+    protected function createLogin(Merchant $merchant, ?string $password, ?string $username = null): User
     {
-        $username = Username::normalise($username) ?? Username::canonical($merchant->phone);
+        $username = LoginAccounts::usernameFor($username, $merchant->phone, $merchant->code);
+        LoginAccounts::releaseDeleted($merchant->phone, $username);
 
-        // مجموعةً واحدة: «أو» لا تفلت من نطاق الشركة الذي يُضاف إلى الاستعلام
-        if (User::where(fn ($q) => $q->where('phone', $merchant->phone)->orWhere('username', $username))->exists()) {
-            return;
+        if ($problem = LoginAccounts::usernameProblem($username)
+            ?? LoginAccounts::phoneProblem($merchant->phone, null, LoginAccounts::sharedPhones())) {
+            throw ValidationException::withMessages(['create_login' => $problem]);
         }
 
-        User::create([
-            'name'        => $merchant->owner_name ?: $merchant->business_name,
-            'username'    => $username,
-            'phone'       => $merchant->phone,
-            'email'       => $merchant->email,
-            'password'    => $password,
-            'role'        => UserRole::Merchant,
+        return User::create([
+            'name' => $merchant->owner_name ?: $merchant->business_name,
+            'username' => $username,
+            'phone' => $merchant->phone,
+            'email' => $merchant->email,
+            'password' => $password,
+            'role' => UserRole::Merchant,
             'merchant_id' => $merchant->id,
-            'branch_id'   => $merchant->branch_id,
-            'is_active'   => true,
+            'branch_id' => $merchant->branch_id,
+            'is_active' => true,
         ]);
     }
 
@@ -162,14 +176,14 @@ class MerchantController extends Controller
 
         return [
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
-            'cities'       => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
+            'cities' => City::where('is_active', true)->orderBy('name_ar')->get(['id', 'governorate_id', 'name_ar']),
             // موظّف الفرع يضيف لفرعه وحده
-            'branches'     => Branch::where('is_active', true)
+            'branches' => Branch::where('is_active', true)
                 ->when($user->isBranchLimited(), fn ($q) => $q->whereKey($user->branch_id))
                 ->orderBy('name')->get(['id', 'name']),
-            'priceLists'   => PriceList::where('is_active', true)->orderBy('name')->get(['id', 'name', 'is_default']),
-            'pickupCouriers' => \App\Models\Courier::picking()->active()->visibleTo($user)->orderBy('name')->get(['id', 'name']),
-            'salesUsers'   => User::where('is_sales', true)->where('is_active', true)->visibleTo($user)->orderBy('name')->get(['id', 'name']),
+            'priceLists' => PriceList::where('is_active', true)->orderBy('name')->get(['id', 'name', 'is_default']),
+            'pickupCouriers' => Courier::picking()->active()->visibleTo($user)->orderBy('name')->get(['id', 'name']),
+            'salesUsers' => User::where('is_sales', true)->where('is_active', true)->visibleTo($user)->orderBy('name')->get(['id', 'name']),
         ];
     }
 }

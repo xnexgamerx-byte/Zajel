@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\Governorate;
 use App\Models\Rank;
 use App\Models\User;
+use App\Support\LoginAccounts;
 use App\Support\Permissions\PermissionChange;
 use App\Support\Phone;
 use App\Support\Username;
@@ -96,6 +97,8 @@ class UserController extends Controller
         $data = $this->validated($request);
         $governorates = $this->pullGovernorates($data);
 
+        // حسابٌ محذوفٌ بالرقم أو الاسم لا يحجزهما (docs/plan/116)
+        LoginAccounts::releaseDeleted($data['phone'], $data['username'] ?? null);
         $user = User::create($data + ['is_active' => $request->boolean('is_active', true), 'is_sales' => $request->boolean('is_sales')]);
         $user->governorates()->sync($governorates);
 
@@ -157,14 +160,11 @@ class UserController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:160'],
+            // لا يتكرّر في الشركة، ويقال لمن هو (docs/plan/116) — لا «مستعمل» عن رقمٍ لا يراه في قائمة الموظّفين
             'username' => ['nullable', 'string', 'regex:'.Username::PATTERN,
-                Rule::unique('users', 'username')
-                    ->where('company_id', $request->user()->company_id)
-                    ->ignore($user?->id)],
+                fn ($attribute, $value, $fail) => ($p = LoginAccounts::usernameProblem($value, $user?->id)) && $fail($p)],
             'phone' => ['required', 'string', 'regex:/^07[0-9]{9}$/',
-                Rule::unique('users', 'phone')
-                    ->where('company_id', $request->user()->company_id)
-                    ->ignore($user?->id)],
+                fn ($attribute, $value, $fail) => ($p = LoginAccounts::phoneProblem($value, $user?->id)) && $fail($p)],
             'email' => ['nullable', 'email', 'max:160'],
             'role' => ['required', Rule::in(array_keys($this->roles($request->user())))],
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')

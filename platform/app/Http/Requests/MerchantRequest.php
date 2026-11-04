@@ -2,9 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Models\City;
+use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\PriceList;
 use App\Models\User;
+use App\Support\LoginAccounts;
 use App\Support\Username;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -34,39 +37,39 @@ class MerchantRequest extends FormRequest
         $merchant = $this->route('merchant');
 
         return [
-            'business_name'    => ['required', 'string', 'max:200'],
-            'owner_name'       => ['nullable', 'string', 'max:160'],
-            'phone'            => ['required', 'string', 'regex:/^07[0-9]{9}$/'],
-            'phone_alt'        => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
-            'email'            => ['nullable', 'email', 'max:160'],
+            'business_name' => ['required', 'string', 'max:200'],
+            'owner_name' => ['nullable', 'string', 'max:160'],
+            'phone' => ['required', 'string', 'regex:/^07[0-9]{9}$/'],
+            'phone_alt' => ['nullable', 'string', 'regex:/^07[0-9]{9}$/'],
+            'email' => ['nullable', 'email', 'max:160'],
 
-            'governorate_id'   => ['nullable', 'integer', Rule::exists('governorates', 'id')],
-            'city_id'          => ['nullable', 'integer'],
-            'address'          => ['nullable', 'string', 'max:255'],
-            'landmark'         => ['nullable', 'string', 'max:255'],
+            'governorate_id' => ['nullable', 'integer', Rule::exists('governorates', 'id')],
+            'city_id' => ['nullable', 'integer'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'landmark' => ['nullable', 'string', 'max:255'],
 
-            'branch_id'        => ['nullable', 'integer'],
-            'price_list_id'    => ['nullable', 'integer'],
+            'branch_id' => ['nullable', 'integer'],
+            'price_list_id' => ['nullable', 'integer'],
             'settlement_cycle' => ['required', Rule::in(['daily', 'weekly', 'biweekly', 'monthly', 'on_demand'])],
-            'payout_method'    => ['required', Rule::in(array_keys(\App\Models\Merchant::PAYOUT_METHODS))],
-            'payout_account'   => ['nullable', 'string', 'max:120'],
-            'status'           => ['required', Rule::in(['active', 'suspended', 'pending'])],
-            'goods_type'       => ['nullable', Rule::in(array_keys(Merchant::GOODS_TYPES))],
-            'is_vip'           => ['sometimes', 'boolean'],
-            'portal_access'    => ['sometimes', 'boolean'],
-            'hold_for_review'  => ['sometimes', 'boolean'],
-            'can_process'      => ['sometimes', 'boolean'],
-            'prepaid_billing'  => ['sometimes', 'boolean'],
+            'payout_method' => ['required', Rule::in(array_keys(Merchant::PAYOUT_METHODS))],
+            'payout_account' => ['nullable', 'string', 'max:120'],
+            'status' => ['required', Rule::in(['active', 'suspended', 'pending'])],
+            'goods_type' => ['nullable', Rule::in(array_keys(Merchant::GOODS_TYPES))],
+            'is_vip' => ['sometimes', 'boolean'],
+            'portal_access' => ['sometimes', 'boolean'],
+            'hold_for_review' => ['sometimes', 'boolean'],
+            'can_process' => ['sometimes', 'boolean'],
+            'prepaid_billing' => ['sometimes', 'boolean'],
             // «إخفاء المندوب عن التاجر» (docs/plan/95)
-            'hides_courier'    => ['sometimes', 'boolean'],
+            'hides_courier' => ['sometimes', 'boolean'],
             'pickup_courier_id' => ['nullable', 'integer'],
-            'sales_user_id'    => ['nullable', 'integer'],
-            'notes'            => ['nullable', 'string', 'max:500'],
-            'fixed_note'       => ['nullable', 'string', 'max:255'],
+            'sales_user_id' => ['nullable', 'integer'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'fixed_note' => ['nullable', 'string', 'max:255'],
 
-            'create_login'     => ['nullable', 'boolean'],
-            'username'         => ['nullable', 'string', 'max:64'],
-            'password'         => ['nullable', 'string', 'min:6', 'max:72'],
+            'create_login' => ['nullable', 'boolean'],
+            'username' => ['nullable', 'string', 'max:64'],
+            'password' => ['nullable', 'string', 'min:6', 'max:72'],
         ];
     }
 
@@ -74,19 +77,21 @@ class MerchantRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $merchant = $this->route('merchant');
+            // «رقمٌ واحد لأكثر من تاجر» من المنصّة (docs/plan/116): مطفأةً لا يتكرّر الرقم في الشركة
+            $shared = LoginAccounts::sharedPhones();
 
-            // الفريد داخل الشركة فقط — تاجر بالرقم نفسه عند شركة أخرى شأنها.
-            $duplicate = Merchant::where('phone', $this->phone)
+            // الفريد داخل الشركة فقط — تاجر بالرقم نفسه عند شركة أخرى شأنها. ويقال لمن هو، لا «مستخدم» وحسب
+            $duplicate = $shared || blank($this->phone) ? null : Merchant::where('phone', $this->phone)
                 ->when($merchant, fn ($q) => $q->whereKeyNot($merchant->id))
-                ->exists();
+                ->first(['id', 'business_name', 'code']);
 
             if ($duplicate) {
-                $validator->errors()->add('phone', 'يوجد تاجر بهذا الرقم في شركتك.');
+                $validator->errors()->add('phone', "الرقم {$this->phone} لتاجرٍ آخر في شركتك: «{$duplicate->business_name}» ({$duplicate->code}).");
             }
 
             // CompanyScope مفعّل: مندوبٌ أو موظّفٌ من شركةٍ أخرى لا يُعثر عليه أصلاً
             // ومن فرعه إن كان الموظّف مقيَّداً بفرع
-            if ($this->pickup_courier_id && ! \App\Models\Courier::picking()->visibleTo($this->user())->whereKey($this->pickup_courier_id)->exists()) {
+            if ($this->pickup_courier_id && ! Courier::picking()->visibleTo($this->user())->whereKey($this->pickup_courier_id)->exists()) {
                 $validator->errors()->add('pickup_courier_id', 'اختر مندوب استلامٍ من مندوبي شركتك.');
             }
 
@@ -99,7 +104,7 @@ class MerchantRequest extends FormRequest
             }
 
             if ($this->city_id && $this->governorate_id) {
-                $belongs = \App\Models\City::whereKey($this->city_id)
+                $belongs = City::whereKey($this->city_id)
                     ->where('governorate_id', $this->governorate_id)
                     ->exists();
 
@@ -111,42 +116,33 @@ class MerchantRequest extends FormRequest
             // حسابٌ قائم: يُغيَّر اسمه إلى اسمٍ صالحٍ لا يحمله غيره، وكلمة مروره الجديدة اختياريّة
             $account = $merchant?->loginAccount();
 
-            if ($account && filled($this->username)) {
-                $username = Username::normalise($this->username);
-
-                if ($username === null) {
-                    $validator->errors()->add('username', Username::RULE_MESSAGE);
-                } elseif (User::where('username', $username)->whereKeyNot($account->id)->exists()) {
-                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
-                }
+            if ($account && ($problem = LoginAccounts::usernameProblem($this->username, $account->id))) {
+                $validator->errors()->add('username', $problem);
             }
 
-            // ولمن لا حساب له يُنشأ عند التعديل كما عند الإضافة — ولا يُتخطّى بصمت
-            if ($this->boolean('create_login') && $merchant && ! $account) {
+            // ورقمٌ جديد للتاجر يتبعه حساب دخوله (docs/plan/116): فلا يكون رقماً لحسابٍ آخر
+            if ($account && filled($this->phone) && $this->phone !== $merchant->phone && ! $validator->errors()->has('phone')
+                && ($problem = LoginAccounts::phoneProblem($this->phone, $account->id, $shared))) {
+                $validator->errors()->add('phone', $problem);
+            }
+
+            // حسابٌ جديد عند الإضافة، أو عند التعديل لمن لا حساب له — ولا يُتخطّى بصمت: إمّا يُنشأ، وإمّا يقال لماذا
+            if ($this->boolean('create_login') && ! $account) {
                 if (! $this->password) {
                     $validator->errors()->add('password', 'أدخل كلمة مرور لحساب دخول التاجر.');
                 }
 
-                $username = Username::normalise($this->username) ?? Username::canonical($merchant->phone);
-                if (User::where('phone', $merchant->phone)->exists()) {
-                    $validator->errors()->add('create_login', 'رقم هاتفه لحسابٍ آخر في شركتك، فلا يُنشأ له حسابٌ به.');
-                } elseif (User::where('username', $username)->exists()) {
-                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
-                }
-            }
+                $phone = filled($this->phone) ? $this->phone : $merchant?->phone;
 
-            if ($this->boolean('create_login') && ! $merchant && ! $this->password) {
-                $validator->errors()->add('password', 'أدخل كلمة مرور لحساب دخول التاجر.');
-            }
-
-            // اسمٌ مختار للحساب: صالحٌ وغير مأخوذ. وفارغاً يُدخَل برقم الهاتف
-            if ($this->boolean('create_login') && ! $merchant && filled($this->username)) {
-                $username = Username::normalise($this->username);
-
-                if ($username === null) {
-                    $validator->errors()->add('username', Username::RULE_MESSAGE);
-                } elseif (User::where('username', $username)->exists()) {
-                    $validator->errors()->add('username', 'اسم المستخدم هذا لحسابٍ آخر في شركتك.');
+                if (! $validator->errors()->has('phone') && ($problem = LoginAccounts::phoneProblem($phone, null, $shared))) {
+                    $validator->errors()->add('phone', $problem);
+                } elseif ($problem = LoginAccounts::usernameProblem($this->username)) {
+                    $validator->errors()->add('username', $problem);
+                } elseif (blank($this->username) && ! $shared && $phone
+                    && ($holder = LoginAccounts::holder('username', Username::canonical($phone)))) {
+                    // رقمه اسم دخولٍ لغيره (موظّفٌ اختاره اسماً، أو حسابٌ تغيّر رقمه)
+                    $validator->errors()->add('username', 'رقمه '.$phone.' اسم دخولٍ ل'.LoginAccounts::describe($holder)
+                        .'. اكتب له اسم مستخدمٍ غيره.');
                 }
             }
         });
@@ -155,25 +151,25 @@ class MerchantRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'business_name'    => 'اسم المتجر',
-            'owner_name'       => 'اسم صاحب المتجر',
-            'phone'            => 'الهاتف',
-            'phone_alt'        => 'هاتف بديل',
-            'governorate_id'   => 'المحافظة',
-            'city_id'          => 'المنطقة',
-            'price_list_id'    => 'قائمة التسعير',
+            'business_name' => 'اسم المتجر',
+            'owner_name' => 'اسم صاحب المتجر',
+            'phone' => 'الهاتف',
+            'phone_alt' => 'هاتف بديل',
+            'governorate_id' => 'المحافظة',
+            'city_id' => 'المنطقة',
+            'price_list_id' => 'قائمة التسعير',
             'settlement_cycle' => 'دورة التسوية',
-            'payout_method'    => 'طريقة الدفع',
-            'status'           => 'الحالة',
-            'username'         => 'اسم المستخدم',
-            'password'         => 'كلمة المرور',
+            'payout_method' => 'طريقة الدفع',
+            'status' => 'الحالة',
+            'username' => 'اسم المستخدم',
+            'password' => 'كلمة المرور',
         ];
     }
 
     public function messages(): array
     {
         return [
-            'phone.regex'     => 'الهاتف يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
+            'phone.regex' => 'الهاتف يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
             'phone_alt.regex' => 'الهاتف البديل يجب أن يبدأ بـ 07 ويتكوّن من 11 رقماً.',
         ];
     }

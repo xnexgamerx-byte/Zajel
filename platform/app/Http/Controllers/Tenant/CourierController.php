@@ -15,11 +15,13 @@ use App\Models\GovernorateSetting;
 use App\Models\Shipment;
 use App\Models\Transaction;
 use App\Models\User;
-use App\Support\Username;
 use App\Services\SequenceGenerator;
+use App\Support\LoginAccounts;
+use App\Support\Username;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CourierController extends Controller
@@ -46,7 +48,7 @@ class CourierController extends Controller
 
         return view('tenant.couriers.index', [
             'couriers' => $couriers,
-            'parents'  => Courier::whereHas('subs')->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
+            'parents' => Courier::whereHas('subs')->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -85,19 +87,19 @@ class CourierController extends Controller
                 ->orderBy('name')]);
 
         return view('tenant.couriers.show', [
-            'courier'      => $courier,
-            'payouts'      => $courier->picks() ? $courier->payouts()->with('paidBy:id,name')->latest('id')->limit(10)->get() : collect(),
+            'courier' => $courier,
+            'payouts' => $courier->picks() ? $courier->payouts()->with('paidBy:id,name')->latest('id')->limit(10)->get() : collect(),
             // العدد من قاعدة البيانات، والقائمة أحدث خمسين — وما زاد في قائمة الشحنات
-            'openCount'    => Shipment::where('delivery_courier_id', $courier->id)
+            'openCount' => Shipment::where('delivery_courier_id', $courier->id)
                 ->where('status', ShipmentStatus::OutForDelivery->value)->count(),
-            'open'         => Shipment::where('delivery_courier_id', $courier->id)
+            'open' => Shipment::where('delivery_courier_id', $courier->id)
                 ->where('status', ShipmentStatus::OutForDelivery->value)
                 ->with('governorate:id,name_ar')
                 ->latest('id')->limit(50)->get(),
             'transactions' => Transaction::forAccount('courier', $courier->id)
                 ->latest('id')->limit(30)->get(),
             // مفاتيح ربط الشركة الوسيطة (docs/plan/64)
-            'apiKeys'      => $courier->is_intermediary ? $courier->apiKeys()->latest('id')->get() : collect(),
+            'apiKeys' => $courier->is_intermediary ? $courier->apiKeys()->latest('id')->get() : collect(),
         ]);
     }
 
@@ -106,7 +108,7 @@ class CourierController extends Controller
         return view('tenant.couriers.form', $this->formData() + [
             'courier' => $courier,
             // المحافظات كلّها وحدها: المنطقة داخل محافظةٍ تُسند من «مناطق المندوبين»
-            'zones'   => $courier->zones()->whereNull('city_id')->pluck('governorate_id')->all(),
+            'zones' => $courier->zones()->whereNull('city_id')->pluck('governorate_id')->all(),
             'account' => $courier->loginAccount(),
         ]);
     }
@@ -114,20 +116,27 @@ class CourierController extends Controller
     public function update(CourierRequest $request, Courier $courier, ChangeLogin $login): RedirectResponse
     {
         $data = $request->validated();
+        $oldPhone = $courier->phone;
+        $note = '';
 
-        $courier->update(collect($data)->except(['zones', 'create_login', 'username', 'password'])->all());
-        $this->syncZones($courier, $data['zones'] ?? []);
+        DB::transaction(function () use ($courier, $data, $oldPhone, $login, $request, &$note) {
+            $courier->update(collect($data)->except(['zones', 'create_login', 'username', 'password'])->all());
+            $this->syncZones($courier, $data['zones'] ?? []);
 
-        // حساب دخوله: يُغيَّر اسمه أو كلمة مروره، أو يُنشأ له إن لم يكن له حساب
-        if ($account = $courier->loginAccount()) {
-            $login->handle($account, $data['username'] ?? null, $data['password'] ?? null, $request->user());
-        } elseif (! empty($data['create_login'])) {
-            $this->createLogin($courier, $data['password'] ?? null, $data['username'] ?? null);
-        }
+            // حساب دخوله: يتبع رقمه الجديد (docs/plan/116)، ويُغيَّر اسمه أو كلمة مروره، أو يُنشأ له إن لم يكن له حساب
+            if ($account = $courier->loginAccount()) {
+                if (LoginAccounts::followPhone($account, $oldPhone, $courier->phone) && blank($data['username'] ?? null)) {
+                    $note = " ويدخل تطبيقه الآن برقمه الجديد {$account->username}.";
+                }
+                $login->handle($account, $data['username'] ?? null, $data['password'] ?? null, $request->user());
+            } elseif (! empty($data['create_login'])) {
+                $this->createLogin($courier, $data['password'] ?? null, $data['username'] ?? null);
+            }
+        });
 
         return redirect()
             ->route('couriers.show', $courier)
-            ->with('success', 'حُفظت بيانات المندوب.');
+            ->with('success', 'حُفظت بيانات المندوب.'.$note);
     }
 
     /**
@@ -140,31 +149,34 @@ class CourierController extends Controller
 
         foreach (array_unique($governorateIds) as $governorateId) {
             CourierZone::create([
-                'courier_id'     => $courier->id,
+                'courier_id' => $courier->id,
                 'governorate_id' => $governorateId,
             ]);
         }
     }
 
-    /** يدخل باسمٍ مختار، وإلّا برقم هاتفه (User::booted). */
+    /**
+     * يدخل باسمٍ مختار، وإلّا برقم هاتفه (User::booted). النموذج تحقّق من الرقم والاسم؛ وهنا لا يُتخطّى بصمت
+     * (docs/plan/116): سبقه غيره في اللحظة نفسها فيقال.
+     */
     protected function createLogin(Courier $courier, ?string $password, ?string $username = null): void
     {
         $username = Username::normalise($username) ?? Username::canonical($courier->phone);
+        LoginAccounts::releaseDeleted($courier->phone, $username);
 
-        // مجموعةً واحدة: «أو» لا تفلت من نطاق الشركة الذي يُضاف إلى الاستعلام
-        if (User::where(fn ($q) => $q->where('phone', $courier->phone)->orWhere('username', $username))->exists()) {
-            return;
+        if ($problem = LoginAccounts::usernameProblem($username) ?? LoginAccounts::phoneProblem($courier->phone)) {
+            throw ValidationException::withMessages(['create_login' => $problem]);
         }
 
         $user = User::create([
-            'name'       => $courier->name,
-            'username'   => $username,
-            'phone'      => $courier->phone,
-            'password'   => $password,
-            'role'       => UserRole::Courier,
+            'name' => $courier->name,
+            'username' => $username,
+            'phone' => $courier->phone,
+            'password' => $password,
+            'role' => UserRole::Courier,
             'courier_id' => $courier->id,
-            'branch_id'  => $courier->branch_id,
-            'is_active'  => true,
+            'branch_id' => $courier->branch_id,
+            'is_active' => true,
         ]);
 
         $courier->update(['user_id' => $user->id]);
@@ -176,12 +188,12 @@ class CourierController extends Controller
 
         return [
             // موظّف الفرع يضيف لفرعه وحده
-            'branches'     => Branch::where('is_active', true)
+            'branches' => Branch::where('is_active', true)
                 ->when($user->isBranchLimited(), fn ($q) => $q->whereKey($user->branch_id))
                 ->orderBy('name')->get(['id', 'name']),
             'governorates' => Governorate::where('is_active', true)->orderedForCompany()->get(['id', 'name_ar']),
             // الأب مندوب توصيلٍ ليس فرعيّاً
-            'parents'      => Courier::delivering()->whereNull('parent_id')->visibleTo($user)->orderBy('name')->get(['id', 'name', 'code']),
+            'parents' => Courier::delivering()->whereNull('parent_id')->visibleTo($user)->orderBy('name')->get(['id', 'name', 'code']),
             // عمولةٌ فارغة تُؤخذ من أجرة المندوب للمحافظة؛ وبلا أجرةٍ هناك تكون صفراً بلا تنبيه
             'destinationFees' => GovernorateSetting::query()->where('courier_fee', '>', 0)->exists(),
         ];

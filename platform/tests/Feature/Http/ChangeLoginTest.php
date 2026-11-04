@@ -104,7 +104,9 @@ class ChangeLoginTest extends TestCase
         $this->assertTrue(Hash::check('second-pass', $account->fresh()->password));
 
         $this->actingAs($this->owner)->put($this->host().'/couriers/'.$courier->id, $this->courierPayload(['username' => $this->owner->username]))
-            ->assertSessionHasErrors(['username' => 'اسم المستخدم هذا لحسابٍ آخر في شركتك.']);
+            // ويقال لمن هو (docs/plan/116)
+            ->assertSessionHasErrors(['username' => 'اسم المستخدم «'.$this->owner->username.'» لحساب الموظّف «'.$this->owner->name
+                .'» ('.$this->owner->role->label().'). اختر اسماً غيره، أو اتركه فارغاً.']);
         $this->assertSame('abbas.k', $account->fresh()->username);
 
         // ويدخل بالاسم الجديد
