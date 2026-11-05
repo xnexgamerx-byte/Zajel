@@ -10,6 +10,7 @@ use App\Models\Shipment;
 use App\Support\FeatureGate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
@@ -94,12 +95,26 @@ class ShipmentLabelController extends Controller
         return $prefix === '' ? null : $prefix;
     }
 
-    /** ما يُطبع باركوداً: الوصل المطبوع مسبقاً برمزه كما هو، وغيره رقمه ببادئة الوسيط إن وُجدت */
+    /**
+     * ما يُطبع باركوداً:
+     * - في شركةٍ مربوطةٍ بوسيطٍ ببادئة: رقم الوصل ببادئته، كما أُنشئ الطلب عندهم — ولو كان للشحنة وصلٌ مطبوعٌ
+     *   مسبقاً. فورقة الدفتر تحمل رمزها هي (90001234)، ونظامهم لا يعرفه: يُطبع لها هذا الوصل فيقرؤه مندوبهم
+     *   (docs/plan/121). ورمز الدفتر يُكتب في الوصل، وماسحاتنا تقرأ الاثنين.
+     * - وبلا ربط: الوصل المطبوع مسبقاً برمزه كما هو، وغيره رقمه.
+     */
     public static function labelCode(Shipment $shipment, ?string $prefix): string
     {
-        $preprinted = filled($shipment->barcode) && $shipment->barcode !== $shipment->number;
+        if (filled($prefix)) {
+            return $prefix.$shipment->number;
+        }
 
-        return $preprinted ? (string) $shipment->barcode : ($prefix ?? '').$shipment->number;
+        return self::preprinted($shipment) ? (string) $shipment->barcode : $shipment->number;
+    }
+
+    /** للشحنة وصلٌ مطبوعٌ مسبقاً (دفتر الوصولات أو نظام المتجر) برمزٍ غير رقمها */
+    public static function preprinted(Shipment $shipment): bool
+    {
+        return filled($shipment->barcode) && $shipment->barcode !== $shipment->number;
     }
 
     /**
@@ -112,6 +127,23 @@ class ShipmentLabelController extends Controller
     {
         foreach (array_chunk($ids, 500) as $chunk) {
             Shipment::query()->whereIn('id', $chunk)->whereNull('printed_at')->toBase()->update(['printed_at' => now()]);
+        }
+    }
+
+    /**
+     * ما طُبع باركوداً في وصل كلّ شحنة (docs/plan/121)، آخر طباعةٍ لا أوّلها: الطرد يحمل آخر وصلٍ لُصق عليه. ولا يمسّ
+     * updated_at.
+     *
+     * @param  Collection<int, Shipment>  $shipments
+     */
+    public static function recordCodes(Collection $shipments, ?string $prefix): void
+    {
+        foreach ($shipments as $shipment) {
+            $code = self::labelCode($shipment, $prefix);
+
+            if ($shipment->label_code !== $code) {
+                Shipment::query()->whereKey($shipment->id)->toBase()->update(['label_code' => $code]);
+            }
         }
     }
 
@@ -133,10 +165,12 @@ class ShipmentLabelController extends Controller
         abort_if($shipments->isEmpty(), 404, 'لا شحنات للطباعة.');
 
         self::markPrinted($shipments->pluck('id')->all());
+        $prefix = self::aggregatorPrefix();
+        self::recordCodes($shipments, $prefix);
 
         return view('labels.print', [
             'shipments' => $shipments,
-            'prefix' => self::aggregatorPrefix(),
+            'prefix' => $prefix,
             'size' => array_key_exists((string) $request->query('size'), $sizes) ? (string) $request->query('size') : array_key_first($sizes),
             'sizes' => $sizes,
         ]);

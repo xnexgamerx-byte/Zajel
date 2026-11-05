@@ -17,11 +17,13 @@ use App\Services\Aggregator\AggregatorClient;
 use App\Services\Aggregator\AggregatorException;
 use App\Services\Aggregator\AggregatorInbox;
 use App\Services\Aggregator\AggregatorOutbox;
+use App\Services\Aggregator\AggregatorScanReview;
 use App\Services\Aggregator\PlaceMatcher;
 use App\Support\Arabic;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -866,6 +868,126 @@ class AggregatorController extends Controller
 
         return back()->with('success', 'أُعيد تطبيقه: '.(AggregatorEvent::RESULTS[$event->result] ?? $event->result)
             .($event->message ? ' — '.$event->message : '.'));
+    }
+
+    /** في كلّ «تحقّق من نظامهم»: سؤالٌ لكلّ شحنة، فلا يطول الطلب */
+    public const VERIFY_BATCH = 150;
+
+    /**
+     * «مراجعة مسح الوسيط» (docs/plan/121): كلّ شحنةٍ مفتوحةٍ مع المندوب الوسيط، وأيقرأ مندوبهم طردها، ولماذا لا،
+     * وما يُصلحها: طبع وصلها، أو إرسالها. وما سُئل عنه نظامهم بعدُ يظهر بجوابه.
+     */
+    public function review(Request $request, AggregatorScanReview $review): View
+    {
+        $link = $this->link();
+        $rows = $review->rows($link, $this->verified());
+        $bad = $rows->filter(fn ($row) => $row['problems'] !== []);
+
+        return view('tenant.aggregator.review', [
+            'link' => $link,
+            'rows' => $request->boolean('all') ? $rows : $bad,
+            'all' => $request->boolean('all'),
+            'total' => $rows->count(),
+            'bad' => $bad->count(),
+            'merchants' => AggregatorScanReview::byMerchant($rows),
+            'toPrint' => $bad->filter(fn ($row) => array_intersect($row['problems'], AggregatorScanReview::LABEL_PROBLEMS) !== [])
+                ->map(fn ($row) => $row['shipment']->id)->values(),
+            'toSend' => $bad->filter(fn ($row) => array_intersect($row['problems'], AggregatorScanReview::SEND_PROBLEMS) !== [])->count(),
+            'verifiedCount' => count($this->verified()),
+        ]);
+    }
+
+    /**
+     * يسأل نظامهم عن كلّ شحنةٍ برقمها عندهم (check-order-exists-by-company-order-number)، دفعةً بعد دفعة.
+     * وما وُجد عندهم ولم يصلنا رقمه يُربط به، فلا يُنشأ ثانيةً.
+     */
+    public function verifyReview(AggregatorScanReview $review): RedirectResponse
+    {
+        $this->longRequest();
+        $link = $this->link();
+        $verified = $this->verified();
+        $pending = $review->rows($link, $verified)->reject(fn ($row) => array_key_exists($row['shipment']->id, $verified))
+            ->take(self::VERIFY_BATCH);
+
+        if ($pending->isEmpty()) {
+            return back()->with('success', 'سُئل نظامهم عن كلّ الشحنات. ابدأ من جديد بـ«امسح الجواب» إن تغيّر شيء.');
+        }
+
+        $client = AggregatorClient::for($link);
+        $adopted = 0;
+
+        try {
+            foreach ($pending as $row) {
+                $shipment = $row['shipment'];
+                $order = $client->findOrder($row['expected']);
+                $verified[$shipment->id] = $order !== null;
+
+                $remote = (string) ($order['id'] ?? $order['qr_id'] ?? '');
+                if ($remote !== '' && blank($shipment->aggregator_order_id)) {
+                    $shipment->forceFill(['aggregator_order_id' => $remote])->saveQuietly();
+                    $adopted++;
+                }
+            }
+        } catch (AggregatorException $e) {
+            $this->remember($verified);
+
+            return back()->withErrors(['verify' => 'توقّف السؤال: '.$e->getMessage()]);
+        }
+
+        $this->remember($verified);
+        $this->audit('aggregator_review_verified', ['asked' => $pending->count(), 'adopted' => $adopted]);
+
+        $left = $review->rows($link, $verified)->reject(fn ($row) => array_key_exists($row['shipment']->id, $verified))->count();
+
+        return back()->with('success', 'سُئل نظامهم عن '.Arabic::shipments($pending->count()).'.'
+            .($adopted ? ' ووُجد عندهم ما لم يصلنا رقمه فرُبط: '.Arabic::shipments($adopted).'.' : '')
+            .($left ? ' وبقي '.Arabic::shipments($left).': اضغط مرّةً أخرى.' : ''));
+    }
+
+    /** ينسى أجوبة نظامهم، فيُسأل من جديد */
+    public function forgetReview(): RedirectResponse
+    {
+        Cache::forget($this->verifyKey());
+
+        return back()->with('success', 'مُسحت أجوبة نظامهم.');
+    }
+
+    /** يرسل إلى نظامهم ما لم يصلهم: ما لم يُرسل أصلاً، وما رفضوه أو تعذّر (يُعاد بعد إصلاح سببه) */
+    public function resendReview(AggregatorScanReview $review): RedirectResponse
+    {
+        $link = $this->link();
+
+        if (! $link->sends_orders) {
+            return back()->withErrors(['resend' => 'إرسال الطلبات إلى نظامهم مطفأ في إعداد الربط: شغّله أوّلاً.']);
+        }
+
+        $queued = $review->rows($link, $this->verified())
+            ->filter(fn ($row) => array_intersect($row['problems'], AggregatorScanReview::SEND_PROBLEMS) !== [])
+            ->filter(fn ($row) => AggregatorOutbox::resend($row['shipment']))
+            ->count();
+
+        $this->audit('aggregator_review_resent', ['queued' => $queued]);
+
+        return back()->with('success', $queued
+            ? 'تُرسل '.Arabic::shipments($queued).' خلال دقيقة. ما رفضوه لسببٍ (منطقةٍ غير مربوطة مثلاً) يُرفض ثانيةً حتى يُصلح.'
+            : 'لا شيء يُرسل.');
+    }
+
+    /** @return array<int, bool> */
+    private function verified(): array
+    {
+        return (array) Cache::get($this->verifyKey(), []);
+    }
+
+    /** @param  array<int, bool>  $verified */
+    private function remember(array $verified): void
+    {
+        Cache::put($this->verifyKey(), $verified, now()->addHour());
+    }
+
+    private function verifyKey(): string
+    {
+        return 'aggregator-review-verified:'.$this->link()->company_id;
     }
 
     /**

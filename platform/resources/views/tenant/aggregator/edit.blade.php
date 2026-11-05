@@ -18,6 +18,8 @@
             @if ($unmapped)<span class="nav-badge">{{ $unmapped }}</span>@endif</a>
         <a href="{{ route('aggregator.log') }}" class="btn-ghost"><x-icon name="clipboard" class="size-5"/> السجلّ
             @if ($failing)<span class="nav-badge">{{ $failing }}</span>@endif</a>
+        {{-- أيقرأ مندوبهم كلّ طرد (docs/plan/121) --}}
+        <a href="{{ route('aggregator.review') }}" class="btn-ghost"><x-icon name="qr" class="size-5"/> مراجعة المسح</a>
     </div>
 </div>
 

@@ -138,6 +138,31 @@ class AggregatorOutbox
         return $counts;
     }
 
+    /**
+     * يرسل شحنةً لم تصلهم (docs/plan/121، «مراجعة مسح الوسيط»): ما فشل يعود للانتظار، وما لم يُكتب له عملٌ أصلاً
+     * — أُسندت قبل تفعيل الإرسال مثلاً — يُكتب له. ولا شيء لما أُنشئ عندهم، أو ليس مع الوسيط، أو والإرسال مطفأ.
+     */
+    public static function resend(Shipment $shipment): bool
+    {
+        if (filled($shipment->aggregator_order_id) || ! self::linkFor($shipment)?->sends_orders) {
+            return false;
+        }
+
+        // عملٌ لم يتمّ — فشل، أو ينتظر مهلةً بعد فشل: يُعاد الآن
+        $open = AggregatorJob::query()->where('shipment_id', $shipment->id)->where('action', 'create')
+            ->where('status', '!=', 'done')->latest('id')->first();
+
+        if ($open) {
+            self::retry($open);
+
+            return true;
+        }
+
+        self::enqueue($shipment, 'create');
+
+        return true;
+    }
+
     /** يعيد عملاً فشل نهائياً إلى الانتظار: من شاشة الربط */
     public static function retry(AggregatorJob $job): void
     {

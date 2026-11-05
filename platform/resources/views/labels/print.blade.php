@@ -168,6 +168,10 @@
                 @if ($code !== $shipment->number)
                     <div class="row muted">وصل <span class="num">{{ $shipment->number }}</span></div>
                 @endif
+                {{-- ورقة الدفتر على الطرد برمزها، والباركود هنا للوسيط (docs/plan/121): يُعرف أنّهما طردٌ واحد --}}
+                @if (\App\Http\Controllers\ShipmentLabelController::preprinted($shipment) && $code !== $shipment->barcode)
+                    <div class="row muted">الوصل المطبوع <span class="num">{{ $shipment->barcode }}</span></div>
+                @endif
             </section>
 
             {{-- أسفل الوصل (docs/plan/94): المبلغ، وتحته الباركود في الوسط --}}

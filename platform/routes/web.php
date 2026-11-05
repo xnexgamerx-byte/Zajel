@@ -489,6 +489,11 @@ Route::middleware('tenant')->group(function () {
                 Route::get('/areas/export', [AggregatorController::class, 'exportAreas'])->name('areas.export');
                 Route::post('/areas/import', [AggregatorController::class, 'importAreas'])->middleware('throttle:10,1')->name('areas.import');
                 Route::get('/log', [AggregatorController::class, 'log'])->name('log');
+                // «مراجعة مسح الوسيط» (docs/plan/121): أيقرأ مندوبهم كلّ طرد، ولماذا لا
+                Route::get('/review', [AggregatorController::class, 'review'])->name('review');
+                Route::post('/review/verify', [AggregatorController::class, 'verifyReview'])->middleware('throttle:10,1')->name('review.verify');
+                Route::post('/review/forget', [AggregatorController::class, 'forgetReview'])->name('review.forget');
+                Route::post('/review/resend', [AggregatorController::class, 'resendReview'])->middleware('throttle:10,1')->name('review.resend');
                 Route::post('/jobs/{job}/retry', [AggregatorController::class, 'retry'])->whereNumber('job')->name('jobs.retry');
                 Route::post('/events/{event}/replay', [AggregatorController::class, 'replay'])->whereNumber('event')->middleware('throttle:30,1')->name('events.replay');
             });

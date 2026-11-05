@@ -68,6 +68,8 @@ class AuditLog extends Model
         'aggregator_areas_prefix' => 'رُبطت مناطق الوسيط بأول الاسم',
         'aggregator_areas_import' => 'رُفع ملف ربط مناطق الوسيط',
         'aggregator_event_replayed' => 'أُعيد تطبيق تحديثٍ من الوسيط',
+        'aggregator_review_verified' => 'سُئل نظام الوسيط عن الشحنات (مراجعة المسح)',
+        'aggregator_review_resent' => 'أُعيد إرسال شحناتٍ إلى الوسيط (مراجعة المسح)',
         'aggregator_hook_reset' => 'وُلّد مفتاح Webhook جديد لربط الشركة الوسيطة',
         'payment_notice_reported' => 'أبلغت الشركة عن دفعة',
         'payment_notice_rejected' => 'رُفض إبلاغٌ عن دفعة',
