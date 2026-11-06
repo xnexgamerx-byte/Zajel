@@ -44,7 +44,7 @@ class BackArrow extends StatelessWidget {
 
   @override
   // arrow_back ينقلب مع اتجاه العربية فيشير إلى اليمين
-  Widget build(BuildContext context) => Icon(Icons.arrow_back_rounded, size: 22, color: color);
+  Widget build(BuildContext context) => Icon(Icons.arrow_back_rounded, size: 20, color: color);
 }
 
 /// رأس الشاشة التي تُفتح فوق الشريط: رجوعٌ وعنوانٌ ووصفٌ قصير
@@ -125,7 +125,7 @@ class Empty extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
     child: Column(
       children: [
-        Icon(icon, size: 40, color: Palette.muted),
+        Icon(icon, size: 34, color: Palette.muted),
         const SizedBox(height: 10),
         Text(title, textAlign: TextAlign.center, style: kf(16, Palette.ink, bold: true)),
         const SizedBox(height: 4),
@@ -299,7 +299,7 @@ class SheetButton extends StatelessWidget {
               : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (icon != null) ...[Icon(icon, size: 20, color: fg), const SizedBox(width: 8)],
+                    if (icon != null) ...[Icon(icon, size: 18, color: fg), const SizedBox(width: 8)],
                     Flexible(
                       child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: kf(16, fg, bold: true)),
                     ),

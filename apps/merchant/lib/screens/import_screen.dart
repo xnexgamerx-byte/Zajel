@@ -155,7 +155,7 @@ class _ImportScreenState extends State<ImportScreen> {
         const SizedBox(height: 4),
         TextButton.icon(
           onPressed: () => launchUrl(Uri.parse(i.template), mode: LaunchMode.externalApplication),
-          icon: Icon(Icons.download_rounded, size: 18, color: brand.main),
+          icon: Icon(Icons.download_rounded, size: 16, color: brand.main),
           label: Text('نزّل القالب', style: font(12.5, w8, brand.main)),
         ),
       ],

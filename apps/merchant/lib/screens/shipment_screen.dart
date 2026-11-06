@@ -288,7 +288,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.edit_outlined, size: 20, color: Colors.white),
+                        const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
                         const SizedBox(height: 2),
                         Text('تعديل', style: kf(12, Colors.white, bold: true, height: 1.3)),
                       ],
@@ -301,7 +301,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
             SquareButton(
               tip: 'نسخ رابط التتبّع',
               onTap: d == null ? null : () => _copy(d.trackingUrl, 'نُسخ رابط التتبّع.'),
-              child: const Icon(Icons.ios_share_rounded, size: 21, color: Palette.ink),
+              child: const Icon(Icons.ios_share_rounded, size: 19, color: Palette.ink),
             ),
         ],
       ),
@@ -457,7 +457,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: ink),
+            Icon(icon, size: 16, color: ink),
             const SizedBox(width: 8),
             Text(label, style: kf(14, ink, bold: true)),
           ],
@@ -489,7 +489,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
         ),
         IconButton(
           onPressed: () => _copy(code, 'نُسخ كود التسليم.'),
-          icon: Icon(Icons.copy_rounded, size: 20, color: brand.main),
+          icon: Icon(Icons.copy_rounded, size: 18, color: brand.main),
           tooltip: 'نسخ',
         ),
       ],
@@ -501,7 +501,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
     decoration: BoxDecoration(color: Tone.orange.tint, borderRadius: BorderRadius.circular(20)),
     child: Row(
       children: [
-        Icon(Icons.error_outline_rounded, color: Tone.orange.ink, size: 22),
+        Icon(Icons.error_outline_rounded, color: Tone.orange.ink, size: 20),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
@@ -525,7 +525,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
             width: 44,
             height: 44,
             decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: const Icon(Icons.check_rounded, size: 26, color: Palette.ok),
+            child: const Icon(Icons.check_rounded, size: 22, color: Palette.ok),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -792,7 +792,7 @@ class _ShipmentScreenState extends State<ShipmentScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.send_rounded, size: 18, color: Colors.white),
+                      const Icon(Icons.send_rounded, size: 16, color: Colors.white),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
@@ -1056,7 +1056,7 @@ class _DecideState extends State<_Decide> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(color: Tone.orange.ink, shape: BoxShape.circle),
-                  child: const Icon(Icons.priority_high_rounded, size: 22, color: Colors.white),
+                  child: const Icon(Icons.priority_high_rounded, size: 20, color: Colors.white),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1153,7 +1153,7 @@ class _DecideState extends State<_Decide> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(color: tone.tint, borderRadius: BorderRadius.circular(14)),
-                child: Icon(icon, size: 20, color: tone.ink),
+                child: Icon(icon, size: 18, color: tone.ink),
               ),
               const SizedBox(width: 12),
               Expanded(

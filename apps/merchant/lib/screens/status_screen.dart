@@ -334,7 +334,7 @@ class _StatusScreenState extends State<StatusScreen> {
       decoration: InputDecoration(
         hintText: 'ابحث في «${view.title}» بالاسم أو الهاتف أو الرقم',
         hintStyle: kf(14, const Color(0xFF8C8286)),
-        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 22),
+        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 20),
         border: InputBorder.none,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
       ),
@@ -353,7 +353,7 @@ class _StatusScreenState extends State<StatusScreen> {
             if (loading)
               Center(child: CircularProgressIndicator(color: color))
             else ...[
-              Icon(error != null ? Icons.wifi_off_rounded : view.icon, size: 46, color: color.withValues(alpha: .45)),
+              Icon(error != null ? Icons.wifi_off_rounded : view.icon, size: 40, color: color.withValues(alpha: .45)),
               const SizedBox(height: 10),
               Text(
                 error ?? (search.text.isEmpty ? 'لا شحنات ${view.title} الآن.' : 'لا شحنة تطابق «${search.text}».'),

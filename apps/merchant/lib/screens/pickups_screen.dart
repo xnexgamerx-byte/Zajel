@@ -105,7 +105,7 @@ class _PickupsScreenState extends State<PickupsScreen> {
     ),
     child: Row(
       children: [
-        Icon(Icons.schedule_rounded, color: brand.main, size: 22),
+        Icon(Icons.schedule_rounded, color: brand.main, size: 20),
         const SizedBox(width: 10),
         Expanded(
           child: Text(

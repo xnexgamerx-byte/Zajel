@@ -247,7 +247,7 @@ class TintedRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               boxShadow: brand.glow(.5),
             ),
-            child: Icon(icon, size: 20, color: Colors.white),
+            child: Icon(icon, size: 18, color: Colors.white),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -345,7 +345,7 @@ class HeroButton extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (icon != null) ...[Icon(icon, size: 21, color: Colors.white), const SizedBox(width: 8)],
+          if (icon != null) ...[Icon(icon, size: 19, color: Colors.white), const SizedBox(width: 8)],
           Text(label, style: font(15, w8, Colors.white)),
         ],
       ),

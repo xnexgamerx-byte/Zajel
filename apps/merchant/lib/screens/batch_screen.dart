@@ -326,7 +326,7 @@ class _BatchScreenState extends State<BatchScreen> {
                 tooltip: 'احذفها',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => setState(() => items.remove(item)),
-                icon: const Icon(Icons.close_rounded, size: 20, color: Palette.muted),
+                icon: const Icon(Icons.close_rounded, size: 18, color: Palette.muted),
               ),
           ],
         ),

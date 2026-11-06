@@ -166,7 +166,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
         width: 44,
         height: 44,
         decoration: BoxDecoration(color: glass.color, border: glass.border, shape: BoxShape.circle),
-        child: Icon(icon, color: Colors.white, size: 21),
+        child: Icon(icon, color: Colors.white, size: 19),
       ),
     ),
   );
@@ -244,7 +244,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
           ),
           child: Icon(
             r.statement ? Icons.receipt_long_rounded : Icons.inventory_2_rounded,
-            size: 26,
+            size: 22,
             color: Palette.ok,
           ),
         ),
@@ -345,7 +345,7 @@ class _ReceiveScreenState extends State<ReceiveScreen> with SingleTickerProvider
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.no_photography_outlined, color: Colors.white.withValues(alpha: .7), size: 40),
+            Icon(Icons.no_photography_outlined, color: Colors.white.withValues(alpha: .7), size: 34),
             const SizedBox(height: 10),
             Text(
               'الكاميرا غير متاحة. اسمح للتطبيق بها من إعدادات الهاتف، أو اكتب الرمز أدناه.',

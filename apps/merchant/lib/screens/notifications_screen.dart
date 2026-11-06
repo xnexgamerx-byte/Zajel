@@ -118,7 +118,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             radius: 11,
             child: Icon(
               n.kind == 'support' ? Icons.forum_rounded : Icons.campaign_rounded,
-              size: 20,
+              size: 18,
               color: brand.main,
             ),
           ),

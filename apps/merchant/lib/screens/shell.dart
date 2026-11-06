@@ -457,7 +457,7 @@ class _NavBar extends StatelessWidget {
           children: [
             SizedBox(
               height: 32,
-              child: Center(child: Icon(icon, size: 22, color: color)),
+              child: Center(child: Icon(icon, size: 20, color: color)),
             ),
             const SizedBox(height: 4),
             FittedBox(
@@ -489,26 +489,26 @@ class _NavBar extends StatelessWidget {
         alignment: Alignment.topCenter,
         children: [
           Positioned(
-            top: -22,
+            top: -15,
             child: AnimatedRotation(
               turns: open ? .125 : 0,
               duration: const Duration(milliseconds: 400),
               curve: const Cubic(.2, .9, .3, 1.3),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: 56,
-                height: 56,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   color: open ? Palette.ink : brand.main,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white, width: 4),
+                  borderRadius: BorderRadius.circular(17),
+                  border: Border.all(color: Colors.white, width: 3.5),
                   boxShadow: const [
                     BoxShadow(color: Color(0x731C1416), blurRadius: 20, spreadRadius: -8, offset: Offset(0, 10)),
                   ],
                 ),
                 child: Icon(
                   scanOnly ? Icons.qr_code_scanner_rounded : Icons.add_rounded,
-                  size: 26,
+                  size: 22,
                   color: Colors.white,
                 ),
               ),
@@ -633,7 +633,7 @@ class _Picker extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            PositionedDirectional(end: -8, bottom: -10, child: Art('ai', brand: brand, width: 128, height: 116)),
+            PositionedDirectional(end: -8, bottom: -10, child: Art('ai', brand: brand, width: 110, height: 100)),
             Align(
               alignment: AlignmentDirectional.centerStart,
               child: ConstrainedBox(
@@ -687,10 +687,10 @@ class _Picker extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            height: 80,
+            height: 70,
             alignment: Alignment.center,
             decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(16)),
-            child: Art(art, brand: brand, width: 88, height: art == 'scan' ? 70 : 64),
+            child: Art(art, brand: brand, width: 76, height: art == 'scan' ? 60 : 55),
           ),
           const SizedBox(height: 8),
           Padding(
@@ -724,7 +724,7 @@ class _Picker extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
-            child: Icon(Icons.edit_outlined, size: 20, color: brand.main),
+            child: Icon(Icons.edit_outlined, size: 18, color: brand.main),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -939,7 +939,7 @@ class _AccountState extends State<_Account> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.logout_rounded, size: 20, color: brand.main),
+                  Icon(Icons.logout_rounded, size: 18, color: brand.main),
                   const SizedBox(width: 8),
                   Text('تسجيل الخروج', style: kf(14, brand.main, bold: true)),
                 ],
@@ -963,7 +963,7 @@ class _AccountState extends State<_Account> {
     radius: 24,
     onTap: onTap,
     child: Container(
-      constraints: const BoxConstraints(minHeight: 176),
+      constraints: const BoxConstraints(minHeight: 160),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(24)),
       child: Column(
@@ -972,7 +972,7 @@ class _AccountState extends State<_Account> {
         children: [
           Align(
             alignment: AlignmentDirectional.centerEnd,
-            child: Rise(delay: 300, scale: true, child: Art(art, brand: brand, width: 88, height: 77)),
+            child: Rise(delay: 300, scale: true, child: Art(art, brand: brand, width: 74, height: 65)),
           ),
           const SizedBox(height: 8),
           Text(title, style: kf(14, Palette.ink, bold: true)),
@@ -999,7 +999,7 @@ class _AccountState extends State<_Account> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
-                child: Icon(icon, size: 20, color: brand.main),
+                child: Icon(icon, size: 18, color: brand.main),
               ),
               const SizedBox(width: 10),
               Expanded(

@@ -301,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.headset_mic_outlined, size: 18, color: brand.main),
+                  Icon(Icons.headset_mic_outlined, size: 16, color: brand.main),
                   const SizedBox(width: 6),
                   Text('الدعم الفني', style: kf(14, Palette.ink, bold: true, height: 1.3)),
                 ],
@@ -372,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
     child: Stack(
       clipBehavior: Clip.none,
       children: [
-        const Icon(Icons.notifications_none_rounded, size: 21, color: Palette.ink),
+        const Icon(Icons.notifications_none_rounded, size: 19, color: Palette.ink),
         if (unread > 0)
           PositionedDirectional(
             end: -6,
@@ -458,15 +458,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Ink(
         decoration: BoxDecoration(color: t.tint, borderRadius: BorderRadius.circular(24)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 164),
+          constraints: const BoxConstraints(minHeight: 150),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(6, 8, 6, 14),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
-                  width: 96,
-                  height: 84,
+                  width: 80,
+                  height: 70,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -484,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Rise(
                         delay: 320 + i * 60,
                         scale: true,
-                        child: Art(t.art, brand: brand, width: 96, height: 84),
+                        child: Art(t.art, brand: brand, width: 80, height: 70),
                       ),
                     ],
                   ),
@@ -516,7 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           child: Row(
             children: [
-              const Icon(Icons.check_circle_outline_rounded, size: 40, color: Palette.ok),
+              const Icon(Icons.check_circle_outline_rounded, size: 34, color: Palette.ok),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -626,7 +626,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         shape: BoxShape.circle,
                         border: Border.all(color: Palette.line),
                       ),
-                      child: const Icon(Icons.call_outlined, size: 20, color: Palette.ink),
+                      child: const Icon(Icons.call_outlined, size: 18, color: Palette.ink),
                     ),
                   ),
                 ),
@@ -773,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
-                child: Icon(icon, size: 20, color: brand.main),
+                child: Icon(icon, size: 18, color: brand.main),
               ),
               const Spacer(),
               Flexible(
@@ -809,7 +809,7 @@ class _HomeScreenState extends State<HomeScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(color: Colors.white.withValues(alpha: .16), shape: BoxShape.circle),
-          child: const Icon(Icons.headset_mic_outlined, size: 22, color: Colors.white),
+          child: const Icon(Icons.headset_mic_outlined, size: 20, color: Colors.white),
         ),
         const SizedBox(width: 12),
         Expanded(

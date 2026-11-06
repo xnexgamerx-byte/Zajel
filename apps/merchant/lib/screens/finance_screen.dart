@@ -137,7 +137,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                     ),
                     child: Icon(
                       hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      size: 20,
+                      size: 18,
                       color: Palette.ink,
                     ),
                   ),
@@ -241,7 +241,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                           children: [
                             Text('اطلب محاسبة', style: kf(14, brand.main, bold: true)),
                             const SizedBox(width: 8),
-                            Icon(Icons.arrow_forward_rounded, size: 18, color: brand.main),
+                            Icon(Icons.arrow_forward_rounded, size: 16, color: brand.main),
                           ],
                         ),
                       ),
@@ -266,7 +266,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
           width: 36,
           height: 36,
           decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.hourglass_top_rounded, size: 18, color: Colors.white),
+          child: const Icon(Icons.hourglass_top_rounded, size: 16, color: Colors.white),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -298,7 +298,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.hourglass_top_rounded, size: 18, color: brand.main),
+            child: Icon(Icons.hourglass_top_rounded, size: 16, color: brand.main),
           ),
           const SizedBox(height: 8),
           Text('قيد المطابقة', style: kf(12, Palette.muted, bold: true)),
@@ -329,7 +329,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: Colors.white),
+                  child: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: Colors.white),
                 ),
                 const Spacer(),
                 if (waiting > 0)
@@ -367,7 +367,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: color ?? Palette.ink),
+          Icon(icon, size: 18, color: color ?? Palette.ink),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -438,7 +438,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(color: tone.tint, borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, size: 18, color: tone.ink),
+              child: Icon(icon, size: 16, color: tone.ink),
             ),
             const SizedBox(height: 6),
             Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: kf(16, Palette.ink, bold: true)),
@@ -713,7 +713,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
-                      child: Icon(Icons.receipt_long_outlined, size: 20, color: brand.main),
+                      child: Icon(Icons.receipt_long_outlined, size: 18, color: brand.main),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -773,7 +773,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(color: tone.tint, shape: BoxShape.circle),
-              child: Icon(plus ? Icons.south_rounded : Icons.north_rounded, size: 18, color: tone.ink),
+              child: Icon(plus ? Icons.south_rounded : Icons.north_rounded, size: 16, color: tone.ink),
             ),
             const SizedBox(width: 12),
             Expanded(

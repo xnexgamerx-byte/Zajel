@@ -117,7 +117,7 @@ class _ScanScreenState extends State<ScanScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(color: Colors.black.withValues(alpha: .45), shape: BoxShape.circle),
-          child: Icon(icon, color: Colors.white, size: 21),
+          child: Icon(icon, color: Colors.white, size: 19),
         ),
       ),
     );
@@ -238,7 +238,7 @@ class _ScanScreenState extends State<ScanScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.no_photography_outlined, color: Colors.white.withValues(alpha: .7), size: 40),
+            Icon(Icons.no_photography_outlined, color: Colors.white.withValues(alpha: .7), size: 34),
             const SizedBox(height: 10),
             Text(
               'الكاميرا غير متاحة. اسمح للتطبيق باستعمالها من إعدادات الهاتف، أو اكتب رقم الوصل أدناه.',

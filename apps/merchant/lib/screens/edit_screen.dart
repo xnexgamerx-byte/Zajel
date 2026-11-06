@@ -341,7 +341,7 @@ class _EditScreenState extends State<EditScreen> {
     decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
     child: Row(
       children: [
-        Icon(Icons.edit_note_rounded, color: brand.main, size: 22),
+        Icon(Icons.edit_note_rounded, color: brand.main, size: 20),
         const SizedBox(width: 8),
         Expanded(child: Text(text, style: font(12, w6, Palette.ink, height: 1.5))),
       ],
@@ -515,7 +515,7 @@ class _EditScreenState extends State<EditScreen> {
       child: SizedBox(
         width: 32,
         height: 44,
-        child: Icon(icon, size: 19, color: onTap == null ? Palette.line : brand.main),
+        child: Icon(icon, size: 17, color: onTap == null ? Palette.line : brand.main),
       ),
     );
     return Column(
@@ -621,7 +621,7 @@ class _EditScreenState extends State<EditScreen> {
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.delete_outline_rounded, color: Palette.returnRed, size: 20),
+                  const Icon(Icons.delete_outline_rounded, color: Palette.returnRed, size: 18),
                   const SizedBox(width: 6),
                   Text('احذف الشحنة', style: font(14, w8, Palette.returnRed)),
                 ],
@@ -651,7 +651,7 @@ class _EditScreenState extends State<EditScreen> {
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.check_rounded, color: Colors.white, size: 21),
+                  const Icon(Icons.check_rounded, color: Colors.white, size: 19),
                   const SizedBox(width: 6),
                   Text('حفظ التعديل', style: font(15, w8, Colors.white)),
                 ],

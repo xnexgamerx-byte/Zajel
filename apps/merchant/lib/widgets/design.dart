@@ -181,7 +181,7 @@ class SectionHead extends StatelessWidget {
                 children: [
                   Text(action!, style: kf(14, actionColor, bold: true)),
                   const SizedBox(width: 2),
-                  Icon(Icons.chevron_right_rounded, size: 20, color: actionColor),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: actionColor),
                 ],
               ),
             ),

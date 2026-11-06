@@ -42,7 +42,7 @@ Future<void> askAboutShipment(BuildContext context, Brand brand, String number) 
                 brand: brand,
                 size: 36,
                 radius: 10,
-                child: Icon(icon, size: 19, color: brand.main),
+                child: Icon(icon, size: 17, color: brand.main),
               ),
               title: Text(label, style: font(14, w7, Palette.ink)),
               trailing: const Chev(size: 9, stroke: 1.6),
@@ -540,7 +540,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.send_rounded, size: 20, color: Colors.white),
+                  : const Icon(Icons.send_rounded, size: 18, color: Colors.white),
             ),
           ),
         ),

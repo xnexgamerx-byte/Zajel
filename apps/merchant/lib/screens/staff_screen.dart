@@ -131,7 +131,7 @@ class _StaffScreenState extends State<StaffScreen> {
             decoration: BoxDecoration(color: m.active ? brand.soft : Palette.line, shape: BoxShape.circle),
             child: Icon(
               _roleIcons[m.role] ?? Icons.person_rounded,
-              size: 20,
+              size: 18,
               color: m.active ? brand.main : Palette.muted,
             ),
           ),

@@ -161,12 +161,12 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
       decoration: InputDecoration(
         hintText: 'ابحث بالاسم أو الهاتف أو رقم الوصل',
         hintStyle: kf(14, const Color(0xFF8C8286)),
-        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 22),
+        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 20),
         suffixIcon: search.text.isEmpty
             ? null
             : IconButton(
                 tooltip: 'امسح البحث',
-                icon: const Icon(Icons.close_rounded, size: 18, color: Palette.muted),
+                icon: const Icon(Icons.close_rounded, size: 16, color: Palette.muted),
                 onPressed: () {
                   search.clear();
                   _reload();

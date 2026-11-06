@@ -161,7 +161,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
               brand: brand,
               size: 40,
               radius: 12,
-              child: const Icon(Icons.undo_rounded, size: 22, color: Palette.returnRed),
+              child: const Icon(Icons.undo_rounded, size: 20, color: Palette.returnRed),
             ),
             const SizedBox(width: 10),
             Expanded(

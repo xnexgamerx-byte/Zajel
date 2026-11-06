@@ -349,7 +349,7 @@ class _LabelsScreenState extends State<LabelsScreen> {
     padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
     child: Column(
       children: [
-        Art('printer', brand: brand, width: 120, height: 104),
+        Art('printer', brand: brand, width: 100, height: 87),
         const SizedBox(height: 12),
         Text(
           _printed ? 'لا وصولات مطبوعة تنتظر المندوب' : 'لا وصولات تنتظر الطباعة',
@@ -407,7 +407,7 @@ class _LabelsScreenState extends State<LabelsScreen> {
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 200),
                     opacity: on ? 1 : 0,
-                    child: const Icon(Icons.check_rounded, size: 18, color: Colors.white),
+                    child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -464,7 +464,7 @@ class _LabelsScreenState extends State<LabelsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 20, color: ink),
+              Icon(icon, size: 18, color: ink),
               const SizedBox(height: 2),
               Text(label, style: kf(12, ink, bold: true, height: 1.3)),
             ],
@@ -504,7 +504,7 @@ class _LabelsScreenState extends State<LabelsScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
                         )
                       else
-                        Icon(Icons.print_outlined, size: 20, color: on ? Colors.white : Palette.slate),
+                        Icon(Icons.print_outlined, size: 18, color: on ? Colors.white : Palette.slate),
                       const SizedBox(width: 8),
                       Text(
                         '${_printed ? 'أعد طباعة' : 'اطبع'}${n > 0 ? ' $n' : ''}',
@@ -690,7 +690,7 @@ class _SizeSheetState extends State<_SizeSheet> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(16)),
-                    child: Icon(dl ? Icons.download_rounded : Icons.print_outlined, size: 24, color: brand.main),
+                    child: Icon(dl ? Icons.download_rounded : Icons.print_outlined, size: 21, color: brand.main),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -874,7 +874,7 @@ class _SizeSheetState extends State<_SizeSheet> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(color: Tone.green.ink, shape: BoxShape.circle),
-            child: const Icon(Icons.check_rounded, size: 20, color: Colors.white),
+            child: const Icon(Icons.check_rounded, size: 18, color: Colors.white),
           ),
         ],
       ],
@@ -1052,7 +1052,7 @@ class _DeleteSheetState extends State<_DeleteSheet> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(color: Tone.red.tint, borderRadius: BorderRadius.circular(16)),
-                    child: Icon(Icons.delete_outline_rounded, size: 24, color: Tone.red.ink),
+                    child: Icon(Icons.delete_outline_rounded, size: 21, color: Tone.red.ink),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

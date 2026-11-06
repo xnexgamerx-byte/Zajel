@@ -81,7 +81,7 @@ class _CalendarCardState extends State<CalendarCard> {
           children: [
             Row(
               children: [
-                Icon(Icons.calendar_month_rounded, size: 18, color: widget.brand.main),
+                Icon(Icons.calendar_month_rounded, size: 16, color: widget.brand.main),
                 const SizedBox(width: 6),
                 Text('تقويم الشحنات', style: display(14.5, w7, Palette.ink)),
                 const Spacer(),

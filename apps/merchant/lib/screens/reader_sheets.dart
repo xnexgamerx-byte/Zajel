@@ -105,7 +105,7 @@ Widget _button(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 19, color: outlined ? brand.main : Colors.white),
+                Icon(icon, size: 17, color: outlined ? brand.main : Colors.white),
                 const SizedBox(width: 6),
               ],
               Text(label, style: font(14.5, w8, outlined ? brand.main : Colors.white)),

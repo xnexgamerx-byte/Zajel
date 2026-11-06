@@ -193,7 +193,7 @@ class _NotifySettingsScreenState extends State<NotifySettingsScreen> {
               Icon(
                 ok ? Icons.notifications_active_rounded : Icons.notifications_off_outlined,
                 color: ok ? Palette.ok : brand.main,
-                size: 20,
+                size: 18,
               ),
               const SizedBox(width: 8),
               Text(
@@ -271,7 +271,7 @@ class _NotifySettingsScreenState extends State<NotifySettingsScreen> {
       width: 38,
       height: 38,
       decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
-      child: Icon(icon ?? Icons.notifications_none_rounded, size: 20, color: brand.main),
+      child: Icon(icon ?? Icons.notifications_none_rounded, size: 18, color: brand.main),
     ),
     title: Text(title, style: font(14, w8, Palette.ink)),
     subtitle: Text(hint, style: font(11.5, w6, Palette.slate, height: 1.45)),
