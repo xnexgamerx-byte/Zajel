@@ -458,15 +458,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Ink(
         decoration: BoxDecoration(color: t.tint, borderRadius: BorderRadius.circular(24)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 150),
+          constraints: const BoxConstraints(minHeight: 124),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 8, 6, 14),
+            padding: const EdgeInsets.fromLTRB(6, 10, 6, 12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
-                  width: 80,
-                  height: 70,
+                  width: 64,
+                  height: 56,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -484,13 +484,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       Rise(
                         delay: 320 + i * 60,
                         scale: true,
-                        child: Art(t.art, brand: brand, width: 80, height: 70),
+                        child: Art(t.art, brand: brand, width: 64, height: 56),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 6),
-                _CountUp(value: t.count, style: kf(24, Palette.ink, bold: true, height: 1.3)),
+                const SizedBox(height: 4),
+                _CountUp(value: t.count, style: kf(20, Palette.ink, bold: true, height: 1.3)),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(t.label, maxLines: 1, style: kf(12, t.ink, bold: true, height: 1.35)),
@@ -762,7 +762,7 @@ class _HomeScreenState extends State<HomeScreen> {
     shadow: cardShadow,
     onTap: () => _open(screen),
     child: Ink(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -770,26 +770,35 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
-                child: Icon(icon, size: 18, color: brand.main),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(11)),
+                child: Icon(icon, size: 16, color: brand.main),
               ),
               const Spacer(),
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: _CountUp(value: value, style: kf(24, Palette.ink, bold: true, height: 1.3)),
+                  child: _CountUp(value: value, style: kf(20, Palette.ink, bold: true, height: 1.3)),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(label, style: kf(14, Palette.ink, bold: true)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
+          // سطرٌ واحد لكلٍّ منهما، ويصغر الخطّ قليلاً إن ضاق الهاتف
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(label, maxLines: 1, style: kf(13, Palette.ink, bold: true)),
+          ),
+          const SizedBox(height: 6),
           _Bars(fill: fill, brand: brand),
-          const SizedBox(height: 8),
-          Text(note, style: kf(12, Palette.slate)),
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(note, maxLines: 1, style: kf(12, Palette.slate)),
+          ),
         ],
       ),
     ),
@@ -885,7 +894,7 @@ class _Bars extends StatelessWidget {
   Widget build(BuildContext context) {
     final on = (fill.clamp(0, 1) * _n).round();
     return SizedBox(
-      height: 28,
+      height: 24,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         textDirection: TextDirection.ltr,
@@ -893,8 +902,8 @@ class _Bars extends StatelessWidget {
           for (var i = 0; i < _n; i++) ...[
             if (i > 0) const SizedBox(width: 6),
             Container(
-              width: 14,
-              height: 8 + i * 4.0,
+              width: 12,
+              height: 6 + i * 3.6,
               decoration: BoxDecoration(
                 color: i < on ? brand.main : brand.track,
                 borderRadius: BorderRadius.circular(3),
