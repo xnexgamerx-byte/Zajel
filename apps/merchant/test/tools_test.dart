@@ -13,6 +13,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // خطّ قسم التاجر في «وصل» (docs/plan/123): يُقاس به كما على الهاتف
+  final kufi = FontLoader('NotoKufiArabic');
+  for (final w in [400, 500, 600, 700, 800]) {
+    kufi.addFont(Future.value(ByteData.view(File('assets/fonts/NotoKufiArabic-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await kufi.load();
 }
 
 Future<void> _open(WidgetTester tester, String tool) async {
@@ -23,8 +29,8 @@ Future<void> _open(WidgetTester tester, String tool) async {
 
   await tester.pumpWidget(const CompanyApp(signedIn: true));
   await tester.pumpAndSettle();
-  // من «المزيد» في الشريط السفلي
-  await tester.tap(find.text('المزيد'));
+  // من «حسابي» في الشريط السفلي (docs/plan/123)
+  await tester.tap(find.text('حسابي'));
   await tester.pumpAndSettle();
   // «حسابي» قد يطول عن الشاشة
   await tester.ensureVisible(find.text(tool).last);
@@ -161,53 +167,100 @@ void main() {
     expect(find.text('غيّروا عنوان الاستلام رجاءً'), findsOneWidget);
   });
 
-  testWidgets('الطابعة: للطباعة كلّها محدّدة، يُلغى منها، ثم المقاس — ومطبوعة تُعاد', (tester) async {
-    await _open(tester, 'الطابعة — وصولات الطلبات الجديدة');
+  testWidgets('الطابعة: للطباعة كلّها محدّدة، يُعدّ منها، ثم المقاس — ومطبوعة تُعاد وتُنزَّل وتُحذف', (tester) async {
+    await _open(tester, 'الطابعة');
+    expect(find.text('للطباعة 4'), findsOneWidget);
+    expect(find.text('مطبوعة 2'), findsOneWidget);
     expect(find.text('المحدّد 4 من 4'), findsOneWidget);
-    expect(find.text('اطبع 4 وصل'), findsOneWidget);
+    expect(find.text('اطبع 4'), findsOneWidget);
 
-    await tester.tap(find.textContaining('أحمد ناصر'));
+    // صفٌّ يُلغى بلمسة، والعدّاد ينقص ويزيد، و«الكل» و«ألغِ الكل»
+    await tester.tap(find.text('أحمد ناصر'));
     await tester.pumpAndSettle();
     expect(find.text('المحدّد 3 من 4'), findsOneWidget);
-    await tester.tap(find.text('تحديد الكل'));
+    await tester.tap(find.text('−'));
+    await tester.pumpAndSettle();
+    expect(find.text('المحدّد 2 من 4'), findsOneWidget);
+    await tester.tap(find.text('الكل'));
     await tester.pumpAndSettle();
     expect(find.text('المحدّد 4 من 4'), findsOneWidget);
-    await tester.tap(find.text('تحديد الكل'));
+    await tester.tap(find.text('ألغِ الكل'));
     await tester.pumpAndSettle();
-    expect(find.text('حدّد ما تطبعه'), findsOneWidget);
-    await tester.tap(find.text('تحديد الكل'));
-    await tester.pumpAndSettle();
+    expect(find.text('لا شيء محدّد من 4'), findsOneWidget);
+    expect(find.text('اطبع'), findsOneWidget);
+    for (var i = 0; i < 4; i++) {
+      await tester.tap(find.text('+'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('المحدّد 4 من 4'), findsOneWidget);
 
-    await tester.tap(find.text('اطبع 4 وصل'));
+    await tester.tap(find.text('اطبع 4'));
     await tester.pumpAndSettle();
     expect(find.text('اختر المقاس'), findsOneWidget);
-    // ملصقات الطابعة الحرارية وورق A5 وA4 وA3 (docs/plan/87، 94)، كلٌّ بعرضه وطوله
-    for (final size in ['ملصق ١٠٠×١٠٠ ملم', 'ملصق ١٢٠×٨٠ ملم', 'ملصق ١٠٠×١٥٠ ملم', 'ورقة A5', 'ورقة A4', 'ورقة A3']) {
+    // ملصقات الطابعة الحرارية وورق A5 وA4 وA3 (docs/plan/87، 94، 123)، كلٌّ بعرضه وطوله
+    for (final size in [
+      '\u206610×10\u2069 سم',
+      '\u20668×12\u2069 سم',
+      '\u206610×15\u2069 سم',
+      '\u2066A5\u2069',
+      '\u2066A4\u2069',
+      '\u2066A3\u2069',
+    ]) {
       expect(find.text(size), findsOneWidget, reason: size);
     }
-    expect(find.text('طويل: عرضه ٨ سم وطوله ١٢ سم'), findsOneWidget);
-    expect(find.text('A4 — أربعة في الورقة'), findsNothing);
-    await tester.tap(find.text('ملصق ١٢٠×٨٠ ملم'));
-    await tester.tap(find.text('اطبع'));
+    expect(find.text('مربّع'), findsOneWidget);
+    expect(find.text('طويل'), findsNWidgets(2));
+    expect(find.text('ورقة'), findsNWidgets(3));
+    await tester.tap(find.text('\u20668×12\u2069 سم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('اطبع 4 وصولات، ملصق \u20668×12\u2069 سم'));
     await tester.pumpAndSettle();
     expect(find.text('في النسخة التجريبية لا تُطبع الوصولات.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
 
-    // «الطابعة» (docs/plan/79): «مطبوعة» خانتها، لا شيء محدّدٌ فيها حتى يختار ما يعيد طباعته
-    expect(find.text('للطباعة'), findsOneWidget);
-    await tester.tap(find.text('مطبوعة'));
+    // «مطبوعة» (docs/plan/79): لا شيء محدّدٌ فيها حتى يختار ما يعيد طباعته
+    await tester.tap(find.text('مطبوعة 2'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('علي حسين'), findsOneWidget);
-    expect(find.textContaining('مريم سعد'), findsNothing);
-    expect(find.text('حدّد ما تعيد طباعته'), findsOneWidget);
-    await tester.tap(find.textContaining('هدى كريم'));
+    expect(find.text('علي حسين'), findsOneWidget);
+    expect(find.text('مريم سعد'), findsNothing);
+    expect(find.text('أعد طباعة'), findsOneWidget);
+    await tester.tap(find.text('هدى كريم'));
     await tester.pumpAndSettle();
-    expect(find.text('أعد طباعة 1 وصل'), findsOneWidget);
+    expect(find.text('أعد طباعة 1'), findsOneWidget);
+
+    // «تنزيل»: المقاس ثم ملفٌّ يُجهَّز ثم يُشارَك
+    await tester.tap(find.text('تنزيل'));
+    await tester.pumpAndSettle();
+    expect(find.text('نزّلها ملفّاً'), findsOneWidget);
+    await tester.tap(find.text('جهّز الملف، ملصق \u206610×10\u2069 سم'));
+    await tester.pump();
+    expect(find.text('يُجهَّز الملف، صفحة واحدة'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1300));
+    await tester.pumpAndSettle();
+    expect(find.text('جاهز، وعُلّمت وصولاته مطبوعة'), findsOneWidget);
+    await tester.tap(find.text('شارك الملف'));
+    await tester.pumpAndSettle();
+    expect(find.text('في النسخة التجريبية لا يُنشأ الملف.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    // «حذف» بعد تأكيدٍ وسببٍ اختياريّ (docs/plan/117، 123): تختفي من الطابعة
+    await tester.tap(find.text('هدى كريم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حذف'));
+    await tester.pumpAndSettle();
+    expect(find.text('حذف شحنة واحدة؟'), findsOneWidget);
+    await tester.enterText(_hint('مثلاً'), 'ألغى الزبون');
+    await tester.tap(find.text('نعم، احذفها'));
+    await tester.pumpAndSettle();
+    expect(find.text('حُذفت شحنة واحدة'), findsOneWidget);
+    expect(find.text('هدى كريم'), findsNothing);
+    expect(find.text('مطبوعة 1'), findsOneWidget);
   });
 
   testWidgets('وصلات للطباعة: دفترٌ جديد بعدده ومقاسه', (tester) async {
-    await _open(tester, 'دفاتر وصولاتٍ فارغة للطباعة');
+    await _open(tester, 'دفاتر الوصولات');
     expect(find.text('90000001–90000050'), findsOneWidget);
     expect(find.textContaining('استُعمل 31 من 50'), findsOneWidget);
 

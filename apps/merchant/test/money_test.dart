@@ -13,6 +13,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // خطّ قسم التاجر في «وصل» (docs/plan/123): يُقاس به كما على الهاتف
+  final kufi = FontLoader('NotoKufiArabic');
+  for (final w in [400, 500, 600, 700, 800]) {
+    kufi.addFont(Future.value(ByteData.view(File('assets/fonts/NotoKufiArabic-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await kufi.load();
 }
 
 Future<void> _start(WidgetTester tester) async {
@@ -72,20 +78,22 @@ void main() {
     await tester.tap(find.text('المالية').last);
     await tester.pumpAndSettle();
 
+    // بترتيب الشاشة من أعلاها (docs/plan/123)
     for (final text in [
       '1,250,000',
       '500,000',
-      'MS000041',
-      'MS000037',
-      'استلمتها',
-      'امسح للتأكيد',
       'استلام الحساب',
       // «مؤشراتك هذا الشهر» بدل تركيب الرصيد (docs/plan/70)
       'مؤشراتك هذا الشهر',
       'تشرين الأول',
       '90%',
+      '43 من 48 انتهت',
       '1,792,000',
-      '▲ 12%',
+      '12% عن الشهر الماضي',
+      'MS000041',
+      'MS000037',
+      'استلمتها',
+      'امسح للتأكيد',
       'مستحقّ الشحنة ZA-20260124',
     ]) {
       await _reveal(tester, find.textContaining(text));
@@ -93,6 +101,7 @@ void main() {
     }
 
     // الكشف يُضغط فتُفتح تفاصيله بشحناته (docs/plan/61)
+    await tester.scrollUntilVisible(find.text('MS000037'), -200, scrollable: _vertical);
     await tester.tap(find.text('MS000037'));
     await tester.pumpAndSettle();
     expect(find.text('شحنات الكشف'), findsOneWidget);
@@ -103,7 +112,7 @@ void main() {
 
     // «استلام الحساب»: لا زرّ يؤكّد — يُمسح الوصل أو يُكتب رمزه (docs/plan/69)
     expect(find.text('استلمتُها'), findsNothing);
-    await _reveal(tester, find.text('استلام الحساب'));
+    await tester.scrollUntilVisible(find.text('استلام الحساب'), -300, scrollable: _vertical);
     await tester.tap(find.text('استلام الحساب'));
     await tester.pumpAndSettle();
     expect(find.text('استلام بالباركود'), findsOneWidget);
@@ -122,6 +131,8 @@ void main() {
     expect(find.text('أكّدت استلام دفعة الكشف MS000041.'), findsOneWidget);
     await tester.tap(find.text('تمّ'));
     await tester.pumpAndSettle();
+    // الكشفان تحت المؤشرات: ينزل إليهما
+    await _reveal(tester, find.text('MS000037'));
     expect(find.text('امسح للتأكيد'), findsNothing);
     expect(find.text('استلمتها'), findsNWidgets(2));
 

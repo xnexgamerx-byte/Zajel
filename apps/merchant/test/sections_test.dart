@@ -25,6 +25,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // خطّ قسم التاجر في «وصل» (docs/plan/123): يُقاس به كما على الهاتف
+  final kufi = FontLoader('NotoKufiArabic');
+  for (final w in [400, 500, 600, 700, 800]) {
+    kufi.addFont(Future.value(ByteData.view(File('assets/fonts/NotoKufiArabic-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await kufi.load();
 }
 
 Future<void> _pump(WidgetTester tester, Widget app) async {
@@ -72,7 +78,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('التجّار والمناديب والكول سنتر'), findsNothing);
     expect(find.text('أحمد'), findsOneWidget);
-    expect(find.textContaining('شحناتك مع'), findsOneWidget);
+    // رئيسية التاجر بتصميم «وصل» (docs/plan/123)
+    expect(find.text('شحناتك الآن'), findsOneWidget);
   });
 
   testWidgets('رسالة واتساب باسم الموظّفة ولو وصلت جلستها بعد فتح القسم بالرمز المحفوظ', (tester) async {

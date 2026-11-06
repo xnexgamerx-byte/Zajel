@@ -56,6 +56,14 @@ class ShipmentController extends Controller
         'returns' => 'راجع مؤكد',
     ];
 
+    /**
+     * قوائم تفتحها بطاقات رئيسية التطبيق (docs/plan/123) وليست شريحةً ولا خانة: «راجعة» — كلّ ما في طريقه إلى التاجر،
+     * عند المندوب أو في مخزنٍ أو في الطريق إلى فرعه.
+     */
+    public const LISTS = [
+        'returning' => 'راجعة',
+    ];
+
     /** «بالمخزن»: الشريحة وخانة «رحلة شحناتك اليوم» بالتعريف نفسه */
     public const WAREHOUSE = [
         ShipmentStatus::PickedUp->value, ShipmentStatus::AtHub->value, ShipmentStatus::InTransit->value,
@@ -64,7 +72,7 @@ class ShipmentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $merchant = $request->attributes->get('merchant');
-        $filter = array_key_exists((string) $request->query('filter'), self::FILTERS + self::STATES)
+        $filter = array_key_exists((string) $request->query('filter'), self::FILTERS + self::STATES + self::LISTS)
             ? (string) $request->query('filter') : 'all';
         // بمحافظةٍ واحدة (docs/plan/86): قيد التوصيل، والمسلّمة، وتحتاج انتباهك، والراجع
         $governorate = (int) $request->query('governorate_id') ?: null;
@@ -198,6 +206,8 @@ class ShipmentController extends Controller
             'city' => $s->city?->name_ar,
             'amount' => (int) $s->cod_amount,
             'at' => ($s->status_changed_at ?? $s->created_at)?->toIso8601String(),
+            // يوم إدخالها: تُجمَّع به القائمة في التطبيق (docs/plan/123)، والقائمة مرتّبةٌ بالأحدث إدخالاً
+            'created' => $s->created_at?->toIso8601String(),
             // المؤجّلة بموعدها (docs/plan/86): «مؤجل إلى غداً الساعة 9:00 م»
             'until' => $s->status === ShipmentStatus::Postponed ? $s->scheduled_at?->toIso8601String() : null,
             'status' => $s->status === ShipmentStatus::FailedAttempt ? 'للمعالجة' : $s->statusLabel(),
@@ -260,6 +270,8 @@ class ShipmentController extends Controller
             'postponed' => $q->where('status', ShipmentStatus::Postponed->value),
             'return_courier' => $q->where('status', ShipmentStatus::Returning->value)->whereNull('return_received_at'),
             'return_hub' => $q->where('status', ShipmentStatus::Returning->value)->whereNotNull('return_received_at'),
+            // «راجعة» في الرئيسية: عدّها returning في /merchant/home
+            'returning' => $q->where('status', ShipmentStatus::Returning->value),
             // ما لم نحاسبه عليه بعد — والمحاسَب في كشوفه وحدها
             'delivered' => $q->where(fn ($w) => $w->where('status', ShipmentStatus::PartiallyDelivered->value)
                 ->orWhere(fn ($d) => $d->where('status', ShipmentStatus::Delivered->value)->whereNull('merchant_settled_at'))),

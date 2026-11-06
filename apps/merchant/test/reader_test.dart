@@ -13,6 +13,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // خطّ قسم التاجر في «وصل» (docs/plan/123): يُقاس به كما على الهاتف
+  final kufi = FontLoader('NotoKufiArabic');
+  for (final w in [400, 500, 600, 700, 800]) {
+    kufi.addFont(Future.value(ByteData.view(File('assets/fonts/NotoKufiArabic-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await kufi.load();
 }
 
 Future<void> _start(WidgetTester tester) async {
@@ -38,12 +44,12 @@ Finder _hint(String hint) => find.byWidgetPredicate(
 
 String _value(WidgetTester tester, String hint) => tester.widget<TextField>(_hint(hint)).controller!.text;
 
-/// «إنشاء شحنة» في وسط الرئيسية، ثم طريقته (docs/plan/76)
+/// «+» في وسط الشريط السفلي، ثم طريقته (docs/plan/76، 123)
 Future<void> _create(WidgetTester tester, String how) async {
-  await tester.ensureVisible(find.text('إنشاء شحنة').first);
+  final semantics = tester.ensureSemantics();
+  await tester.tap(find.bySemanticsLabel('شحنة جديدة'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('إنشاء شحنة').first);
-  await tester.pumpAndSettle();
+  semantics.dispose();
   await tester.tap(find.text(how));
   await tester.pumpAndSettle();
 }
@@ -125,7 +131,7 @@ void main() {
   testWidgets('بالتسجيل الصوتي: يسجّل حتى «أوقف» ثم يُكتب ما سُمع', (tester) async {
     await _start(tester);
 
-    await _create(tester, 'بصوتي');
+    await _create(tester, 'بصوتك');
     expect(find.text('اضغط المايك وتكلّم'), findsOneWidget);
 
     await tester.tap(find.byTooltip('تكلّم'));

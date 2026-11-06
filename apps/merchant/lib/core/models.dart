@@ -163,6 +163,7 @@ class RecentShipment {
     this.city,
     this.until,
     this.returnPlace,
+    this.created,
   });
 
   factory RecentShipment.fromJson(Map<String, dynamic> j) => RecentShipment(
@@ -179,7 +180,11 @@ class RecentShipment {
     city: j['city'] as String?,
     until: DateTime.tryParse(j['until'] as String? ?? '')?.toLocal(),
     returnPlace: j['return_place'] as String?,
+    created: DateTime.tryParse(j['created'] as String? ?? '')?.toLocal(),
   );
+
+  /// يوم إدخالها (docs/plan/123): تُجمَّع به القوائم، فهي مرتّبةٌ بالأحدث إدخالاً
+  final DateTime? created;
 
   final int id;
   final String number;
@@ -1410,14 +1415,43 @@ class LabelsPage {
     toPrint: (j['counts'] as Map?)?['to_print'] as int? ?? 0,
     printed: (j['counts'] as Map?)?['printed'] as int? ?? 0,
     shipments: [for (final s in j['shipments'] as List) LabelRow.fromJson((s as Map).cast())],
-    sizes: [for (final s in j['sizes'] as List) Choice('${(s as Map)['key']}', '${s['label']}')],
+    sizes: [
+      for (final s in j['sizes'] as List)
+        LabelSize(
+          '${(s as Map)['key']}',
+          '${s['label']}',
+          width: (s['width'] as num?)?.toDouble() ?? 0,
+          height: (s['height'] as num?)?.toDouble() ?? 0,
+        ),
+    ],
   );
 
   final String state;
   final int toPrint;
   final int printed;
   final List<LabelRow> shipments;
-  final List<Choice> sizes;
+  final List<LabelSize> sizes;
+}
+
+/// مقاس الطباعة بعرضه وطوله بالمليمتر (docs/plan/87، 94): ملصقٌ حراريّ، أو ورقةٌ بوصلٍ واحدٍ يملؤها
+class LabelSize extends Choice {
+  const LabelSize(super.key, super.label, {this.width = 0, this.height = 0});
+
+  final double width;
+  final double height;
+
+  /// ورقٌ عادي لا ملصق: اسمه في النظام «ورقة …»
+  bool get paper => !label.startsWith('ملصق');
+
+  /// كما يُعرف في السوق: «10×15» بالسنتيمتر للملصق، و«A4» للورقة
+  String get name {
+    if (paper) return label.replaceFirst('ورقة', '').trim();
+    String cm(double mm) => (mm / 10) == (mm / 10).roundToDouble() ? '${(mm / 10).round()}' : '${mm / 10}';
+    return '${cm(width)}×${cm(height)}';
+  }
+
+  /// شكله في كلمة: مربّعٌ أو طويلٌ أو ورقة
+  String get kind => paper ? 'ورقة' : (width == height ? 'مربّع' : 'طويل');
 }
 
 class LabelRow {
@@ -1430,6 +1464,7 @@ class LabelRow {
     this.at,
     this.phone = '',
     this.printedAt,
+    this.deletable = false,
   });
 
   factory LabelRow.fromJson(Map<String, dynamic> j) => LabelRow(
@@ -1441,9 +1476,13 @@ class LabelRow {
     amount: j['amount'] as int? ?? 0,
     at: _at(j['at']),
     printedAt: _at(j['printed_at']),
+    deletable: j['deletable'] as bool? ?? false,
   );
 
   final String phone;
+
+  /// يحذفها التاجر من «الطابعة» (docs/plan/123): ميزة التعديل مفتوحة، ويملك الإدخال، ولم تصلنا بعد
+  final bool deletable;
 
   /// أوّل طباعةٍ لوصلها — فارغٌ ما دامت «للطباعة»
   final DateTime? printedAt;

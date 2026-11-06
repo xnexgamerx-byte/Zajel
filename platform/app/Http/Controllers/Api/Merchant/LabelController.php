@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api\Merchant;
 
+use App\Actions\Shipments\DeleteShipment;
 use App\Enums\ShipmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\ShipmentLabelController;
 use App\Models\Shipment;
+use App\Support\MerchantEdit;
+use App\Support\MerchantPermissions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,6 +38,9 @@ class LabelController extends Controller
             ->limit(ShipmentLabelController::MAX)
             ->get();
 
+        // «حذف» في الطابعة (docs/plan/123): مسار الحذف نفسه — ميزة تعديل التاجر، وصلاحية الإدخال، وقواعد المسح
+        $canDelete = MerchantEdit::enabled() && MerchantPermissions::allows($request->user(), 'create');
+
         return response()->json([
             'state' => $state,
             'counts' => self::counts($merchant->id),
@@ -47,6 +53,7 @@ class LabelController extends Controller
                 'amount' => (int) $s->cod_amount,
                 'at' => $s->created_at?->toIso8601String(),
                 'printed_at' => $s->printed_at?->toIso8601String(),
+                'deletable' => $canDelete && DeleteShipment::deletable($s),
             ])->values(),
             // مقاسا التطبيق (docs/plan/87)، بعرض الملصق وطوله بالمليمتر
             'sizes' => collect(ShipmentLabelController::APP_SIZES)->map(fn (string $key) => [

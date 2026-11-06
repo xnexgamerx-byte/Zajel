@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Actions\Shipments\ChangeShipmentStatus;
 use App\Actions\Shipments\CreateShipment;
+use App\Enums\Feature;
 use App\Enums\ShipmentStatus;
 use App\Enums\UserRole;
 use App\Models\Company;
@@ -209,5 +210,26 @@ class MerchantAppLabelsTest extends TestCase
 
         // البحث يجدها في «شحناتي» أيضاً
         $this->actingAs($this->user)->get($this->host().'/portal/shipments?q='.$a->number)->assertOk()->assertSee($a->number);
+    }
+
+    public function test_each_printer_row_says_whether_the_merchant_may_delete_it(): void
+    {
+        $a = $this->ship($this->merchant, 'علي');
+
+        // «حذف» في الطابعة (docs/plan/123): يتبع مسار الحذف — ميزة تعديل التاجر أوّلاً
+        $this->setFeature($this->company, Feature::MerchantEdit, false);
+        $this->getJson($this->host().'/api/v1/merchant/labels', $this->headers())->assertOk()
+            ->assertJsonPath('shipments.0.deletable', false);
+
+        $this->setFeature($this->company, Feature::MerchantEdit);
+        $headers = $this->headers();
+        $this->getJson($this->host().'/api/v1/merchant/labels', $headers)->assertOk()
+            ->assertJsonPath('shipments.0.id', $a->id)
+            ->assertJsonPath('shipments.0.deletable', true);
+
+        // وما سُوّي حسابه لا يُمسح: قواعد المسح نفسها
+        Tenancy::runFor($this->company, fn () => Shipment::query()->whereKey($a->id)->update(['merchant_settled_at' => now()]));
+        $this->getJson($this->host().'/api/v1/merchant/labels', $headers)->assertOk()
+            ->assertJsonPath('shipments.0.deletable', false);
     }
 }

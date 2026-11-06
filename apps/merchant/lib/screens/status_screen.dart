@@ -5,22 +5,28 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
-import '../widgets/bits.dart';
+import '../widgets/art.dart';
+import '../widgets/design.dart';
+import '../widgets/page.dart';
+import '../widgets/rows.dart';
 import 'shipment_screen.dart';
 
-/// حالةٌ من «حالة الشحنات» في الرئيسية (docs/plan/79): اسمها ولونها وأيقونتها، وما فيها بكلامه
+/// حالةٌ من «حالة الشحنات» في الرئيسية (docs/plan/79): اسمها ولونها ورسمها، وما فيها بكلامه. وفي «وصل»
+/// (docs/plan/123) لونها لون الحالة (Tone) في كلّ الشركات، ورسمها من رسوم الحالات
 class StatusView {
-  const StatusView(this.filter, this.title, this.text, this.icon, this.color);
+  const StatusView(this.filter, this.title, this.text, this.icon, this.tone, this.art);
 
   /// شريحة «شحناتي» نفسها: الرقم على البطاقة عددُ ما في القائمة
   final String filter;
   final String title;
   final String text;
   final IconData icon;
-  final Color color;
+  final Tone tone;
 
-  static const blue = Color(0xFF2F6DB5);
-  static const slate = Color(0xFF5C4644);
+  /// اسم رسمها في رسوم «وصل»
+  final String art;
+
+  Color get color => tone.ink;
 
   static StatusView of(String filter) => switch (filter) {
     'delivered' => const StatusView(
@@ -28,76 +34,123 @@ class StatusView {
       'مسلّمة',
       'وصلت إلى زبائنك',
       Icons.check_circle_outline_rounded,
-      Palette.ok,
+      Tone.green,
+      'delivered',
     ),
     'attention' => const StatusView(
       'attention',
       'تحتاج انتباهك',
       'مؤجّلةٌ إلى موعدها، أو راجعةٌ لم تصل المخزن بعد',
       Icons.schedule_rounded,
-      Palette.postponed,
+      Tone.amber,
+      'postponed',
     ),
     'returns' => const StatusView(
       'returns',
       'راجع مؤكّد',
       'أكّدت الشركة رجوعها، وتُسلَّم لك في إيصال الراجع',
       Icons.assignment_return_outlined,
-      Palette.returnRed,
+      Tone.red,
+      'returns',
+    ),
+    // «راجعة» في الرئيسية (docs/plan/123): كلّ ما في طريقه إليك
+    'returning' => const StatusView(
+      'returning',
+      'راجعة',
+      'لم تُسلَّم، وتعود إليك: مع المندوب، أو في مخزنٍ، أو في الطريق إلى فرعك',
+      Icons.assignment_return_outlined,
+      Tone.red,
+      'returnsAll',
     ),
     // خانات «رحلة شحناتك اليوم» (docs/plan/87)
-    'all' => const StatusView('all', 'كل الشحنات', 'كلّ ما لم ينتهِ معك بعد', Icons.inventory_2_outlined, slate),
-    'created' => const StatusView('created', 'جديدة', 'أدخلتها ولم يُطلب لها مندوب', Icons.fiber_new_rounded, slate),
-    'pickup' => const StatusView('pickup', 'بانتظار المندوب', 'ينتظر مندوب الاستلام', Icons.hail_rounded, slate),
-    'new' => const StatusView('new', 'جديدة', 'لم يستلمها مندوبٌ بعد', Icons.fiber_new_rounded, slate),
+    'all' => const StatusView(
+      'all',
+      'كل الشحنات',
+      'كلّ ما لم ينتهِ معك بعد',
+      Icons.inventory_2_outlined,
+      Tone.slate,
+      'warehouse',
+    ),
+    'created' => const StatusView(
+      'created',
+      'جديدة',
+      'أدخلتها ولم يُطلب لها مندوب',
+      Icons.fiber_new_rounded,
+      Tone.slate,
+      'created',
+    ),
+    'pickup' => const StatusView(
+      'pickup',
+      'بانتظار المندوب',
+      'ينتظر مندوب الاستلام',
+      Icons.hail_rounded,
+      Tone.slate,
+      'pickup',
+    ),
+    'new' => const StatusView('new', 'جديدة', 'لم يستلمها مندوبٌ بعد', Icons.fiber_new_rounded, Tone.slate, 'created'),
     'warehouse' => const StatusView(
       'warehouse',
       'بالمخزن',
       'استُلمت منك، وهي في مخزننا أو بين مراكزنا',
       Icons.warehouse_outlined,
-      blue,
+      Tone.teal,
+      'warehouse',
     ),
-    'courier' => const StatusView('courier', 'مع المندوب', 'خرجت للتوصيل اليوم', Icons.two_wheeler_rounded, blue),
+    'courier' => const StatusView(
+      'courier',
+      'مع المندوب',
+      'خرجت مع المندوب في طريقها إلى زبونها',
+      Icons.two_wheeler_rounded,
+      Tone.blue,
+      'courier',
+    ),
     'redelivery' => const StatusView(
       'redelivery',
       'إعادة توصيل',
       'لم تُسلَّم أوّل مرّة، وتُوصَل ثانيةً',
       Icons.replay_rounded,
-      blue,
+      Tone.blue,
+      'redelivery',
     ),
     'postponed' => const StatusView(
       'postponed',
       'مؤجلة',
       'اتّفقنا مع الزبون على موعدٍ آخر',
       Icons.event_rounded,
-      Palette.postponed,
+      Tone.amber,
+      'postponed',
     ),
     'processing' => const StatusView(
       'processing',
       'للمعالجة',
-      'لم تُسلَّم، وتنتظر قرار المتابعة',
+      'لم تُسلَّم، وتنتظر قرارك',
       Icons.support_agent_rounded,
-      Palette.returnRed,
+      Tone.orange,
+      'processing',
     ),
     'return_courier' => const StatusView(
       'return_courier',
       'راجع عند المندوب',
-      'لم يصل مخزننا بعد',
+      'مع المندوب، في طريقها إلى المخزن',
       Icons.two_wheeler_rounded,
-      Palette.returnRed,
+      Tone.red,
+      'return_courier',
     ),
     'return_hub' => const StatusView(
       'return_hub',
       'راجع في المخزن',
       'وصل مخزننا، أو في طريقه إلى فرعك',
       Icons.warehouse_outlined,
-      Palette.returnRed,
+      Tone.red,
+      'return_hub',
     ),
     _ => const StatusView(
       'open',
       'قيد التوصيل',
       'استلمها المندوب، وهي في طريقها إلى زبائنك',
       Icons.local_shipping_outlined,
-      blue,
+      Tone.blue,
+      'courier',
     ),
   };
 }
@@ -108,8 +161,8 @@ Future<void> openStatus(BuildContext context, Brand brand, String filter) => Nav
   ),
 );
 
-/// قائمة حالةٍ وحدها (docs/plan/79): رأسٌ بلونها وعددها، وبحثٌ فيها، وبطاقاتٌ واضحة — غير «شحناتي»
-/// بشرائحها كلّها. تتحمّل صفحةً بعد صفحة كلّما نزل.
+/// قائمة حالةٍ وحدها (docs/plan/79، 123): رأسٌ بلونها ورسمها وعددها، ثم ورقةٌ منقوشة فيها بحثٌ وشحناتها بأيّامها —
+/// صفوف «سجلّ» نفسها التي في «الشحنات». تتحمّل صفحةً بعد صفحة كلّما نزل.
 class StatusScreen extends StatefulWidget {
   const StatusScreen({super.key, required this.brand, required this.view});
 
@@ -189,90 +242,66 @@ class _StatusScreenState extends State<StatusScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Palette.bg,
+    backgroundColor: view.tone.tint,
     body: Column(
       children: [
         _hero(context),
-        Transform.translate(
-          offset: const Offset(0, -22),
-          child: Column(
-            children: [
-              // وشرائح المحافظات صارت في الكول سنتر (docs/plan/93)
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _search()),
-            ],
+        Expanded(
+          child: Rise(
+            delay: 180,
+            dy: 64,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              child: ColoredBox(
+                color: Palette.bg,
+                child: GridBackdrop(
+                  child: Column(
+                    children: [
+                      // وشرائح المحافظات صارت في الكول سنتر (docs/plan/93)
+                      Padding(padding: const EdgeInsets.fromLTRB(16, 16, 16, 4), child: _search()),
+                      Expanded(child: _list()),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-        Expanded(child: _list()),
       ],
     ),
   );
 
-  /// الرأس بلون الحالة: رجوعٌ، وأيقونتها في دائرة، واسمها وكلامها، وعددها كبيراً
+  /// الرأس بلون الحالة الفاتح: رجوعٌ، ورسمها كبيراً، واسمها وعددها وما فيها
   Widget _hero(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    final deep = Color.lerp(color, Colors.black, .28)!;
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, top + 8, 16, 38),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [color, deep]),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
+    final n = total;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, (top > 0 ? top : 28) + 8, 16, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Tooltip(
-                message: 'رجوع',
-                child: Tap(
-                  radius: 18,
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: .18), shape: BoxShape.circle),
-                    child: const Chev(size: 11, stroke: 1.8, color: Colors.white),
-                  ),
-                ),
-              ),
+              SquareButton(tip: 'رجوع', onTap: () => Navigator.of(context).pop(), child: const BackArrow()),
               const Spacer(),
-              Text('رحلة شحناتك اليوم', style: font(12, w7, Colors.white.withValues(alpha: .85))),
+              Text('حالة شحناتك', style: kf(12, view.tone.ink, bold: true)),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .18),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: .35)),
-                ),
-                child: Icon(view.icon, color: Colors.white, size: 26),
-              ),
-              const SizedBox(width: 12),
+              Rise(delay: 120, scale: true, child: Art(view.art, brand: widget.brand, width: 136, height: 119)),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(view.title, style: display(20, w8, Colors.white, height: 1.25)),
-                    Text(
-                      view.text,
-                      maxLines: 2,
-                      style: font(11.5, w6, Colors.white.withValues(alpha: .88), height: 1.45),
-                    ),
+                    Text(view.title, style: kf(24, Palette.ink, bold: true)),
+                    Text(n == null ? '…' : _count(n), style: kf(16, view.tone.ink, bold: true)),
+                    const SizedBox(height: 2),
+                    Text(view.text, style: kf(14, Palette.slate)),
                   ],
                 ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                children: [
-                  Text(total == null ? '—' : money(total!), style: display(28, w8, Colors.white, height: 1.1)),
-                  Text('شحنة', style: font(11, w7, Colors.white.withValues(alpha: .85))),
-                ],
               ),
             ],
           ),
@@ -281,18 +310,31 @@ class _StatusScreenState extends State<StatusScreen> {
     );
   }
 
+  /// «12 شحنة» بتمييزها العربي
+  static String _count(int n) => switch (n) {
+    0 => 'لا شحنات',
+    1 => 'شحنة واحدة',
+    2 => 'شحنتان',
+    >= 3 && <= 10 => '$n شحنات',
+    _ => '${money(n)} شحنة',
+  };
+
   Widget _search() => Container(
-    height: 44,
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: cardShadow),
+    height: 48,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Palette.line),
+    ),
     child: TextField(
       controller: search,
       onChanged: _typed,
       textInputAction: TextInputAction.search,
-      style: font(13, w6, Palette.ink),
+      style: kf(14, Palette.ink),
       decoration: InputDecoration(
         hintText: 'ابحث في «${view.title}» بالاسم أو الهاتف أو الرقم',
-        hintStyle: font(12, w5, Palette.muted),
-        prefixIcon: Icon(Icons.search_rounded, color: color, size: 21),
+        hintStyle: kf(14, const Color(0xFF8C8286)),
+        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 22),
         border: InputBorder.none,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
       ),
@@ -316,7 +358,7 @@ class _StatusScreenState extends State<StatusScreen> {
               Text(
                 error ?? (search.text.isEmpty ? 'لا شحنات ${view.title} الآن.' : 'لا شحنة تطابق «${search.text}».'),
                 textAlign: TextAlign.center,
-                style: font(13, w6, Palette.slate, height: 1.6),
+                style: kf(14, Palette.slate),
               ),
             ],
           ],
@@ -324,112 +366,32 @@ class _StatusScreenState extends State<StatusScreen> {
       );
     }
 
+    final entries = dayEntries(items);
     return RefreshIndicator(
       color: color,
       onRefresh: _reload,
-      child: ListView.separated(
+      child: ListView.builder(
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-        itemCount: items.length + (page < lastPage ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (_, i) => i == items.length
-            ? Padding(
-                padding: const EdgeInsets.all(12),
-                child: Center(child: CircularProgressIndicator(color: color, strokeWidth: 2.4)),
-              )
-            : _card(items[i]),
-      ),
-    );
-  }
-
-  /// بطاقة الشحنة: شريطٌ بلون حالتها، والاسم والمبلغ، والمكان، والوقت والرقم، وشارة الحالة
-  Widget _card(RecentShipment row) {
-    final tone = StatusPill.colorOf(widget.brand, row);
-    return Tap(
-      radius: 18,
-      shadow: cardShadow,
-      onTap: () => openShipment(context, widget.brand, row.id),
-      child: Ink(
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 5,
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: tone,
-                  borderRadius: const BorderRadiusDirectional.horizontal(end: Radius.circular(4))
-                      .resolve(Directionality.of(context)),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              row.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: font(14, w8, Palette.ink, height: 1.3),
-                            ),
-                          ),
-                          StatusPill(brand: widget.brand, row: row, width: 74, height: 22, size: 10),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      if (row.place.isNotEmpty)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.location_on_outlined, size: 14, color: tone),
-                            const SizedBox(width: 3),
-                            Expanded(child: Text(row.place, style: font(12, w6, Palette.slate, height: 1.35))),
-                          ],
-                        ),
-                      // موعد المؤجّلة (docs/plan/86)
-                      if (row.until != null) ...[const SizedBox(height: 5), PostponedChip(row.until!)],
-                      // أين الراجع الآن (docs/plan/87)
-                      if (row.returnPlace != null) ReturnPlace(row.returnPlace!),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(color: Palette.eye, borderRadius: BorderRadius.circular(8)),
-                            child: Text(
-                              '#${row.number}',
-                              textDirection: TextDirection.ltr,
-                              style: font(10.5, w7, Palette.slate, height: 1.3),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              when(row.at),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: font(10.5, w5, Palette.muted, height: 1.3),
-                            ),
-                          ),
-                          Text(money(row.amount), style: display(15, w8, Palette.ink, height: 1.2)),
-                          const SizedBox(width: 3),
-                          Text('د.ع', style: font(10.5, w6, Palette.slate, height: 1.2)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        itemCount: entries.length + (page < lastPage ? 1 : 0),
+        itemBuilder: (_, i) {
+          if (i == entries.length) {
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: Center(child: CircularProgressIndicator(color: color, strokeWidth: 2.4)),
+            );
+          }
+          final e = entries[i];
+          if (e is String) return DayHeading(e);
+          final row = e as RecentShipment;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Rise(
+              delay: 40 * (i.clamp(0, 10)),
+              child: ShipmentRow(row: row, onTap: () => openShipment(context, widget.brand, row.id)),
+            ),
+          );
+        },
       ),
     );
   }

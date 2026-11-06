@@ -14,6 +14,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // خطّ قسم التاجر في «وصل» (docs/plan/123): يُقاس به كما على الهاتف
+  final kufi = FontLoader('NotoKufiArabic');
+  for (final w in [400, 500, 600, 700, 800]) {
+    kufi.addFont(Future.value(ByteData.view(File('assets/fonts/NotoKufiArabic-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await kufi.load();
 }
 
 void main() {
@@ -30,31 +36,32 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final text in [
-      // الترويسة والبحث (docs/plan/76)
+      // الترويسة: التحيّة واسم المتجر، والدعم الفني والجرس (docs/plan/79، 123)
       'أحمد',
-      'شحناتك مع',
-      'ابحث برقم الشحنة أو اسم الزبون',
-      // الرقمان بنسبةٍ حقيقيّة
+      'الدعم الفني',
+      // الإعلانات: رسومٌ بلون الشركة ما لم تضع الشركة صورها
+      'مندوبٌ يمرّ عليك',
+      // «شحناتك الآن»: الطابعة أوّلاً ثم الحالات بألوانها، و«المزيد» لكلّ الحالات
+      'شحناتك الآن',
+      'المزيد',
+      'الطابعة',
+      'بالمخزن',
+      'مع المندوب',
+      'للمعالجة',
+      'راجعة',
+      'مسلّمة',
+      // «تحتاج انتباهك»: بطاقة القرار، ورقما اليوم، وشريط المعالجة
+      'تحتاج انتباهك',
+      'الزبون لا يرد',
+      'أعد التوصيل',
+      'أجّلها',
+      'أرجعها',
       'سُلّمت اليوم',
       'إجمالي الشحنات',
       'نسبة التسليم',
-      // ما ينتظر قراره
       'عالجها',
-      // رحلة شحناتك اليوم حول «إنشاء شحنة» (docs/plan/86)
-      'رحلة شحناتك اليوم',
-      'قيد التوصيل',
-      'مسلّمة',
-      'راجع مؤكّد',
-      'إنشاء شحنة',
-      // المالية بالرصيد، وطباعة الطلبات ظاهرة، وطلب الاستلام
-      'التفاصيل المالية',
-      '1,750,000',
-      'طباعة الطلبات',
-      'مندوب استلام',
-      // «شحنات تحتاج انتباهك» مكان آخر الشحنات
-      'شحنات تحتاج انتباهك',
-      'الزبون طلب التأجيل',
-      'عرض الكل',
+      // تقويم الشحنات وأداؤها (docs/plan/87)
+      'تقويم الشحنات',
     ]) {
       await _reveal(tester, find.textContaining(text));
       expect(find.textContaining(text), findsWidgets, reason: text);
@@ -62,13 +69,50 @@ void main() {
     expect(find.text('شحناتي الأخيرة'), findsNothing);
     expect(find.text('آخر الشحنات'), findsNothing);
 
-    // «إنشاء شحنة» في الوسط يسأل: يدويّاً، أو من صورة، أو بصوتك
-    await _reveal(tester, find.text('إنشاء شحنة').first);
-    await tester.tap(find.text('إنشاء شحنة').first);
+    // «+» في وسط الشريط يسأل: بالذكاء الاصطناعي، أو بالمسح، أو بصوتك، أو يكتبها بنفسه
+    final semantics = tester.ensureSemantics();
+    await tester.tap(find.bySemanticsLabel('شحنة جديدة'));
     await tester.pumpAndSettle();
-    for (final text in ['أكتبها بنفسي', 'من صورة أو رسالة', 'بصوتي']) {
+    for (final text in ['اختر طريقة الإدخال', 'من صورة أو رسالة', 'بالمسح', 'بصوتك', 'أكتبها بنفسي']) {
       expect(find.text(text), findsOneWidget, reason: text);
     }
+    // ويُغلق كما فُتح
+    await tester.tap(find.bySemanticsLabel('إغلاق').last);
+    await tester.pumpAndSettle();
+    expect(find.text('اختر طريقة الإدخال'), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('قارئ الشاشة يفعّل الزرّ الأوسط والشريط وخانات الرئيسية وصفّ الشحنة', (tester) async {
+    tester.view.physicalSize = const Size(393 * 3, 849 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(const CompanyApp(signedIn: true));
+    await tester.pumpAndSettle();
+
+    // ما يفعله TalkBack بلمستين: فعل «tap» على العقدة نفسها، لا لمسةٌ على مكانها
+    tester.semantics.tap(find.semantics.byLabel('شحنة جديدة'));
+    await tester.pumpAndSettle();
+    expect(find.text('اختر طريقة الإدخال'), findsOneWidget);
+    tester.semantics.tap(find.semantics.byLabel('إغلاق').last);
+    await tester.pumpAndSettle();
+    expect(find.text('اختر طريقة الإدخال'), findsNothing);
+
+    tester.semantics.tap(find.semantics.byLabel('مع المندوب: 28'));
+    await tester.pumpAndSettle();
+    expect(find.text('خرجت مع المندوب في طريقها إلى زبونها'), findsOneWidget);
+    // زرّ الرجوع المربّع يُقرأ بتلميحه
+    tester.semantics.tap(find.semantics.byPredicate((n) => n.tooltip == 'رجوع'));
+    await tester.pumpAndSettle();
+
+    tester.semantics.tap(find.semantics.byLabel('الشحنات'));
+    await tester.pumpAndSettle();
+    tester.semantics.tap(find.semantics.byLabel(RegExp('^زهراء كريم')));
+    await tester.pumpAndSettle();
+    expect(find.text('مسار الشحنة'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('حالة الشحنات: كلّ حالةٍ قائمتها وحدها، والجديدة ليست قيد التوصيل، والدعم في الترويسة', (tester) async {
@@ -83,13 +127,14 @@ void main() {
     expect(find.byTooltip('الدعم الفني'), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
 
-    // «قيد التوصيل»: ما استلمه المندوب وحده، لا الجديدة التي في «الطابعة»
-    await _reveal(tester, find.text('قيد التوصيل').first);
-    await tester.tap(find.text('قيد التوصيل').first);
+    // «مع المندوب»: ما خرج للتوصيل وحده، لا الجديدة التي في «الطابعة»
+    await _reveal(tester, find.text('مع المندوب').first);
+    await tester.tap(find.text('مع المندوب').first);
     await tester.pumpAndSettle();
-    expect(find.text('استلمها المندوب، وهي في طريقها إلى زبائنك'), findsOneWidget);
+    expect(find.text('خرجت مع المندوب في طريقها إلى زبونها'), findsOneWidget);
     expect(find.text('علي حسين'), findsOneWidget);
-    expect(find.text('كرار عادل'), findsOneWidget);
+    // وما بالمخزن له خانته
+    expect(find.text('كرار عادل'), findsNothing);
     expect(find.text('مريم سعد'), findsNothing);
     expect(find.text('زهراء كريم'), findsNothing);
 
@@ -98,9 +143,13 @@ void main() {
     await tester.tap(find.byTooltip('رجوع'));
     await tester.pumpAndSettle();
 
-    // «تحتاج انتباهك»: المؤجّلة بشارتها الصفراء، وموعدها (docs/plan/86)
-    await _reveal(tester, find.text('تحتاج انتباهك').first);
-    await tester.tap(find.text('تحتاج انتباهك').first);
+    // «المزيد» يفتح الحالات كلّها، و«مؤجلة» بشارتها الصفراء وموعدها (docs/plan/86، 123)
+    await tester.scrollUntilVisible(find.text('المزيد'), -200, scrollable: _vertical);
+    await tester.tap(find.text('المزيد'));
+    await tester.pumpAndSettle();
+    expect(find.text('رحلة شحناتك'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('مؤجلة'), 150, scrollable: _vertical);
+    await tester.tap(find.text('مؤجلة'));
     await tester.pumpAndSettle();
     expect(find.text('زهراء كريم'), findsOneWidget);
     expect(find.text('علي حسين'), findsNothing);
@@ -114,7 +163,7 @@ void main() {
 
     await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('الإشعارات'));
+    await tester.tap(find.byTooltip('الإشعارات، فيها جديد'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('اختيار الإشعارات'));
     await tester.pumpAndSettle();
@@ -151,7 +200,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('شحناتي: الشرائح والبحث وفتح الشحنة', (tester) async {
+  testWidgets('الشحنات: الشرائح والبحث وفتح الشحنة', (tester) async {
     tester.view.physicalSize = const Size(393 * 3, 849 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -159,17 +208,14 @@ void main() {
     await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
 
-    // بحث الرئيسية يفتح «شحناتي» والمؤشّر في خانة البحث
-    await tester.tap(find.textContaining('ابحث برقم الشحنة أو اسم الزبون'));
+    // «سُلّمت اليوم» في الرئيسية تفتح «الشحنات» على شريحة المسلَّمة
+    await _reveal(tester, find.text('سُلّمت اليوم'));
+    // فوق الشريط السفلي لا تحته
+    await tester.ensureVisible(find.text('سُلّمت اليوم'));
     await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(_hint('ابحث بالاسم أو الهاتف أو رقم الوصل')).focusNode!.hasFocus, isTrue);
-    await tester.tap(find.text('الرئيسية'));
+    await tester.tap(find.text('سُلّمت اليوم'));
     await tester.pumpAndSettle();
-
-    // «سُلّمت اليوم» في الرئيسية تفتح «شحناتي» على شريحة المسلَّمة
-    await tester.tap(find.text('سُلّمت اليوم').first);
-    await tester.pumpAndSettle();
-    expect(find.text('شحناتي'), findsWidgets);
+    expect(find.text('الشحنات'), findsWidgets);
     expect(find.text('محمد علي'), findsOneWidget);
     expect(find.text('نور خالد'), findsNothing);
 
@@ -206,10 +252,11 @@ void main() {
     await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
 
-    // «إنشاء شحنة» في الرئيسية ثم «أكتبها بنفسي» يفتح النموذج على محافظة التاجر
-    await _reveal(tester, find.text('إنشاء شحنة').first);
-    await tester.tap(find.text('إنشاء شحنة').first);
+    // «+» في وسط الشريط ثم «أكتبها بنفسي» يفتح النموذج على محافظة التاجر
+    final semantics = tester.ensureSemantics();
+    await tester.tap(find.bySemanticsLabel('شحنة جديدة'));
     await tester.pumpAndSettle();
+    semantics.dispose();
     await tester.tap(find.text('أكتبها بنفسي'));
     await tester.pumpAndSettle();
     expect(find.text('بغداد'), findsOneWidget);
@@ -243,7 +290,7 @@ void main() {
     expect(_value(tester, '07xxxxxxxxx'), '');
   });
 
-  testWidgets('الزرّ الأوسط: يمسح الوصل المطبوع ثم يُكتب الطلب عليه', (tester) async {
+  testWidgets('الزرّ الأوسط: «بالمسح» يمسح الوصل المطبوع ثم يُكتب الطلب عليه', (tester) async {
     tester.view.physicalSize = const Size(393 * 3, 849 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -251,8 +298,12 @@ void main() {
     await tester.pumpWidget(const CompanyApp(signedIn: true));
     await tester.pumpAndSettle();
 
-    // زرّ المسح الأحمر المرفوع في وسط الشريط السفلي يفتح الكاميرا
-    await tester.tap(find.byTooltip('امسح الوصل أو أنشئ شحنة'));
+    // «+» المرفوع في وسط الشريط ثم «بالمسح» يفتح الكاميرا
+    final semantics = tester.ensureSemantics();
+    await tester.tap(find.bySemanticsLabel('شحنة جديدة'));
+    await tester.pumpAndSettle();
+    semantics.dispose();
+    await tester.tap(find.text('بالمسح'));
     await tester.pumpAndSettle();
     expect(find.text('امسح الوصل المطبوع'), findsOneWidget);
 

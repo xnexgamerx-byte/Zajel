@@ -7,7 +7,10 @@ import '../core/api.dart';
 import '../core/config.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../core/seen.dart';
+import '../widgets/art.dart';
 import '../widgets/bits.dart';
+import '../widgets/design.dart';
 import '../widgets/page.dart';
 import 'create_screen.dart';
 import 'finance_screen.dart';
@@ -53,13 +56,32 @@ class _ShellState extends State<Shell> {
     'more',
   ];
 
-  void _go(String key) => setState(() => tab = key);
+  void _go(String key) => setState(() => (tab = key, picker = false));
+
+  /// «+» في الوسط مفتوحة: طرق الإدخال فوق الشريط (docs/plan/123)
+  bool picker = false;
+
+  /// ما تفتحه الشركة من الإدخال: القراءة بالذكاء الاصطناعي والصوت، والوصولات المطبوعة
+  CreateForm? form;
 
   @override
   void initState() {
     super.initState();
     Access.changed.addListener(_access);
     shipmentsChanged.addListener(_changed);
+    // ما فتحه التاجر من شحناته على هذا الهاتف (docs/plan/123)
+    Seen.load();
+    _loadForm();
+  }
+
+  Future<void> _loadForm() async {
+    if (!Access.can('create')) return;
+    try {
+      final f = await Api.instance.createForm();
+      if (mounted) setState(() => form = f);
+    } on ApiError {
+      // تظهر الطرق كلّها، وكلٌّ يفحص حين يُضغط
+    }
   }
 
   /// حُذفت شحنةٌ من تعديلها (docs/plan/117): تُعاد الرئيسية و«شحناتي»
@@ -273,155 +295,456 @@ class _ShellState extends State<Shell> {
     final tabs = _tabs;
     final pages = [for (final key in tabs) KeyedSubtree(key: ValueKey(key), child: all[key]!())];
 
-    // زرّ رجوع الهاتف: من أيّ صفحةٍ إلى الرئيسية، ومن الرئيسية يخرج
+    // زرّ رجوع الهاتف: يغلق خيارات «+» أوّلاً، ومن أيّ صفحةٍ إلى الرئيسية، ومن الرئيسية يخرج
     return PopScope(
-      canPop: tab == 'home',
+      canPop: tab == 'home' && !picker,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _go('home');
+        if (didPop) return;
+        if (picker) {
+          setState(() => picker = false);
+        } else {
+          _go('home');
+        }
       },
       child: ShellNav(home: () => _go('home'), child: _scaffold(tabs, pages)),
     );
   }
 
+  /// زرّ الوسط (docs/plan/123): «+» لمن يُدخل الشحنات يفتح طرق الإدخال، والمسح لموظّفٍ يستلم الأوراق وحدها
+  bool get _creates => Access.can('create');
+  bool get _center => _creates || Access.opens('scan');
+
+  void _centerTap() {
+    if (_creates) {
+      setState(() => picker = !picker);
+    } else {
+      _scan();
+    }
+  }
+
   Widget _scaffold(List<String> tabs, List<Widget> pages) {
-    // زرّ الوسط للمسح: لإدخال شحنةٍ من وصلها، أو لاستلام ورقة الحساب والراجع
     final nav = [
       for (final key in tabs)
         if (key != 'create') key,
     ];
-    if (Access.opens('scan')) nav.insert(nav.length > 2 ? 2 : nav.length - 1, 'scan');
+    if (_center) nav.insert(nav.length > 2 ? 2 : nav.length - 1, 'center');
     return Scaffold(
       extendBody: true,
       body: Stack(
         children: [
           IndexedStack(index: math.max(0, tabs.indexOf(tab)), children: pages),
           if (AppConfig.demo) const _DemoStatusBar(),
+          if (picker)
+            _Picker(
+              brand: brand,
+              form: form,
+              onClose: () => setState(() => picker = false),
+              onPick: (way) {
+                setState(() => picker = false);
+                switch (way) {
+                  case 'ai':
+                    _read(voice: false);
+                  case 'voice':
+                    _read(voice: true);
+                  case 'scan':
+                    _scan();
+                  default:
+                    _go('create');
+                }
+              },
+            ),
         ],
       ),
       bottomNavigationBar: _NavBar(
         brand: brand,
         items: nav,
-        active: tab == 'create' ? 'scan' : tab,
-        onTap: (key) => key == 'scan' ? _scan() : _go(key),
+        active: tab == 'create' ? 'center' : tab,
+        open: picker,
+        scanOnly: !_creates,
+        onTap: (key) => key == 'center' ? _centerTap() : _go(key),
       ),
     );
   }
 }
 
-/// الشريط السفلي (docs/plan/76): أبيض بحافّةٍ علويّة مدوّرة، والصفحة المفتوحة على خلفيةٍ ورديّة فاتحة.
-/// وفي وسطه زرّ المسح الأحمر مرفوعاً: يمسح الوصل المطبوع ويُكتب الطلب عليه، أو يفتح «طلب جديد».
+/// الشريط السفلي في «وصل» (docs/plan/123): أبيض بخطٍّ رفيعٍ فوقه، ونقطةٌ فاتحةٌ بلون الشركة تنزلق تحت الصفحة
+/// المفتوحة، وفي وسطه «+» مرفوعاً — يدور حين تُفتح طرق الإدخال ويصير داكناً.
 class _NavBar extends StatelessWidget {
-  const _NavBar({required this.brand, required this.items, required this.active, required this.onTap});
+  const _NavBar({
+    required this.brand,
+    required this.items,
+    required this.active,
+    required this.open,
+    required this.scanOnly,
+    required this.onTap,
+  });
 
   final Brand brand;
 
   /// ما يفتحه الحساب منها، بترتيبها (docs/plan/87)
   final List<String> items;
   final String active;
+
+  /// خيارات «+» مفتوحة
+  final bool open;
+
+  /// موظّفٌ لا يُدخل الشحنات: الزرّ للمسح وحده
+  final bool scanOnly;
   final ValueChanged<String> onTap;
 
   static const _items = {
-    'home': ('الرئيسية', Icons.home_outlined, Icons.home_rounded),
-    'shipments': ('شحناتي', Icons.inventory_2_outlined, Icons.inventory_2_rounded),
-    'scan': ('امسح وأنشئ', Icons.qr_code_scanner_rounded, Icons.qr_code_scanner_rounded),
-    'finance': ('المالية', Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded),
-    'more': ('المزيد', Icons.more_horiz_rounded, Icons.more_horiz_rounded),
+    'home': ('الرئيسية', Icons.home_outlined),
+    'shipments': ('الشحنات', Icons.inventory_2_outlined),
+    'finance': ('المالية', Icons.account_balance_wallet_outlined),
+    'more': ('حسابي', Icons.person_outline_rounded),
   };
 
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final at = items.indexOf(active);
     return Container(
-      padding: EdgeInsets.fromLTRB(6, 6, 6, bottom > 0 ? bottom : 8),
+      padding: EdgeInsets.fromLTRB(8, 6, 8, bottom > 0 ? bottom : 18),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(top: BorderSide(color: Palette.line)),
-        boxShadow: [BoxShadow(color: Color(0x2226181A), blurRadius: 28, spreadRadius: -14, offset: Offset(0, -10))],
       ),
       child: SizedBox(
-        height: 54,
-        child: Row(children: [for (final key in items) Expanded(child: _item(key))]),
+        height: 56,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final w = box.maxWidth / items.length;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // النقطة الفاتحة تحت المفتوحة، تنزلق إلى ما يُضغط
+                if (at >= 0 && active != 'center')
+                  AnimatedPositionedDirectional(
+                    duration: const Duration(milliseconds: 450),
+                    curve: const Cubic(.2, .8, .2, 1),
+                    start: at * w + (w - 56) / 2,
+                    top: 0,
+                    child: Container(
+                      width: 56,
+                      height: 32,
+                      decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(16)),
+                    ),
+                  ),
+                Row(children: [for (final key in items) Expanded(child: _item(key))]),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _item(String key) {
-    final (label, icon, filled) = _items[key]!;
-    final active = key == this.active;
-    final color = active ? brand.main : Palette.slate;
-
-    // زرّ المسح في الوسط: دائرةٌ حمراء مرفوعة بحلقةٍ بيضاء — لا يضيع بين الأيقونات
-    if (key == 'scan') {
-      return Tooltip(
-        message: 'امسح الوصل أو أنشئ شحنة',
-        child: GestureDetector(
-          onTap: () => onTap(key),
-          behavior: HitTestBehavior.opaque,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.topCenter,
-            children: [
-              Positioned(
-                top: -24,
-                child: Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: brand.hero,
-                    border: Border.all(color: Colors.white, width: 4),
-                    boxShadow: brand.glow(.55),
-                  ),
-                  child: Icon(icon, size: 23, color: Colors.white),
-                ),
-              ),
-              Positioned(
-                bottom: 2,
-                left: 0,
-                right: 0,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(label, maxLines: 1, style: font(10.5, w8, Palette.ink, height: 1)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Tooltip(
-      message: label,
+    if (key == 'center') return _plus();
+    final (label, icon) = _items[key]!;
+    final on = key == active;
+    final color = on ? brand.main : Palette.muted;
+    return Semantics(
+      selected: on,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      onTap: () => onTap(key),
       child: GestureDetector(
         onTap: () => onTap(key),
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          decoration: BoxDecoration(
-            color: active ? brand.soft : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(active ? filled : icon, size: 21, color: color),
-              const SizedBox(height: 3),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(label, maxLines: 1, style: font(10.5, active ? w8 : w6, color, height: 1)),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 32,
+              child: Center(child: Icon(icon, size: 22, color: color)),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 300),
+                style: kf(12, color, bold: true, height: 1.3),
+                child: Text(label, maxLines: 1),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  /// «+» المرفوع: مربّعٌ بلون الشركة بحافّةٍ بيضاء، يدور ربع دورةٍ ويغمق حين تُفتح الخيارات
+  Widget _plus() => Semantics(
+    button: true,
+    label: scanOnly ? 'امسح الوصل أو الإيصال' : (open ? 'إغلاق' : 'شحنة جديدة'),
+    expanded: scanOnly ? null : open,
+    excludeSemantics: true,
+    onTap: () => onTap('center'),
+    child: GestureDetector(
+      onTap: () => onTap('center'),
+      behavior: HitTestBehavior.opaque,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned(
+            top: -22,
+            child: AnimatedRotation(
+              turns: open ? .125 : 0,
+              duration: const Duration(milliseconds: 400),
+              curve: const Cubic(.2, .9, .3, 1.3),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: open ? Palette.ink : brand.main,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white, width: 4),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x731C1416), blurRadius: 20, spreadRadius: -8, offset: Offset(0, 10)),
+                  ],
+                ),
+                child: Icon(
+                  scanOnly ? Icons.qr_code_scanner_rounded : Icons.add_rounded,
+                  size: 26,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
-/// «حسابي» (تصميم ز): بطاقة المتجر، ثم الأدوات كلّها — أوّلها «كشوفات الرواجع» و«استلام راجع» بمسح
-/// الإيصال (docs/plan/69) — والخروج.
+/// طرق إدخال الشحنة (docs/plan/123): فوق الشريط بستارةٍ داكنة — من صورة أو رسالة بالذكاء الاصطناعي، وبالمسح،
+/// وبالصوت، ويدوياً. ما لم تفتحه الشركة لا يظهر (القراءة، والوصولات المطبوعة)
+class _Picker extends StatelessWidget {
+  const _Picker({required this.brand, required this.form, required this.onClose, required this.onPick});
+
+  final Brand brand;
+
+  /// ما تفتحه الشركة — وقبل أن يصل تظهر كلّها، وكلٌّ يفحص حين يُضغط
+  final CreateForm? form;
+  final VoidCallback onClose;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final reading = form?.reading ?? true;
+    final waybills = form?.waybills ?? true;
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Semantics(
+              button: true,
+              label: 'إغلاق',
+              child: GestureDetector(
+                onTap: onClose,
+                child: const Rise(dy: 0, child: ColoredBox(color: Color(0x801C1416))),
+              ),
+            ),
+          ),
+          PositionedDirectional(
+            start: 12,
+            end: 12,
+            bottom: bottom + 12,
+            child: Rise(
+              dy: 28,
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                elevation: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x8C1C1416), blurRadius: 60, spreadRadius: -24, offset: Offset(0, 30)),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('شحنة جديدة', style: kf(16, Palette.ink, bold: true)),
+                            Text('اختر طريقة الإدخال', style: kf(12, Palette.muted)),
+                          ],
+                        ),
+                      ),
+                      if (reading) Rise(delay: 60, child: _ai()),
+                      if (reading || waybills) ...[
+                        const SizedBox(height: 10),
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (waybills)
+                                Expanded(
+                                  child: Rise(
+                                    delay: 120,
+                                    child: _small('scan', 'بالمسح', 'امسح وصلاً مطبوعاً', () => onPick('scan')),
+                                  ),
+                                ),
+                              if (waybills && reading) const SizedBox(width: 10),
+                              if (reading)
+                                Expanded(
+                                  child: Rise(
+                                    delay: 170,
+                                    child: _small('voice', 'بصوتك', 'قل الطلب ويُكتب', () => onPick('voice')),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Rise(delay: 220, child: _manual()),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ai() => Tap(
+    radius: 22,
+    onTap: () => onPick('ai'),
+    child: DeepCard(
+      brand: brand,
+      radius: 22,
+      padding: const EdgeInsets.all(16),
+      child: SizedBox(
+        height: 100,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            PositionedDirectional(end: -8, bottom: -10, child: Art('ai', brand: brand, width: 128, height: 116)),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 186),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 24,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .16),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.auto_awesome_rounded, size: 14, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text('بالذكاء الاصطناعي', style: kf(12, Colors.white, bold: true, height: 1)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('من صورة أو رسالة', style: kf(16, Colors.white, bold: true)),
+                    Text(
+                      'صوّر الطلب أو لقطة المحادثة، وتتعبّى الحقول وحدها',
+                      style: kf(12, Colors.white.withValues(alpha: .86)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _small(String art, String title, String sub, VoidCallback onTap) => Tap(
+    radius: 22,
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Palette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 80,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(16)),
+            child: Art(art, brand: brand, width: 88, height: art == 'scan' ? 70 : 64),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: kf(14, Palette.ink, bold: true)),
+                Text(sub, style: kf(12, Palette.muted)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _manual() => Tap(
+    radius: 20,
+    onTap: () => onPick('manual'),
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 64),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Palette.line),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
+            child: Icon(Icons.edit_outlined, size: 20, color: brand.main),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('أكتبها بنفسي', style: kf(14, Palette.ink, bold: true)),
+                Text('الاسم والهاتف والعنوان والمبلغ', style: kf(12, Palette.muted)),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Palette.muted),
+        ],
+      ),
+    ),
+  );
+}
+
+/// «حسابي» في «وصل» (docs/plan/123): بطاقة المتجر الداكنة، ثم «كشوفات الرواجع» و«استلام راجع بالباركود» برسميهما
+/// (docs/plan/69)، ثم الأدوات بطاقاتٍ في عمودين، والخروج.
 class _Account extends StatefulWidget {
   const _Account({
     required this.brand,
@@ -445,22 +768,20 @@ class _AccountState extends State<_Account> {
   RequestsPage? returns;
 
   /// الأدوات بما يفتحه الحساب (docs/plan/87)، و«موظّفو المتجر» لصاحبه
-  static List<(String, IconData, String)> get _items => [
+  static List<(String, String, IconData, String)> get _items => [
     for (final item in _all)
-      if (Access.opens(item.$3) && (item.$3 != 'staff' || Access.staffFeature)) item,
+      if (Access.opens(item.$4) && (item.$4 != 'staff' || Access.staffFeature)) item,
   ];
 
   static const _all = [
-    ('موظّفو المتجر', Icons.groups_2_rounded, 'staff'),
-    ('كشوفات الرواجع', Icons.assignment_return_rounded, 'returns'),
-    ('استلام راجع بالباركود', Icons.qr_code_scanner_rounded, 'receive'),
-    ('الطابعة — وصولات الطلبات الجديدة', Icons.print_rounded, 'labels'),
-    ('للمعالجة', Icons.schedule_rounded, 'processing'),
-    ('طلبات الاستلام', Icons.hail_rounded, 'pickups'),
-    ('طلباتي', Icons.assignment_outlined, 'requests'),
-    ('الدعم', Icons.headset_mic_outlined, 'support'),
-    ('دفاتر وصولاتٍ فارغة للطباعة', Icons.receipt_long_outlined, 'waybills'),
-    ('رفع شحنات من ملف', Icons.upload_file_outlined, 'import'),
+    ('موظّفو المتجر', '', Icons.groups_2_outlined, 'staff'),
+    ('الطابعة', 'وصولات الطلبات الجديدة', Icons.print_outlined, 'labels'),
+    ('للمعالجة', '', Icons.schedule_rounded, 'processing'),
+    ('طلبات الاستلام', '', Icons.hail_rounded, 'pickups'),
+    ('طلباتي', '', Icons.assignment_outlined, 'requests'),
+    ('الدعم', '', Icons.headset_mic_outlined, 'support'),
+    ('دفاتر الوصولات', 'فارغة للطباعة', Icons.receipt_long_outlined, 'waybills'),
+    ('رفع شحنات من ملف', '', Icons.upload_file_outlined, 'import'),
   ];
 
   Brand get brand => widget.brand;
@@ -499,99 +820,201 @@ class _AccountState extends State<_Account> {
     final name = session?.name ?? '';
     final top = MediaQuery.paddingOf(context).top;
     final waiting = returns?.batches.where((b) => b.received == null).length ?? 0;
+    final items = _items;
+    final hasReturns = Access.opens('returns');
+    final hasReceive = Access.opens('receive');
     return RefreshIndicator(
       color: brand.main,
       onRefresh: _load,
       child: ListView(
         // تحت شريط الحالة؛ وفي نسخة العرض على الويب تحت شريط حالةٍ مرسوم
-        padding: EdgeInsets.fromLTRB(16, top > 0 ? top + 6 : 34, 16, 130),
+        padding: EdgeInsets.fromLTRB(16, top > 0 ? top + 8 : 36, 16, 130),
         children: [
-          Text('المزيد', style: display(20, w8, Palette.ink, height: 1.3)),
-          const SizedBox(height: 10),
-          WhiteCard(
-            radius: 24,
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
-                  child: Text(
-                    name.isEmpty ? '؟' : name.characters.first,
-                    style: display(19, w8, brand.main, height: 1),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: display(15.5, w8, Palette.ink)),
-                      if (session != null) Text(session.companyName, style: font(12.5, w6, Palette.muted)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (AppConfig.demo) ...[const SizedBox(height: 8), const DemoNote()],
-          const SizedBox(height: 12),
-          WhiteCard(
-            radius: 24,
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            // ListTile يرسم ضغطته على Material — والبطاقة لونٌ فوقه
-            child: Material(
-              type: MaterialType.transparency,
-              child: Column(
+          Text('حسابي', style: kf(24, Palette.ink, bold: true)),
+          const SizedBox(height: 16),
+          Rise(
+            delay: 60,
+            child: DeepCard(
+              brand: brand,
+              child: Row(
                 children: [
-                  for (final (i, (label, icon, screen)) in _items.indexed) ...[
-                    if (i > 0) const Divider(height: 1, indent: 60, color: Palette.line),
-                    ListTile(
-                      onTap: () => screen == 'receive' ? _scan() : widget.onOpen(screen),
-                      dense: true,
-                      visualDensity: VisualDensity.compact,
-                      leading: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
-                        child: Icon(icon, size: 17, color: brand.main),
-                      ),
-                      title: Text(label, style: font(13, w7, Palette.ink)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // ما ينتظر استلامه من الرواجع
-                          if (screen == 'returns' && waiting > 0) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                              decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(20)),
-                              child: Text('$waiting بانتظارك', style: font(11, w8, Colors.white)),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          const Chev(size: 9, stroke: 1.6, color: Palette.muted),
-                        ],
-                      ),
+                  Container(
+                    width: 56,
+                    height: 56,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+                    child: Text(name.isEmpty ? '؟' : name.characters.first, style: kf(24, brand.main, bold: true)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: kf(16, Colors.white, bold: true),
+                        ),
+                        if (session != null)
+                          Text(session.companyName, style: kf(12, Colors.white.withValues(alpha: .85))),
+                      ],
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: widget.onLogout,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-              side: BorderSide(color: brand.border),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          if (AppConfig.demo) ...[const SizedBox(height: 8), const DemoNote()],
+          if (hasReturns || hasReceive) ...[
+            const SizedBox(height: 16),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (hasReturns)
+                    Expanded(
+                      child: Rise(
+                        delay: 120,
+                        child: _bigCard(
+                          art: 'returns',
+                          color: Tone.red.tint,
+                          title: 'كشوفات الرواجع',
+                          line: waiting > 0 ? '${money(waiting)} بانتظارك' : 'لا شيء بانتظارك',
+                          lineColor: waiting > 0 ? brand.main : Palette.slate,
+                          onTap: () => widget.onOpen('returns'),
+                        ),
+                      ),
+                    ),
+                  if (hasReturns && hasReceive) const SizedBox(width: 12),
+                  if (hasReceive)
+                    Expanded(
+                      child: Rise(
+                        delay: 170,
+                        child: _bigCard(
+                          art: 'scan',
+                          color: brand.soft,
+                          title: 'استلام راجع بالباركود',
+                          line: 'امسح إيصال الراجع',
+                          lineColor: Palette.slate,
+                          onTap: _scan,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-            icon: Icon(Icons.logout_rounded, color: brand.deep),
-            label: Text('تسجيل الخروج', style: font(14, w7, brand.deep)),
+          ],
+          const SizedBox(height: 12),
+          for (var i = 0; i < items.length; i += 2) ...[
+            if (i > 0) const SizedBox(height: 10),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Rise(delay: 240 + i * 40, child: _tool(items[i], waiting)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: i + 1 < items.length
+                        ? Rise(delay: 280 + i * 40, child: _tool(items[i + 1], waiting))
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          Tap(
+            radius: 16,
+            onTap: widget.onLogout,
+            child: Container(
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: brand.border),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.logout_rounded, size: 20, color: brand.main),
+                  const SizedBox(width: 8),
+                  Text('تسجيل الخروج', style: kf(14, brand.main, bold: true)),
+                ],
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// بطاقةٌ كبيرة برسمها في أعلاها: كشوفات الرواجع، واستلام الراجع بالمسح
+  Widget _bigCard({
+    required String art,
+    required Color color,
+    required String title,
+    required String line,
+    required Color lineColor,
+    required VoidCallback onTap,
+  }) => Tap(
+    radius: 24,
+    onTap: onTap,
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 176),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(24)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: Rise(delay: 300, scale: true, child: Art(art, brand: brand, width: 88, height: 77)),
+          ),
+          const SizedBox(height: 8),
+          Text(title, style: kf(14, Palette.ink, bold: true)),
+          Text(line, style: kf(12, lineColor, bold: lineColor != Palette.slate)),
+        ],
+      ),
+    ),
+  );
+
+  Widget _tool((String, String, IconData, String) item, int waiting) {
+    final (label, sub, icon, screen) = item;
+    return Tap(
+      radius: 20,
+      shadow: cardShadow,
+      onTap: () => widget.onOpen(screen),
+      child: Ink(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
+                child: Icon(icon, size: 20, color: brand.main),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: kf(14, Palette.ink, bold: true, height: 1.4)),
+                    if (sub.isNotEmpty) Text(sub, style: kf(12, Palette.muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

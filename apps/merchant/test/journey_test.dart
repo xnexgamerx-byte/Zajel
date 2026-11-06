@@ -18,6 +18,12 @@ Future<void> _loadCairo() async {
     loader.addFont(Future.value(ByteData.view(File('assets/fonts/Cairo-$w.ttf').readAsBytesSync().buffer)));
   }
   await loader.load();
+  // خطّ قسم التاجر في «وصل» (docs/plan/123): يُقاس به كما على الهاتف
+  final kufi = FontLoader('NotoKufiArabic');
+  for (final w in [400, 500, 600, 700, 800]) {
+    kufi.addFont(Future.value(ByteData.view(File('assets/fonts/NotoKufiArabic-$w.ttf').readAsBytesSync().buffer)));
+  }
+  await kufi.load();
 }
 
 final _vertical = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first;
@@ -40,14 +46,28 @@ Future<void> _app(WidgetTester tester) async {
 void main() {
   setUpAll(_loadCairo);
 
-  testWidgets('الرئيسية: ثلاثٌ تحتاج انتباهك، وتقويم الشحنات بأدائها', (tester) async {
+  testWidgets('الرئيسية: رزمة القرار تقرّر من مكانها، وتقويم الشحنات بأدائها', (tester) async {
     await _app(tester);
 
-    await _reveal(tester, find.textContaining('نبأ سالم'));
-    expect(find.textContaining('نبأ سالم'), findsOneWidget);
-    expect(find.textContaining('رسل حيدر'), findsNothing, reason: 'الرابعة في «عرض الكل»');
+    // «تحتاج انتباهك» (docs/plan/123): أوّل شحنةٍ لم تُسلَّم بسببها، ويُقرَّر فيها من الرئيسية
+    await _reveal(tester, find.text('أجّلها'));
+    expect(find.textContaining('الزبون لا يرد'), findsOneWidget);
+    await tester.ensureVisible(find.text('أجّلها'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('أجّلها'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('غداً'));
+    await tester.pump();
+    await tester.tap(find.text('أكّد: تأجيل'));
+    await tester.pumpAndSettle();
+    expect(find.text('سُجّل قرارك: مؤجل.'), findsOneWidget);
+    // والتالية مكانها
+    expect(find.textContaining('الزبون لا يرد'), findsNothing);
+    expect(find.textContaining('الهاتف مغلق'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
     await _reveal(tester, find.text('آخر ٧ أيام'));
-    expect(find.textContaining('رسل حيدر'), findsNothing);
     expect(find.text('آخر ٧ أيام'), findsOneWidget);
     expect(find.text('شحنة أدخلتها'), findsOneWidget);
 
@@ -75,10 +95,11 @@ void main() {
     expect(find.text('عدد الشحنات'), findsOneWidget);
   });
 
-  testWidgets('رحلة شحناتك اليوم: كلّ الحالات في خاناتٍ بحلقاتها، وكلٌّ تفتح قائمتها', (tester) async {
+  testWidgets('رحلة شحناتك: كلّ الحالات في خاناتٍ بحلقاتها، وكلٌّ تفتح قائمتها', (tester) async {
     await _app(tester);
 
-    await tester.tap(find.text('كل الحالات'));
+    // «المزيد» بجانب «شحناتك الآن» (docs/plan/123)
+    await tester.tap(find.text('المزيد'));
     await tester.pumpAndSettle();
     for (final text in [
       'كل الشحنات',
@@ -100,19 +121,23 @@ void main() {
     expect(find.text('علي حسين'), findsNothing);
   });
 
-  testWidgets('شحناتي: «بالمخزن» شريحةٌ وحدها، وتحت كلّ راجعٍ مكانه', (tester) async {
+  testWidgets('الشحنات: «بالمخزن» شريحةٌ وحدها، وتحت كلّ راجعٍ مكانه', (tester) async {
     await _app(tester);
 
-    await tester.tap(find.text('شحناتي').last);
+    await tester.tap(find.text('الشحنات').last);
     await tester.pumpAndSettle();
+    // شرائح «الشحنات» تنزلق جانباً (من اليمين)
+    final chips = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.left).first;
+    await tester.scrollUntilVisible(find.textContaining('بالمخزن'), 120, scrollable: chips);
     await tester.tap(find.textContaining('بالمخزن').first);
     await tester.pumpAndSettle();
     expect(find.text('كرار عادل'), findsOneWidget);
     expect(find.text('علي حسين'), findsNothing);
 
-    // شرائح «شحناتي» تنزلق جانباً: «تحتاج انتباهك» بعد «بالمخزن»
-    final chips = find.ancestor(of: find.textContaining('بالمخزن').first, matching: find.byType(Scrollable)).first;
+    // و«تحتاج انتباهك» بعد «بالمخزن»
     await tester.scrollUntilVisible(find.textContaining('تحتاج انتباهك'), 120, scrollable: chips);
+    await tester.ensureVisible(find.textContaining('تحتاج انتباهك').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.textContaining('تحتاج انتباهك').first);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('راجع في المخزن'), 150, scrollable: _vertical);
@@ -123,7 +148,7 @@ void main() {
   testWidgets('موظّفو المتجر: يضيف صاحب المتجر محاسباً بصلاحياته', (tester) async {
     await _app(tester);
 
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.text('حسابي'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('موظّفو المتجر'));
     await tester.pumpAndSettle();
@@ -175,21 +200,23 @@ void main() {
     expect(find.text('1,750,000'), findsNothing);
     expect(find.text('عالجها'), findsNothing);
     expect(find.byTooltip('الدعم الفني'), findsNothing);
-    expect(find.text('طباعة الطلبات'), findsOneWidget);
-    expect(find.text('شحناتي'), findsWidgets);
+    // الطابعة أوّل خانات «شحناتك الآن»، و«الشحنات» في الشريط
+    expect(find.text('الطابعة'), findsOneWidget);
+    expect(find.text('للمعالجة'), findsNothing);
+    expect(find.text('الشحنات'), findsWidgets);
 
-    await tester.tap(find.text('المزيد'));
+    await tester.tap(find.text('حسابي'));
     await tester.pumpAndSettle();
     for (final hidden in ['موظّفو المتجر', 'كشوفات الرواجع', 'استلام راجع بالباركود', 'الدعم', 'طلباتي', 'للمعالجة']) {
       expect(find.text(hidden), findsNothing, reason: hidden);
     }
-    expect(find.text('الطابعة — وصولات الطلبات الجديدة'), findsOneWidget);
+    expect(find.text('الطابعة'), findsOneWidget);
     expect(find.text('طلبات الاستلام'), findsOneWidget);
 
-    // محاسبٌ بلا شحنات: لا «شحناتي» ولا أرقامها
+    // محاسبٌ بلا شحنات: لا «الشحنات» ولا أرقامها
     Access.set(['finance'], staff: true);
     await tester.pumpAndSettle();
-    expect(find.text('شحناتي'), findsNothing);
+    expect(find.text('الشحنات'), findsNothing);
     expect(find.text('المالية'), findsOneWidget);
   });
 

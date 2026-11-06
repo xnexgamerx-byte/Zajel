@@ -355,7 +355,9 @@ class MerchantApiTest extends TestCase
 
         // المؤجّلة بموعدها في القائمة والشحنة
         $this->withToken($token)->getJson($this->api('/merchant/shipments?filter=attention'))->assertOk()
-            ->assertJsonPath('data.0.until', $at->toIso8601String());
+            ->assertJsonPath('data.0.until', $at->toIso8601String())
+            // ويوم إدخالها: تُجمَّع به القائمة في التطبيق (docs/plan/123)
+            ->assertJsonPath('data.0.created', $postponed->refresh()->created_at->toIso8601String());
         $this->withToken($token)->getJson($this->api("/merchant/shipments/{$postponed->id}"))->assertOk()
             ->assertJsonPath('until', $at->toIso8601String());
         $this->withToken($token)->getJson($this->api("/merchant/shipments/{$baghdad->id}"))->assertOk()

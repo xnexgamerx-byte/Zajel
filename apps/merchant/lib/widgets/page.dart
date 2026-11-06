@@ -4,6 +4,49 @@ import 'package:flutter/services.dart';
 import '../core/palette.dart';
 import 'bits.dart';
 
+/// زرّ «وصل» المربّع (docs/plan/123): ٤٤ بزوايا ١٤ وحدٍّ رفيع، أبيض — للرجوع والإغلاق والأيقونات في الرؤوس
+class SquareButton extends StatelessWidget {
+  const SquareButton({super.key, required this.tip, required this.onTap, required this.child, this.onDark = false});
+
+  final String tip;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  /// على رأسٍ داكن: زجاجٌ أبيض شفّاف بحدٍّ خفيف، والسهم أبيض
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tip,
+    child: Tap(
+      radius: 14,
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: onDark ? Colors.white.withValues(alpha: .10) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: onDark ? Colors.white.withValues(alpha: .22) : Palette.line),
+        ),
+        child: child,
+      ),
+    ),
+  );
+}
+
+/// سهم الرجوع في «وصل»: يشير إلى اليمين، من حيث جاء
+class BackArrow extends StatelessWidget {
+  const BackArrow({super.key, this.color = Palette.ink});
+
+  final Color color;
+
+  @override
+  // arrow_back ينقلب مع اتجاه العربية فيشير إلى اليمين
+  Widget build(BuildContext context) => Icon(Icons.arrow_back_rounded, size: 22, color: color);
+}
+
 /// رأس الشاشة التي تُفتح فوق الشريط: رجوعٌ وعنوانٌ ووصفٌ قصير
 class PageBar extends StatelessWidget {
   const PageBar({super.key, required this.title, this.subtitle, this.trailing});
@@ -14,30 +57,23 @@ class PageBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
     child: Row(
       children: [
-        Tooltip(
-          message: 'رجوع',
-          child: Tap(
-            radius: 18,
-            onTap: () => Navigator.of(context).pop(),
-            child: Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: cardShadow),
-              child: const Chev(size: 11, stroke: 1.8),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
+        SquareButton(tip: 'رجوع', onTap: () => Navigator.of(context).pop(), child: const BackArrow()),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: font(18, w8, Palette.ink, height: 1.2)),
-              if (subtitle != null) Text(subtitle!, style: font(11.5, w5, Palette.slate, height: 1.3)),
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: kf(20, Palette.ink, bold: true, height: 1.4),
+              ),
+              if (subtitle != null)
+                Text(subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis, style: kf(12, Palette.slate)),
             ],
           ),
         ),
@@ -64,9 +100,12 @@ class Waiting extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(error!, textAlign: TextAlign.center, style: font(14, w6, Palette.ink)),
+                Text(error!, textAlign: TextAlign.center, style: kf(14, Palette.ink)),
                 const SizedBox(height: 12),
-                FilledButton(onPressed: onRetry, child: const Text('أعد المحاولة')),
+                FilledButton(
+                  onPressed: onRetry,
+                  child: Text('أعد المحاولة', style: kf(14, Colors.white, bold: true)),
+                ),
               ],
             ),
           ),
@@ -88,9 +127,9 @@ class Empty extends StatelessWidget {
       children: [
         Icon(icon, size: 40, color: Palette.muted),
         const SizedBox(height: 10),
-        Text(title, textAlign: TextAlign.center, style: font(15, w8, Palette.ink)),
+        Text(title, textAlign: TextAlign.center, style: kf(16, Palette.ink, bold: true)),
         const SizedBox(height: 4),
-        Text(text, textAlign: TextAlign.center, style: font(12.5, w5, Palette.slate, height: 1.5)),
+        Text(text, textAlign: TextAlign.center, style: kf(14, Palette.slate)),
       ],
     ),
   );
@@ -104,8 +143,8 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(2, 14, 2, 8),
-    child: Text(text, style: font(15, w8, Palette.ink)),
+    padding: const EdgeInsets.fromLTRB(2, 16, 2, 8),
+    child: Text(text, style: kf(16, Palette.ink, bold: true)),
   );
 }
 
@@ -124,13 +163,15 @@ class Chip2 extends StatelessWidget {
   );
 }
 
+/// رسالةٌ قصيرة في أسفل الشاشة (docs/plan/123): شريطٌ داكنٌ بزوايا مدوّرة، والخطأ أحمر
 void toast(BuildContext context, String text, {bool bad = false}) => ScaffoldMessenger.of(context)
   ..hideCurrentSnackBar()
   ..showSnackBar(
     SnackBar(
-      content: Text(text, style: font(13, w6, Colors.white)),
-      backgroundColor: bad ? Palette.returnRed : null,
+      content: Text(text, style: kf(14, Colors.white, bold: true)),
+      backgroundColor: bad ? Palette.returnRed : Palette.ink,
       behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
   );
 
@@ -139,8 +180,8 @@ Future<bool> confirm(BuildContext context, String title, String text, String yes
     await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text(title, style: font(16, w8, Palette.ink)),
-        content: Text(text, style: font(13, w5, Palette.slate, height: 1.6)),
+        title: Text(title, style: kf(16, Palette.ink, bold: true)),
+        content: Text(text, style: kf(14, Palette.slate)),
         actions: [
           TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('تراجع')),
           FilledButton(onPressed: () => Navigator.of(c).pop(true), child: Text(yes)),
@@ -155,7 +196,7 @@ Future<T?> showSheet<T>(BuildContext context, Widget child) => showModalBottomSh
   context: context,
   isScrollControlled: true,
   backgroundColor: Colors.white,
-  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
   builder: (_) => child,
 );
 
@@ -177,22 +218,30 @@ class SheetFrame extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(color: Palette.line, borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
+            const SheetHandle(),
             const SizedBox(height: 14),
-            Text(title, style: font(16, w8, Palette.ink)),
+            Text(title, style: kf(16, Palette.ink, bold: true)),
             const SizedBox(height: 2),
-            Text(text, style: font(12, w5, Palette.slate, height: 1.5)),
+            Text(text, style: kf(12, Palette.slate)),
             const SizedBox(height: 14),
             ...children,
           ],
         ),
       ),
+    ),
+  );
+}
+
+/// مقبض النافذة السفلية
+class SheetHandle extends StatelessWidget {
+  const SheetHandle({super.key});
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Container(
+      width: 40,
+      height: 4,
+      decoration: BoxDecoration(color: const Color(0xFFDCD4D8), borderRadius: BorderRadius.circular(2)),
     ),
   );
 }
@@ -205,9 +254,9 @@ class ErrorNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     margin: const EdgeInsets.only(top: 10),
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(color: const Color(0xFFFDECEA), borderRadius: BorderRadius.circular(12)),
-    child: Text(message, style: font(12.5, w6, Palette.returnRed, height: 1.5)),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: Tone.red.tint, borderRadius: BorderRadius.circular(14)),
+    child: Text(message, style: kf(12, Palette.returnRed, bold: true)),
   );
 }
 
@@ -231,27 +280,29 @@ class SheetButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = outlined ? brand.main : Colors.white;
+    final fg = outlined ? Palette.ink : Colors.white;
     return Tap(
-      radius: 14,
+      radius: 16,
       onTap: busy ? null : onTap,
       child: Opacity(
         opacity: onTap == null && !busy ? .5 : 1,
         child: Container(
-          height: 50,
+          height: 52,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: outlined ? Colors.white : brand.main,
-            borderRadius: BorderRadius.circular(14),
-            border: outlined ? Border.all(color: brand.main.withValues(alpha: .45)) : null,
+            borderRadius: BorderRadius.circular(16),
+            border: outlined ? Border.all(color: const Color(0xFFDCD4D8)) : null,
           ),
           child: busy
               ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: fg))
               : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (icon != null) ...[Icon(icon, size: 19, color: fg), const SizedBox(width: 6)],
-                    Text(label, style: font(14.5, w8, fg)),
+                    if (icon != null) ...[Icon(icon, size: 20, color: fg), const SizedBox(width: 8)],
+                    Flexible(
+                      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: kf(16, fg, bold: true)),
+                    ),
                   ],
                 ),
         ),
@@ -289,9 +340,11 @@ class InputBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 48),
+    alignment: Alignment.center,
     decoration: BoxDecoration(
-      color: const Color(0xFFFBF6F5),
-      borderRadius: BorderRadius.circular(12),
+      color: const Color(0xFFFAF9F9),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: Palette.line),
     ),
     child: TextField(
@@ -304,15 +357,15 @@ class InputBox extends StatelessWidget {
       keyboardType: keyboard ?? (lines > 1 ? TextInputType.multiline : null),
       inputFormatters: formatters,
       textDirection: ltr ? TextDirection.ltr : null,
-      style: font(13.5, w6, Palette.ink, height: 1.5),
+      style: kf(14, Palette.ink),
       decoration: InputDecoration(
         isDense: true,
         counterText: '',
         hintText: hint,
         hintMaxLines: 3,
-        hintStyle: font(12.5, w5, Palette.muted, height: 1.5),
+        hintStyle: kf(14, const Color(0xFF8C8286)),
         border: InputBorder.none,
-        contentPadding: const EdgeInsets.all(12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
     ),
   );
@@ -327,7 +380,7 @@ class FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 6, top: 4),
-    child: Text(text, style: font(12, w7, Palette.ink)),
+    child: Text(text, style: kf(12, Palette.ink, bold: true)),
   );
 }
 
@@ -352,21 +405,8 @@ class TabBack extends StatelessWidget {
     final nav = ShellNav.of(context);
     if (nav == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsetsDirectional.only(end: 10),
-      child: Tooltip(
-        message: 'رجوع',
-        child: Tap(
-          radius: 18,
-          onTap: nav.home,
-          child: Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: cardShadow),
-            child: const Chev(size: 11, stroke: 1.8),
-          ),
-        ),
-      ),
+      padding: const EdgeInsetsDirectional.only(end: 12),
+      child: SquareButton(tip: 'رجوع', onTap: nav.home, child: const BackArrow()),
     );
   }
 }

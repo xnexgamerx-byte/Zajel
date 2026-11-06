@@ -21,6 +21,7 @@ import 'core/demo.dart';
 import 'core/models.dart';
 import 'core/palette.dart';
 import 'core/push.dart';
+import 'core/seen.dart';
 import 'screens/login_screen.dart';
 import 'screens/shell.dart';
 
@@ -142,6 +143,8 @@ class _CompanyAppState extends State<CompanyApp> {
     await Push.unregister();
     await Api.instance.logout();
     Access.set(null);
+    // ما فتحه من شحناته على هذا الهاتف لا يراه من يدخل بعده (docs/plan/123)
+    await Seen.clear();
     // المندوب: لا تبقى مواعيده تُنبَّه على الهاتف، ولا أسبابه في الذاكرة، لمن يدخل بعده (docs/plan/115)
     if (was == Section.courier) {
       await courier.Reminders.clear();
@@ -176,7 +179,8 @@ class _CompanyAppState extends State<CompanyApp> {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: ThemeData(
         useMaterial3: true,
-        fontFamily: 'Cairo',
+        // قسم التاجر وشاشة الدخول بخطّ «وصل» (docs/plan/123)، والمندوب والكول سنتر بخطّهما
+        fontFamily: open == Section.callcenter || open == Section.courier ? 'Cairo' : kufi,
         scaffoldBackgroundColor: switch (open) {
           Section.callcenter => cc.Palette.bg,
           Section.courier => courier.Palette.bg,

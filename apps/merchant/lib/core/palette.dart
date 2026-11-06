@@ -1,25 +1,69 @@
 import 'package:flutter/material.dart';
 
-/// ألوان تصميم ز (docs/plan/70): خلفيةٌ دافئة، وحبرٌ نبيذيّ داكن، والأحمر الداكن من لون الشركة.
+/// ألوان تصميم «وصل» (docs/plan/123): أرضيّةٌ رماديّة دافئة، وحبرٌ داكن، ونصٌّ ثانويّ يُقرأ على الأبيض والفاتح.
+/// الأسماء كما كانت في تصميم ز (docs/plan/70) فتتبعه الشاشات كلّها.
 class Palette {
-  static const bg = Color(0xFFFBF6F5);
-  static const ink = Color(0xFF26181A);
-  static const slate = Color(0xFF5C4644);
-  static const muted = Color(0xFF7A6260);
-  static const line = Color(0xFFF0E3E1);
-  static const pill = Color(0xFF7A6260);
+  static const bg = Color(0xFFF5F3F2);
+  static const ink = Color(0xFF1C1416);
+
+  /// النصّ الثانويّ: ٧:١ على الأبيض
+  static const slate = Color(0xFF5A5054);
+  static const muted = Color(0xFF6A5F63);
+  static const line = Color(0xFFECE6E8);
+  static const pill = Color(0xFF6A5F63);
   static const returnRed = Color(0xFFB42318);
-  static const eye = Color(0xFFF5ECEA);
-  static const shadow = Color(0x24781E24);
+  static const eye = Color(0xFFF0EBED);
+  static const shadow = Color(0x381C1416);
 
-  /// المسلَّم والمؤكَّد: أخضر هادئ
-  static const ok = Color(0xFF1F6B35);
-  static const okSoft = Color(0xFFE6F4EA);
+  /// المسلَّم والمؤكَّد: أخضر يُقرأ على الأبيض والزجاج الفاتح
+  static const ok = Color(0xFF126E47);
+  static const okSoft = Color(0xFFE0F2E9);
 
-  /// المؤجّل أصفر (docs/plan/79): ذهبيٌّ داكنٌ يُقرأ على الأبيض، وخلفيّته صفراء فاتحة
-  static const postponed = Color(0xFFC99A06);
-  static const postponedSoft = Color(0xFFFFF4CC);
-  static const postponedInk = Color(0xFF7A5A00);
+  /// المؤجّل (docs/plan/79): ذهبيٌّ داكنٌ يُقرأ، وخلفيّته صفراء فاتحة
+  static const postponed = Color(0xFF8A5A00);
+  static const postponedSoft = Color(0xFFFAEFD4);
+  static const postponedInk = Color(0xFF8A5A00);
+}
+
+/// لون الحالة في «وصل» (docs/plan/123): حبرٌ يُقرأ على الأبيض ٤٫٥:١ وأكثر، ولونٌ فاتحٌ لخلفيّتها.
+/// وهي ألوان الحالة لا الشركة: واحدةٌ لكلّ الشركات، ولون الشركة لأزرارها.
+class Tone {
+  const Tone(this.ink, this.tint);
+
+  final Color ink;
+  final Color tint;
+
+  /// جديدة وبانتظار المندوب
+  static const slate = Tone(Color(0xFF4F5866), Color(0xFFECEEF2));
+
+  /// في المخزن وبين المراكز
+  static const teal = Tone(Color(0xFF0F6A80), Color(0xFFDFF1F5));
+
+  /// مع المندوب، وإعادة التوصيل
+  static const blue = Tone(Color(0xFF2457A6), Color(0xFFE4ECF8));
+
+  /// المؤجّلة
+  static const amber = Tone(Color(0xFF8A5A00), Color(0xFFFAEFD4));
+
+  /// للمعالجة: لم تُسلَّم وتنتظر قراره
+  static const orange = Tone(Color(0xFFA34005), Color(0xFFFCEBDD));
+
+  /// المسلّمة
+  static const green = Tone(Color(0xFF126E47), Color(0xFFE0F2E9));
+
+  /// الراجعة بأماكنها
+  static const red = Tone(Color(0xFFB42318), Color(0xFFFBE5E1));
+
+  /// من لون الحالة كما يرسله النظام (green · blue · yellow · urgent · amber · red · gray · slate)، والمخزن من اسمها:
+  /// النظام يرسله رماديّاً كالجديدة
+  static Tone of(String tone, [String status = '']) => switch (tone) {
+    'green' => green,
+    'blue' => blue,
+    'yellow' => amber,
+    'urgent' || 'amber' => orange,
+    'red' => red,
+    _ => status.contains('مخزن') ? teal : slate,
+  };
 }
 
 /// درجات لون الشركة: الأحمر في التصميم، وغيره لشركةٍ أخرى بالنسب نفسها.
@@ -51,11 +95,22 @@ class Brand {
   /// الزرّ العائم وشارات «للمعالجة»: أفتح قليلاً نحو المرجانيّ
   Color get coral => _shift(7, .10);
 
-  /// خلفية الأيقونات الفاتحة وبطاقة «إنشاء شحنة» المختارة
-  Color get soft => Color.lerp(Colors.white, main, .085)!;
-  Color get softer => Color.lerp(Colors.white, main, .045)!;
-  Color get track => Color.lerp(Colors.white, main, .075)!;
-  Color get border => Color.lerp(Colors.white, main, .24)!;
+  /// خلفية الأيقونات الفاتحة والمختار من الخيارات (في «وصل»: ١٢٪ من لون الشركة)
+  Color get soft => Color.lerp(Colors.white, main, .12)!;
+  Color get softer => Color.lerp(Colors.white, main, .06)!;
+  Color get track => Color.lerp(Colors.white, main, .1)!;
+
+  /// حدّ ما هو بلون الشركة الفاتح
+  Color get border => Color.lerp(Colors.white, main, .28)!;
+
+  /// الأرضيّة الداكنة لبطاقات «وصل» الكبيرة (الإعلان، المتاح للسحب، رأس «المزيد»): لون الشركة نحو الأسود
+  Color get night => Color.lerp(main, Colors.black, .45)!;
+
+  /// توهّج الزرّ الذي بلون الشركة تحته
+  Color get halo => main.withValues(alpha: .35);
+
+  /// اللون بصيغة #RRGGBB، لرسوم «وصل» التي تُلوَّن بلون الشركة
+  String get hex => '#${(main.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
 
   /// تدرّج مربّعات الأيقونات الحمراء
   LinearGradient get tile => LinearGradient(
@@ -85,13 +140,15 @@ class Brand {
   ];
 }
 
-/// خطّ «القاهرة» بمقاسات التصميم.
-/// النصّ كلّه أصغر قليلاً من قياسه المكتوب (docs/plan/78): كان كبيراً على الهاتف في كلّ مكان — وأصغر
-/// خطٍّ لا ينزل عن ٩٫٥ فيبقى يُقرأ
-const textScale = .9;
+/// خطّ قسم التاجر (docs/plan/123): «نوتو كوفي» — رسميٌّ واضح، بدل «القاهرة».
+const kufi = 'NotoKufiArabic';
+
+/// مقاسات الشاشات المكتوبة قبل «وصل» كما هي: «كوفي» أعرض من «القاهرة» بنحو ٨٪، فيُصغَّر بقدرها، فتبقى
+/// السطور بعرضها القديم وارتفاع حروفها نفسه (كان ٠٫٩ بالقاهرة، docs/plan/78) — وأصغر خطٍّ لا ينزل عن ٩٫٥
+const textScale = .83;
 
 TextStyle font(double size, FontWeight weight, Color color, {double height = 1.25}) => TextStyle(
-  fontFamily: 'Cairo',
+  fontFamily: kufi,
   fontSize: size * textScale < 9.5 ? (size < 9.5 ? size : 9.5) : size * textScale,
   fontWeight: weight,
   color: color,
@@ -117,10 +174,20 @@ TextStyle display(double size, FontWeight weight, Color color, {double height = 
   height: height,
 );
 
-/// ظلّ البطاقات البيضاء: خطٌّ رفيعٌ قريب وظلٌّ بعيدٌ ناعمٌ بلونٍ دافئ
+/// نصّ «وصل» بمقاسه في التصميم (docs/plan/123): ١٢ و١٤ و١٦ و٢٤، وسطرٌ مريحٌ للعربية. للشاشات المرسومة بـ«وصل»
+TextStyle kf(double size, Color color, {bool bold = false, double? height}) => TextStyle(
+  fontFamily: kufi,
+  fontSize: size,
+  fontWeight: bold ? w7 : FontWeight.w400,
+  color: color,
+  height: height ?? (size >= 24 ? 1.4 : 1.5),
+  leadingDistribution: TextLeadingDistribution.even,
+);
+
+/// ظلّ البطاقات البيضاء في «وصل»: خطٌّ رفيعٌ قريب وظلٌّ بعيدٌ ناعم
 const cardShadow = [
-  BoxShadow(color: Color(0x0A26181A), blurRadius: 2, offset: Offset(0, 1)),
-  BoxShadow(color: Palette.shadow, blurRadius: 24, spreadRadius: -10, offset: Offset(0, 12)),
+  BoxShadow(color: Color(0x0A1C1416), blurRadius: 2, offset: Offset(0, 1)),
+  BoxShadow(color: Palette.shadow, blurRadius: 24, spreadRadius: -14, offset: Offset(0, 10)),
 ];
 
 /// «#ZA-20260124» وسط نصٍّ عربي: معزولٌ من اليسار لليمين، وإلّا قفزت «#» إلى آخر الرقم

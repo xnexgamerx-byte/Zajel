@@ -172,36 +172,21 @@ class StatusPill extends StatelessWidget {
   /// لون الحالة بثيم الرئيسية (docs/plan/77): خلفيةٌ فاتحة من لونها ونصٌّ به — الراجع أحمر ليُميَّز
   /// (docs/plan/50)، وما ينتظر قرارك بلون الشركة، والواصل أخضر، وما في الطريق أزرق، والباقي رماديّ
   /// والمؤجّل أصفر (docs/plan/79)
-  static Color colorOf(Brand brand, RecentShipment row) => switch (row.tone) {
-    'red' => Palette.returnRed,
-    'green' => Palette.ok,
-    'blue' => const Color(0xFF2F6DB5),
-    'yellow' => Palette.postponed,
-    'amber' || 'urgent' => brand.main,
-    _ => row.urgent ? brand.main : Palette.slate,
-  };
+  /// وفي «وصل» (docs/plan/123): لون الحالة نفسه في كلّ الشركات (Tone)، لا لون الشركة
+  static Color colorOf(Brand brand, RecentShipment row) => Tone.of(row.tone, row.status).ink;
 
   @override
   Widget build(BuildContext context) {
-    final color = colorOf(brand, row);
-    final yellow = row.tone == 'yellow';
+    final tone = Tone.of(row.tone, row.status);
     return Container(
       width: width,
       height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        // الأصفر الفاتح وحده لا يُقرأ عليه أصفر: خلفيّته صفراء ونصّه ذهبيٌّ داكن
-        color: yellow ? Palette.postponedSoft : Color.lerp(Colors.white, color, .12),
-        borderRadius: BorderRadius.circular(height / 2),
-      ),
+      decoration: BoxDecoration(color: tone.tint, borderRadius: BorderRadius.circular(height / 2)),
       child: FittedBox(
         fit: BoxFit.scaleDown,
-        child: Text(
-          row.status,
-          maxLines: 1,
-          style: font(size, w8, yellow ? Palette.postponedInk : Color.lerp(color, Colors.black, .1)!, height: 1),
-        ),
+        child: Text(row.status, maxLines: 1, style: font(size, w8, tone.ink, height: 1)),
       ),
     );
   }

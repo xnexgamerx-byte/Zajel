@@ -204,7 +204,10 @@ class Api {
 
   /// «احذف الشحنة» (docs/plan/117): إلى الشحنات الممسوحة عند الشركة، ما دامت لم تصلها — ويعود نصّ النظام
   Future<String> deleteShipment(int id, {String? reason}) async {
-    if (AppConfig.demo) return 'حُذفت الشحنة.';
+    if (AppConfig.demo) {
+      Demo.dropLabel(id);
+      return 'حُذفت الشحنة.';
+    }
     final body = await _send(
       http.delete(
         _uri('/merchant/shipments/$id'),
@@ -225,7 +228,7 @@ class Api {
 
   /// قرار التاجر: redeliver · postpone (مع until) · return — ويعود نصّ النظام
   Future<String> process(int id, String action, {String? until, String? note}) async {
-    if (AppConfig.demo) return Demo.process(action);
+    if (AppConfig.demo) return Demo.process(id, action);
     final body = await _send(
       http.post(
         _uri('/merchant/processing/$id'),

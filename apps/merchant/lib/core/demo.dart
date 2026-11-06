@@ -7,7 +7,8 @@ import 'models.dart';
 class Demo {
   static final session = Session(name: 'أحمد', companyName: 'الزاجل');
 
-  static final home = HomeData(
+  /// تُبنى كلّ مرّة: عدد «للمعالجة» ينقص بما قرّر فيه التاجر
+  static HomeData get home => HomeData(
     greeting: 'صباح الخير',
     name: 'أحمد',
     unread: 3,
@@ -28,7 +29,7 @@ class Demo {
       deliveredToday: 14,
       returning: 3,
     ),
-    processing: 3,
+    processing: 3 - _decided.length,
     canProcess: true,
     toPrint: 4,
     printed: 2,
@@ -192,6 +193,8 @@ class Demo {
     'returns' => s.status == 'راجع مؤكد',
     'return_courier' => s.returnPlace == 'راجع عند المندوب',
     'return_hub' => s.returnPlace != null && s.returnPlace != 'راجع عند المندوب',
+    // «راجعة» في الرئيسية (docs/plan/123): كلّ ما في طريقه إليه، أينما كان
+    'returning' => s.returnPlace != null,
     _ => s.status != 'راجع للتاجر',
   };
 
@@ -199,10 +202,11 @@ class Demo {
     final inFilter = _all
         .where((s) => _in(s, filter) && (q.isEmpty || s.name.contains(q) || s.number.contains(q)))
         .toList();
+    // بالأحدث إدخالاً كما يرتّبها النظام
     final items = [
       for (final s in inFilter)
         if (governorateId == null || _governorateIds[s.governorate] == governorateId) s,
-    ];
+    ]..sort((a, b) => (b.created ?? DateTime(0)).compareTo(a.created ?? DateTime(0)));
     final byGovernorate = <String, int>{};
     for (final s in inFilter) {
       if (s.governorate != null) byGovernorate[s.governorate!] = (byGovernorate[s.governorate!] ?? 0) + 1;
@@ -331,6 +335,7 @@ class Demo {
     until: until,
     amount: amount,
     at: DateTime.now().subtract(Duration(hours: hours)),
+    created: DateTime.now().subtract(Duration(hours: hours)),
     status: status,
     urgent: urgent,
     tone: tone,
@@ -345,6 +350,7 @@ class Demo {
     city: s.city,
     amount: s.amount,
     at: s.at,
+    created: s.created ?? s.at,
     status: s.status,
     urgent: s.urgent,
     tone: s.urgent ? 'urgent' : (s.status == 'مسلمة' ? 'green' : 'blue'),
@@ -609,33 +615,40 @@ class Demo {
 
   // ---------------------------------------------------------------- للمعالجة والمالية
 
-  static ProcessingPage processing() => ProcessingPage(
-    allowed: true,
-    total: 3,
-    items: [
-      ProcessingItem(row: _all[2], reason: 'الزبون لا يرد', attempts: 1, waiting: 5, phone: '07801234567'),
-      ProcessingItem(
-        row: _row(9, 'حسين علي', 'الكرادة', 41000, 'للمعالجة', 'urgent', urgent: true, hours: 26),
-        reason: 'الهاتف مغلق',
-        attempts: 2,
-        waiting: 26,
-        phone: '07709876543',
-      ),
-      ProcessingItem(
-        row: _row(10, 'فاطمة محمد', 'زيونة', 33000, 'للمعالجة', 'urgent', urgent: true, hours: 8),
-        reason: 'الزبون رفض الاستلام',
-        attempts: 1,
-        waiting: 8,
-        phone: '07501112233',
-      ),
-    ],
-  );
+  /// ما قرّر فيه التاجر في العرض: يخرج من «للمعالجة» كما في النظام
+  static final _decided = <int>{};
 
-  static String process(String action) => switch (action) {
-    'redeliver' => 'سُجّل قرارك: إعادة توصيل.',
-    'postpone' => 'سُجّل قرارك: مؤجل.',
-    _ => 'سُجّل قرارك: راجع مؤكد.',
-  };
+  static List<ProcessingItem> get _processing => [
+    ProcessingItem(row: _all[2], reason: 'الزبون لا يرد', attempts: 1, waiting: 5, phone: '07801234567'),
+    ProcessingItem(
+      row: _row(9, 'حسين علي', 'الكرادة', 41000, 'للمعالجة', 'urgent', urgent: true, hours: 26),
+      reason: 'الهاتف مغلق',
+      attempts: 2,
+      waiting: 26,
+      phone: '07709876543',
+    ),
+    ProcessingItem(
+      row: _row(10, 'فاطمة محمد', 'زيونة', 33000, 'للمعالجة', 'urgent', urgent: true, hours: 8),
+      reason: 'الزبون رفض الاستلام',
+      attempts: 1,
+      waiting: 8,
+      phone: '07501112233',
+    ),
+  ].where((i) => !_decided.contains(i.row.id)).toList();
+
+  static ProcessingPage processing() {
+    final items = _processing;
+    return ProcessingPage(allowed: true, total: items.length, items: items);
+  }
+
+  static String process(int id, String action) {
+    _decided.add(id);
+    return switch (action) {
+      'redeliver' => 'سُجّل قرارك: إعادة توصيل.',
+      'postpone' => 'سُجّل قرارك: مؤجل.',
+      _ => 'سُجّل قرارك: راجع مؤكد.',
+    };
+  }
 
   /// ما فعله التاجر في العرض: طلبه المفتوح والكشوف التي أكّد استلامها
   static PaymentRequest? _request;
@@ -905,31 +918,38 @@ class Demo {
     ('هدى كريم', 'البصرة · العشار', 35000),
   ];
 
+  /// ما حذفه التاجر من «الطابعة» في نسخة العرض
+  static final _gone = <int>{};
+  static void dropLabel(int id) => _gone.add(id);
+
+  static List<LabelRow> _labelRows(String state) => [
+    for (final (i, (name, place, amount)) in (state == 'printed' ? _printed : _toPrint).indexed)
+      LabelRow(
+        id: (state == 'printed' ? 950 : 900) + i,
+        number: 'ZA-202601${state == 'printed' ? 4 : 3}${i + 1}',
+        name: name,
+        phone: '0780123456$i',
+        place: place,
+        amount: amount,
+        at: _ago(30 + i * 15),
+        printedAt: state == 'printed' ? _ago(10 + i * 5) : null,
+        deletable: true,
+      ),
+  ].where((r) => !_gone.contains(r.id)).toList();
+
   static LabelsPage labels([String state = 'to_print']) => LabelsPage(
     state: state,
-    toPrint: _toPrint.length,
-    printed: _printed.length,
-    shipments: [
-      for (final (i, (name, place, amount)) in (state == 'printed' ? _printed : _toPrint).indexed)
-        LabelRow(
-          id: (state == 'printed' ? 950 : 900) + i,
-          number: 'ZA-202601${state == 'printed' ? 4 : 3}${i + 1}',
-          name: name,
-          phone: '0780123456$i',
-          place: place,
-          amount: amount,
-          at: _ago(30 + i * 15),
-          printedAt: state == 'printed' ? _ago(10 + i * 5) : null,
-        ),
-    ],
-    // مقاسا التطبيق (docs/plan/87)
+    toPrint: _labelRows('to_print').length,
+    printed: _labelRows('printed').length,
+    shipments: _labelRows(state),
+    // مقاسات التطبيق (docs/plan/87، 94) بعرضها وطولها بالمليمتر
     sizes: const [
-      Choice('100x100', 'ملصق ١٠٠×١٠٠ ملم'),
-      Choice('80x120', 'ملصق ١٢٠×٨٠ ملم'),
-      Choice('a6', 'ملصق ١٠٠×١٥٠ ملم'),
-      Choice('a5', 'ورقة A5'),
-      Choice('a4one', 'ورقة A4'),
-      Choice('a3', 'ورقة A3'),
+      LabelSize('100x100', 'ملصق ١٠٠×١٠٠ ملم', width: 100, height: 100),
+      LabelSize('80x120', 'ملصق ١٢٠×٨٠ ملم', width: 80, height: 120),
+      LabelSize('a6', 'ملصق ١٠٠×١٥٠ ملم', width: 100, height: 150),
+      LabelSize('a5', 'ورقة A5', width: 148, height: 210),
+      LabelSize('a4one', 'ورقة A4', width: 210, height: 297),
+      LabelSize('a3', 'ورقة A3', width: 297, height: 420),
     ],
   );
 

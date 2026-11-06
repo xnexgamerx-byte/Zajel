@@ -156,6 +156,15 @@ class MerchantStaffTest extends TestCase
         $this->assertSame(0, $states['created']);
         $this->as($token)->getJson($this->api('/merchant/shipments?filter=return_hub'))->assertOk()
             ->assertJsonCount(3, 'data');
+
+        // «راجعة» في رئيسية التطبيق (docs/plan/123): كلّ ما في طريقه إليه، وعددها عدّ الرئيسية نفسه
+        $returning = $this->as($token)->getJson($this->api('/merchant/shipments?filter=returning'))->assertOk()
+            ->assertJsonCount(4, 'data');
+        $this->assertEqualsCanonicalizing(
+            [$withCourier->number, $atHome->number, $atAway->number, $inBag->number],
+            collect($returning->json('data'))->pluck('number')->all(),
+        );
+        $this->as($token)->getJson($this->api('/merchant/home'))->assertOk()->assertJsonPath('stats.returning', 4);
     }
 
     public function test_the_shipments_calendar_counts_each_day_by_where_it_ended(): void

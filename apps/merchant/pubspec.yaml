@@ -18,6 +18,7 @@ dependencies:
     sdk: flutter
   flutter_map: ^8.3.2
   flutter_secure_storage: ^11.2.0
+  flutter_svg: ^2.3.2
   font_awesome_flutter: ^11.0.0
   # موقع المندوب والتطبيق أمامه وحده (docs/plan/66، 115)
   geolocator: ^14.0.0
@@ -43,8 +44,21 @@ flutter:
   assets:
     - assets/images/
 
-  # «القاهرة» — خطّ الموقع نفسه، بأوزانٍ ثابتة (OFL: assets/fonts/OFL.txt)
+  # «نوتو كوفي» — خطّ قسم التاجر بتصميم «وصل» (docs/plan/123)، رسميٌّ واضح (OFL: assets/fonts/OFL-NotoKufiArabic.txt)؛
+  # و«القاهرة» — خطّ الموقع، لقسمي المندوب والكول سنتر (OFL: assets/fonts/OFL.txt)
   fonts:
+    - family: NotoKufiArabic
+      fonts:
+        - asset: assets/fonts/NotoKufiArabic-400.ttf
+          weight: 400
+        - asset: assets/fonts/NotoKufiArabic-500.ttf
+          weight: 500
+        - asset: assets/fonts/NotoKufiArabic-600.ttf
+          weight: 600
+        - asset: assets/fonts/NotoKufiArabic-700.ttf
+          weight: 700
+        - asset: assets/fonts/NotoKufiArabic-800.ttf
+          weight: 800
     - family: Cairo
       fonts:
         - asset: assets/fonts/Cairo-400.ttf

@@ -70,13 +70,7 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
   }
 
   Future<void> _decide(ProcessingItem item, String action) async {
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _DecideSheet(brand: brand, item: item, action: action),
-    );
+    final result = await decide(context, brand, item, action);
     if (result == null || !mounted) return;
     _toast(result);
     setState(() {
@@ -308,6 +302,17 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
     );
   }
 }
+
+/// قرارٌ في شحنةٍ لم تُسلَّم: ما قاله الزبون، وموعد التأجيل، ثم «أكّد» — من «للمعالجة» ومن رزمة الرئيسية
+/// (docs/plan/123). يعيد رسالة النظام، أو null إن تراجع
+Future<String?> decide(BuildContext context, Brand brand, ProcessingItem item, String action) =>
+    showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => _DecideSheet(brand: brand, item: item, action: action),
+    );
 
 /// القرار: ما قاله الزبون، وموعد التأجيل، ثم «أكّد»
 class _DecideSheet extends StatefulWidget {

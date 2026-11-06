@@ -1,16 +1,21 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
 import '../core/models.dart';
 import '../core/palette.dart';
+import '../widgets/art.dart';
 import '../widgets/bits.dart';
+import '../widgets/design.dart';
 import '../widgets/page.dart';
 import 'receive_screen.dart';
 import 'shipment_screen.dart';
 
-/// «المالية» (docs/plan/54) بتصميم ز (docs/plan/70): المتاح للسحب في بطاقةٍ حمراء وطلب المحاسبة منها،
-/// و«قيد المطابقة» و«استلام الحساب» بمسح الوصل (docs/plan/69)، و«مؤشراتك هذا الشهر»، وكشوفه في
-/// مربّعاتٍ حمراء شفّافة بحالة كلٍّ منها، وآخر حركات حسابه.
+/// «المالية» (docs/plan/54، 70، 123) بتصميم «وصل»: المتاح للسحب في بطاقةٍ داكنة بلون الشركة وطلب المحاسبة منها، و«قيد
+/// المطابقة» و«استلام الحساب» بمسح الوصل (docs/plan/69)، و«مؤشراتك هذا الشهر» مقياساً مقسّماً لنسبة التسليم ومنحنى
+/// للمحصَّل أسبوعاً أسبوعاً، وكشوفه تذاكرَ بحالة كلٍّ منها، وآخر حركات حسابه.
 class FinanceScreen extends StatefulWidget {
   const FinanceScreen({super.key, required this.brand, this.refresh});
 
@@ -52,34 +57,20 @@ class _FinanceScreenState extends State<FinanceScreen> {
     }
   }
 
-  void _toast(String text) => ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(text, style: font(13, w6, Colors.white)),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-
   Future<void> _request(Finance d) async {
-    final made = await showModalBottomSheet<PaymentRequest>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _RequestSheet(brand: brand, finance: d),
-    );
+    final made = await showSheet<PaymentRequest>(context, _RequestSheet(brand: brand, finance: d));
     if (made == null || !mounted) return;
-    _toast('تمّ الطلب ${made.number} — ${money(made.amount)} د.ع');
+    toast(context, 'تمّ الطلب ${made.number} — ${money(made.amount)} د.ع');
     _load();
   }
 
   Future<void> _confirm(Statement s) async {
     try {
-      _toast(await Api.instance.confirmStatement(s.id));
+      final message = await Api.instance.confirmStatement(s.id);
+      if (mounted) toast(context, message);
       _load();
     } on ApiError catch (e) {
-      _toast(e.message);
+      if (mounted) toast(context, e.message, bad: true);
     }
   }
 
@@ -88,6 +79,14 @@ class _FinanceScreenState extends State<FinanceScreen> {
     final done = await openReceive(context, brand);
     if (done != null) _load();
   }
+
+  void _openStatement(Statement s) => Navigator.of(context)
+      .push(
+        MaterialPageRoute(
+          builder: (_) => StatementScreen(brand: brand, id: s.id),
+        ),
+      )
+      .then((_) => _load());
 
   String _amount(int v) => hidden ? '••••' : money(v);
 
@@ -104,7 +103,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(error!, textAlign: TextAlign.center, style: font(14, w6, Palette.ink)),
+                    Text(error!, textAlign: TextAlign.center, style: kf(14, Palette.ink, bold: true)),
                     const SizedBox(height: 12),
                     FilledButton(onPressed: _load, child: const Text('أعد المحاولة')),
                   ],
@@ -117,12 +116,12 @@ class _FinanceScreenState extends State<FinanceScreen> {
       color: brand.main,
       onRefresh: _load,
       child: ListView(
-        padding: EdgeInsets.fromLTRB(16, top > 0 ? top + 6 : 34, 16, 130),
+        padding: EdgeInsets.fromLTRB(16, top > 0 ? top + 12 : 36, 16, 130),
         children: [
           Row(
             children: [
               const TabBack(),
-              Expanded(child: Text('المالية', style: display(20, w8, Palette.ink, height: 1.3))),
+              Expanded(child: Text('المالية', style: kf(24, Palette.ink, bold: true))),
               Tooltip(
                 message: hidden ? 'أظهر الأرقام' : 'أخفِ الأرقام',
                 child: Tap(
@@ -146,30 +145,32 @@ class _FinanceScreenState extends State<FinanceScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          _hero(d),
-          const SizedBox(height: 10),
-          if (d.request != null) ...[_open(d.request!), const SizedBox(height: 10)],
-          _tiles(d),
-          const SizedBox(height: 10),
-          if (_extras(d) case final extras?) ...[extras, const SizedBox(height: 10)],
-          if (d.month != null) ...[_indicators(d.month!), const SizedBox(height: 14)],
+          const SizedBox(height: 16),
+          Rise(delay: 60, child: _hero(d)),
+          if (d.request != null) ...[const SizedBox(height: 16), _open(d.request!)],
+          const SizedBox(height: 16),
+          Rise(delay: 140, child: _tiles(d)),
+          const SizedBox(height: 16),
+          Rise(delay: 200, child: _extras(d)),
+          if (d.month != null) ...[const SizedBox(height: 16), Rise(delay: 260, child: _indicators(d.month!))],
+          const SizedBox(height: 16),
           _title('كشوفك ودفعاتها'),
           if (d.statements.isEmpty) _none('لم تُدفع لك كشوفٌ بعد.'),
-          for (final s in d.statements) ...[_statement(d, s), const SizedBox(height: 8)],
-          const SizedBox(height: 8),
+          for (final s in d.statements) ...[_statement(d, s), const SizedBox(height: 10)],
+          const SizedBox(height: 6),
           _title('آخر حركات حسابك'),
           if (d.movements.isEmpty) _none('لا حركات بعد.'),
           if (d.movements.isNotEmpty)
-            WhiteCard(
-              radius: 20,
-              child: Column(
-                children: [
-                  for (final (i, m) in d.movements.indexed) ...[
-                    if (i > 0) const Divider(height: 1, color: Palette.line, indent: 12, endIndent: 12),
-                    _movement(m),
-                  ],
-                ],
+            Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: cardShadow,
+              ),
+              child: Material(
+                type: MaterialType.transparency,
+                child: Column(children: [for (final (i, m) in d.movements.indexed) _movement(m, first: i == 0)]),
               ),
             ),
         ],
@@ -177,81 +178,75 @@ class _FinanceScreenState extends State<FinanceScreen> {
     );
   }
 
-  /// البطاقة الحمراء: المتاح للسحب، وطلب المحاسبة منها
+  /// البطاقة الداكنة بلون الشركة: المتاح للسحب، وطلب المحاسبة منها، ورسم النقد في طرفها
   Widget _hero(Finance d) {
     final method = d.methods.where((m) => m.value == d.method).firstOrNull;
     final canRequest = d.request == null && d.available > 0;
     return Container(
-      decoration: BoxDecoration(
-        gradient: brand.hero,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: brand.glow(.6),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
+      constraints: const BoxConstraints(minHeight: 184),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: brand.night, borderRadius: BorderRadius.circular(24)),
+      child: CustomPaint(
+        painter: const IsoGrid(),
         child: Stack(
           children: [
-            PositionedDirectional(
-              end: -40,
-              top: -60,
-              child: Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: .08), width: 20),
-                ),
-              ),
-            ),
+            Positioned(left: 4, bottom: 8, child: Art('cash', brand: brand, width: 150, height: 120)),
             Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 14, 14),
-              child: Row(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 196),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('المتاح للسحب', style: font(13, w7, Colors.white.withValues(alpha: .9))),
+                        Text('المتاح للسحب', style: kf(12, Colors.white.withValues(alpha: .82), bold: true)),
+                        const SizedBox(height: 4),
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: AlignmentDirectional.centerStart,
                           child: Text.rich(
                             TextSpan(
                               text: _amount(d.available),
-                              style: display(28, w7, Colors.white, height: 1.25),
-                              children: [TextSpan(text: '  د.ع', style: display(14, w6, Colors.white))],
+                              children: [TextSpan(text: ' د.ع', style: kf(14, Colors.white.withValues(alpha: .85)))],
                             ),
+                            style: kf(24, Colors.white, bold: true),
                           ),
                         ),
-                        if (method != null)
+                        if (method != null) ...[
+                          const SizedBox(height: 4),
                           Text(
                             'إلى ${method.label}${d.account == null ? '' : ' \u2066${d.account}\u2069'}',
-                            style: font(12, w6, Colors.white.withValues(alpha: .88)),
+                            style: kf(12, Colors.white.withValues(alpha: .88)),
                           ),
+                        ],
                       ],
                     ),
                   ),
-                  if (canRequest)
+                  if (canRequest) ...[
+                    const SizedBox(height: 16),
                     Tap(
                       shadow: const [
-                        BoxShadow(color: Color(0x99280004), blurRadius: 18, spreadRadius: -10, offset: Offset(0, 10)),
+                        BoxShadow(color: Color(0x80000000), blurRadius: 18, spreadRadius: -10, offset: Offset(0, 10)),
                       ],
-                      radius: 15,
+                      radius: 14,
                       onTap: () => _request(d),
                       child: Ink(
-                        height: 46,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('اطلب محاسبة', style: font(13, w8, brand.deep)),
-                            const SizedBox(width: 6),
-                            Icon(Icons.arrow_back_rounded, size: 17, color: brand.deep),
+                            Text('اطلب محاسبة', style: kf(14, brand.main, bold: true)),
+                            const SizedBox(width: 8),
+                            Icon(Icons.arrow_forward_rounded, size: 18, color: brand.main),
                           ],
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -261,88 +256,95 @@ class _FinanceScreenState extends State<FinanceScreen> {
     );
   }
 
+  /// طلبٌ مفتوح: ينتظر المعالجة، فلا طلب غيره
+  Widget _open(PaymentRequest r) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(18)),
+    child: Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(12)),
+          child: const Icon(Icons.hourglass_top_rounded, size: 18, color: Colors.white),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('طلبك ${r.number} بانتظار المعالجة', style: kf(14, Palette.ink, bold: true)),
+              Text(
+                '${_amount(r.amount)} د.ع، ${r.method}${r.at == null ? '' : '، ${when(r.at)}'}',
+                style: kf(12, Palette.slate),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
   /// «قيد المطابقة»، و«استلام الحساب» بمسح الوصل حين تطلبه الشركة
   Widget _tiles(Finance d) {
     final waiting = d.statements.where((s) => s.paid && !s.confirmed).length;
-    final pending = WhiteCard(
-      radius: 22,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+    final pending = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: cardShadow),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(9)),
-                child: Icon(Icons.hourglass_top_rounded, size: 15, color: brand.deep),
-              ),
-              const SizedBox(width: 6),
-              Text('قيد المطابقة', style: font(12, w7, Palette.muted)),
-            ],
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
+            child: Icon(Icons.hourglass_top_rounded, size: 18, color: brand.main),
           ),
-          const SizedBox(height: 6),
-          Text(_amount(d.pending), style: display(22, w7, Palette.ink, height: 1.2)),
-          Text(
-            d.pending > 0 ? 'نقده مع المندوب حتى يُحاسَب' : 'لا شيء قيد المطابقة',
-            maxLines: 2,
-            style: font(11, w5, Palette.muted, height: 1.4),
-          ),
+          const SizedBox(height: 8),
+          Text('قيد المطابقة', style: kf(12, Palette.muted, bold: true)),
+          Text(_amount(d.pending), style: kf(16, Palette.ink, bold: true)),
+          Text(d.pending > 0 ? 'نقده مع المندوب حتى يُحاسَب' : 'لا شيء قيد المطابقة', style: kf(12, Palette.muted)),
         ],
       ),
     );
     if (!d.scanRequired) return pending;
 
     final receive = Tap(
-      shadow: [
-        BoxShadow(
-          color: brand.main.withValues(alpha: .25),
-          blurRadius: 24,
-          spreadRadius: -12,
-          offset: const Offset(0, 12),
-        ),
-      ],
-      radius: 22,
+      radius: 20,
       onTap: _scan,
       child: Ink(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color.lerp(Colors.white, brand.main, .05)!, Color.lerp(Colors.white, brand.main, .15)!],
-          ),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: brand.main.withValues(alpha: .25)),
+          color: brand.soft,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: brand.border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    gradient: brand.hero,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: brand.glow(.5),
-                  ),
-                  child: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: Colors.white),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: Colors.white),
                 ),
                 const Spacer(),
                 if (waiting > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                    decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(20)),
-                    child: Text('$waiting بانتظارك', style: font(11, w8, Colors.white)),
+                    height: 24,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(12)),
+                    child: Text('$waiting بانتظارك', style: kf(12, Colors.white, bold: true, height: 1.2)),
                   ),
               ],
             ),
-            const SizedBox(height: 6),
-            Text('استلام الحساب', style: font(15, w8, Palette.ink, height: 1.3)),
-            Text('امسح وصل المبلغ الذي وصلك', maxLines: 2, style: font(11, w5, Palette.muted, height: 1.4)),
+            const SizedBox(height: 8),
+            Text('استلام الحساب', style: kf(16, Palette.ink, bold: true)),
+            Text('امسح وصل المبلغ الذي وصلك', style: kf(12, Palette.slate)),
           ],
         ),
       ),
@@ -352,7 +354,7 @@ class _FinanceScreenState extends State<FinanceScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: pending),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(child: receive),
         ],
       ),
@@ -360,397 +362,947 @@ class _FinanceScreenState extends State<FinanceScreen> {
   }
 
   /// ما وراء المتاح: الإجمالي، وكشفٌ أُقفل ينتظر الدفع، وسلفةٌ تُقتطع
-  Widget? _extras(Finance d) {
-    Widget row(IconData icon, Color color, String label, int amount, [String? sub]) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+  Widget _extras(Finance d) {
+    Widget row(IconData icon, String label, int amount, {String? sub, Color? color}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
+          Icon(icon, size: 20, color: color ?? Palette.ink),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: font(12.5, w6, Palette.slate)),
-                if (sub != null) Text(sub, style: font(11, w5, Palette.muted, height: 1.4)),
+                Text(label, style: kf(14, const Color(0xFF3D3337))),
+                if (sub != null) Text(sub, style: kf(12, Palette.muted)),
               ],
             ),
           ),
-          Text('${_amount(amount)} د.ع', style: display(14, w7, color == Palette.returnRed ? color : Palette.ink)),
+          const SizedBox(width: 8),
+          Text.rich(
+            TextSpan(
+              text: _amount(amount),
+              children: [TextSpan(text: ' د.ع', style: kf(12, Palette.muted))],
+            ),
+            style: kf(16, color ?? Palette.ink, bold: true),
+          ),
         ],
       ),
     );
-    return WhiteCard(
-      radius: 20,
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: cardShadow),
       child: Column(
         children: [
           row(
             Icons.account_balance_wallet_outlined,
-            d.owed ? Palette.ink : Palette.returnRed,
             d.owed ? 'إجمالي المستحقات عن الواصل' : 'عليك للشركة',
             d.total,
+            color: d.owed ? null : Palette.returnRed,
           ),
           if (d.awaitingPayment > 0)
             row(
               Icons.check_circle_outline_rounded,
-              Palette.ok,
               'بانتظار الدفع',
               d.awaitingPayment,
-              'كشفٌ أُقفل ولم يُدفع بعد',
+              sub: 'كشفٌ أُقفل ولم يُدفع بعد',
+              color: Palette.ok,
             ),
           if (d.advances > 0)
-            row(Icons.payments_outlined, Palette.returnRed, 'سلفة عليك', d.advances, 'تُقتطع من الكشف القادم'),
+            row(
+              Icons.payments_outlined,
+              'سلفة عليك',
+              d.advances,
+              sub: 'تُقتطع من الكشف القادم',
+              color: Palette.returnRed,
+            ),
         ],
       ),
     );
   }
 
-  /// «مؤشراتك هذا الشهر» (docs/plan/70): نسبة التسليم حلقةً، والمحصَّل أسبوعاً أسبوعاً
+  /// «مؤشراتك هذا الشهر» (docs/plan/70، 123): نسبة التسليم مقياساً مقسّماً يمتلئ من اليمين، وتحته شريط
+  /// المنتهية وغيرها، ثم المحصَّل منحنىً أسبوعاً أسبوعاً، وثلاث خانات
   Widget _indicators(MonthStats m) {
-    Widget chip(String label, String value) => Expanded(
+    final growth = m.growth;
+    final ended = m.delivered + m.returned;
+    final open = math.max(0, m.shipments - ended);
+    Widget kpi(IconData icon, Tone tone, String value, String label, {double? bar}) => Expanded(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
-        decoration: BoxDecoration(
-          color: Palette.bg,
-          border: Border.all(color: Palette.line),
-          borderRadius: BorderRadius.circular(14),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(color: const Color(0xFFF7F5F4), borderRadius: BorderRadius.circular(16)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, maxLines: 1, style: font(11, w6, Palette.muted)),
-            Text.rich(
-              TextSpan(
-                text: value.endsWith('%') ? value.substring(0, value.length - 1) : value,
-                style: display(15, w7, Palette.ink, height: 1.3),
-                children: [if (value.endsWith('%')) TextSpan(text: '%', style: font(12, w8, Palette.ink))],
-              ),
-              maxLines: 1,
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(color: tone.tint, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 18, color: tone.ink),
             ),
+            const SizedBox(height: 6),
+            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: kf(16, Palette.ink, bold: true)),
+            Text(label, maxLines: 1, style: kf(12, Palette.slate)),
+            if (bar != null) ...[
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: bar.clamp(0, 1),
+                  minHeight: 4,
+                  color: tone.ink,
+                  backgroundColor: const Color(0xFFF1D9D5),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
-    final growth = m.growth;
-    return WhiteCard(
-      radius: 24,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text('مؤشراتك هذا الشهر', style: display(16, w7, Palette.ink))),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(20)),
-                child: Text(m.label, style: font(12, w8, brand.deep)),
-              ),
-            ],
+    Widget legend(Color color, String label, int n) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text.rich(
+          TextSpan(
+            text: '$label ',
+            children: [TextSpan(text: money(n), style: kf(12, Palette.ink, bold: true))],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Semantics(
-                label: m.rate == null
-                    ? 'لا شحنات منتهية هذا الشهر'
-                    : 'نسبة التسليم ${m.rate}٪: ${m.delivered} سُلّمت و${m.returned} رجعت',
-                child: SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: CustomPaint(
-                    painter: _Ring((m.rate ?? 0) / 100, brand),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+          style: kf(12, Palette.slate),
+        ),
+      ],
+    );
+    final brandTone = Tone(brand.main, brand.soft);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: cardShadow),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                Expanded(child: Text('مؤشراتك هذا الشهر', style: kf(16, Palette.ink, bold: true))),
+                Container(
+                  height: 24,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(12)),
+                  child: Text(m.label, style: kf(12, brand.main, bold: true, height: 1.2)),
+                ),
+              ],
+            ),
+          ),
+          Semantics(
+            label: m.rate == null
+                ? 'لا شحنات منتهية هذا الشهر'
+                : 'نسبة التسليم ${m.rate}٪: من $ended شحنة انتهت سُلّمت ${m.delivered} ورجعت ${m.returned}',
+            excludeSemantics: true,
+            child: _Gauge(brand: brand, rate: m.rate, delivered: m.delivered, ended: ended),
+          ),
+          if (m.shipments > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Semantics(
+                label: 'شحنات الشهر ${m.shipments}: سُلّمت ${m.delivered}، ورجعت ${m.returned}، ولم تنتهِ $open',
+                excludeSemantics: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: 10,
+                      child: Row(
                         children: [
-                          Text.rich(
-                            TextSpan(
-                              text: m.rate == null ? '—' : '${m.rate}',
-                              style: display(23, w7, Palette.ink, height: 1.1),
-                              // «%» أصغر من الرقم
-                              children: [if (m.rate != null) TextSpan(text: '%', style: font(15, w8, Palette.ink))],
+                          for (final (n, color) in [
+                            (m.delivered, Tone.green.ink),
+                            (m.returned, Tone.red.ink),
+                            (open, Tone.blue.ink),
+                          ].where((e) => e.$1 > 0)) ...[
+                            Expanded(
+                              flex: n,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(5)),
+                              ),
                             ),
-                          ),
-                          Text('نسبة التسليم', style: font(10.5, w6, Palette.muted, height: 1.2)),
+                          ],
                         ],
                       ),
                     ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
-                        Expanded(child: Text('مبيعاتك المحصَّلة', style: font(12, w6, Palette.muted))),
-                        if (growth != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: growth >= 0 ? Palette.okSoft : const Color(0xFFFDECEA),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              '${growth >= 0 ? '▲' : '▼'} ${growth.abs()}%',
-                              style: font(11, w8, growth >= 0 ? Palette.ok : Palette.returnRed),
-                            ),
-                          ),
+                        legend(Tone.green.ink, 'سُلّمت', m.delivered),
+                        legend(Tone.red.ink, 'رجعت', m.returned),
+                        legend(Tone.blue.ink, 'لم تنتهِ', open),
                       ],
                     ),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: AlignmentDirectional.centerStart,
-                      child: Text.rich(
-                        TextSpan(
-                          text: _amount(m.collected),
-                          style: display(21, w7, Palette.ink, height: 1.3),
-                          children: [TextSpan(text: '  د.ع', style: display(12, w6, Palette.ink))],
+                  ],
+                ),
+              ),
+            ),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: _Perforation(height: 16, notch: 16)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('مبيعاتك المحصَّلة', style: kf(12, Palette.slate)),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text.rich(
+                          TextSpan(
+                            text: _amount(m.collected),
+                            children: [TextSpan(text: ' د.ع', style: kf(14, Palette.muted))],
+                          ),
+                          style: kf(24, Palette.ink, bold: true),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                if (growth != null)
+                  Container(
+                    height: 28,
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: growth >= 0 ? Tone.green.tint : Tone.red.tint,
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    const SizedBox(height: 4),
-                    Semantics(
-                      label: 'المحصَّل أسبوعاً أسبوعاً: ${m.weeks.map(money).join('، ')}',
-                      child: SizedBox(
-                        height: 46,
-                        child: CustomPaint(painter: _Weeks(m.weeks, brand), size: Size.infinite),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // ينقلب مع العربية: يصعد نحو اليسار كما في التصميم
+                        Icon(
+                          growth >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                          size: 14,
+                          color: growth >= 0 ? Tone.green.ink : Tone.red.ink,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${growth.abs()}% عن الشهر الماضي',
+                          style: kf(12, growth >= 0 ? Tone.green.ink : Tone.red.ink, bold: true, height: 1.2),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (m.weeks.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+              child: _Sales(brand: brand, weeks: m.weeks, amount: _amount),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            // الخانات الثلاث بطولٍ واحد، ولو كان في إحداها شريط
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  kpi(Icons.receipt_long_outlined, brandTone, _amount(m.average), 'متوسط الطلب'),
+                  const SizedBox(width: 8),
+                  kpi(
+                    Icons.undo_rounded,
+                    Tone.red,
+                    m.returnRate == null ? '—' : '${m.returnRate}%',
+                    'نسبة الراجع',
+                    bar: m.returnRate == null ? null : m.returnRate! / 100,
+                  ),
+                  const SizedBox(width: 8),
+                  kpi(Icons.inventory_2_outlined, Tone.blue, money(m.shipments), 'شحنات الشهر'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _title(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text(text, style: kf(16, Palette.ink, bold: true)),
+  );
+
+  Widget _none(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text(text, style: kf(12, Palette.slate)),
+  );
+
+  /// الكشف تذكرةٌ مثقوبة بحالته: يُضغط فتُفتح تفاصيله بشحناته (docs/plan/61)
+  Widget _statement(Finance d, Statement s) {
+    final Widget status;
+    if (s.confirmed) {
+      status = Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(color: Tone.green.tint, borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_rounded, size: 14, color: Tone.green.ink),
+            const SizedBox(width: 6),
+            Text('استلمتها', style: kf(12, Tone.green.ink, bold: true, height: 1.2)),
+          ],
+        ),
+      );
+    } else if (s.paid) {
+      // الشركة تطلب الوصل نفسه فيُمسح (docs/plan/69)، أو يؤكّد بزرّ
+      status = Tap(
+        radius: 14,
+        onTap: d.scanRequired ? _scan : () => _confirm(s),
+        child: Ink(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(14)),
+          child: Center(
+            widthFactor: 1,
+            child: Text(d.scanRequired ? 'امسح للتأكيد' : 'استلمتُها', style: kf(14, Colors.white, bold: true)),
+          ),
+        ),
+      );
+    } else {
+      status = Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: Tone.amber.tint, borderRadius: BorderRadius.circular(16)),
+        child: Text(s.status, style: kf(12, Tone.amber.ink, bold: true, height: 1.2)),
+      );
+    }
+    final sub = [
+      '${s.count} شحنة',
+      if (s.at != null) when(s.at),
+      if (s.advance > 0) 'خُصم ${money(s.advance)} للسلفة',
+    ].join('، ');
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Color(0x141C1416), blurRadius: 16, offset: Offset(0, 8))],
+      ),
+      child: Material(
+        color: Colors.white,
+        clipBehavior: Clip.antiAlias,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: () => _openStatement(s),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(color: brand.soft, shape: BoxShape.circle),
+                      child: Icon(Icons.receipt_long_outlined, size: 20, color: brand.main),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(s.code, style: kf(14, Palette.ink, bold: true)),
+                          Text(sub, style: kf(12, Palette.muted)),
+                        ],
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Text(_amount(s.net), style: kf(16, Palette.ink, bold: true)),
+                  ],
+                ),
+              ),
+              const _Perforation(height: 12, notch: 12),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        s.reference == null ? '' : 'مرجع الدفع ${s.reference}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: kf(12, Palette.muted),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    status,
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              chip('متوسط الطلب', _amount(m.average)),
-              const SizedBox(width: 8),
-              chip('نسبة الراجع', m.returnRate == null ? '—' : '${m.returnRate}%'),
-              const SizedBox(width: 8),
-              chip('شحنات الشهر', money(m.shipments)),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _open(PaymentRequest r) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: brand.softer,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: brand.border),
-    ),
-    child: Row(
-      children: [
-        SolidIcon(brand: brand, icon: Icons.hourglass_top_rounded, size: 34, iconSize: 18, radius: 11),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('طلبك ${r.number} بانتظار المعالجة', style: font(13, w8, Palette.ink)),
-              Text(
-                '${money(r.amount)} د.ع · ${r.method}${r.at == null ? '' : ' · ${when(r.at)}'}',
-                style: font(11.5, w5, Palette.slate),
-              ),
-            ],
-          ),
+  /// حركةٌ في الحساب: داخلةٌ خضراء وخارجةٌ حمراء، وما كان عن شحنةٍ يفتحها
+  Widget _movement(Movement m, {required bool first}) {
+    final plus = m.amount >= 0;
+    final tone = plus ? Tone.green : Tone.red;
+    return InkWell(
+      onTap: m.shipment == null ? null : () => openShipmentNumber(context, brand, m.shipment!),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 64),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: first ? null : const Border(top: BorderSide(color: Color(0xFFF0EBED))),
         ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: tone.tint, shape: BoxShape.circle),
+              child: Icon(plus ? Icons.south_rounded : Icons.north_rounded, size: 18, color: tone.ink),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(m.label, maxLines: 2, overflow: TextOverflow.ellipsis, style: kf(14, Palette.ink, bold: true)),
+                  if (m.at != null) Text(when(m.at), style: kf(12, Palette.muted)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${plus ? '+' : '−'}${_amount(m.amount.abs())}',
+              textDirection: TextDirection.ltr,
+              style: kf(14, tone.ink, bold: true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// خطٌّ متقطّع بين ثقبين على حافتي البطاقة: تذكرةٌ تُقطع
+class _Perforation extends StatelessWidget {
+  const _Perforation({required this.height, required this.notch});
+
+  final double height;
+  final double notch;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: height,
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: 18,
+          right: 18,
+          top: height / 2 - 1,
+          child: CustomPaint(size: const Size(double.infinity, 2), painter: const _Dash()),
+        ),
+        for (final side in [-notch / 2, null])
+          Positioned(
+            left: side,
+            right: side == null ? -notch / 2 : null,
+            top: (height - notch) / 2,
+            child: Container(
+              width: notch,
+              height: notch,
+              decoration: const BoxDecoration(color: Palette.bg, shape: BoxShape.circle),
+            ),
+          ),
       ],
     ),
   );
+}
 
-  Widget _title(String text) => Padding(
-    padding: const EdgeInsets.fromLTRB(2, 6, 2, 8),
-    child: Text(text, style: display(16, w7, Palette.ink)),
-  );
+class _Dash extends CustomPainter {
+  const _Dash();
 
-  Widget _none(String text) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Text(text, style: font(12.5, w5, Palette.slate)),
-  );
-
-  /// الكشف مربّعٌ أحمر شفّاف بحالته: يُضغط فتُفتح تفاصيله بشحناته (docs/plan/61)
-  Widget _statement(Finance d, Statement s) {
-    final Widget? status;
-    if (s.confirmed) {
-      status = const OkPill(text: 'استلمتها');
-    } else if (s.paid && d.scanRequired) {
-      status = Tap(
-        radius: 20,
-        onTap: _scan,
-        child: ScanPill(brand: brand, text: 'امسح للتأكيد'),
-      );
-    } else if (s.paid) {
-      status = Tap(
-        radius: 20,
-        onTap: () => _confirm(s),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(gradient: brand.hero, borderRadius: BorderRadius.circular(20)),
-          child: Text('استلمتُها', style: font(11.5, w8, Colors.white, height: 1.3)),
-        ),
-      );
-    } else {
-      status = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
-        decoration: BoxDecoration(color: const Color(0xFFFFF4E5), borderRadius: BorderRadius.circular(20)),
-        child: Text(s.status, style: font(11, w8, const Color(0xFFB54708), height: 1.3)),
-      );
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFE4DDE0)
+      ..strokeWidth = 1.5;
+    for (var x = 0.0; x < size.width; x += 7) {
+      canvas.drawLine(Offset(x, 1), Offset(math.min(x + 4, size.width), 1), paint);
     }
-    return TintedRow(
-      brand: brand,
-      icon: Icons.receipt_long_rounded,
-      title: s.code,
-      subtitle:
-          '${s.count} شحنة${s.at == null ? '' : ' · ${when(s.at)}'}${s.advance > 0 ? ' · خُصم ${money(s.advance)} للسلفة' : ''}',
-      end: Text(_amount(s.net), style: display(16, w7, Palette.ink, height: 1.2)),
-      status: status,
-      onTap: () => Navigator.of(context)
-          .push(
-            MaterialPageRoute(
-              builder: (_) => StatementScreen(brand: brand, id: s.id),
-            ),
-          )
-          .then((_) => _load()),
-    );
   }
 
-  Widget _movement(Movement m) {
-    final plus = m.amount >= 0;
-    // حركةٌ عن شحنة: تُضغط فتُفتح الشحنة
-    return InkWell(
-      onTap: m.shipment == null ? null : () => openShipmentNumber(context, brand, m.shipment!),
-      child: _movementRow(m, plus),
-    );
-  }
+  @override
+  bool shouldRepaint(_Dash old) => false;
+}
 
-  Widget _movementRow(Movement m, bool plus) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  m.label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: font(12.5, w6, Palette.ink, height: 1.4),
+/// نسبة التسليم (docs/plan/123): سبعٌ وثلاثون شَرطة على نصف دائرة تمتلئ من اليمين بلون الشركة، ونقطةٌ عند النسبة،
+/// والرقم في وسطها بما سُلّم من المنتهية
+class _Gauge extends StatelessWidget {
+  const _Gauge({required this.brand, required this.rate, required this.delivered, required this.ended});
+
+  final Brand brand;
+  final int? rate;
+  final int delivered;
+  final int ended;
+
+  @override
+  Widget build(BuildContext context) {
+    final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return SizedBox(
+      height: 162,
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final cx = box.maxWidth / 2;
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // شبكةٌ خفيفة تذوب حول المقياس، وتوهّجٌ بلون الشركة تحته
+              Positioned.fill(
+                child: ShaderMask(
+                  blendMode: BlendMode.dstIn,
+                  shaderCallback: (r) => const RadialGradient(
+                    center: Alignment(0, .76),
+                    radius: .62,
+                    colors: [Colors.black, Colors.transparent],
+                    stops: [.3, 1],
+                  ).createShader(r),
+                  child: const CustomPaint(painter: IsoGrid(color: Color(0x0D1C1416), step: 16)),
                 ),
-                if (m.at != null) Text(when(m.at), style: font(10.5, w5, Palette.muted)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '${plus ? '+' : '−'}${_amount(m.amount.abs())}',
-            textDirection: TextDirection.ltr,
-            style: display(14, w7, plus ? Palette.ok : Palette.returnRed),
-          ),
-        ],
+              ),
+              Positioned(
+                left: cx - 110,
+                bottom: 14,
+                width: 220,
+                height: 110,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(110)),
+                    gradient: RadialGradient(
+                      center: Alignment.bottomCenter,
+                      radius: 1,
+                      colors: [brand.soft, brand.soft.withValues(alpha: 0)],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: still ? 1 : 0, end: 1),
+                  duration: Duration(milliseconds: still ? 0 : 1700),
+                  builder: (_, t, _) => CustomPaint(
+                    painter: _Ticks(brand: brand, value: (rate ?? 0) / 100, t: t),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 64,
+                child: Column(
+                  children: [
+                    Text(rate == null ? '—' : '$rate%', style: kf(32, Palette.ink, bold: true, height: 1.25)),
+                    Text('نسبة التسليم', style: kf(12, Palette.ink, bold: true)),
+                    Text(rate == null ? 'لا منتهية بعد' : '$delivered من $ended انتهت', style: kf(12, Palette.slate)),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: cx + 86,
+                top: 140,
+                width: 36,
+                child: Text('0%', textAlign: TextAlign.center, style: kf(12, Palette.muted)),
+              ),
+              Positioned(
+                left: cx - 122,
+                top: 140,
+                width: 36,
+                child: Text('100%', textAlign: TextAlign.center, style: kf(12, Palette.muted)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-/// حلقة نسبة التسليم: مسارٌ فاتح، والنسبة بتدرّج لون الشركة من أعلاها
-class _Ring extends CustomPainter {
-  _Ring(this.ratio, this.brand);
+class _Ticks extends CustomPainter {
+  _Ticks({required this.brand, required this.value, required this.t});
 
-  final double ratio;
   final Brand brand;
+  final double value;
+
+  /// تقدّم الحركة من 0 إلى 1: الشَّرطات تمتلئ واحدةً بعد واحدة ثم تظهر النقطة
+  final double t;
+
+  static const n = 37;
+  static const total = 1700.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 11.0;
-    final rect = Rect.fromCircle(center: size.center(Offset.zero), radius: size.shortestSide / 2 - stroke / 2);
-    canvas.drawArc(
-      rect,
-      0,
-      6.2832,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..color = const Color(0xFFF3E5E3),
-    );
-    if (ratio <= 0) return;
-    canvas.drawArc(
-      rect,
-      -1.5708,
-      6.2832 * ratio.clamp(0, 1),
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round
-        ..shader = SweepGradient(
-          startAngle: -1.5708,
-          endAngle: 4.7124,
-          colors: [brand.coral, brand.main, Color.lerp(brand.main, Colors.black, .25)!],
-          transform: const GradientRotation(-1.5708),
-        ).createShader(rect),
-    );
+    final cx = size.width / 2;
+    const cy = 134.0, r1 = 94.0, r2 = 114.0, rm = 80.0;
+    // القوس المنقّط في الداخل
+    final dots = Paint()..color = const Color(0xFFDCD4D8);
+    for (var a = 0.0; a <= math.pi + 1e-9; a += 6 / rm) {
+      canvas.drawCircle(Offset(cx + rm * math.cos(a), cy - rm * math.sin(a)), .9, dots);
+    }
+    final ms = t * total;
+    final base = Paint()
+      ..color = const Color(0xFFEFE9EB)
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    var last = -1;
+    for (var k = 0; k < n; k++) {
+      // الأولى في أقصى اليمين: الزاوية صفر
+      final a = math.pi * k / (n - 1);
+      final p1 = Offset(cx + r1 * math.cos(a), cy - r1 * math.sin(a));
+      final p2 = Offset(cx + r2 * math.cos(a), cy - r2 * math.sin(a));
+      canvas.drawLine(p1, p2, base);
+      if (value > 0 && k / (n - 1) <= value + 1e-9) {
+        last = k;
+        final shown = ((ms - (300 + k * 24)) / 200).clamp(0.0, 1.0);
+        if (shown <= 0) continue;
+        final op = .55 + .45 * k / ((n - 1) * value);
+        canvas.drawLine(
+          p1,
+          p2,
+          Paint()
+            ..color = brand.main.withValues(alpha: (op * shown).clamp(0.0, 1.0))
+            ..strokeWidth = 5
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+    }
+    if (last < 0) return;
+    final pop = ((ms - (300 + last * 24 + 120)) / 260).clamp(0.0, 1.0);
+    if (pop <= 0) return;
+    final a = math.pi * value;
+    final c = Offset(cx + rm * math.cos(a), cy - rm * math.sin(a));
+    final scale = Curves.easeOutBack.transform(pop);
+    canvas.drawCircle(c, 11 * scale, Paint()..color = brand.main.withValues(alpha: .14));
+    canvas.drawCircle(c, 6.75 * scale, Paint()..color = Colors.white);
+    canvas.drawCircle(c, 4.25 * scale, Paint()..color = brand.main);
   }
 
   @override
-  bool shouldRepaint(covariant _Ring old) => old.ratio != ratio || old.brand.main != brand.main;
+  bool shouldRepaint(_Ticks old) => old.t != t || old.value != value || old.brand.main != brand.main;
 }
 
-/// أعمدة الأسابيع: الأوّل يميناً، وهذا الأسبوع بلون الشركة والباقي فاتح، وتحت كلٍّ رقمه
-class _Weeks extends CustomPainter {
-  _Weeks(this.weeks, this.brand);
+/// المحصَّل أسبوعاً أسبوعاً (docs/plan/123): منحنىً من الصفر — الأسبوع الأوّل يميناً كما تُقرأ العربية — بمساحةٍ تحته،
+/// ونقطةٌ لكلّ أسبوع تُلمس فتنتقل إليها الفقاعة بمبلغه. يبدأ على هذا الأسبوع
+class _Sales extends StatefulWidget {
+  const _Sales({required this.brand, required this.weeks, required this.amount});
 
-  final List<int> weeks;
   final Brand brand;
+  final List<int> weeks;
+  final String Function(int) amount;
+
+  @override
+  State<_Sales> createState() => _SalesState();
+}
+
+class _SalesState extends State<_Sales> {
+  late int week = widget.weeks.length - 1;
+
+  static const _ordinals = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس'];
+  static const _pt = 64.0, _ph = 92.0, _h = 186.0, _bubble = 128.0;
+  static const _move = Duration(milliseconds: 400);
+  static const _curve = Cubic(.2, .8, .2, 1);
+
+  String _name(int i) => i < _ordinals.length ? _ordinals[i] : '${i + 1}';
+
+  /// أعلى المحور رقمٌ مدوّر فوق أعلى أسبوع: 512 ألفاً ← 600 ألف
+  double get _max {
+    final top = widget.weeks.fold<int>(0, math.max);
+    if (top <= 0) return 1;
+    final step = math.pow(10, (math.log(top) / math.ln10).floor()).toDouble();
+    return ((top * 1.1 / step).ceil() * step).toDouble();
+  }
+
+  @override
+  void didUpdateWidget(_Sales old) {
+    super.didUpdateWidget(old);
+    if (week >= widget.weeks.length) week = widget.weeks.length - 1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final weeks = widget.weeks;
+    final brand = widget.brand;
+    final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return Semantics(
+      label:
+          'مبيعاتك المحصَّلة بالأسابيع: '
+          '${[for (final (i, v) in weeks.indexed) 'الأسبوع ${_name(i)} ${widget.amount(v)} د.ع'].join('، ')}',
+      child: SizedBox(
+        height: _h,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final w = box.maxWidth;
+            final max = _max;
+            final n = weeks.length;
+            final xs = [for (var i = 0; i < n; i++) n == 1 ? w / 2 : w - 34 - i * ((w - 68) / (n - 1))];
+            final ys = [for (final v in weeks) _pt + _ph - (v / max) * _ph];
+            final sx = xs[week], sy = ys[week];
+            final bl = (sx - _bubble / 2).clamp(0.0, math.max(0.0, w - _bubble)).toDouble();
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: still ? 1 : 0, end: 1),
+                    duration: Duration(milliseconds: still ? 0 : 1400),
+                    builder: (_, t, _) => CustomPaint(
+                      painter: _Curve(xs: xs, ys: ys, max: max, color: brand.main, t: t),
+                    ),
+                  ),
+                ),
+                // خطّ الأسبوع المختار من نقطته إلى الأساس
+                AnimatedPositioned(
+                  duration: _move,
+                  curve: _curve,
+                  left: sx - .75,
+                  top: sy,
+                  height: _pt + _ph - sy,
+                  width: 1.5,
+                  child: CustomPaint(painter: _VDash(brand.border)),
+                ),
+                for (final (i, x) in xs.indexed) ...[
+                  Positioned(
+                    left: x - 5,
+                    top: ys[i] - 5,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: brand.main, width: 2),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: x - 36,
+                    top: 166,
+                    width: 72,
+                    child: Text(
+                      _name(i),
+                      textAlign: TextAlign.center,
+                      style: kf(12, i == week ? Palette.ink : Palette.muted, bold: i == week),
+                    ),
+                  ),
+                ],
+                AnimatedPositioned(
+                  duration: _move,
+                  curve: _curve,
+                  left: sx - 9,
+                  top: sy - 9,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: brand.main,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                        boxShadow: [
+                          BoxShadow(color: brand.border, spreadRadius: 1),
+                          BoxShadow(color: brand.halo, blurRadius: 14, offset: const Offset(0, 6), spreadRadius: -4),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // الفقاعة: اسم الأسبوع ومبلغه، وسهمٌ صغيرٌ إلى نقطته
+                AnimatedPositioned(
+                  duration: _move,
+                  curve: _curve,
+                  left: bl,
+                  top: sy - 72,
+                  width: _bubble,
+                  child: IgnorePointer(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          left: sx - bl - 6,
+                          bottom: -5,
+                          child: Transform.rotate(
+                            angle: math.pi / 4,
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(color: Palette.ink, borderRadius: BorderRadius.circular(2)),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Palette.ink,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x991C1416),
+                                blurRadius: 20,
+                                offset: Offset(0, 10),
+                                spreadRadius: -10,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('الأسبوع ${_name(week)}', style: kf(12, Colors.white.withValues(alpha: .78))),
+                              Text(
+                                '${widget.amount(weeks[week])} د.ع',
+                                maxLines: 1,
+                                style: kf(14, Colors.white, bold: true),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // لمسة الأسبوع: عمودٌ عريض حول نقطته
+                for (final (i, x) in xs.indexed)
+                  Positioned(
+                    left: x - 43,
+                    top: 0,
+                    width: 86,
+                    height: _h,
+                    child: Semantics(
+                      button: true,
+                      selected: i == week,
+                      label: 'الأسبوع ${_name(i)}: ${widget.amount(weeks[i])} د.ع',
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () => setState(() => week = i),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _Curve extends CustomPainter {
+  _Curve({required this.xs, required this.ys, required this.max, required this.color, required this.t});
+
+  final List<double> xs;
+  final List<double> ys;
+  final double max;
+  final Color color;
+  final double t;
+
+  static const _pt = 64.0, _ph = 92.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (weeks.isEmpty) return;
-    const label = 14.0, bar = 18.0, gap = 10.0;
-    final top = weeks.reduce((a, b) => a > b ? a : b);
-    final height = size.height - label;
-    for (var i = 0; i < weeks.length; i++) {
-      // الأسبوع الأوّل في أقصى اليمين (العربية من اليمين)
-      final x = size.width - (i + 1) * bar - i * gap;
-      if (x < 0) break;
-      final h = top == 0 ? 3.0 : (height * weeks[i] / top).clamp(3.0, height);
-      final r = RRect.fromRectAndRadius(Rect.fromLTWH(x, height - h, bar, h), const Radius.circular(6));
-      final now = i == weeks.length - 1;
-      canvas.drawRRect(
-        r,
+    final w = size.width;
+    final bottom = _pt + _ph;
+    // خطوط المحور: ثلثٌ وثلثان والأعلى متقطّعة، والأساس متّصل
+    final grid = Paint()
+      ..color = const Color(0xFFEFE9EB)
+      ..strokeWidth = 1;
+    for (final f in [1 / 3, 2 / 3, 1.0]) {
+      final y = bottom - f * _ph;
+      for (var x = 8.0; x < w - 8; x += 8) {
+        canvas.drawLine(Offset(x, y), Offset(math.min(x + 3, w - 8), y), grid);
+      }
+    }
+    canvas.drawLine(
+      Offset(8, bottom),
+      Offset(w - 8, bottom),
+      Paint()
+        ..color = const Color(0xFFE4DDE0)
+        ..strokeWidth = 1,
+    );
+    final n = xs.length;
+    if (n == 0) return;
+    // منحنى كاتمل-روم إلى بيزييه، كما في ملف التصميم
+    final line = Path()..moveTo(xs[0], ys[0]);
+    for (var i = 0; i < n - 1; i++) {
+      final p0 = math.max(0, i - 1), p3 = math.min(n - 1, i + 2);
+      final c1 = Offset(xs[i] + (xs[i + 1] - xs[p0]) / 6, ys[i] + (ys[i + 1] - ys[p0]) / 6);
+      final c2 = Offset(xs[i + 1] - (xs[p3] - xs[i]) / 6, ys[i + 1] - (ys[p3] - ys[i]) / 6);
+      line.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, xs[i + 1], ys[i + 1]);
+    }
+    // المساحة تظهر بعد أن يُرسم الخطّ
+    final fill = ((t - .55) / .45).clamp(0.0, 1.0);
+    if (fill > 0 && n > 1) {
+      final area = Path.from(line)
+        ..lineTo(xs[n - 1], bottom)
+        ..lineTo(xs[0], bottom)
+        ..close();
+      canvas.drawPath(
+        area,
         Paint()
-          ..shader =
-              (now
-                      ? LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [brand.coral, brand.main],
-                        )
-                      : const LinearGradient(colors: [Color(0xFFF2D2D1), Color(0xFFF2D2D1)]))
-                  .createShader(r.outerRect),
+          ..shader = ui.Gradient.linear(Offset(0, _pt - 10), Offset(0, bottom), [
+            color.withValues(alpha: .26 * fill),
+            color.withValues(alpha: 0),
+          ]),
       );
-      final text = TextPainter(
-        text: TextSpan(text: '${i + 1}', style: font(10.5, w6, Palette.muted, height: 1)),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      text.paint(canvas, Offset(x + bar / 2 - text.width / 2, size.height - text.height));
+    }
+    final draw = (t / .7).clamp(0.0, 1.0);
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    if (draw >= 1) {
+      canvas.drawPath(line, stroke);
+    } else if (draw > 0) {
+      for (final m in line.computeMetrics()) {
+        canvas.drawPath(m.extractPath(0, m.length * draw), stroke);
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _Weeks old) => old.weeks != weeks;
+  bool shouldRepaint(_Curve old) => old.t != t || old.max != max || old.color != color || old.ys != ys;
+}
+
+class _VDash extends CustomPainter {
+  _VDash(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5;
+    for (var y = 0.0; y < size.height; y += 6) {
+      canvas.drawLine(Offset(.75, y), Offset(.75, math.min(y + 3, size.height)), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_VDash old) => old.color != color;
 }
 
 /// «اطلب محاسبة»: الطريقة من طرق الشركة، ورقم البطاقة أو المحفظة لما سوى النقد
@@ -807,93 +1359,69 @@ class _RequestSheetState extends State<_RequestSheet> {
     final f = widget.finance;
     final saved = f.account != null && method == f.method;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.viewInsetsOf(context).bottom + 18),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(color: Palette.line, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text('اطلب محاسبة', style: font(16, w8, Palette.ink)),
-          Text('يُطلب المتاح للسحب: ${money(f.available)} د.ع', style: font(12, w5, Palette.slate)),
-          const SizedBox(height: 14),
-          Text('طريقة الدفع', style: font(12, w7, Palette.ink)),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
+      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.viewInsetsOf(context).bottom + 24),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final m in f.methods)
-                ChoiceChip(
-                  label: Text(
-                    m.label,
-                    style: font(12.5, m.value == method ? w8 : w6, m.value == method ? brand.main : Palette.ink),
-                  ),
-                  selected: m.value == method,
-                  selectedColor: brand.soft,
-                  onSelected: (_) => setState(() => method = m.value),
+              const SheetHandle(),
+              const SizedBox(height: 12),
+              Text('اطلب محاسبة', style: kf(16, Palette.ink, bold: true)),
+              Text('يُطلب المتاح للسحب: ${money(f.available)} د.ع', style: kf(12, Palette.slate)),
+              const SizedBox(height: 16),
+              Text('طريقة الدفع', style: kf(14, Palette.ink, bold: true)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final m in f.methods)
+                    Semantics(
+                      selected: m.value == method,
+                      button: true,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => setState(() => method = m.value),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          height: 44,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: m.value == method ? brand.soft : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: m.value == method ? brand.main : Palette.line, width: 1.5),
+                          ),
+                          child: Text(
+                            m.label,
+                            style: kf(14, m.value == method ? brand.main : Palette.ink, bold: true, height: 1.3),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (_chosen.details) ...[
+                const SizedBox(height: 12),
+                InputBox(
+                  controller: details,
+                  hint: saved ? 'المحفوظ ${f.account} — اتركه فارغاً لتستعمله' : (_chosen.hint ?? 'الرقم واسم صاحبه'),
                 ),
+              ],
+              const SizedBox(height: 10),
+              InputBox(controller: note, hint: 'ملاحظة (اختياري)'),
+              if (error != null) ErrorNote(error!),
+              const SizedBox(height: 16),
+              SheetButton(brand: brand, label: 'أرسل الطلب', busy: saving, onTap: _save),
             ],
           ),
-          if (_chosen.details) ...[
-            const SizedBox(height: 12),
-            _field(
-              details,
-              saved ? 'المحفوظ ${f.account} — اتركه فارغاً لتستعمله' : (_chosen.hint ?? 'الرقم واسم صاحبه'),
-            ),
-          ],
-          const SizedBox(height: 10),
-          _field(note, 'ملاحظة (اختياري)'),
-          if (error != null) ...[
-            const SizedBox(height: 8),
-            Text(error!, style: font(12, w6, Palette.returnRed, height: 1.5)),
-          ],
-          const SizedBox(height: 14),
-          Tap(
-            radius: 14,
-            onTap: saving ? null : _save,
-            child: Container(
-              height: 50,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: brand.main, borderRadius: BorderRadius.circular(14)),
-              child: saving
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                    )
-                  : Text('أرسل الطلب', style: font(15, w8, Colors.white)),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
-
-  Widget _field(TextEditingController controller, String hint) => Container(
-    decoration: BoxDecoration(
-      color: const Color(0xFFFBF6F5),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Palette.line),
-    ),
-    child: TextField(
-      controller: controller,
-      style: font(13.5, w6, Palette.ink, height: 1.4),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: hint,
-        hintStyle: font(12.5, w5, Palette.muted),
-        border: InputBorder.none,
-        contentPadding: const EdgeInsets.all(12),
-      ),
-    ),
-  );
 }
 
 /// تفاصيل الكشف (docs/plan/61): مجاميعه، وشحناته سطراً سطراً — والسطر يفتح شحنته
