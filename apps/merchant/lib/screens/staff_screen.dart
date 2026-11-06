@@ -67,7 +67,7 @@ class _StaffScreenState extends State<StaffScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         centerTitle: true,
-        title: Text('موظّفو المتجر', style: display(17, w8, Palette.ink)),
+        title: Text('إضافة موظفين', style: display(17, w8, Palette.ink)),
       ),
       floatingActionButton: d == null || d.staff.length >= d.max
           ? null

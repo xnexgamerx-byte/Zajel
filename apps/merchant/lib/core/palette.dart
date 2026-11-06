@@ -145,7 +145,7 @@ const kufi = 'NotoKufiArabic';
 
 /// مقاسات الشاشات المكتوبة قبل «وصل» كما هي: «كوفي» أعرض من «القاهرة» بنحو ٨٪، فيُصغَّر بقدرها، فتبقى
 /// السطور بعرضها القديم وارتفاع حروفها نفسه (كان ٠٫٩ بالقاهرة، docs/plan/78) — وأصغر خطٍّ لا ينزل عن ٩٫٥
-const textScale = .83;
+const textScale = .78;
 
 TextStyle font(double size, FontWeight weight, Color color, {double height = 1.25}) => TextStyle(
   fontFamily: kufi,
@@ -175,9 +175,13 @@ TextStyle display(double size, FontWeight weight, Color color, {double height = 
 );
 
 /// نصّ «وصل» بمقاسه في التصميم (docs/plan/123): ١٢ و١٤ و١٦ و٢٤، وسطرٌ مريحٌ للعربية. للشاشات المرسومة بـ«وصل»
+/// كثافة قسم التاجر (docs/plan/123): المقاسات تُكتب بأرقام التصميم (12 و14 و16 و24)، وتُرسم أصغر قليلاً بطلب
+/// التاجر، فتصير الواجهة أرتب وأخفّ على الهاتف — ولا ينزل خطٌّ عن ١٠
+const uiScale = .9;
+
 TextStyle kf(double size, Color color, {bool bold = false, double? height}) => TextStyle(
   fontFamily: kufi,
-  fontSize: size,
+  fontSize: size * uiScale < 10 ? 10 : size * uiScale,
   fontWeight: bold ? w7 : FontWeight.w400,
   color: color,
   height: height ?? (size >= 24 ? 1.4 : 1.5),

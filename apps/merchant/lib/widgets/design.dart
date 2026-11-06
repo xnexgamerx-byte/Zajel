@@ -173,7 +173,7 @@ class SectionHead extends StatelessWidget {
           onTap: onAction,
           borderRadius: BorderRadius.circular(12),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44),
+            constraints: const BoxConstraints(minHeight: 40),
             child: Padding(
               padding: const EdgeInsetsDirectional.fromSTEB(8, 0, 4, 0),
               child: Row(

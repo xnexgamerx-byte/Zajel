@@ -122,10 +122,10 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: _search()),
-        const SizedBox(height: 12),
-        SizedBox(height: 40, child: _chips()),
+        const SizedBox(height: 10),
+        SizedBox(height: 34, child: _chips()),
         const SizedBox(height: 4),
         Expanded(child: GridBackdrop(child: _list())),
       ],
@@ -145,10 +145,10 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
   });
 
   Widget _search() => Container(
-    height: 48,
+    height: 42,
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: Palette.line),
     ),
     child: TextField(
@@ -160,8 +160,8 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
       style: kf(14, Palette.ink),
       decoration: InputDecoration(
         hintText: 'ابحث بالاسم أو الهاتف أو رقم الوصل',
-        hintStyle: kf(14, const Color(0xFF8C8286)),
-        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 20),
+        hintStyle: kf(13, const Color(0xFF8C8286)),
+        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 18),
         suffixIcon: search.text.isEmpty
             ? null
             : IconButton(
@@ -173,7 +173,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
                 },
               ),
         border: InputBorder.none,
-        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
       ),
     ),
   );
@@ -213,10 +213,10 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
             onTap: () => widget.filter.value = f.key,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsetsDirectional.fromSTEB(12, 0, 6, 0),
+              padding: const EdgeInsetsDirectional.fromSTEB(10, 0, 4, 0),
               decoration: BoxDecoration(
                 color: on ? tone.ink : Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(17),
                 border: Border.all(color: on ? tone.ink : Palette.line),
                 boxShadow: on
                     ? [
@@ -233,23 +233,23 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: 8,
-                    height: 8,
+                    width: 6,
+                    height: 6,
                     decoration: BoxDecoration(color: on ? Colors.white : tone.ink, shape: BoxShape.circle),
                   ),
-                  const SizedBox(width: 8),
-                  Text(f.label, style: kf(14, on ? Colors.white : Palette.ink, bold: true, height: 1.3)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
+                  Text(f.label, style: kf(13, on ? Colors.white : Palette.ink, bold: true, height: 1.3)),
+                  const SizedBox(width: 6),
                   Container(
-                    constraints: const BoxConstraints(minWidth: 28),
-                    height: 28,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    constraints: const BoxConstraints(minWidth: 24),
+                    height: 24,
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: on ? Colors.white.withValues(alpha: .22) : tone.tint,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(money(f.count), style: kf(12, on ? Colors.white : tone.ink, bold: true, height: 1)),
+                    child: Text(money(f.count), style: kf(11, on ? Colors.white : tone.ink, bold: true, height: 1)),
                   ),
                 ],
               ),

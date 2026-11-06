@@ -349,7 +349,7 @@ class _LabelsScreenState extends State<LabelsScreen> {
     padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
     child: Column(
       children: [
-        Art('printer', brand: brand, width: 100, height: 87),
+        Art('printer', brand: brand, width: 84, height: 73),
         const SizedBox(height: 12),
         Text(
           _printed ? 'لا وصولات مطبوعة تنتظر المندوب' : 'لا وصولات تنتظر الطباعة',

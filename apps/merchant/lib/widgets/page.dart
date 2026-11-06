@@ -22,8 +22,8 @@ class SquareButton extends StatelessWidget {
       radius: 14,
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: 40,
+        height: 40,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: onDark ? Colors.white.withValues(alpha: .10) : Colors.white,
@@ -287,7 +287,7 @@ class SheetButton extends StatelessWidget {
       child: Opacity(
         opacity: onTap == null && !busy ? .5 : 1,
         child: Container(
-          height: 52,
+          height: 46,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: outlined ? Colors.white : brand.main,
@@ -340,7 +340,7 @@ class InputBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 48),
+    constraints: const BoxConstraints(minHeight: 44),
     alignment: Alignment.center,
     decoration: BoxDecoration(
       color: const Color(0xFFFAF9F9),

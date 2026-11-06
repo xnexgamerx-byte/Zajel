@@ -404,13 +404,13 @@ class _NavBar extends StatelessWidget {
     final bottom = MediaQuery.paddingOf(context).bottom;
     final at = items.indexOf(active);
     return Container(
-      padding: EdgeInsets.fromLTRB(8, 6, 8, bottom > 0 ? bottom : 18),
+      padding: EdgeInsets.fromLTRB(8, 5, 8, bottom > 0 ? bottom : 12),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Palette.line)),
       ),
       child: SizedBox(
-        height: 56,
+        height: 50,
         child: LayoutBuilder(
           builder: (context, box) {
             final w = box.maxWidth / items.length;
@@ -422,12 +422,12 @@ class _NavBar extends StatelessWidget {
                   AnimatedPositionedDirectional(
                     duration: const Duration(milliseconds: 450),
                     curve: const Cubic(.2, .8, .2, 1),
-                    start: at * w + (w - 56) / 2,
+                    start: at * w + (w - 50) / 2,
                     top: 0,
                     child: Container(
-                      width: 56,
-                      height: 32,
-                      decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(16)),
+                      width: 50,
+                      height: 28,
+                      decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                 Row(children: [for (final key in items) Expanded(child: _item(key))]),
@@ -456,10 +456,10 @@ class _NavBar extends StatelessWidget {
         child: Column(
           children: [
             SizedBox(
-              height: 32,
-              child: Center(child: Icon(icon, size: 20, color: color)),
+              height: 28,
+              child: Center(child: Icon(icon, size: 19, color: color)),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: AnimatedDefaultTextStyle(
@@ -489,26 +489,26 @@ class _NavBar extends StatelessWidget {
         alignment: Alignment.topCenter,
         children: [
           Positioned(
-            top: -15,
+            top: -12,
             child: AnimatedRotation(
               turns: open ? .125 : 0,
               duration: const Duration(milliseconds: 400),
               curve: const Cubic(.2, .9, .3, 1.3),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                width: 48,
-                height: 48,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: open ? Palette.ink : brand.main,
-                  borderRadius: BorderRadius.circular(17),
-                  border: Border.all(color: Colors.white, width: 3.5),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.white, width: 3),
                   boxShadow: const [
                     BoxShadow(color: Color(0x731C1416), blurRadius: 20, spreadRadius: -8, offset: Offset(0, 10)),
                   ],
                 ),
                 child: Icon(
                   scanOnly ? Icons.qr_code_scanner_rounded : Icons.add_rounded,
-                  size: 22,
+                  size: 20,
                   color: Colors.white,
                 ),
               ),
@@ -774,7 +774,7 @@ class _AccountState extends State<_Account> {
   ];
 
   static const _all = [
-    ('موظّفو المتجر', '', Icons.groups_2_outlined, 'staff'),
+    ('إضافة موظفين', '', Icons.group_add_outlined, 'staff'),
     ('الطابعة', 'وصولات الطلبات الجديدة', Icons.print_outlined, 'labels'),
     ('للمعالجة', '', Icons.schedule_rounded, 'processing'),
     ('طلبات الاستلام', '', Icons.hail_rounded, 'pickups'),
@@ -960,19 +960,19 @@ class _AccountState extends State<_Account> {
     required Color lineColor,
     required VoidCallback onTap,
   }) => Tap(
-    radius: 24,
+    radius: 20,
     onTap: onTap,
     child: Container(
-      constraints: const BoxConstraints(minHeight: 160),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(24)),
+      constraints: const BoxConstraints(minHeight: 132),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Align(
             alignment: AlignmentDirectional.centerEnd,
-            child: Rise(delay: 300, scale: true, child: Art(art, brand: brand, width: 74, height: 65)),
+            child: Rise(delay: 300, scale: true, child: Art(art, brand: brand, width: 60, height: 52)),
           ),
           const SizedBox(height: 8),
           Text(title, style: kf(14, Palette.ink, bold: true)),
@@ -989,17 +989,17 @@ class _AccountState extends State<_Account> {
       shadow: cardShadow,
       onTap: () => widget.onOpen(screen),
       child: Ink(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 52),
+          constraints: const BoxConstraints(minHeight: 44),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(14)),
-                child: Icon(icon, size: 18, color: brand.main),
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(color: brand.soft, borderRadius: BorderRadius.circular(11)),
+                child: Icon(icon, size: 16, color: brand.main),
               ),
               const SizedBox(width: 10),
               Expanded(

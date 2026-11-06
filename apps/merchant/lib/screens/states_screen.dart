@@ -111,7 +111,7 @@ class _StatesScreenState extends State<StatesScreen> {
                                   ),
                                 ),
                               ),
-                              Rise(delay: 200, child: Art('scene_hub', brand: brand, width: 200, height: 150)),
+                              Rise(delay: 200, child: Art('scene_hub', brand: brand, width: 164, height: 123)),
                             ],
                           ),
                         ],

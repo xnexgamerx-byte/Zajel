@@ -199,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // نسخة العرض على الهاتف تقول ذلك صراحةً: لا تُحسب على النظام
           if (AppConfig.demo && !kIsWeb) _pad(const DemoNote()),
           _pad(_header(d)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _pad(
             Rise(
               delay: 60,
@@ -207,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           if (tiles.isNotEmpty) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             _pad(
               Rise(
                 delay: 140,
@@ -220,12 +220,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             _pad(_grid(tiles)),
           ],
           // ما ينتظر قراره، وأرقام اليوم (docs/plan/123)
           if (d.stats != null || processing) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             _pad(
               Rise(
                 delay: 520,
@@ -235,9 +235,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            if (d.canProcess && processing) ...[_pad(_deck()), const SizedBox(height: 12)],
-            if (d.stats != null) ...[_pad(_stats(d.stats!)), const SizedBox(height: 12)],
+            const SizedBox(height: 10),
+            if (d.canProcess && processing) ...[_pad(_deck()), const SizedBox(height: 10)],
+            if (d.stats != null) ...[_pad(_stats(d.stats!)), const SizedBox(height: 10)],
             if (processing) _pad(Rise(delay: 700, child: _attn(d))),
           ],
           if (d.stats != null) ...[
@@ -291,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
             radius: 14,
             onTap: () => _open('support'),
             child: Container(
-              height: 44,
+              height: 38,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -339,8 +339,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: SizedBox(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             child: uploading
                 ? ColoredBox(
                     color: brand.soft,
@@ -426,13 +426,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _grid(List<_TileSpec> tiles) => Column(
     children: [
       for (var r = 0; r < tiles.length; r += 3) ...[
-        if (r > 0) const SizedBox(height: 12),
+        if (r > 0) const SizedBox(height: 8),
         IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (var i = r; i < r + 3; i++) ...[
-                if (i > r) const SizedBox(width: 12),
+                if (i > r) const SizedBox(width: 8),
                 Expanded(
                   child: i < tiles.length
                       ? Rise(delay: 200 + i * 60, child: _tile(tiles[i], i))
@@ -458,15 +458,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Ink(
         decoration: BoxDecoration(color: t.tint, borderRadius: BorderRadius.circular(24)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 124),
+          constraints: const BoxConstraints(minHeight: 104),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 10, 6, 12),
+            padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 SizedBox(
-                  width: 64,
-                  height: 56,
+                  width: 52,
+                  height: 46,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -484,13 +484,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       Rise(
                         delay: 320 + i * 60,
                         scale: true,
-                        child: Art(t.art, brand: brand, width: 64, height: 56),
+                        child: Art(t.art, brand: brand, width: 52, height: 46),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 4),
-                _CountUp(value: t.count, style: kf(20, Palette.ink, bold: true, height: 1.3)),
+                _CountUp(value: t.count, style: kf(18, Palette.ink, bold: true, height: 1.3)),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(t.label, maxLines: 1, style: kf(12, t.ink, bold: true, height: 1.35)),
@@ -621,7 +621,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () => launchUrl(Uri(scheme: 'tel', path: item.phone)),
                     child: Container(
                       width: 44,
-                      height: 44,
+                      height: 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: Palette.line),
@@ -687,7 +687,7 @@ class _HomeScreenState extends State<HomeScreen> {
     radius: 14,
     onTap: () => _decide(item, action),
     child: Container(
-      height: 44,
+      height: 38,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: fill,
@@ -815,8 +815,8 @@ class _HomeScreenState extends State<HomeScreen> {
     child: Row(
       children: [
         Container(
-          width: 40,
-          height: 40,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(color: Colors.white.withValues(alpha: .16), shape: BoxShape.circle),
           child: const Icon(Icons.headset_mic_outlined, size: 20, color: Colors.white),
         ),
@@ -829,7 +829,7 @@ class _HomeScreenState extends State<HomeScreen> {
           radius: 22,
           onTap: () => _open('processing'),
           child: Container(
-            height: 44,
+            height: 36,
             padding: const EdgeInsets.symmetric(horizontal: 18),
             alignment: Alignment.center,
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
@@ -1052,7 +1052,7 @@ class _AdsState extends State<_Ads> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
-        height: 176,
+        height: 156,
         child: Stack(
           children: [
             PageView(controller: controller, onPageChanged: (i) => setState(() => page = i), children: pages),

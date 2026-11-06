@@ -150,7 +150,7 @@ void main() {
 
     await tester.tap(find.text('حسابي'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('موظّفو المتجر'));
+    await tester.tap(find.text('إضافة موظفين').first);
     await tester.pumpAndSettle();
     expect(find.text('سجى علي'), findsOneWidget);
     expect(find.text('موظّف إدخال'), findsOneWidget);
@@ -207,7 +207,7 @@ void main() {
 
     await tester.tap(find.text('حسابي'));
     await tester.pumpAndSettle();
-    for (final hidden in ['موظّفو المتجر', 'كشوفات الرواجع', 'استلام راجع بالباركود', 'الدعم', 'طلباتي', 'للمعالجة']) {
+    for (final hidden in ['إضافة موظفين', 'كشوفات الرواجع', 'استلام راجع بالباركود', 'الدعم', 'طلباتي', 'للمعالجة']) {
       expect(find.text(hidden), findsNothing, reason: hidden);
     }
     expect(find.text('الطابعة'), findsOneWidget);

@@ -87,8 +87,6 @@ class _ShipmentRowState extends State<ShipmentRow> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final row = widget.row;
     final tone = Tone.of(row.tone, row.status);
-    final glass = tone.ink.withValues(alpha: .10);
-    final glassLine = tone.ink.withValues(alpha: .18);
     final place = row.place;
     final number = row.number.isEmpty ? '' : '\u2066#${row.number}\u2069';
     final second = [if (place.isNotEmpty) place, if (number.isNotEmpty) number].join(' · ');
@@ -104,56 +102,92 @@ class _ShipmentRowState extends State<ShipmentRow> with SingleTickerProviderStat
       excludeSemantics: true,
       onTap: widget.onTap,
       child: Tap(
-        radius: 18,
+        radius: 16,
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 400),
-          constraints: const BoxConstraints(minHeight: 64),
+          constraints: const BoxConstraints(minHeight: 56),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: fresh ? glass : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: fresh ? glassLine : const Color(0x141C1416)),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: fresh ? tone.ink.withValues(alpha: .16) : const Color(0x0F1C1416)),
+            boxShadow: [
+              const BoxShadow(color: Color(0x0A1C1416), blurRadius: 2, offset: Offset(0, 1)),
+              BoxShadow(
+                color: (fresh ? tone.ink : Palette.ink).withValues(alpha: fresh ? .14 : .07),
+                blurRadius: 18,
+                spreadRadius: -10,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Stack(
             children: [
-              // اللون الذي كان، يذوب
+              // لون الحالة يغسل بداية الصفّ ويذوب نحو طرفه ما دامت لم تُفتح، وأخفّ كثيراً بعد فتحها
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: melt,
                   builder: (_, _) {
                     final t = melt.value;
-                    if (t == 0 || t == 1) return const SizedBox.shrink();
-                    final a = t < .35 ? 1.0 : 1 - Curves.easeOut.transform((t - .35) / .65);
+                    final melting = t > 0 && t < 1;
+                    final a = melting ? (t < .35 ? 1.0 : 1 - Curves.easeOut.transform((t - .35) / .65)) : 0.0;
+                    final strength = fresh ? 1.0 : (melting ? .25 + .75 * a : .25);
                     return DecoratedBox(
                       decoration: BoxDecoration(
-                        color: glass.withValues(alpha: .10 * a),
-                        borderRadius: BorderRadius.circular(17),
+                        gradient: LinearGradient(
+                          begin: AlignmentDirectional.centerStart,
+                          end: AlignmentDirectional.centerEnd,
+                          colors: [
+                            tone.tint.withValues(alpha: strength),
+                            tone.tint.withValues(alpha: .35 * strength),
+                            Colors.white.withValues(alpha: 0),
+                          ],
+                          stops: const [0, .45, 1],
+                        ),
                       ),
                     );
                   },
                 ),
               ),
+              // حافّة الحالة في بداية الصفّ
+              PositionedDirectional(
+                start: 6,
+                top: 14,
+                bottom: 14,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 400),
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: tone.ink.withValues(alpha: fresh ? 1 : .55),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 9, 12, 9),
                 child: Row(
                   children: [
+                    // أوّل حرفٍ من الاسم في مربّعٍ بلون الحالة
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 34,
+                      height: 34,
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(color: Color(0x591C1416), blurRadius: 10, spreadRadius: -6, offset: Offset(0, 4)),
-                        ],
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.white, Color.lerp(Colors.white, tone.tint, .9)!],
+                        ),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: tone.ink.withValues(alpha: .18)),
                       ),
                       child: Text(
                         row.name.isEmpty ? '؟' : row.name.characters.first,
-                        style: kf(16, tone.ink, bold: true, height: 1),
+                        style: kf(15, tone.ink, bold: true, height: 1),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,14 +196,14 @@ class _ShipmentRowState extends State<ShipmentRow> with SingleTickerProviderStat
                             row.name.isEmpty ? 'بلا اسم' : row.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: kf(14, Palette.ink, bold: true),
+                            style: kf(14, Palette.ink, bold: true, height: 1.4),
                           ),
                           if (second.isNotEmpty)
                             Text(
                               second,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: kf(12, Palette.slate, height: 1.5),
+                              style: kf(12, Palette.slate, height: 1.45),
                             ),
                           // موعد المؤجّلة (docs/plan/86)، وأين الراجع الآن (docs/plan/87)
                           if (row.until != null)
@@ -182,27 +216,42 @@ class _ShipmentRowState extends State<ShipmentRow> with SingleTickerProviderStat
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(money(row.amount), style: kf(14, Palette.ink, bold: true)),
+                        Text.rich(
+                          TextSpan(
+                            text: money(row.amount),
+                            children: [TextSpan(text: ' د.ع', style: kf(11, Palette.muted))],
+                          ),
+                          style: kf(14, Palette.ink, bold: true, height: 1.4),
+                        ),
+                        const SizedBox(height: 3),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 120),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(color: tone.ink, shape: BoxShape.circle),
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  row.status,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: kf(12, tone.ink, bold: true, height: 1.5),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: tone.tint,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: tone.ink.withValues(alpha: .12)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(color: tone.ink, shape: BoxShape.circle),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    row.status,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: kf(11.5, tone.ink, bold: true, height: 1.5),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],

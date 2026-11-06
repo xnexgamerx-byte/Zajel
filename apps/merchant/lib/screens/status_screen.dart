@@ -276,7 +276,7 @@ class _StatusScreenState extends State<StatusScreen> {
     final top = MediaQuery.paddingOf(context).top;
     final n = total;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, (top > 0 ? top : 28) + 8, 16, 20),
+      padding: EdgeInsets.fromLTRB(16, (top > 0 ? top : 28) + 8, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -290,16 +290,16 @@ class _StatusScreenState extends State<StatusScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Rise(delay: 120, scale: true, child: Art(view.art, brand: widget.brand, width: 136, height: 119)),
+              Rise(delay: 120, scale: true, child: Art(view.art, brand: widget.brand, width: 104, height: 91)),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(view.title, style: kf(24, Palette.ink, bold: true)),
-                    Text(n == null ? '…' : _count(n), style: kf(16, view.tone.ink, bold: true)),
+                    Text(view.title, style: kf(22, Palette.ink, bold: true)),
+                    Text(n == null ? '…' : _count(n), style: kf(15, view.tone.ink, bold: true)),
                     const SizedBox(height: 2),
-                    Text(view.text, style: kf(14, Palette.slate)),
+                    Text(view.text, style: kf(13, Palette.slate)),
                   ],
                 ),
               ),
@@ -320,10 +320,10 @@ class _StatusScreenState extends State<StatusScreen> {
   };
 
   Widget _search() => Container(
-    height: 48,
+    height: 42,
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: Palette.line),
     ),
     child: TextField(
@@ -333,10 +333,10 @@ class _StatusScreenState extends State<StatusScreen> {
       style: kf(14, Palette.ink),
       decoration: InputDecoration(
         hintText: 'ابحث في «${view.title}» بالاسم أو الهاتف أو الرقم',
-        hintStyle: kf(14, const Color(0xFF8C8286)),
-        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 20),
+        hintStyle: kf(13, const Color(0xFF8C8286)),
+        prefixIcon: const Icon(Icons.search_rounded, color: Palette.muted, size: 18),
         border: InputBorder.none,
-        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
       ),
     ),
   );
