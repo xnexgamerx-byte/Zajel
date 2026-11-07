@@ -35,19 +35,19 @@
     <a href="{{ $link(null) }}" class="card p-4 hover:ring-2 hover:ring-ink-200">
         <p class="text-xs text-ink-500">بالملف</p>
         <p class="num mt-1 text-2xl font-bold">{{ number_format($summary['file_rows']) }}</p>
-        <p class="num text-xs text-ink-500">{{ number_format($summary['file_amount']) }} د.ع</p>
+        <p class="text-xs text-ink-500"><span class="num">{{ number_format($summary['file_amount']) }}</span> د.ع</p>
     </a>
     <a href="{{ $link('ok') }}" class="card p-4 ring-1 ring-ok-200 hover:ring-2">
         <p class="text-xs text-ok-700">مطابقة</p>
         <p class="num mt-1 text-2xl font-bold text-ok-700">{{ number_format($c['ok']) }}</p>
-        <p class="num text-xs text-ink-500">يُستلم منه {{ number_format($okNet) }} د.ع</p>
+        <p class="text-xs text-ink-500">يُستلم منه <span class="num">{{ number_format($okNet) }}</span> د.ع</p>
     </a>
     <a href="{{ $link($c['amount'] ? 'amount' : ($c['fee'] ? 'fee' : 'status')) }}" class="card p-4 hover:ring-2 hover:ring-bad-200">
         <p class="text-xs text-bad-700">فيها فرق</p>
         <p class="num mt-1 text-2xl font-bold {{ $diffs ? 'text-bad-700' : '' }}">{{ number_format($diffs) }}</p>
-        <p class="num text-xs text-ink-500">
+        <p class="text-xs text-ink-500">
             @if ($summary['amount_diff'])
-                الفرق {{ $summary['amount_diff'] > 0 ? '+' : '' }}{{ number_format($summary['amount_diff']) }} د.ع
+                الفرق <span class="num" dir="ltr">{{ $summary['amount_diff'] > 0 ? '+' : '' }}{{ number_format($summary['amount_diff']) }}</span> د.ع
             @else
                 بالمبلغ أو الأجرة أو الحالة
             @endif
@@ -61,7 +61,7 @@
     <a href="{{ $link('absent') }}" class="card p-4 hover:ring-2 hover:ring-warn-200">
         <p class="text-xs text-warn-700">بالكشف وليست بالملف</p>
         <p class="num mt-1 text-2xl font-bold">{{ number_format($c['absent']) }}</p>
-        <p class="num text-xs text-ink-500">من {{ number_format($summary['draft_rows']) }} بالكشف</p>
+        <p class="text-xs text-ink-500">من <span class="num">{{ number_format($summary['draft_rows']) }}</span> بالكشف</p>
     </a>
 </div>
 
@@ -116,8 +116,8 @@
     </p>
 @endif
 
-{{-- الطلبات بفئاتها --}}
-<section class="card overflow-hidden">
+{{-- الطلبات بفئاتها: يُحدَّد منها ما يُراد، فيُحاسَب عليه أو يُضاف للكشف من الشريط أسفل الشاشة --}}
+<section @class(['card overflow-hidden', 'mb-24' => $draft])>
     <div class="flex flex-wrap items-center gap-2 border-b border-ink-100 px-5 py-3">
         <a href="{{ $link(null) }}" @class(['chip', 'chip-info ring-2 ring-info-300' => ! $show, 'chip-mute' => $show])>
             الكل <span class="num">{{ number_format(array_sum($c)) }}</span>
@@ -134,11 +134,22 @@
     @if ($show)
         <p class="border-b border-ink-100 bg-ink-50 px-5 py-2 text-xs text-ink-600">{{ $cats[$show][2] }}</p>
     @endif
+    @if ($draft)
+        <p class="border-b border-ink-100 px-5 py-2 text-xs text-ink-500">
+            حدّد ما تريد بنفسك: ما بالكشف تحاسبه عليه، وما ليس به تضيفه — ولو كان فيه فرق. والمطابقة محدَّدةٌ سلفاً، تلغي منها ما شئت.
+        </p>
+    @endif
 
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr>
+                    @if ($draft)
+                        <th class="w-10">
+                            <input type="checkbox" aria-label="حدّد كل ما يُحاسَب عليه" class="size-4 accent-[var(--brand)]"
+                                   data-check-all-in="table" data-check-all-of='tbody input[form="match-settle"]'>
+                        </th>
+                    @endif
                     <th>المطابقة</th>
                     <th>رقم الوصل</th>
                     <th>رقم الطلب</th>
@@ -164,6 +175,21 @@
                         $line = $item['line'];
                     @endphp
                     <tr @class(['bg-bad-50/40' => $tone === 'bad'])>
+                        @if ($draft)
+                            <td class="px-4 py-2.5">
+                                @if ($line && $item['category'] !== 'duplicate')
+                                    {{-- بالكشف: يُحاسَب عليه --}}
+                                    <input type="checkbox" name="shipment_ids[]" value="{{ $s->id }}" form="match-settle"
+                                           data-net="{{ (int) $line->collected_amount - (int) $line->commission }}"
+                                           @checked($item['category'] === 'ok')
+                                           aria-label="حاسب على {{ $s->number }}" class="size-4 accent-[var(--brand)]">
+                                @elseif ($item['category'] === 'addable')
+                                    {{-- واصلةٌ ليست بالكشف: تُضاف إليه --}}
+                                    <input type="checkbox" name="shipment_ids[]" value="{{ $s->id }}" form="match-add"
+                                           aria-label="أضف {{ $s->number }} للكشف" class="size-4 accent-[var(--brand)]">
+                                @endif
+                            </td>
+                        @endif
                         <td class="px-4 py-2.5"><span class="chip chip-{{ $tone }} whitespace-nowrap">{{ $label }}</span></td>
                         <td class="px-4 py-2.5">
                             @if ($s)
@@ -192,10 +218,43 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="10" class="px-4 py-8 text-center text-ink-500">لا طلبات في هذه الفئة.</td></tr>
+                    <tr><td colspan="11" class="px-4 py-8 text-center text-ink-500">لا طلبات في هذه الفئة.</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 </section>
+
+@if ($draft)
+    <form id="match-settle" method="POST" action="{{ route('settlements.couriers.confirm', $settlement) }}">
+        @csrf
+        <input type="hidden" name="notes" value="مطابقة ملف (تحديد): {{ mb_substr($fileName, 0, 70) }}">
+    </form>
+    <form id="match-add" method="POST" action="{{ route('settlements.couriers.lines.add', $settlement) }}">
+        @csrf
+    </form>
+
+    {{-- ما حُدِّد: يُحاسَب عليه بصافيه، أو يُضاف للكشف --}}
+    <div class="dock fixed inset-x-0 bottom-0 z-40">
+        <x-picked-bar form="match-settle" :total="(int) $summary['draft_rows']" all="كل شحنات الكشف" net-label="يُستلم منه">
+            @if ($boxes->isNotEmpty())
+                <select name="cash_box_id" form="match-settle" aria-label="يدخل النقد في" class="field-input h-9 w-auto py-1 text-sm">
+                    @foreach ($boxes as $choice)
+                        <option value="{{ $choice->id }}" @selected($defaultBox?->id === $choice->id)>
+                            {{ $choice->name }}{{ $choice->user_id === auth()->id() ? ' (صندوقي)' : '' }}
+                        </option>
+                    @endforeach
+                </select>
+            @endif
+            <button type="submit" form="match-settle" class="btn-primary h-9 px-4 text-sm"
+                    data-confirm-some="يُحاسَب المندوب على {count} ويُستلم منه {net} د.ع، وتبقى البقية في المسودّة {{ $settlement->code }}. بعد التأكيد لا يُعدَّل ما حوسب عليه."
+                    data-confirm-all="حدّدت كل شحنات الكشف: يُقفَل كشف {{ $settlement->code }} كلّه ويُستلم من المندوب {net} د.ع. بعد التأكيد لا يُعدَّل.">
+                حاسب المندوب على المحدَّد
+            </button>
+        </x-picked-bar>
+        <x-picked-bar form="match-add">
+            <button type="submit" form="match-add" class="btn-primary h-9 px-4 text-sm">أضف المحدَّد للكشف</button>
+        </x-picked-bar>
+    </div>
+@endif
 @endsection

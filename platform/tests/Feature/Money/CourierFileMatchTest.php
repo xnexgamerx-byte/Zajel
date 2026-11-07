@@ -191,6 +191,46 @@ class CourierFileMatchTest extends TestCase
         Tenancy::runFor($this->company, fn () => $this->assertTrue($draft->lines()->where('shipment_id', $later->id)->exists()));
     }
 
+    public function test_any_rows_can_be_picked_and_settled_even_with_a_difference(): void
+    {
+        $this->setFeature($this->company, Feature::CourierFileMatch);
+
+        $ok = $this->deliver(20_000);
+        $other = $this->deliver(22_000);
+        $diff = $this->deliver(30_000);
+        $draft = $this->draft();
+        $later = $this->deliver(18_000);
+
+        $page = $this->actingAs($this->owner)->post($this->host()."/settlements/couriers/{$draft->id}/match", ['file' => $this->file([
+            ['', $ok->number, 'الزبون', '20,000', '4,000', 'تم التسليم للزبون'],
+            ['', $other->number, 'الزبون', '22,000', '4,000', 'تم التسليم للزبون'],
+            ['', $diff->number, 'الزبون', '25,000', '4,000', 'تم التسليم للزبون'],
+            ['', $later->number, 'الزبون', '18,000', '4,000', 'تم التسليم للزبون'],
+        ])])->headers->get('Location');
+
+        // كلّ صفٍّ بالكشف يُحدَّد، والمطابقة محدَّدةٌ سلفاً؛ وما ليس بالكشف يُحدَّد للإضافة
+        $html = $this->actingAs($this->owner)->get($page)->assertOk()
+            ->assertSee('حاسب المندوب على المحدَّد')->assertSee('أضف المحدَّد للكشف')->getContent();
+        $this->assertSame(1, preg_match_all('/value="'.$ok->id.'" form="match-settle"[^>]*checked/', $html));
+        $this->assertStringContainsString('value="'.$diff->id.'" form="match-settle"', $html);
+        $this->assertSame(0, preg_match_all('/value="'.$diff->id.'" form="match-settle"[^>]*checked/', $html));
+        $this->assertStringContainsString('value="'.$later->id.'" form="match-add"', $html);
+
+        // يختار بنفسه: المطابقة الأولى والتي فيها فرق، ويترك الثانية
+        $this->actingAs($this->owner)->from($page)
+            ->post($this->host()."/settlements/couriers/{$draft->id}/confirm", ['shipment_ids' => [$ok->id, $diff->id]])
+            ->assertRedirect($page);
+
+        Tenancy::runFor($this->company, function () use ($draft, $ok, $other, $diff) {
+            $settled = $ok->fresh()->courier_settlement_id;
+            $this->assertNotNull($settled);
+            $this->assertSame($settled, $diff->fresh()->courier_settlement_id);
+            $this->assertSame(50_000, (int) CourierSettlement::find($settled)->cod_total);
+            $this->assertTrue($draft->lines()->where('shipment_id', $other->id)->exists());
+            $this->assertSame(1, (int) $draft->fresh()->shipments_count);
+        });
+    }
+
     public function test_a_status_that_is_not_delivered_and_a_fee_difference_are_flagged(): void
     {
         $this->setFeature($this->company, Feature::CourierFileMatch);
