@@ -757,6 +757,12 @@ Route::middleware('tenant')->group(function () {
                         ->middleware('can:shipments.override')->name('couriers.commission');
                     // المُقفَل يُحذف في يومه وحده، بحركاتٍ معاكسة (docs/plan/38)
                     Route::post('couriers/{settlement}/cancel', [CourierSettlementController::class, 'cancel'])->name('couriers.cancel');
+                    // «مطابقة الوصولات» من ملف المندوب أو الوسيط (docs/plan/124)
+                    Route::middleware('feature:courier_file_match')->group(function () {
+                        Route::post('couriers/{settlement}/match', [CourierSettlementController::class, 'matchUpload'])->name('couriers.match.upload');
+                        Route::get('couriers/{settlement}/match/{token}', [CourierSettlementController::class, 'match'])
+                            ->where('token', '[A-Za-z0-9]{24}')->name('couriers.match');
+                    });
                 });
 
                 // كشف التاجر: بناؤه وإقفاله تسوية، ودفعه صلاحية أخرى

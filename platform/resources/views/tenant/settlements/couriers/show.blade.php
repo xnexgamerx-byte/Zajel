@@ -148,6 +148,29 @@
             </dl>
         </section>
 
+        @if ($editable)
+            @feature('courier_file_match')
+                {{-- «مطابقة الوصولات» (docs/plan/124): ملف المندوب أو الوسيط بما سلّمه يُطابَق بالكشف --}}
+                <form method="POST" action="{{ route('settlements.couriers.match.upload', $settlement) }}"
+                      enctype="multipart/form-data" class="card space-y-3 p-5">
+                    @csrf
+                    <h2 class="text-sm font-bold">مطابقة الوصولات</h2>
+                    <p class="text-xs text-ink-500">
+                        ارفع ملف ما سلّمه (Excel أو CSV): يُطابَق بالكشف وصلاً وصلاً برقم الوصل أو رقم الطلب، بالمبلغ والأجرة
+                        والحالة، ثم تحاسبه على المطابق.
+                    </p>
+                    <label class="relative flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-ink-300 bg-ink-50 px-3 py-3 text-sm hover:border-brand">
+                        <x-icon name="upload" class="size-5 shrink-0 text-ink-400" />
+                        <span class="min-w-0 truncate" data-file-name>اختر الملف</span>
+                        <input name="file" type="file" accept=".xlsx,.xls,.csv" required data-file-label="اختر الملف"
+                               aria-label="ملف المطابقة" class="absolute inset-0 size-full cursor-pointer opacity-0">
+                    </label>
+                    @error('file') <p class="field-error">{{ $message }}</p> @enderror
+                    <button type="submit" class="btn-ghost w-full">طابق بالكشف</button>
+                </form>
+            @endfeature
+        @endif
+
         @if ($settlement->status === 'draft')
             <form method="POST" action="{{ route('settlements.couriers.confirm', $settlement) }}" id="settle"
                   class="card space-y-4 p-5">

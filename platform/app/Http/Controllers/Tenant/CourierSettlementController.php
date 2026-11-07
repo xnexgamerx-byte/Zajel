@@ -12,6 +12,8 @@ use App\Models\CashMovement;
 use App\Models\Courier;
 use App\Models\CourierSettlement;
 use App\Support\Money\SettlementFilters;
+use App\Services\Settlements\CourierFileMatch;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -245,6 +247,66 @@ class CourierSettlementController extends Controller
         $override->handle($line->shipment, ['courier_commission' => $fee], $request->user(), "تعديل أجرة المندوب من كشف {$settlement->code}");
 
         return back()->with('success', "أجرة المندوب على {$line->shipment->number}: ".number_format($before).' ← '.number_format($fee).'.');
+    }
+
+    /**
+     * «مطابقة الوصولات» (docs/plan/124): يُقرأ الملف مرّةً وتُحفظ سطوره ساعاتٍ، فتُعاد المطابقة على الكشف كما هو
+     * الآن كلّما فُتحت الصفحة — بعد المحاسبة على المطابق، أو إضافة ما ليس بالكشف.
+     */
+    public function matchUpload(Request $request, CourierSettlement $settlement, CourierFileMatch $match): RedirectResponse
+    {
+        abort_unless($settlement->status === 'draft', 422, 'الكشف أُقفل: المطابقة لمسودّةٍ لم تُستلم.');
+
+        $request->validate(
+            ['file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:10240']],
+            ['file.mimes' => 'ارفع ملف Excel أو CSV.'],
+            ['file' => 'ملف المطابقة'],
+        );
+
+        $rows = $match->read($request->file('file')->getRealPath());
+        $token = \Illuminate\Support\Str::random(24);
+
+        Cache::put(self::matchKey($settlement, $token), [
+            'name' => mb_substr($request->file('file')->getClientOriginalName(), 0, 120),
+            'rows' => $rows,
+            'by'   => $request->user()->id,
+        ], now()->addHours(12));
+
+        return redirect()->route('settlements.couriers.match', [$settlement, $token]);
+    }
+
+    public function match(Request $request, CourierSettlement $settlement, string $token, CourierFileMatch $match): View|RedirectResponse
+    {
+        $stored = Cache::get(self::matchKey($settlement, $token));
+
+        if (! $stored) {
+            return redirect()->route('settlements.couriers.show', $settlement)
+                ->withErrors(['file' => 'انتهت مدّة هذه المطابقة: ارفع الملف من جديد.']);
+        }
+
+        $settlement->load('courier');
+        $result = $match->compare($settlement, $stored['rows']);
+        $show = array_key_exists((string) $request->query('show'), CourierFileMatch::CATEGORIES) ? $request->query('show') : null;
+        $user = $request->user();
+        $draft = $settlement->status === 'draft';
+
+        return view('tenant.settlements.couriers.match', [
+            'settlement' => $settlement,
+            'token'      => $token,
+            'fileName'   => $stored['name'],
+            'summary'    => $result['summary'],
+            'show'       => $show,
+            'items'      => $show ? $result['items']->where('category', $show)->values() : $result['items'],
+            'draft'      => $draft,
+            'boxes'      => $draft ? CashBox::payableBy($user)->orderByRaw('case when user_id = ? then 0 else 1 end', [$user->id])
+                ->orderBy('name')->get(['id', 'name', 'user_id']) : collect(),
+            'defaultBox' => $draft ? ConfirmCourierSettlement::defaultBox($settlement, $user) : null,
+        ]);
+    }
+
+    private static function matchKey(CourierSettlement $settlement, string $token): string
+    {
+        return "courier-match:{$settlement->company_id}:{$settlement->id}:{$token}";
     }
 
     /** @return list<int> */
